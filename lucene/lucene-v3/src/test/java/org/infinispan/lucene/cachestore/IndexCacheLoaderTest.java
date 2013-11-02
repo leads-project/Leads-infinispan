@@ -6,8 +6,7 @@ import java.io.IOException;
 import org.apache.lucene.store.Directory;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.lucene.cachestore.LuceneCacheLoader;
-import org.infinispan.lucene.cachestore.LuceneCacheLoaderConfig;
+import org.infinispan.lucene.cachestore.configuration.LuceneStoreConfigurationBuilder;
 import org.infinispan.lucene.directory.DirectoryBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.CacheManagerCallable;
@@ -84,11 +83,11 @@ public class IndexCacheLoaderTest {
    protected EmbeddedCacheManager initializeInfinispan(File rootDir) {
       ConfigurationBuilder builder = new ConfigurationBuilder();
       builder
-         .loaders()
-            .addLoader()
-               .cacheLoader( new LuceneCacheLoader() )
-                  .addProperty(LuceneCacheLoaderConfig.LOCATION_OPTION, rootDir.getAbsolutePath())
-                  .addProperty(LuceneCacheLoaderConfig.AUTO_CHUNK_SIZE_OPTION, "1024");
+         .persistence()
+            .addStore(LuceneStoreConfigurationBuilder.class)
+               .autoChunkSize(1024)
+               .preload(true)
+               .location(rootDir.getAbsolutePath());
       return TestCacheManagerFactory.createCacheManager(builder);
    }
 }

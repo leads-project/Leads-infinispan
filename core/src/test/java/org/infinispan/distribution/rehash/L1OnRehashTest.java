@@ -4,7 +4,6 @@ import org.infinispan.Cache;
 import org.infinispan.distribution.MagicKey;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.distribution.BaseDistFunctionalTest;
-import org.infinispan.remoting.transport.Address;
 import org.infinispan.test.TestingUtil;
 import org.testng.annotations.Test;
 
@@ -20,7 +19,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * @since 4.0
  */
 @Test(groups = "functional", testName = "distribution.rehash.L1OnRehashTest")
-public class L1OnRehashTest extends BaseDistFunctionalTest {
+public class L1OnRehashTest extends BaseDistFunctionalTest<Object, String> {
    public L1OnRehashTest() {
       this.tx = false;
       this.sync = true;

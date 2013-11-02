@@ -2,6 +2,8 @@ package org.infinispan.factories;
 
 import net.jcip.annotations.ThreadSafe;
 import org.infinispan.Version;
+import org.infinispan.registry.ClusterRegistry;
+import org.infinispan.registry.ClusterRegistryImpl;
 import org.infinispan.commands.module.ModuleCommandFactory;
 import org.infinispan.commands.module.ModuleCommandInitializer;
 import org.infinispan.commons.CacheException;
@@ -105,6 +107,7 @@ public class GlobalComponentRegistry extends AbstractComponentRegistry {
          registerComponent(cacheManager, EmbeddedCacheManager.class);
          registerComponent(new CacheManagerJmxRegistration(), CacheManagerJmxRegistration.class);
          registerComponent(new CacheManagerNotifierImpl(), CacheManagerNotifier.class);
+         registerComponent(new ClusterRegistryImpl(), ClusterRegistry.class);
 
          moduleProperties.loadModuleCommandHandlers(configuredClassLoader);
          Map<Byte, ModuleCommandFactory> factories = moduleProperties.moduleCommandFactories();
@@ -231,9 +234,9 @@ public class GlobalComponentRegistry extends AbstractComponentRegistry {
             rewire();
          } catch (Exception e) {
             if (log.isDebugEnabled())
-               log.warn("Unable to reset GlobalComponentRegistry after a failed restart!", e);
+               log.unableToResetGlobalComponentRegistryAfterRestart(e);
             else
-               log.warn("Unable to reset GlobalComponentRegistry after a failed restart due to an exception of type " + e.getClass().getSimpleName() + " with message " + e.getMessage() +". Use DEBUG level logging for full exception details.");
+               log.unableToResetGlobalComponentRegistryAfterRestart(e.getClass().getSimpleName(), e.getMessage(), e);
          }
          throw new EmbeddedCacheManagerStartupException(rte);
       }

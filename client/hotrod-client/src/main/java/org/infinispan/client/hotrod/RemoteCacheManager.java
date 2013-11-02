@@ -23,6 +23,7 @@ import org.infinispan.client.hotrod.impl.protocol.CodecFactory;
 import org.infinispan.client.hotrod.impl.transport.TransportFactory;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
+import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.commons.executors.ExecutorFactory;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.util.FileLookupFactory;
@@ -127,7 +128,7 @@ import org.infinispan.commons.util.Util;
  * @author Mircea.Markus@jboss.com
  * @since 4.1
  */
-public class RemoteCacheManager {
+public class RemoteCacheManager implements BasicCacheContainer {
 
    private static final Log log = LogFactory.getLog(RemoteCacheManager.class);
 
@@ -191,7 +192,7 @@ public class RemoteCacheManager {
     *
     * @param marshaller marshaller implementation to be used
     * @param props      other properties
-    * @param start      weather or not to start the manager on return from the constructor.
+    * @param start      whether or not to start the manager on return from the constructor.
     */
    @Deprecated
    public RemoteCacheManager(Marshaller marshaller, Properties props, boolean start, ClassLoader classLoader, ExecutorFactory asyncExecutorFactory) {
@@ -347,7 +348,7 @@ public class RemoteCacheManager {
     * classpath, in a file named <tt>hotrod-client.properties</tt>. If no properties can be found in the classpath, the
     * server tries to connect to "127.0.0.1:11222" in start.
     *
-    * @param start weather or not to start the RemoteCacheManager
+    * @param start whether or not to start the RemoteCacheManager
     * @throws HotRodClientException if such a file cannot be found in the classpath
     */
    public RemoteCacheManager(boolean start) {
@@ -378,7 +379,7 @@ public class RemoteCacheManager {
    /**
     * Creates a remote cache manager aware of the Hot Rod server listening at host:port.
     *
-    * @param start weather or not to start the RemoteCacheManager.
+    * @param start whether or not to start the RemoteCacheManager.
     */
    @Deprecated
    public RemoteCacheManager(String host, int port, boolean start) {
@@ -388,7 +389,7 @@ public class RemoteCacheManager {
    /**
     * Creates a remote cache manager aware of the Hot Rod server listening at host:port.
     *
-    * @param start weather or not to start the RemoteCacheManager.
+    * @param start whether or not to start the RemoteCacheManager.
     */
    @Deprecated
    public RemoteCacheManager(String host, int port, boolean start, ClassLoader classLoader) {
@@ -449,7 +450,7 @@ public class RemoteCacheManager {
     * Same as {@link #RemoteCacheManager(java.util.Properties)}, but it will try to lookup the config properties in
     * supplied URL.
     *
-    * @param start weather or not to start the RemoteCacheManager
+    * @param start whether or not to start the RemoteCacheManager
     * @throws HotRodClientException if properties could not be loaded
     */
    @Deprecated
@@ -461,7 +462,7 @@ public class RemoteCacheManager {
     * Same as {@link #RemoteCacheManager(java.util.Properties)}, but it will try to lookup the config properties in
     * supplied URL.
     *
-    * @param start weather or not to start the RemoteCacheManager
+    * @param start whether or not to start the RemoteCacheManager
     * @throws HotRodClientException if properties could not be loaded
     */
    @Deprecated
@@ -514,6 +515,7 @@ public class RemoteCacheManager {
     * @return a cache instance identified by cacheName or null if the cache
     *         name has not been defined
     */
+   @Override
    public <K, V> RemoteCache<K, V> getCache(String cacheName) {
       return getCache(cacheName, configuration.forceReturnValues());
    }
@@ -528,6 +530,7 @@ public class RemoteCacheManager {
     * @return a remote cache instance that can be used to send requests to the
     *         default cache in the server
     */
+   @Override
    public <K, V> RemoteCache<K, V> getCache() {
       return getCache(configuration.forceReturnValues());
    }
@@ -537,6 +540,7 @@ public class RemoteCacheManager {
       return createRemoteCache("", forceReturnValue);
    }
 
+   @Override
    public void start() {
       // Workaround for JDK6 NPE: http://bugs.sun.com/view_bug.do?bug_id=6427854
       SysPropertyActions.setProperty("sun.nio.ch.bugLevel", "\"\"");
@@ -573,6 +577,7 @@ public class RemoteCacheManager {
       started = true;
    }
 
+   @Override
    public void stop() {
       if (isStarted()) {
          transportFactory.destroy();

@@ -3,16 +3,23 @@ package org.infinispan.replication;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.context.Flag;
+import org.infinispan.distribution.MagicKey;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
+import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.LockingMode;
+import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.lookup.DummyTransactionManagerLookup;
 import org.testng.annotations.Test;
 
 import javax.transaction.TransactionManager;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.jgroups.util.Util.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertEquals;
 import static org.testng.AssertJUnit.assertNull;
 
@@ -177,5 +184,69 @@ public class SyncReplPessimisticLockingTest extends MultipleCacheManagersTest {
       assertEquals(cache(0, "testcache").get("k"), null);
       assertEquals(cache(1, "testcache").get("k"), null);
       assert !lockManager(0, "testcache").isLocked("k");
+   }
+
+   @Test
+   public void testRemoteLocksReleasedWhenReadTransactionCommitted() throws Exception {
+      testRemoteLocksReleased(false, true);
+   }
+
+   @Test
+   public void testRemoteLocksReleasedWhenReadTransactionRolledBack() throws Exception {
+      testRemoteLocksReleased(false, false);
+   }
+
+   @Test
+   public void testRemoteLocksReleasedWhenWriteTransactionCommitted() throws Exception {
+      testRemoteLocksReleased(true, true);
+   }
+
+   @Test
+   public void testRemoteLocksReleasedWhenWriteTransactionRolledBack() throws Exception {
+      testRemoteLocksReleased(true, false);
+   }
+
+   private void testRemoteLocksReleased(boolean write, boolean commit) throws Exception {
+      final MagicKey key = new MagicKey(cache(0, "testcache"));
+      tm(1, "testcache").begin();
+      if (write) {
+         cache(1, "testcache").put(key, "somevalue");
+      } else {
+         cache(1, "testcache").getAdvancedCache().withFlags(Flag.FORCE_WRITE_LOCK).get(key);
+      }
+
+      Collection<LocalTransaction> localTxs = TestingUtil.getTransactionTable(cache(1, "testcache")).getLocalTransactions();
+      assertEquals(1, localTxs.size());
+      LocalTransaction localTx = localTxs.iterator().next();
+      if (write) {
+         assertFalse(localTx.isReadOnly());
+      } else {
+         assertTrue(localTx.isReadOnly());
+      }
+
+      final Collection<RemoteTransaction> remoteTxs = TestingUtil.getTransactionTable(cache(0, "testcache")).getRemoteTransactions();
+      assertEquals(1, remoteTxs.size());
+      RemoteTransaction remoteTx = remoteTxs.iterator().next();
+      assertTrue(remoteTx.getLockedKeys().contains(key));
+      assertTrue(TestingUtil.extractLockManager(cache(0, "testcache")).isLocked(key));
+
+      if (commit) {
+         tm(1, "testcache").commit();
+      } else {
+         tm(1, "testcache").rollback();
+      }
+
+      eventually(new Condition() {
+         @Override
+         public boolean isSatisfied() throws Exception {
+            return remoteTxs.isEmpty();
+         }
+      });
+      eventually(new Condition() {
+         @Override
+         public boolean isSatisfied() throws Exception {
+            return !TestingUtil.extractLockManager(cache(0, "testcache")).isLocked(key);
+         }
+      });
    }
 }

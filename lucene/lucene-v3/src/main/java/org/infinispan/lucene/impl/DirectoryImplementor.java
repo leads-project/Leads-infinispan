@@ -42,8 +42,8 @@ final class DirectoryImplementor {
     public DirectoryImplementor(Cache<?, ?> metadataCache, Cache<?, ?> chunksCache, String indexName, int chunkSize, SegmentReadLocker readLocker) {
         if (chunkSize <= 0)
            throw new IllegalArgumentException("chunkSize must be a positive integer");
-        this.metadataCache = (AdvancedCache<FileCacheKey, FileMetadata>) metadataCache.getAdvancedCache();
-        this.chunksCache = (AdvancedCache<ChunkCacheKey, Object>) chunksCache.getAdvancedCache();
+        this.metadataCache = (AdvancedCache<FileCacheKey, FileMetadata>) metadataCache.getAdvancedCache().withFlags(Flag.SKIP_INDEXING);
+        this.chunksCache = (AdvancedCache<ChunkCacheKey, Object>) chunksCache.getAdvancedCache().withFlags(Flag.SKIP_INDEXING);
         this.indexName = indexName;
         this.chunkSize = chunkSize;
         this.fileOps = new FileListOperations(this.metadataCache, indexName);
@@ -51,8 +51,12 @@ final class DirectoryImplementor {
      }
 
     String[] list() {
-       final Set<String> filesList = fileOps.getFileList();
-       final String[] array = filesList.toArray(new String[0]);
+       final Set<String> files = fileOps.getFileList();
+       //Careful! if you think you can optimize this array allocation, think again.
+       //The _files_ are a concurrent structure, its size could vary in parallel:
+       //the array population and dimensioning need to be performed atomically
+       //to avoid trailing null elements in the returned array.
+       final String[] array = files.toArray(new String[0]);
        return array;
     }
 
@@ -78,10 +82,7 @@ final class DirectoryImplementor {
      */
     void touchFile(final String fileName) {
        final FileMetadata file = fileOps.getFileMetadata(fileName);
-       if (file == null) {
-          return;
-       }
-       else {
+       if (file != null) {
           final FileCacheKey key = new FileCacheKey(indexName, fileName);
           file.touch();
           metadataCache.put(key, file);
@@ -98,7 +99,7 @@ final class DirectoryImplementor {
 
     void renameFile(final String from, final String to) {
        final FileCacheKey fromKey = new FileCacheKey(indexName, from);
-       final FileMetadata metadata = (FileMetadata) metadataCache.get(fromKey);
+       final FileMetadata metadata = metadataCache.get(fromKey);
        final int bufferSize = metadata.getBufferSize();
        // preparation: copy all chunks to new keys
        int i = -1;
@@ -143,7 +144,7 @@ final class DirectoryImplementor {
 
     IndexInputContext openInput(final String name) throws IOException {
        final FileCacheKey fileKey = new FileCacheKey(indexName, name);
-       final FileMetadata fileMetadata = (FileMetadata) metadataCache.get(fileKey);
+       final FileMetadata fileMetadata = metadataCache.get(fileKey);
        if (fileMetadata == null) {
           throw new FileNotFoundException("Error loading metadata for index file: " + fileKey);
        }

@@ -5,11 +5,13 @@ import org.infinispan.commands.Visitor;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
+import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.util.TimeService;
 
 import java.util.AbstractCollection;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -27,7 +29,8 @@ public class ValuesCommand extends AbstractLocalCommand implements VisitableComm
    private final DataContainer container;
    private final TimeService timeService;
 
-   public ValuesCommand(DataContainer container, TimeService timeService) {
+   public ValuesCommand(DataContainer container, TimeService timeService, Set<Flag> flags) {
+      setFlags(flags);
       this.container = container;
       this.timeService = timeService;
    }
@@ -39,7 +42,7 @@ public class ValuesCommand extends AbstractLocalCommand implements VisitableComm
 
    @Override
    public Collection<Object> perform(InvocationContext ctx) throws Throwable {
-      if (noTxModifications(ctx)) {
+      if (ctx.getLookedUpEntries().isEmpty()) {
          return new ExpiredFilteredValues(container.entrySet(), timeService);
       }
 
@@ -54,12 +57,14 @@ public class ValuesCommand extends AbstractLocalCommand implements VisitableComm
    }
 
    private static class FilteredValues extends AbstractCollection<Object> {
+      final DataContainer container;
       final Collection<Object> values;
       final Set<InternalCacheEntry> entrySet;
       final Map<Object, CacheEntry> lookedUpEntries;
       final TimeService timeService;
 
       FilteredValues(DataContainer container, Map<Object, CacheEntry> lookedUpEntries, TimeService timeService) {
+         this.container = container;
          values = container.values();
          entrySet = container.entrySet();
          this.lookedUpEntries = lookedUpEntries;
@@ -69,22 +74,29 @@ public class ValuesCommand extends AbstractLocalCommand implements VisitableComm
       @Override
       public int size() {
          long currentTimeMillis = 0;
-         int size = entrySet.size();
+         Set<Object> validKeys = new HashSet<Object>();
          // First, removed any expired ones
          for (InternalCacheEntry e: entrySet) {
             if (e.canExpire()) {
                if (currentTimeMillis == 0)
                   currentTimeMillis = timeService.wallClockTime();
-               if (e.isExpired(currentTimeMillis))
-                  size--;
+               if (!e.isExpired(currentTimeMillis)) {
+                  validKeys.add(e.getKey());
+               }
+            } else {
+               validKeys.add(e.getKey());
             }
          }
+
+         int size = validKeys.size();
          // Update according to entries added or removed in tx
          for (CacheEntry e: lookedUpEntries.values()) {
-            if (e.isCreated()) {
+            if (validKeys.contains(e.getKey())) {
+               if (e.isRemoved()) {
+                  size --;
+               }
+            } else if (!e.isRemoved()) {
                size ++;
-            } else if (e.isRemoved()) {
-               size --;
             }
          }
          return Math.max(size, 0);
@@ -93,12 +105,21 @@ public class ValuesCommand extends AbstractLocalCommand implements VisitableComm
       @Override
       public boolean contains(Object o) {
          for (CacheEntry e: lookedUpEntries.values()) {
-            if (o.equals(e.getValue())) {
-               return !e.isRemoved();
+            // A value can repeat, so only return true if we find one, not just whether or not it was removed
+            if (o.equals(e.getValue()) && !e.isRemoved()) {
+               return true;
             }
          }
 
-         return values.contains(o);
+         for (Map.Entry<Object, Object> entry : container) {
+            Object value = entry.getValue();
+            // If we find the key looked up in the lookedUpEntries at this point it means that entry was removed
+            // however the value could be on another key so keep looking
+            if (o.equals(value) && !lookedUpEntries.containsKey(entry.getKey())) {
+               return true;
+            }
+         }
+         return false;
       }
 
       @Override
@@ -152,7 +173,7 @@ public class ValuesCommand extends AbstractLocalCommand implements VisitableComm
                boolean found = false;
                while (it1.hasNext()) {
                   CacheEntry e = it1.next();
-                  if (e.isCreated()) {
+                  if (!e.isRemoved()) {
                      next = e.getValue();
                      found = true;
                      break;
@@ -170,7 +191,6 @@ public class ValuesCommand extends AbstractLocalCommand implements VisitableComm
                while (it2.hasNext()) {
                   InternalCacheEntry ice = it2.next();
                   Object key = ice.getKey();
-                  CacheEntry e = lookedUpEntries.get(key);
                   if (ice.canExpire()) {
                      if (currentTimeMillis == 0)
                         currentTimeMillis = timeService.wallClockTime();
@@ -178,13 +198,8 @@ public class ValuesCommand extends AbstractLocalCommand implements VisitableComm
                         continue;
                   }
 
-                  if (e == null) {
+                  if (!lookedUpEntries.containsKey(key)) {
                      next = ice.getValue();
-                     found = true;
-                     break;
-                  }
-                  if (e.isChanged()) {
-                     next = e.getValue();
                      found = true;
                      break;
                   }

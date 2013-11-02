@@ -5,12 +5,15 @@ import org.infinispan.batch.BatchContainer;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.CommandsFactoryImpl;
 import org.infinispan.commons.CacheConfigurationException;
+import org.infinispan.commons.io.ByteBufferFactory;
+import org.infinispan.commons.io.ByteBufferFactoryImpl;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.context.NonTransactionalInvocationContextContainer;
 import org.infinispan.context.TransactionalInvocationContextContainer;
 import org.infinispan.distribution.L1Manager;
 import org.infinispan.distribution.L1ManagerImpl;
+import org.infinispan.distribution.RemoteValueRetrievedListener;
 import org.infinispan.eviction.ActivationManager;
 import org.infinispan.eviction.ActivationManagerImpl;
 import org.infinispan.eviction.EvictionManager;
@@ -19,8 +22,10 @@ import org.infinispan.eviction.PassivationManager;
 import org.infinispan.eviction.PassivationManagerImpl;
 import org.infinispan.factories.annotations.DefaultFactoryFor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
-import org.infinispan.loaders.CacheLoaderManager;
-import org.infinispan.loaders.CacheLoaderManagerImpl;
+import org.infinispan.marshall.core.MarshalledEntryFactory;
+import org.infinispan.marshall.core.MarshalledEntryFactoryImpl;
+import org.infinispan.persistence.manager.PersistenceManager;
+import org.infinispan.persistence.manager.PersistenceManagerImpl;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.notifications.cachelistener.CacheNotifierImpl;
 import org.infinispan.statetransfer.StateTransferLock;
@@ -47,13 +52,14 @@ import static org.infinispan.commons.util.Util.getInstance;
  * @since 4.0
  */
 @DefaultFactoryFor(classes = {CacheNotifier.class, CommandsFactory.class,
-                              CacheLoaderManager.class, InvocationContextContainer.class,
+                              PersistenceManager.class, InvocationContextContainer.class,
                               PassivationManager.class, ActivationManager.class,
                               BatchContainer.class, EvictionManager.class,
                               TransactionCoordinator.class, RecoveryAdminOperations.class, StateTransferLock.class,
                               ClusteringDependentLogic.class, LockContainer.class,
                               L1Manager.class, TransactionFactory.class, BackupSender.class,
-                              TotalOrderManager.class})
+                              TotalOrderManager.class, ByteBufferFactory.class, MarshalledEntryFactory.class,
+                              RemoteValueRetrievedListener.class})
 public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheComponentFactory implements AutoInstantiableFactory {
 
    @Override
@@ -81,8 +87,8 @@ public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheCompone
             return (T) new CacheNotifierImpl();
          } else if (componentType.equals(CommandsFactory.class)) {
             return (T) new CommandsFactoryImpl();
-         } else if (componentType.equals(CacheLoaderManager.class)) {
-            return (T) new CacheLoaderManagerImpl();
+         } else if (componentType.equals(PersistenceManager.class)) {
+            return (T) new PersistenceManagerImpl();
          } else if (componentType.equals(PassivationManager.class)) {
             return (T) new PassivationManagerImpl();
          } else if (componentType.equals(ActivationManager.class)) {
@@ -113,6 +119,13 @@ public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheCompone
             return (T) new BackupSenderImpl(globalConfiguration.sites().localSite());
          } else if (componentType.equals(TotalOrderManager.class)) {
             return (T) new TotalOrderManager();
+         } else if (componentType.equals(ByteBufferFactory.class)) {
+            return (T) new ByteBufferFactoryImpl();
+         } else if (componentType.equals(MarshalledEntryFactory.class)) {
+            return (T) new MarshalledEntryFactoryImpl();
+         } else if (componentType.equals(RemoteValueRetrievedListener.class)) {
+            // L1Manager is currently only listener for remotely retrieved values
+            return (T) componentRegistry.getComponent(L1Manager.class);
          }
       }
 

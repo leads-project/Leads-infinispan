@@ -2,7 +2,7 @@ package org.infinispan.remoting.transport.jgroups;
 
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.remote.ClusteredGetCommand;
-import org.infinispan.config.parsing.XmlConfigHelper;
+import org.infinispan.configuration.parsing.XmlConfigHelper;
 import org.infinispan.configuration.global.TransportConfiguration;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.factories.annotations.ComponentName;
@@ -77,7 +77,7 @@ import static org.infinispan.factories.KnownComponentNames.GLOBAL_MARSHALLER;
  * {@link org.infinispan.remoting.transport.jgroups.JGroupsChannelLookup} instance</li>
  * </ul>
  * These are normally passed in as Properties in
- * {@link org.infinispan.config.GlobalConfiguration#setTransportProperties(java.util.Properties)} or
+ * {@link org.infinispan.configuration.global.TransportConfigurationBuilder#withProperties(java.util.Properties)} or
  * in the Infinispan XML configuration file.
  *
  * @author Manik Surtani
@@ -338,9 +338,6 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
                log.errorInstantiatingJGroupsChannelLookup(channelLookupClassName, e);
                throw new CacheException(e);
             }
-            if (configuration.transport().strictPeerToPeer() && !startChannel) {
-               log.warnStrictPeerToPeerWithInjectedChannel();
-            }
          }
 
          if (channel == null && props.containsKey(CONFIGURATION_FILE)) {
@@ -486,11 +483,11 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
       if (broadcast || (totalOrder && !anycast)) {
          rsps = dispatcher.broadcastRemoteCommands(rpcCommand, toJGroupsMode(mode), timeout,
                                                    usePriorityQueue, toJGroupsFilter(responseFilter),
-                                                   asyncMarshalling, ignoreLeavers, totalOrder, anycast);
+                                                   asyncMarshalling, ignoreLeavers, totalOrder);
       } else if (totalOrder && anycast) {
          rsps = dispatcher.invokeRemoteCommands(jgAddressList, rpcCommand, toJGroupsMode(mode), timeout,
                                                 usePriorityQueue, toJGroupsFilter(responseFilter),
-                                                asyncMarshalling, ignoreLeavers, totalOrder, anycast);
+                                                asyncMarshalling, ignoreLeavers, totalOrder);
       } else {
          if (jgAddressList == null || !jgAddressList.isEmpty()) {
             boolean singleRecipient = !ignoreLeavers && jgAddressList != null && jgAddressList.size() == 1;
@@ -510,7 +507,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
                } else {
                   rsps = dispatcher.invokeRemoteCommands(jgAddressList, rpcCommand, toJGroupsMode(mode), timeout,
                                                          usePriorityQueue, toJGroupsFilter(responseFilter),
-                                                         asyncMarshalling, ignoreLeavers, totalOrder, anycast);
+                                                         asyncMarshalling, ignoreLeavers, totalOrder);
                }
             }
          }
@@ -720,8 +717,9 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
    }
 
    @Override
-   public final void checkTotalOrderSupported(boolean anycast) {
-      if (anycast && channel.getProtocolStack().findProtocol(TOA.class) == null) {
+   public final void checkTotalOrderSupported() {
+      //For replicated and distributed tx caches, we use TOA as total order protocol.
+      if (channel.getProtocolStack().findProtocol(TOA.class) == null) {
          throw new CacheConfigurationException("In order to support total order based transaction, the TOA protocol " +
                                                 "must be present in the JGroups's config.");
       }

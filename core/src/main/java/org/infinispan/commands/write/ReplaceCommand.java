@@ -1,6 +1,5 @@
 package org.infinispan.commands.write;
 
-import org.infinispan.metadata.Metadata;
 import org.infinispan.commands.MetadataAwareCommand;
 import org.infinispan.commands.Visitor;
 import org.infinispan.commons.equivalence.Equivalence;
@@ -8,6 +7,7 @@ import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.entries.MVCCEntry;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
+import org.infinispan.metadata.Metadata;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 
 import java.util.Set;
@@ -56,24 +56,35 @@ public class ReplaceCommand extends AbstractDataWriteCommand implements Metadata
 
    @Override
    public Object perform(InvocationContext ctx) throws Throwable {
+      final boolean local = ctx.isOriginLocal();
+      if (ctx.isInTxScope() && !local && !ignorePreviousValue) {
+         //ignore previous return value in tx mode is false when the command did not succeed during execution
+         //in this case, we should ignore the command
+         //the return value did not matter in remote context
+         successful = false;
+         return null;
+      }
       MVCCEntry e = (MVCCEntry) ctx.lookupEntry(key);
       if (e != null) {
-         if (ctx.isOriginLocal()) {
+         if (local) {
             //ISPN-514
-            if (e.isNull() || e.getValue() == null) {
-               // Revert assumption that new value is to be committed
-               e.setChanged(false);
+            if (e.isNull() || e.getValue() == null || e.isRemoved()) {
                return returnValue(null, false, ctx);
             }
          }
 
-         if (oldValue == null || isValueEquals(oldValue, e.getValue()) || ignorePreviousValue) {
+         // isConditional is false when ignorePreviousValue is true
+         if (oldValue == null || ignorePreviousValue || isValueEquals(oldValue, e.getValue())) {
             e.setChanged(true);
             Object old = e.setValue(newValue);
-            return returnValue(old, true, ctx);
+            // TODO if (newValue.equals(old) returnValue(null, true, ctx);
+            // If ignorePreviousValue == true, the old value is no longer relevant
+            if (!ignorePreviousValue) {
+               return returnValue(old, true, ctx);
+            } else {
+               return returnValue(oldValue, true, ctx);
+            }
          }
-         // Revert assumption that new value is to be committed
-         e.setChanged(false);
       }
 
       return returnValue(null, false, ctx);
@@ -113,7 +124,7 @@ public class ReplaceCommand extends AbstractDataWriteCommand implements Metadata
    @Override
    public Object[] getParameters() {
       return new Object[]{key, oldValue, newValue, metadata, ignorePreviousValue,
-                          Flag.copyWithoutRemotableFlags(flags),previousRead};
+                          Flag.copyWithoutRemotableFlags(flags)};
    }
 
    @Override
@@ -126,7 +137,6 @@ public class ReplaceCommand extends AbstractDataWriteCommand implements Metadata
       metadata = (Metadata) parameters[3];
       ignorePreviousValue = (Boolean) parameters[4];
       flags = (Set<Flag>) parameters[5];
-      previousRead = (Boolean) parameters[6];
    }
 
    @Override
@@ -160,7 +170,7 @@ public class ReplaceCommand extends AbstractDataWriteCommand implements Metadata
 
    @Override
    public boolean isConditional() {
-      return !ignorePreviousValue;
+      return oldValue != null;
    }
 
    @Override
@@ -189,10 +199,12 @@ public class ReplaceCommand extends AbstractDataWriteCommand implements Metadata
       this.newValue = newValue;
    }
 
+   @Override
    public boolean isIgnorePreviousValue() {
       return ignorePreviousValue;
    }
 
+   @Override
    public void setIgnorePreviousValue(boolean ignorePreviousValue) {
       this.ignorePreviousValue = ignorePreviousValue;
    }

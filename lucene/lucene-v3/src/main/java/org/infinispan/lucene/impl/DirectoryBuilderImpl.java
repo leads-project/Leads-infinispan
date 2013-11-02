@@ -3,6 +3,7 @@ package org.infinispan.lucene.impl;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.LockFactory;
 import org.infinispan.Cache;
+import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.lucene.directory.BuildContext;
 import org.infinispan.lucene.locking.BaseLockFactory;
 import org.infinispan.lucene.logging.Log;
@@ -15,7 +16,7 @@ public class DirectoryBuilderImpl implements BuildContext {
    private static final Log log = LogFactory.getLog(DirectoryBuilderImpl.class, Log.class);
 
    /**
-    * Used as default chunk size: each Lucene index segment is splitted into smaller parts having a default size in bytes as
+    * Used as default chunk size: each Lucene index segment is split into smaller parts having a default size in bytes as
     * defined here
     */
    public final static int DEFAULT_BUFFER_SIZE = 16 * 1024;
@@ -38,14 +39,11 @@ public class DirectoryBuilderImpl implements BuildContext {
    private LockFactory lockFactory = null;
 
    public DirectoryBuilderImpl(Cache<?, ?> metadataCache, Cache<?, ?> chunksCache, Cache<?, ?> distLocksCache, String indexName) {
-      checkNotNull(metadataCache, "metadataCache");
-      checkNotNull(chunksCache, "chunksCache");
-      checkNotNull(distLocksCache, "distLocksCache");
-      checkNotNull(indexName, "indexName");
-      this.metadataCache = metadataCache;
-      this.chunksCache = chunksCache;
-      this.distLocksCache = distLocksCache;
-      this.indexName = indexName;
+      this.metadataCache = checkValidConfiguration(checkNotNull(metadataCache, "metadataCache"), indexName);
+      this.chunksCache = checkValidConfiguration(checkNotNull(chunksCache, "chunksCache"), indexName);
+      this.distLocksCache = checkValidConfiguration(checkNotNull(distLocksCache, "distLocksCache"), indexName);
+      this.indexName =  checkNotNull(indexName, "indexName");
+      validateMetadataCache(metadataCache, indexName);
    }
 
    @Override
@@ -102,15 +100,43 @@ public class DirectoryBuilderImpl implements BuildContext {
       return new DistributedSegmentReadLocker((Cache<Object, Integer>) distLocksCache, chunksCache, metadataCache, indexName);
    }
 
-   private static void checkNotNull(Object v, String objectname) {
+   private static <T> T checkNotNull(final T v,final String objectname) {
       if (v == null)
-         throw new IllegalArgumentException(objectname + " must not be null");
+         throw log.requiredParameterWasPassedNull(objectname);
+      return v;
+   }
+
+   private static Cache<?, ?> checkValidConfiguration(final Cache<?, ?> cache, String indexName) {
+      if (cache == null) {
+         return null;
+      }
+      Configuration configuration = cache.getCacheConfiguration();
+      if (configuration.expiration().maxIdle() != -1) {
+         throw log.luceneStorageHavingIdleTimeSet( indexName, cache.getName() );
+      }
+      if (configuration.expiration().lifespan() != -1) {
+         throw log.luceneStorageHavingLifespanSet( indexName, cache.getName() );
+      }
+      if (configuration.storeAsBinary().enabled()) {
+         throw log.luceneStorageAsBinaryEnabled(indexName, cache.getName());
+      }
+      return cache;
    }
 
    private static LockFactory makeDefaultLockFactory(Cache<?, ?> cache, String indexName) {
       checkNotNull(cache, "cache");
       checkNotNull(indexName, "indexName");
       return new BaseLockFactory(cache, indexName);
+   }
+
+   private static void validateMetadataCache(Cache<?, ?> cache, String indexName) {
+      Configuration configuration = cache.getCacheConfiguration();
+      if (configuration.eviction().strategy().isEnabled()) {
+         throw log.evictionNotAllowedInMetadataCache(indexName, cache.getName());
+      }
+      if (configuration.persistence().usingStores() && !configuration.persistence().preload()) {
+         throw log.preloadNeededIfPersistenceIsEnabledForMetadataCache(indexName, cache.getName());
+      }
    }
 
 }

@@ -8,6 +8,7 @@ import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.CreateCacheCommand;
 import org.infinispan.commands.read.MapCombineCommand;
 import org.infinispan.commands.read.ReduceCommand;
+import org.infinispan.context.Flag;
 import org.infinispan.distexec.mapreduce.spi.MapReduceTaskLifecycleService;
 import org.infinispan.distribution.DistributionManager;
 import org.infinispan.factories.ComponentRegistry;
@@ -23,10 +24,10 @@ import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.rpc.RpcOptionsBuilder;
 import org.infinispan.remoting.transport.Address;
-import org.infinispan.util.concurrent.AbstractInProcessFuture;
-import org.infinispan.util.concurrent.FutureListener;
-import org.infinispan.util.concurrent.NotifyingFuture;
-import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
+import org.infinispan.commons.util.concurrent.AbstractInProcessFuture;
+import org.infinispan.commons.util.concurrent.FutureListener;
+import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -349,7 +350,6 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
             // cleanup tmp caches across cluster
             if(useIntermediatePerTaskCache()){
                EmbeddedCacheManager cm = cache.getCacheManager();
-               cm.getCache(intermediateCacheName).clear();
                cm.removeCache(intermediateCacheName);
             }
          }

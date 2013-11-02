@@ -22,6 +22,7 @@ import org.infinispan.commands.write.RemoveCommand;
 import org.infinispan.commands.write.ReplaceCommand;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.configuration.cache.VersioningScheme;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.LocalTxInvocationContext;
@@ -34,7 +35,6 @@ import org.infinispan.jmx.annotations.MBean;
 import org.infinispan.jmx.annotations.ManagedAttribute;
 import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.jmx.annotations.MeasurementType;
-import org.infinispan.jmx.annotations.Parameter;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.RemoteTransaction;
@@ -43,6 +43,7 @@ import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.recovery.RecoverableTransactionIdentifier;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
+import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -70,6 +71,8 @@ public class TxInterceptor extends CommandInterceptor {
    private static final Log log = LogFactory.getLog(TxInterceptor.class);
    private RecoveryManager recoveryManager;
    private boolean isTotalOrder;
+   private boolean useOnePhaseForAutoCommitTx;
+   private boolean useWriteSkew;
 
    @Override
    protected Log getLog() {
@@ -84,8 +87,11 @@ public class TxInterceptor extends CommandInterceptor {
       this.txCoordinator = txCoordinator;
       this.rpcManager = rpcManager;
       this.recoveryManager = recoveryManager;
-      setStatisticsEnabled(cacheConfiguration.jmxStatistics().enabled());
+      this.statisticsEnabled = cacheConfiguration.jmxStatistics().enabled();
       this.isTotalOrder = c.transaction().transactionProtocol().isTotalOrder();
+      useOnePhaseForAutoCommitTx = cacheConfiguration.transaction().use1PcForAutoCommitTransactions();
+      this.useWriteSkew = c.locking().isolationLevel() == IsolationLevel.REPEATABLE_READ && c.versioning().enabled() &&
+            c.versioning().scheme() == VersioningScheme.SIMPLE;
    }
 
    @Override
@@ -95,7 +101,7 @@ public class TxInterceptor extends CommandInterceptor {
       Object result = invokeNextInterceptorAndVerifyTransaction(ctx, command);
       if (!ctx.isOriginLocal()) {
          if (command.isOnePhaseCommit()) {
-            txTable.remoteTransactionCommitted(command.getGlobalTransaction());
+            txTable.remoteTransactionCommitted(command.getGlobalTransaction(), true);
          } else {
             txTable.remoteTransactionPrepared(command.getGlobalTransaction());
          }
@@ -107,22 +113,30 @@ public class TxInterceptor extends CommandInterceptor {
       try {
          return invokeNextInterceptor(ctx, command);
       } finally {
-         //It is possible to receive a prepare or lock control command from a node that crashed. If that's the case rollback
-         //the transaction forcefully in order to cleanup resources.
-         boolean originatorMissing = !ctx.isOriginLocal() && !rpcManager.getTransport().getMembers().contains(command.getOrigin());
-         boolean alreadyCompleted = !ctx.isOriginLocal() && txTable.isTransactionCompleted(command.getGlobalTransaction()) &&
-               !cacheConfiguration.transaction().transactionProtocol().isTotalOrder();
-         log.tracef("invokeNextInterceptorAndVerifyTransaction :: originatorMissing=%s, alreadyCompleted=%s", originatorMissing, alreadyCompleted);
-         if (alreadyCompleted || originatorMissing) {
-            log.tracef("Rolling back remote transaction %s because either already completed(%s) or originator no longer in the cluster(%s).",
-                       command.getGlobalTransaction(), alreadyCompleted, originatorMissing);
-            RollbackCommand rollback = new RollbackCommand(command.getCacheName(), command.getGlobalTransaction());
-            try {
-               invokeNextInterceptor(ctx, rollback);
-            } finally {
-               RemoteTransaction remoteTx = (RemoteTransaction) ctx.getCacheTransaction();
-               remoteTx.markForRollback(true);
-               txTable.removeRemoteTransaction(command.getGlobalTransaction());
+         if (!ctx.isOriginLocal() && !ctx.skipTransactionCompleteCheck()) {
+            //It is possible to receive a prepare or lock control command from a node that crashed. If that's the case rollback
+            //the transaction forcefully in order to cleanup resources.
+            boolean originatorMissing = !rpcManager.getTransport().getMembers().contains(command.getOrigin());
+            boolean alreadyCompleted = txTable.isTransactionCompleted(command.getGlobalTransaction());
+            if (log.isTraceEnabled()) {
+               log.tracef("invokeNextInterceptorAndVerifyTransaction :: originatorMissing=%s, alreadyCompleted=%s",
+                          originatorMissing, alreadyCompleted);
+            }
+
+            if (alreadyCompleted || originatorMissing) {
+               if (log.isTraceEnabled()) {
+                  log.tracef("Rolling back remote transaction %s because either already completed(%s) or originator no " +
+                                   "longer in the cluster(%s).",
+                             command.getGlobalTransaction(), alreadyCompleted, originatorMissing);
+               }
+               RollbackCommand rollback = new RollbackCommand(command.getCacheName(), command.getGlobalTransaction());
+               try {
+                  invokeNextInterceptor(ctx, rollback);
+               } finally {
+                  RemoteTransaction remoteTx = (RemoteTransaction) ctx.getCacheTransaction();
+                  remoteTx.markForRollback(true);
+                  txTable.removeRemoteTransaction(command.getGlobalTransaction());
+               }
             }
          }
       }
@@ -133,7 +147,7 @@ public class TxInterceptor extends CommandInterceptor {
       if (this.statisticsEnabled) commits.incrementAndGet();
       Object result = invokeNextInterceptor(ctx, command);
       if (!ctx.isOriginLocal() || isTotalOrder) {
-         txTable.remoteTransactionCommitted(ctx.getGlobalTransaction());
+         txTable.remoteTransactionCommitted(ctx.getGlobalTransaction(), false);
       }
       return result;
    }
@@ -230,6 +244,11 @@ public class TxInterceptor extends CommandInterceptor {
             // mark the transaction as originating from state transfer as early as possible
             localTransaction.setFromStateTransfer(true);
          }
+         boolean implicitWith1Pc = useOnePhaseForAutoCommitTx && localTransaction.isImplicitTransaction();
+         if (implicitWith1Pc) {
+            //in this situation we don't support concurrent updates so skip locking entirely
+            command.setFlags(Flag.SKIP_LOCKING);
+         }
       }
       Object rv;
       try {
@@ -242,7 +261,10 @@ public class TxInterceptor extends CommandInterceptor {
          }
          throw throwable;
       }
-      if (command.isSuccessful() && localTransaction != null) localTransaction.addModification(command);
+      //for Repeatable Read + Write Skew, all modifications should be add in order to perform a correct write skew validation
+      if (localTransaction != null && (command.isSuccessful() || useWriteSkew)) {
+         localTransaction.addModification(command);
+      }
       return rv;
    }
 
@@ -275,16 +297,6 @@ public class TxInterceptor extends CommandInterceptor {
       prepares.set(0);
       commits.set(0);
       rollbacks.set(0);
-   }
-
-   /**
-    * @deprecated Use the statisticsEnabled attribute instead.
-    */
-   @ManagedOperation(
-         displayName = "Enable/disable statistics. Deprecated, use the statisticsEnabled attribute instead."
-   )
-   public void setStatisticsEnabled(@Parameter(name = "enabled", description = "Whether statistics should be enabled or disabled (true/false)") boolean enabled) {
-      this.statisticsEnabled = enabled;
    }
 
    @ManagedAttribute(

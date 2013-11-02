@@ -22,7 +22,7 @@ import java.util.List;
  */
 // TODO This test makes no sense anymore, now that a joiner blocks until the join completes, before returning from cache.start().  This test needs to be re-thought and redesigned to test the eventual consistency (UnsureResponse) of a remote GET properly.
 @Test(groups = "functional", testName = "distribution.rehash.WorkDuringJoinTest", enabled = false)
-public class WorkDuringJoinTest extends BaseDistFunctionalTest {
+public class WorkDuringJoinTest extends BaseDistFunctionalTest<Object, String> {
 
    EmbeddedCacheManager joinerManager;
    Cache<Object, String> joiner;
@@ -58,7 +58,7 @@ public class WorkDuringJoinTest extends BaseDistFunctionalTest {
       List<Address> newMembers = new ArrayList<Address>(chOld.getMembers());
       newMembers.add(joinerAddress);
       DefaultConsistentHashFactory chf = new DefaultConsistentHashFactory();
-      ConsistentHash chNew = chf.rebalance(chf.updateMembers((DefaultConsistentHash) chOld, newMembers));
+      ConsistentHash chNew = chf.rebalance(chf.updateMembers((DefaultConsistentHash) chOld, newMembers, null));
       // which key should me mapped to the joiner?
       MagicKey keyToTest = null;
       for (MagicKey k: keys) {

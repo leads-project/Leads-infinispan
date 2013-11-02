@@ -11,7 +11,7 @@ import org.infinispan.client.hotrod.TestHelper;
 import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.factories.GlobalComponentRegistry;
-import org.infinispan.loaders.remote.configuration.RemoteCacheStoreConfigurationBuilder;
+import org.infinispan.persistence.remote.configuration.RemoteStoreConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.test.AbstractInfinispanTest;
@@ -50,7 +50,7 @@ public class UpgradeTest extends AbstractInfinispanTest {
 
       ConfigurationBuilder targetConfigurationBuilder = hotRodCacheConfiguration(
             TestCacheManagerFactory.getDefaultCacheConfiguration(false));
-      targetConfigurationBuilder.loaders().addStore(RemoteCacheStoreConfigurationBuilder.class).hotRodWrapping(true).addServer().host("localhost").port(sourceServer.getPort());
+      targetConfigurationBuilder.persistence().addStore(RemoteStoreConfigurationBuilder.class).hotRodWrapping(true).addServer().host("localhost").port(sourceServer.getPort());
 
       targetContainer = TestCacheManagerFactory.createCacheManager(targetConfigurationBuilder);
       targetServerCache = targetContainer.getCache();
@@ -98,7 +98,7 @@ public class UpgradeTest extends AbstractInfinispanTest {
    }
 
    private void checkNoErrors(Map<String, String> result) {
-      assertFalse(result.containsKey(ResultKeys.ERROR.toString()));
+      assertFalse(result.get(ResultKeys.ERROR.toString()), result.containsKey(ResultKeys.ERROR.toString()));
    }
 
    @BeforeMethod

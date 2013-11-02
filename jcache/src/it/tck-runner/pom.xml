@@ -46,6 +46,11 @@
       <dependency>
          <groupId>javax.cache</groupId>
          <artifactId>cache-tests</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>javax.cache</groupId>
+         <artifactId>cache-tests</artifactId>
          <classifier>tests</classifier>
          <scope>test</scope>
       </dependency>
@@ -107,8 +112,6 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
-               <!-- Currently TCK requires JDK 7 to run: https://github.com/jsr107/jsr107tck/issues/16 -->
-               <jvm>${env.JAVA_HOME_7}/bin/java</jvm>
                <systemPropertyVariables>
                   <domainJar>${domain-lib-dir}/${domain-jar}</domainJar>
                </systemPropertyVariables>
@@ -118,6 +121,9 @@
                      <value>org.infinispan.jcache.test.tck.DummyTestListener</value>
                   </property>
                </properties>
+               <excludes>
+                  <exclude>**/ClientServerTest.java</exclude>
+               </excludes>
             </configuration>
             <dependencies>
                <dependency>
@@ -160,7 +166,7 @@
                   <artifactId>maven-surefire-plugin</artifactId>
                   <configuration>
                      <excludes>
-                        <include>**/interceptor/*Test.java</include>
+                        <exclude>**/interceptor/*Test.java</exclude>
                      </excludes>
                      <systemPropertyVariables>
                         <domainJar>${domain-lib-dir}/${domain-jar}</domainJar>

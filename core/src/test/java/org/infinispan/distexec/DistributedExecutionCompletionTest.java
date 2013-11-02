@@ -2,7 +2,7 @@ package org.infinispan.distexec;
 
 import org.infinispan.Cache;
 import org.infinispan.distribution.BaseDistFunctionalTest;
-import org.infinispan.util.concurrent.NotifyingFuture;
+import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.testng.AssertJUnit;
@@ -18,18 +18,19 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Tests org.infinispan.distexec.DistributedExecutorService
- * 
+ *
  * @author Vladimir Blagojevic
  * @author Anna Manukyan
  */
 @Test(groups = "functional", testName = "distexec.DistributedExecutionCompletionTest")
-public class DistributedExecutionCompletionTest extends BaseDistFunctionalTest {
+public class DistributedExecutionCompletionTest extends BaseDistFunctionalTest<Object, String> {
 
    private static Log log = LogFactory.getLog(DistributedExecutionCompletionTest.class);
 
    public DistributedExecutionCompletionTest() {
    }
 
+   @Override
    protected void createCacheManagers() throws Throwable {
       super.createCacheManagers();
    }
@@ -180,14 +181,15 @@ public class DistributedExecutionCompletionTest extends BaseDistFunctionalTest {
       DistributedExecutorService des = new DefaultExecutorService(c1);
       DistributedExecutionCompletionService<Integer> decs = new DistributedExecutionCompletionService<Integer>(des);
       try {
+         long start = System.currentTimeMillis();
          decs.submit(new SimpleCallable(true, sleepTime));
 
-         long start = System.currentTimeMillis();
-         NotifyingFuture<Integer> callable = decs.take();
+         NotifyingFuture<Integer> future = decs.take();
          long end = System.currentTimeMillis();
 
-         assert (end - start) >= sleepTime;
-         AssertJUnit.assertEquals((Integer) 1, callable.get());
+         AssertJUnit.assertTrue("take() returned too soon", (end - start) >= sleepTime);
+         AssertJUnit.assertTrue("take() returned, but future is not done yet", future.isDone());
+         AssertJUnit.assertEquals((Integer) 1, future.get());
       } finally {
          des.shutdownNow();
       }

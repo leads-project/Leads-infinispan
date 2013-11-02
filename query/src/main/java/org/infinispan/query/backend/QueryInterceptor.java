@@ -3,6 +3,7 @@ package org.infinispan.query.backend;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
@@ -10,6 +11,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 import javax.transaction.TransactionSynchronizationRegistry;
 
@@ -17,7 +19,8 @@ import org.hibernate.search.backend.TransactionContext;
 import org.hibernate.search.backend.spi.Work;
 import org.hibernate.search.backend.spi.WorkType;
 import org.hibernate.search.backend.spi.Worker;
-import org.hibernate.search.engine.spi.EntityIndexBinder;
+import org.hibernate.search.engine.spi.EntityIndexBinding;
+import org.hibernate.search.engine.spi.SearchFactoryImplementor;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
 import org.infinispan.commands.FlagAffectedCommand;
 import org.infinispan.commands.tx.PrepareCommand;
@@ -57,6 +60,7 @@ import org.infinispan.util.logging.LogFactory;
  */
 public class QueryInterceptor extends CommandInterceptor {
 
+   private final boolean isManualIndexing;
    private final SearchFactoryIntegrator searchFactory;
    private final ConcurrentMap<Class<?>,Boolean> knownClasses = CollectionFactory.makeConcurrentMap();
    private final Lock mutating = new ReentrantLock();
@@ -77,6 +81,7 @@ public class QueryInterceptor extends CommandInterceptor {
 
    public QueryInterceptor(SearchFactoryIntegrator searchFactory) {
       this.searchFactory = searchFactory;
+      isManualIndexing = ((SearchFactoryImplementor)searchFactory).getIndexingStrategy().equals("manual");
    }
 
    @Inject
@@ -93,7 +98,7 @@ public class QueryInterceptor extends CommandInterceptor {
    }
 
    protected boolean shouldModifyIndexes(FlagAffectedCommand command, InvocationContext ctx) {
-      return !command.hasFlag(Flag.SKIP_INDEXING);
+      return !isManualIndexing && !command.hasFlag(Flag.SKIP_INDEXING);
    }
 
    /**
@@ -128,9 +133,9 @@ public class QueryInterceptor extends CommandInterceptor {
 
    @Override
    public Object visitPutMapCommand(InvocationContext ctx, PutMapCommand command) throws Throwable {
-      Object mapPut = invokeNextInterceptor(ctx, command);
-      processPutMapCommand(command, ctx, null);
-      return mapPut;
+      Map<Object, Object> previousValues = (Map<Object, Object>) invokeNextInterceptor(ctx, command);
+      processPutMapCommand(command, ctx, previousValues, null);
+      return previousValues;
    }
 
    @Override
@@ -180,9 +185,9 @@ public class QueryInterceptor extends CommandInterceptor {
       }
    }
 
-   private boolean isIndexed(Class<?> c) {
-      EntityIndexBinder binder = this.searchFactory.getIndexBindingForEntity(c);
-      return binder != null;
+   private boolean isIndexed(final Class<?> c) {
+      final EntityIndexBinding indexBinding = this.searchFactory.getIndexBinding(c);
+      return indexBinding != null;
    }
 
    private Object extractValue(Object wrappedValue) {
@@ -213,7 +218,12 @@ public class QueryInterceptor extends CommandInterceptor {
       }
       if (locked) {
          Class[] array = toAdd.toArray(new Class[toAdd.size()]);
-         searchFactory.addClasses(array);
+         final Transaction transaction = suspend();
+         try {
+            searchFactory.addClasses(array);
+         } finally {
+            resume(transaction);
+         }
          for (Class<?> type : toAdd) {
             knownClasses.put(type, isIndexed(type));
          }
@@ -225,6 +235,10 @@ public class QueryInterceptor extends CommandInterceptor {
             mutating.unlock();
          }
       }
+   }
+
+   public Map<Class<?>, Boolean> getKnownClasses() {
+      return knownClasses;
    }
 
    public boolean updateKnownTypesIfNeeded(Object value) {
@@ -294,7 +308,7 @@ public class QueryInterceptor extends CommandInterceptor {
             stateBeforePrepare[i] = internalCacheEntry != null ? internalCacheEntry.getValue() : null;
          }
          else if (writeCommand instanceof PutMapCommand) {
-            //think about this: ISPN-2478
+            stateBeforePrepare[i] = getPreviousValues(((PutMapCommand) writeCommand).getMap().keySet());
          }
          else if (writeCommand instanceof RemoveCommand) {
             InternalCacheEntry internalCacheEntry = dataContainer.get(((RemoveCommand) writeCommand).getKey());
@@ -316,8 +330,7 @@ public class QueryInterceptor extends CommandInterceptor {
                processPutKeyValueCommand((PutKeyValueCommand) writeCommand, ctx, stateBeforePrepare[i], transactionContext);
             }
             else if (writeCommand instanceof PutMapCommand) {
-               //FIXME ISPN-2478
-               processPutMapCommand((PutMapCommand) writeCommand, ctx, transactionContext);
+               processPutMapCommand((PutMapCommand) writeCommand, ctx, (Map<Object, Object>) stateBeforePrepare[i], transactionContext);
             }
             else if (writeCommand instanceof RemoveCommand) {
                processRemoveCommand((RemoveCommand) writeCommand, ctx, stateBeforePrepare[i], transactionContext);
@@ -331,6 +344,16 @@ public class QueryInterceptor extends CommandInterceptor {
          }
       }
       return toReturn;
+   }
+
+   private Map<Object, Object> getPreviousValues(Set<Object> keySet) {
+      HashMap<Object, Object> previousValues = new HashMap<Object, Object>();
+      for (Object key : keySet) {
+         InternalCacheEntry internalCacheEntry = dataContainer.get(key);
+         Object previousValue = internalCacheEntry != null ? internalCacheEntry.getValue() : null;
+         previousValues.put(key, previousValue);
+      }
+      return previousValues;
    }
 
    /**
@@ -384,17 +407,24 @@ public class QueryInterceptor extends CommandInterceptor {
     *
     * @param command the visited PutMapCommand
     * @param ctx the InvocationContext of the PutMapCommand
+    * @param previousValues a map with the previous values, before processing the given PutMapCommand
     * @param transactionContext
     */
-   private void processPutMapCommand(final PutMapCommand command, final InvocationContext ctx, TransactionContext transactionContext) {
+   private void processPutMapCommand(final PutMapCommand command, final InvocationContext ctx, final Map<Object, Object> previousValues, TransactionContext transactionContext) {
       if (shouldModifyIndexes(command, ctx)) {
          Map<Object, Object> dataMap = command.getMap();
          // Loop through all the keys and put those key-value pairings into lucene.
          for (Map.Entry<Object, Object> entry : dataMap.entrySet()) {
+            final Object key = extractValue(entry.getKey());
             final Object value = extractValue(entry.getValue());
+            final Object previousValue = previousValues.get(key);
+            if (updateKnownTypesIfNeeded(previousValue)) {
+               transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
+               removeFromIndexes(previousValue, key, transactionContext);
+            }
             if (updateKnownTypesIfNeeded(value)) {
                transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
-               updateIndexes(value, extractValue(entry.getKey()), transactionContext);
+               updateIndexes(value, key, transactionContext);
             }
          }
       }
@@ -439,8 +469,31 @@ public class QueryInterceptor extends CommandInterceptor {
       }
    }
 
-   private final TransactionContext makeTransactionalEventContext() {
+   private TransactionContext makeTransactionalEventContext() {
       return new TransactionalEventTransactionContext(transactionManager, transactionSynchronizationRegistry);
+   }
+
+   private Transaction suspend()  {
+      if (transactionManager == null) {
+         return null;
+      }
+      try {
+         return transactionManager.suspend();
+      } catch (Exception e) {
+         //ignored
+      }
+      return null;
+   }
+
+   private void resume(Transaction transaction) {
+      if (transaction == null || transactionManager == null) {
+         return;
+      }
+      try {
+         transactionManager.resume(transaction);
+      } catch (Exception e) {
+         //ignored;
+      }
    }
 
 }

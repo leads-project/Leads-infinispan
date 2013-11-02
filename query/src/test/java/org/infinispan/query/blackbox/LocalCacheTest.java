@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import junit.framework.Assert;
+
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
@@ -30,6 +31,7 @@ import org.infinispan.query.FetchOptions;
 import org.infinispan.query.ResultIterator;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
+import org.infinispan.query.spi.SearchManagerImplementor;
 import org.infinispan.query.test.AnotherGrassEater;
 import org.infinispan.query.test.CustomKey3;
 import org.infinispan.query.test.CustomKey3Transformer;
@@ -38,6 +40,7 @@ import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
+
 import java.util.NoSuchElementException;
 
 import static java.util.Arrays.asList;
@@ -91,9 +94,45 @@ public class LocalCacheTest extends SingleCacheManagerTest {
 
       ResultIterator found = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
 
-      assert found.hasNext();
-      found.next();
-      assert !found.hasNext();
+      try {
+         assert found.hasNext();
+         found.next();
+         assert !found.hasNext();
+      } finally {
+         found.close();
+      }
+   }
+
+   @Test(expectedExceptions = UnsupportedOperationException.class)
+   public void testEagerIteratorRemove() throws ParseException {
+      loadTestingData();
+      CacheQuery cacheQuery = createCacheQuery(cache, "blurb", "playing" );
+
+      ResultIterator found = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
+
+      try {
+         assert found.hasNext();
+         found.remove();
+      } finally {
+         found.close();
+      }
+   }
+
+   @Test(expectedExceptions = NoSuchElementException.class)
+   public void testEagerIteratorExCase() throws ParseException {
+      loadTestingData();
+      CacheQuery cacheQuery = createCacheQuery(cache, "blurb", "playing" );
+
+      ResultIterator found = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
+
+      try {
+         assert found.hasNext();
+         found.next();
+         assert !found.hasNext();
+         found.next();
+      } finally {
+         found.close();
+      }
    }
 
    public void testMultipleResults() throws ParseException {
@@ -105,9 +144,8 @@ public class LocalCacheTest extends SingleCacheManagerTest {
       List<Object> found = cacheQuery.list();
 
       assert found.size() == 2;
-      assert found.get(0) == person2;
-      assert found.get(1) == person3;
-
+      AssertJUnit.assertTrue(found.contains(person2));
+      AssertJUnit.assertTrue(found.contains(person3));
    }
 
    public void testModified() throws ParseException {
@@ -280,9 +318,13 @@ public class LocalCacheTest extends SingleCacheManagerTest {
 
       ResultIterator found = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.LAZY));
 
-      assert found.hasNext();
-      found.next();
-      assert !found.hasNext();
+      try {
+         assert found.hasNext();
+         found.next();
+         assert !found.hasNext();
+      } finally {
+         found.close();
+      }
    }
 
    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Unknown FetchMode null")
@@ -298,9 +340,13 @@ public class LocalCacheTest extends SingleCacheManagerTest {
          }
       });
 
-      assert found.hasNext();
-      found.next();
-      assert !found.hasNext();
+      try {
+         assert found.hasNext();
+         found.next();
+         assert !found.hasNext();
+      } finally {
+         found.close();
+      }
    }
 
    public void testIteratorWithDefaultOptions() throws ParseException {
@@ -311,9 +357,13 @@ public class LocalCacheTest extends SingleCacheManagerTest {
 
       ResultIterator found = cacheQuery.iterator();
 
-      assert found.hasNext();
-      found.next();
-      assert !found.hasNext();
+      try {
+         assert found.hasNext();
+         found.next();
+         assert !found.hasNext();
+      } finally {
+         found.close();
+      }
    }
 
    public void testExplain() throws ParseException {
@@ -323,11 +373,21 @@ public class LocalCacheTest extends SingleCacheManagerTest {
       CacheQuery cacheQuery = Search.getSearchManager(cache).getQuery(luceneQuery);
 
       int matchCounter = 0;
-      for(int i = 0; i < 4; i++) {
-         Explanation found = cacheQuery.explain(i);
+      int i = 0;
 
-         if(found.isMatch())
-            matchCounter++;
+      //The implementation is changed to this way as in case of NRT index manager the number of created documents may
+      //differ comparing to the simple configuration.
+      while (true) {
+         try {
+            Explanation found = cacheQuery.explain(i);
+
+            if(found.isMatch())
+               matchCounter++;
+
+            i++;
+         } catch(ArrayIndexOutOfBoundsException ex) {
+            break;
+         }
       }
 
       AssertJUnit.assertEquals(3, matchCounter);
@@ -363,9 +423,13 @@ public class LocalCacheTest extends SingleCacheManagerTest {
 
       CacheQuery cacheQuery = Search.getSearchManager(cache).getQuery(luceneQuery);
       ResultIterator iterator = cacheQuery.iterator();
-      if(iterator.hasNext()) {
-         Object next = iterator.next();
-         iterator.remove();
+      try {
+         if (iterator.hasNext()) {
+            Object next = iterator.next();
+            iterator.remove();
+         }
+      } finally {
+         iterator.close();
       }
    }
 
@@ -376,7 +440,11 @@ public class LocalCacheTest extends SingleCacheManagerTest {
       CacheQuery cacheQuery = Search.getSearchManager(cache).getQuery(luceneQuery).firstResult(1);
 
       ResultIterator iterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.LAZY));
-      Assert.assertEquals(2, countElements(iterator));
+      try {
+         Assert.assertEquals(2, countElements(iterator));
+      } finally {
+         iterator.close();
+      }
    }
 
    @Test(expectedExceptions = IllegalArgumentException.class)
@@ -406,7 +474,11 @@ public class LocalCacheTest extends SingleCacheManagerTest {
 
       ResultIterator found = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.LAZY));
 
-      found.next();
+      try {
+         found.next();
+      } finally {
+         found.close();
+      }
    }
 
    @Test(expectedExceptions = IllegalArgumentException.class)
@@ -418,11 +490,15 @@ public class LocalCacheTest extends SingleCacheManagerTest {
 
       ResultIterator found = cacheQuery.iterator(new FetchOptions().fetchMode(null));
 
-      found.next();
+      try {
+         found.next();
+      } finally {
+         found.close();
+      }
    }
 
    public void testSearchKeyTransformer() throws ParseException {
-      SearchManager manager = Search.getSearchManager(cache);
+      SearchManagerImplementor manager = (SearchManagerImplementor) Search.getSearchManager(cache);
       manager.registerKeyTransformer(CustomKey3.class, CustomKey3Transformer.class);
 
       loadTestingDataWithCustomKey();
@@ -432,7 +508,11 @@ public class LocalCacheTest extends SingleCacheManagerTest {
       CacheQuery cacheQuery = manager.getQuery(luceneQuery);
 
       ResultIterator iterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.LAZY));
-      Assert.assertEquals(3, countElements(iterator));
+      try {
+         Assert.assertEquals(3, countElements(iterator));
+      } finally {
+         iterator.close();
+      }
    }
 
    @Test(expectedExceptions = IllegalArgumentException.class)
@@ -455,9 +535,13 @@ public class LocalCacheTest extends SingleCacheManagerTest {
 
       ResultIterator found = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.valueOf("LAZY")));
 
-      assert found.hasNext();
-      found.next();
-      assert !found.hasNext();
+      try {
+         assert found.hasNext();
+         found.next();
+         assert !found.hasNext();
+      } finally {
+         found.close();
+      }
    }
 
    public void testGetResultSize() throws ParseException {
@@ -480,9 +564,24 @@ public class LocalCacheTest extends SingleCacheManagerTest {
 
       Assert.assertEquals(3, cacheQuery.getResultSize());   // NOTE: getResultSize() ignores pagination (maxResults, firstResult)
       Assert.assertEquals(1, cacheQuery.list().size());
-      Assert.assertEquals(1, countElements(cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER))));
-      Assert.assertEquals(1, countElements(cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.LAZY))));
-      Assert.assertEquals(1, countElements(cacheQuery.iterator()));
+      ResultIterator eagerIterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
+      try {
+         Assert.assertEquals(1, countElements(eagerIterator));
+      } finally {
+         eagerIterator.close();
+      }
+      ResultIterator lazyIterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.LAZY));
+      try {
+         Assert.assertEquals(1, countElements(lazyIterator));
+      } finally {
+         lazyIterator.close();
+      }
+      ResultIterator defaultIterator = cacheQuery.iterator();
+      try {
+         Assert.assertEquals(1, countElements(defaultIterator));
+      } finally {
+         defaultIterator.close();
+      }
    }
 
    private int countElements(ResultIterator iterator) {
@@ -540,7 +639,8 @@ public class LocalCacheTest extends SingleCacheManagerTest {
       assert found.size() == 1;
       assert found.get(0).equals(anotherGrassEater);
    }
-   
+
+   @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
       ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
       cfg

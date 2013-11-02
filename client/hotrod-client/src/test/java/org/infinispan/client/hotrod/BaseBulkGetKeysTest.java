@@ -2,6 +2,7 @@ package org.infinispan.client.hotrod;
 
 import static org.infinispan.client.hotrod.test.HotRodClientTestingUtil.killRemoteCacheManager;
 import static org.infinispan.client.hotrod.test.HotRodClientTestingUtil.killServers;
+import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -14,6 +15,7 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
 /**
  * Tests functionality related to getting multiple entries from a HotRod server
@@ -22,6 +24,7 @@ import org.testng.annotations.AfterClass;
  * @author <a href="mailto:rtsang@redhat.com">Ray Tsang</a>
  * @since 5.2
  */
+@Test(groups = "functional")
 public abstract class BaseBulkGetKeysTest extends MultipleCacheManagersTest {
 	protected HotRodServer[] hotrodServers;
 	protected RemoteCacheManager remoteCacheManager;
@@ -36,7 +39,7 @@ public abstract class BaseBulkGetKeysTest extends MultipleCacheManagersTest {
 		final int numServers = numberOfHotRodServers();
 		hotrodServers = new HotRodServer[numServers];
 		
-		createCluster(clusterConfig(), numberOfHotRodServers());
+		createCluster(hotRodCacheConfiguration(clusterConfig()), numberOfHotRodServers());
 
 		for (int i = 0; i < numServers; i++) {
 			EmbeddedCacheManager cm = cacheManagers.get(i);
@@ -69,7 +72,7 @@ public abstract class BaseBulkGetKeysTest extends MultipleCacheManagersTest {
 			assert set.contains(i);
 		}
 	}
-	
+
 	public void testBulkGetAfterLifespanExpire() throws InterruptedException {
 		Map<String, String> dataIn = new HashMap<String, String>();
 		dataIn.put("aKey", "aValue");

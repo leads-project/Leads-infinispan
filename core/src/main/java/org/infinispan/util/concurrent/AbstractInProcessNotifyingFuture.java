@@ -1,5 +1,7 @@
 package org.infinispan.util.concurrent;
 
+import org.infinispan.commons.util.concurrent.AbstractInProcessFuture;
+
 /**
  * An abstract NotifyingFuture that has "completed"
  *
@@ -12,4 +14,12 @@ public abstract class AbstractInProcessNotifyingFuture<V> extends AbstractInProc
       futureListener.futureDone(this);
       return this;
    }
+
+   @Override
+   public org.infinispan.commons.util.concurrent.NotifyingFuture<V> attachListener(org.infinispan.commons.util.concurrent.FutureListener<V> futureListener) {
+      futureListener.futureDone(this);
+      return this;
+   }
+
+
 }

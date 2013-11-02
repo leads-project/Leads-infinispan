@@ -20,6 +20,7 @@ public enum Attribute {
     BEFORE("before"),
     CACHE_MANAGER_NAME("cacheManagerName"),
     CACHE_STOP_TIMEOUT("cacheStopTimeout"),
+    CAPACITY_FACTOR("capacityFactor"),
     CHUNK_SIZE("chunkSize"),
     CLASS("class"),
     CLUSTER_NAME("clusterName"),
@@ -71,8 +72,6 @@ public enum Attribute {
     POSITION("position"),
     PRELOAD("preload"),
     PURGE_ON_STARTUP("purgeOnStartup"),
-    PURGE_SYNCHRONOUSLY("purgeSynchronously"),
-    PURGER_THREADS("purgerThreads"),
     PUSH_STATE_TIMEOUT("pushStateTimeout"),
     PUSH_STATE_WHEN_COORDINATOR("pushStateWhenCoordinator"),
     RACK_ID("rackId"),
@@ -131,7 +130,7 @@ public enum Attribute {
     TRANSACTION_PROTOCOL("transactionProtocol"),
     KEY_EQUIVALENCE("keyEquivalence"),
     VALUE_EQUIVALENCE("valueEquivalence"),
-    TYPE_CONVERTER("typeConverter");
+    TYPE_CONVERTER("typeConverter"), PURGE_SYNCHRONOUSLY("purgeSynchronously"), PURGER_THREADS("purgerThreads");
 
     private final String name;
 

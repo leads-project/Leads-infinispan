@@ -1,8 +1,8 @@
 package org.infinispan.cdi;
 
-import static org.jboss.solder.bean.Beans.getQualifiers;
-import static org.jboss.solder.reflection.AnnotationInspector.getMetaAnnotation;
-import static org.jboss.solder.reflection.Reflections.getRawType;
+import static org.infinispan.cdi.util.Reflections.getMetaAnnotation;
+import static org.infinispan.cdi.util.Reflections.getQualifiers;
+import static org.infinispan.cdi.util.Reflections.getRawType;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
@@ -19,26 +19,33 @@ import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.Annotated;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.BeforeShutdown;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.InjectionTarget;
+import javax.enterprise.inject.spi.ProcessBean;
 import javax.enterprise.inject.spi.ProcessInjectionTarget;
 import javax.enterprise.inject.spi.ProcessProducer;
 import javax.enterprise.inject.spi.Producer;
 import javax.enterprise.util.AnnotationLiteral;
 import javax.enterprise.util.TypeLiteral;
 
+import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
 import org.infinispan.cdi.event.cachemanager.CacheManagerEventBridge;
+import org.infinispan.cdi.util.BeanBuilder;
+import org.infinispan.cdi.util.Beans;
+import org.infinispan.cdi.util.ContextualLifecycle;
+import org.infinispan.cdi.util.ContextualReference;
+import org.infinispan.cdi.util.DefaultLiteral;
+import org.infinispan.cdi.util.Reflections;
+import org.infinispan.cdi.util.defaultbean.DefaultBean;
+import org.infinispan.cdi.util.defaultbean.DefaultBeanHolder;
+import org.infinispan.cdi.util.defaultbean.Installed;
 import org.infinispan.cdi.util.logging.Log;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.util.logging.LogFactory;
-import org.jboss.solder.bean.BeanBuilder;
-import org.jboss.solder.bean.ContextualLifecycle;
-import org.jboss.solder.beanManager.BeanManagerAware;
 
 /**
  * The Infinispan CDI extension class.
@@ -46,17 +53,18 @@ import org.jboss.solder.beanManager.BeanManagerAware;
  * @author Pete Muir
  * @author Kevin Pollet <kevin.pollet@serli.com> (C) 2011 SERLI
  */
-public class InfinispanExtension extends BeanManagerAware implements Extension {
+public class InfinispanExtension implements Extension {
 
    private Producer<RemoteCache<?, ?>> remoteCacheProducer;
    private static final Log log = LogFactory.getLog(InfinispanExtension.class, Log.class);
-   private static BeanManagerController bmc;
 
    private final Set<ConfigurationHolder> configurations;
    private final Map<Type, Set<Annotation>> remoteCacheInjectionPoints;
 
    private volatile boolean registered = false;
    private final Object registerLock = new Object();
+
+   private Set<Set<Annotation>> installedEmbeddedCacheManagers = new HashSet<Set<Annotation>>();
 
    public InfinispanExtension() {
       this.configurations = new HashSet<InfinispanExtension.ConfigurationHolder>();
@@ -112,7 +120,7 @@ public class InfinispanExtension extends BeanManagerAware implements Extension {
    }
 
    @SuppressWarnings("unchecked")
-   void registerRemoteCacheBeans(@Observes AfterBeanDiscovery event, BeanManager beanManager) {
+   <T, X>void registerCacheBeans(@Observes AfterBeanDiscovery event, final BeanManager beanManager) {
       for (Map.Entry<Type, Set<Annotation>> entry : remoteCacheInjectionPoints.entrySet()) {
 
          event.addBean(new BeanBuilder(beanManager)
@@ -130,6 +138,29 @@ public class InfinispanExtension extends BeanManagerAware implements Extension {
                                    remoteCacheProducer.dispose(instance);
                                 }
                              }).create());
+      }
+      for (final ConfigurationHolder holder : configurations) {
+          // register a AdvancedCache producer for each
+          Bean<?> b = new BeanBuilder(beanManager)
+          .readFromType(beanManager.createAnnotatedType(AdvancedCache.class))
+          .qualifiers(Beans.buildQualifiers(holder.getQualifiers()))
+          .addType(new TypeLiteral<AdvancedCache<T, X>>() {}.getType())
+          .addType(new TypeLiteral<Cache<T, X>>() {}.getType())
+          .beanLifecycle(new ContextualLifecycle<AdvancedCache<?, ?>>() {
+              @Override
+              public AdvancedCache<?, ?> create(Bean<AdvancedCache<?, ?>> bean,
+                 CreationalContext<AdvancedCache<?, ?>> creationalContext) {
+                 return new ContextualReference<AdvancedCacheProducer>(beanManager, AdvancedCacheProducer.class).create(Reflections.<CreationalContext<AdvancedCacheProducer>>cast(creationalContext)).get().getAdvancedCache(holder.getName(), holder.getQualifiers());
+              }
+
+              @Override
+              public void destroy(Bean<AdvancedCache<?, ?>> bean, AdvancedCache<?, ?> instance,
+                 CreationalContext<AdvancedCache<?, ?>> creationalContext) {
+                 // No-op, Infinispan manages the lifecycle
+
+              }
+           }).create();
+          event.addBean(b);
       }
    }
 
@@ -156,12 +187,35 @@ public class InfinispanExtension extends BeanManagerAware implements Extension {
                }).create());
    }
 
+   public void observeDefaultEmbeddedCacheManagerInstalled(@Observes @Installed DefaultBeanHolder bean) {
+       if (bean.getBean().getTypes().contains(EmbeddedCacheManager.class)) {
+           installedEmbeddedCacheManagers.add(bean.getBean().getQualifiers());
+       }
+   }
+
+   public Set<InstalledCacheManager> getInstalledEmbeddedCacheManagers(BeanManager beanManager) {
+       Set<InstalledCacheManager> installedCacheManagers = new HashSet<InstalledCacheManager>();
+       for (Set<Annotation> qualifiers : installedEmbeddedCacheManagers) {
+           Bean<?> b = beanManager.resolve(beanManager.getBeans(EmbeddedCacheManager.class, qualifiers.toArray(Reflections.EMPTY_ANNOTATION_ARRAY)));
+           EmbeddedCacheManager cm = (EmbeddedCacheManager) beanManager.getReference(b, EmbeddedCacheManager.class, beanManager.createCreationalContext(b));
+           installedCacheManagers.add(new InstalledCacheManager(cm, qualifiers.contains(DefaultLiteral.INSTANCE)));
+       }
+       return installedCacheManagers;
+   }
+
+   public void observeEmbeddedCacheManagerBean(@Observes ProcessBean<?> processBean) {
+       if (processBean.getBean().getTypes().contains(EmbeddedCacheManager.class) && !processBean.getAnnotated().isAnnotationPresent(DefaultBean.class)) {
+           // Install any non-default EmbeddedCacheManager producers. We handle default ones separately, to ensure we only pick them up if installed
+           installedEmbeddedCacheManagers.add(processBean.getBean().getQualifiers());
+       }
+   }
+
    public void registerCacheConfigurations(CacheManagerEventBridge eventBridge, Instance<EmbeddedCacheManager> cacheManagers, BeanManager beanManager) {
       if (!registered) {
          synchronized (registerLock) {
             if (!registered) {
                final CreationalContext<Configuration> ctx = beanManager.createCreationalContext(null);
-               final EmbeddedCacheManager defaultCacheManager = cacheManagers.select(new AnnotationLiteral<Default>() {}).get();
+               final EmbeddedCacheManager defaultCacheManager = cacheManagers.select(DefaultLiteral.INSTANCE).get();
 
                for (ConfigurationHolder oneConfigurationHolder : configurations) {
                   final String cacheName = oneConfigurationHolder.getName();
@@ -192,25 +246,7 @@ public class InfinispanExtension extends BeanManagerAware implements Extension {
             }
          }
       }
-   }
 
-
-   public static BeanManagerController getBeanManagerController() {
-      if (bmc == null) {
-         throw new IllegalStateException("CDI not properly set up in your execution environment!");
-      }
-      return bmc;
-   }
-
-   protected void setBeanManager(@Observes AfterBeanDiscovery afterBeanDiscovery, BeanManager beanManager) {
-      if (bmc == null) {
-         bmc = new BeanManagerController();
-      }
-      bmc.registerBeanManager(beanManager);
-   }
-
-   protected void cleanupBeanManager(@Observes BeforeShutdown beforeShutdown) {
-      bmc.deregisterBeanManager();
    }
 
    static class ConfigurationHolder {
@@ -234,6 +270,24 @@ public class InfinispanExtension extends BeanManagerAware implements Extension {
 
       public Set<Annotation> getQualifiers() {
          return qualifiers;
+      }
+   }
+
+   public static class InstalledCacheManager {
+      final EmbeddedCacheManager cacheManager;
+      final boolean isDefault;
+
+      InstalledCacheManager(EmbeddedCacheManager cacheManager, boolean aDefault) {
+         this.cacheManager = cacheManager;
+         isDefault = aDefault;
+      }
+
+      public EmbeddedCacheManager getCacheManager() {
+         return cacheManager;
+      }
+
+      public boolean isDefault() {
+         return isDefault;
       }
    }
 }

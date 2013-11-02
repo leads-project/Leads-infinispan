@@ -104,8 +104,7 @@ public class TransactionCoordinator {
    public final int prepare(LocalTransaction localTransaction, boolean replayEntryWrapping) throws XAException {
       validateNotMarkedForRollback(localTransaction);
 
-      if (Configurations.isOnePhaseCommit(configuration) || is1PcForAutoCommitTransaction(localTransaction) ||
-            Configurations.isOnePhaseTotalOrderCommit(configuration)) {
+      if (isOnePhaseCommit(localTransaction)) {
          if (trace) log.tracef("Received prepare for tx: %s. Skipping call as 1PC will be used.", localTransaction);
          return XA_OK;
       }
@@ -121,7 +120,7 @@ public class TransactionCoordinator {
          if (localTransaction.isReadOnly()) {
             if (trace) log.tracef("Readonly transaction: %s", localTransaction.getGlobalTransaction());
             // force a cleanup to release any objects held.  Some TMs don't call commit if it is a READ ONLY tx.  See ISPN-845
-            commit(localTransaction, false);
+            commitInternal(localTransaction);
             return XA_RDONLY;
          } else {
             txTable.localTransactionPrepared(localTransaction);
@@ -131,7 +130,7 @@ public class TransactionCoordinator {
          if (shuttingDown)
             log.trace("Exception while preparing back, probably because we're shutting down.");
          else
-            log.error("Error while processing prepare", e);
+            log.errorProcessingPrepare(e);
 
          //rollback transaction before throwing the exception as there's no guarantee the TM calls XAResource.rollback
          //after prepare failed.
@@ -141,30 +140,26 @@ public class TransactionCoordinator {
       }
    }
 
-   public void commit(LocalTransaction localTransaction, boolean isOnePhase) throws XAException {
+   public boolean commit(LocalTransaction localTransaction, boolean isOnePhase) throws XAException {
       if (trace) log.tracef("Committing transaction %s", localTransaction.getGlobalTransaction());
       LocalTxInvocationContext ctx = icc.createTxInvocationContext();
       ctx.setLocalTransaction(localTransaction);
-      if (Configurations.isOnePhaseCommit(configuration) || isOnePhase || is1PcForAutoCommitTransaction(localTransaction) ||
-            Configurations.isOnePhaseTotalOrderCommit(configuration)) {
+      if (isOnePhaseCommit(localTransaction) || isOnePhase) {
          validateNotMarkedForRollback(localTransaction);
 
          if (trace) log.trace("Doing an 1PC prepare call on the interceptor chain");
-         PrepareCommand command = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), localTransaction.getModifications(), true);
+         List<WriteCommand> modifications = localTransaction.getModifications();
+         PrepareCommand command = commandCreator.createPrepareCommand(localTransaction.getGlobalTransaction(), modifications, true);
          try {
             invoker.invoke(ctx, command);
          } catch (Throwable e) {
             handleCommitFailure(e, localTransaction, true);
          }
-      } else {
-         CommitCommand commitCommand = commandCreator.createCommitCommand(localTransaction.getGlobalTransaction());
-         try {
-            invoker.invoke(ctx, commitCommand);
-            txTable.removeLocalTransaction(localTransaction);
-         } catch (Throwable e) {
-            handleCommitFailure(e, localTransaction, false);
-         }
+         return true;
+      } else if (!localTransaction.isReadOnly()) {
+         commitInternal(localTransaction);
       }
+      return false;
    }
 
    public void rollback(LocalTransaction localTransaction) throws XAException {
@@ -209,6 +204,18 @@ public class TransactionCoordinator {
       throw new XAException(XAException.XA_HEURRB); //this is a heuristic rollback
    }
 
+   private void commitInternal(LocalTransaction localTransaction) throws XAException {
+      LocalTxInvocationContext ctx = icc.createTxInvocationContext();
+      ctx.setLocalTransaction(localTransaction);
+      CommitCommand commitCommand = commandCreator.createCommitCommand(localTransaction.getGlobalTransaction());
+      try {
+         invoker.invoke(ctx, commitCommand);
+         txTable.removeLocalTransaction(localTransaction);
+      } catch (Throwable e) {
+         handleCommitFailure(e, localTransaction, false);
+      }
+   }
+
    private void rollbackInternal(LocalTransaction localTransaction) throws Throwable {
       if (trace) log.tracef("rollback transaction %s ", localTransaction.getGlobalTransaction());
       RollbackCommand rollbackCommand = commandsFactory.buildRollbackCommand(localTransaction.getGlobalTransaction());
@@ -226,12 +233,17 @@ public class TransactionCoordinator {
       }
    }
 
-   private boolean is1PcForAutoCommitTransaction(LocalTransaction localTransaction) {
+   public boolean is1PcForAutoCommitTransaction(LocalTransaction localTransaction) {
       return configuration.transaction().use1PcForAutoCommitTransactions() && localTransaction.isImplicitTransaction();
    }
 
    private static interface CommandCreator {
       CommitCommand createCommitCommand(GlobalTransaction gtx);
       PrepareCommand createPrepareCommand(GlobalTransaction gtx, List<WriteCommand> modifications, boolean onePhaseCommit);
+   }
+
+   private boolean isOnePhaseCommit(LocalTransaction localTransaction) {
+      return Configurations.isOnePhaseCommit(configuration) || is1PcForAutoCommitTransaction(localTransaction) ||
+            Configurations.isOnePhaseTotalOrderCommit(configuration);
    }
 }

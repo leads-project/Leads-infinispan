@@ -1,9 +1,13 @@
 package org.infinispan.query.impl;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ServiceLoader;
 import java.util.TreeMap;
 
+import org.hibernate.search.Environment;
+import org.hibernate.search.cfg.SearchMapping;
 import org.hibernate.search.cfg.spi.SearchConfiguration;
 import org.hibernate.search.jmx.StatisticsInfo;
 import org.hibernate.search.spi.SearchFactoryBuilder;
@@ -30,7 +34,6 @@ import org.infinispan.jmx.JmxUtil;
 import org.infinispan.jmx.ResourceDMBean;
 import org.infinispan.lifecycle.AbstractModuleLifecycle;
 import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.query.CommandInitializer;
 import org.infinispan.query.MassIndexer;
 import org.infinispan.query.backend.LocalQueryInterceptor;
 import org.infinispan.query.backend.QueryInterceptor;
@@ -38,6 +41,7 @@ import org.infinispan.query.backend.SearchableCacheConfiguration;
 import org.infinispan.query.clustered.QueryBox;
 import org.infinispan.query.impl.massindex.MapReduceMassIndexer;
 import org.infinispan.query.logging.Log;
+import org.infinispan.query.spi.ProgrammaticSearchMappingProvider;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.util.logging.LogFactory;
 
@@ -58,7 +62,7 @@ public class LifecycleManager extends AbstractModuleLifecycle {
 
    private static final Object REMOVED_REGISTRY_COMPONENT = new Object();
 
-   private MBeanServer mbeanServer;
+   private MBeanServer mbeanServer;     //todo [anistor] these should not be global! they are per cache manager
 
    private ComponentMetadataRepo metadataRepo;
 
@@ -213,12 +217,34 @@ public class LifecycleManager extends AbstractModuleLifecycle {
       if (searchFactory==null) {
          GlobalComponentRegistry globalComponentRegistry = cr.getGlobalComponentRegistry();
          EmbeddedCacheManager uninitializedCacheManager = globalComponentRegistry.getComponent(EmbeddedCacheManager.class);
+         indexingProperties = addProgrammaticMappings(indexingProperties, cr);
          // Set up the search factory for Hibernate Search first.
          SearchConfiguration config = new SearchableCacheConfiguration(new Class[0], indexingProperties, uninitializedCacheManager, cr);
          searchFactory = new SearchFactoryBuilder().configuration(config).buildSearchFactory();
          cr.registerComponent(searchFactory, SearchFactoryIntegrator.class);
       }
       return searchFactory;
+   }
+
+   private Properties addProgrammaticMappings(Properties indexingProperties, ComponentRegistry cr) {
+      Iterator<ProgrammaticSearchMappingProvider> providers = ServiceLoader.load(ProgrammaticSearchMappingProvider.class).iterator();
+      if (providers.hasNext()) {
+         SearchMapping mapping = (SearchMapping) indexingProperties.get(Environment.MODEL_MAPPING);
+         if (mapping == null) {
+            mapping = new SearchMapping();
+            Properties amendedProperties = new Properties();
+            amendedProperties.putAll(indexingProperties);
+            amendedProperties.put(Environment.MODEL_MAPPING, mapping);
+            indexingProperties = amendedProperties;
+         }
+         Cache cache = cr.getComponent(Cache.class);
+
+         while (providers.hasNext()) {
+            ProgrammaticSearchMappingProvider provider = providers.next();
+            provider.defineMappings(cache, mapping);
+         }
+      }
+      return indexingProperties;
    }
 
    @Override

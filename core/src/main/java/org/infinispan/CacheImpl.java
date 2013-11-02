@@ -18,12 +18,10 @@ import org.infinispan.commands.write.PutMapCommand;
 import org.infinispan.commands.write.RemoveCommand;
 import org.infinispan.commands.write.ReplaceCommand;
 import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.configuration.cache.LegacyConfigurationAdaptor;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
-import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
@@ -44,12 +42,12 @@ import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.marshall.core.MarshalledValue;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.Util;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.metadata.Metadata;
+import org.infinispan.notifications.KeyFilter;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.stats.Stats;
@@ -59,8 +57,8 @@ import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.xa.TransactionXaAdapter;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
 import org.infinispan.util.concurrent.AbstractInProcessNotifyingFuture;
+import org.infinispan.util.concurrent.LegacyNotifyingFutureAdaptor;
 import org.infinispan.util.concurrent.NotifyingFuture;
-import org.infinispan.util.concurrent.NotifyingFutureAdaptor;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -325,7 +323,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    }
 
    final int size(EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader) {
-      SizeCommand command = commandsFactory.buildSizeCommand();
+      SizeCommand command = commandsFactory.buildSizeCommand(explicitFlags);
       return (Integer) invoker.invoke(getInvocationContextForRead(
             null, explicitClassLoader, UNBOUNDED), command);
    }
@@ -370,7 +368,6 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
       return (V) invoker.invoke(ctx, command);
    }
 
-   @Override
    public final CacheEntry getCacheEntry(Object key, EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader) {
       assertKeyNotNull(key);
       InvocationContext ctx = getInvocationContextForRead(null, explicitClassLoader, 1);
@@ -445,7 +442,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    @SuppressWarnings("unchecked")
    Set<K> keySet(EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader) {
       InvocationContext ctx = getInvocationContextForRead(null, explicitClassLoader, UNBOUNDED);
-      KeySetCommand command = commandsFactory.buildKeySetCommand();
+      KeySetCommand command = commandsFactory.buildKeySetCommand(explicitFlags);
       return (Set<K>) invoker.invoke(ctx, command);
    }
 
@@ -457,7 +454,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    @SuppressWarnings("unchecked")
    Collection<V> values(EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader) {
       InvocationContext ctx = getInvocationContextForRead(null, explicitClassLoader, UNBOUNDED);
-      ValuesCommand command = commandsFactory.buildValuesCommand();
+      ValuesCommand command = commandsFactory.buildValuesCommand(explicitFlags);
       return (Collection<V>) invoker.invoke(ctx, command);
    }
 
@@ -469,7 +466,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    @SuppressWarnings("unchecked")
    Set<Map.Entry<K, V>> entrySet(EnumSet<Flag> explicitFlags, ClassLoader explicitClassLoader) {
       InvocationContext ctx = getInvocationContextForRead(null, explicitClassLoader, UNBOUNDED);
-      EntrySetCommand command = commandsFactory.buildEntrySetCommand();
+      EntrySetCommand command = commandsFactory.buildEntrySetCommand(explicitFlags);
       return (Set<Map.Entry<K, V>>) invoker.invoke(ctx, command);
    }
 
@@ -523,12 +520,6 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    }
 
    @Override
-   @Deprecated
-   public org.infinispan.config.Configuration getConfiguration() {
-      return LegacyConfigurationAdaptor.adapt(config);
-   }
-
-   @Override
    public Configuration getCacheConfiguration() {
       return config;
    }
@@ -536,6 +527,11 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    @Override
    public void addListener(Object listener) {
       notifier.addListener(listener);
+   }
+
+   @Override
+   public void addListener(Object listener, KeyFilter filter) {
+      notifier.addListener(listener, filter);
    }
 
    @Override
@@ -647,7 +643,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
          throw new IllegalArgumentException("Cannot lock empty list of keys");
       }
       InvocationContext ctx = getInvocationContextForWrite(explicitClassLoader, UNBOUNDED, false);
-      LockControlCommand command = commandsFactory.buildLockControlCommand((Collection<Object>) keys, explicitFlags);
+      LockControlCommand command = commandsFactory.buildLockControlCommand(keys, explicitFlags);
       return (Boolean) invoker.invoke(ctx, command);
    }
 
@@ -672,7 +668,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
             .lifespan(config.expiration().lifespan()).maxIdle(config.expiration().maxIdle()).build();
       // Context only needs to ship ClassLoader if marshalling will be required
       isClassLoaderInContext = config.clustering().cacheMode().isClustered()
-            || config.loaders().usingCacheLoaders()
+            || config.persistence().usingStores()
             || config.storeAsBinary().enabled();
 
       if (log.isDebugEnabled()) log.debugf("Started cache %s on %s", getName(), getCacheManager().getAddress());
@@ -788,7 +784,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    )
    public String getCacheName() {
       String name = getName().equals(CacheContainer.DEFAULT_CACHE_NAME) ? "Default Cache" : getName();
-      return name + "(" + getConfiguration().getCacheModeString().toLowerCase() + ")";
+      return name + "(" + getCacheConfiguration().clustering().cacheMode().toString().toLowerCase() + ")";
    }
 
    /**
@@ -800,10 +796,6 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
          dataType = DataType.TRAIT,
          displayType = DisplayType.SUMMARY
    )
-   public String getConfigurationAsXmlString() {
-      return getConfiguration().toXmlString();
-   }
-
    @Override
    public String getVersion() {
       return Version.VERSION;
@@ -1000,7 +992,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    }
 
    final NotifyingFuture<V> putAsync(final K key, final V value, final Metadata metadata, final EnumSet<Flag> explicitFlags, final ClassLoader explicitClassLoader) {
-      final NotifyingFutureAdaptor<V> result = new NotifyingFutureAdaptor<V>();
+      final LegacyNotifyingFutureAdaptor<V> result = new LegacyNotifyingFutureAdaptor<V>();
       final InvocationContext ctx = getInvocationContextWithImplicitTransactionForAsyncOps(false, explicitClassLoader, 1);
       Future<V> returnValue = asyncExecutor.submit(new Callable<V>() {
          @Override
@@ -1031,7 +1023,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    }
 
    final NotifyingFuture<Void> putAllAsync(final Map<? extends K, ? extends V> data, final Metadata metadata, final EnumSet<Flag> explicitFlags, final ClassLoader explicitClassLoader) {
-      final NotifyingFutureAdaptor<Void> result = new NotifyingFutureAdaptor<Void>();
+      final LegacyNotifyingFutureAdaptor<Void> result = new LegacyNotifyingFutureAdaptor<Void>();
       final InvocationContext ctx = getInvocationContextWithImplicitTransactionForAsyncOps(false, explicitClassLoader, data.size());
       Future<Void> returnValue = asyncExecutor.submit(new Callable<Void>() {
          @Override
@@ -1055,7 +1047,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    }
 
    final NotifyingFuture<Void> clearAsync(final EnumSet<Flag> explicitFlags, final ClassLoader explicitClassLoader) {
-      final NotifyingFutureAdaptor<Void> result = new NotifyingFutureAdaptor<Void>();
+      final LegacyNotifyingFutureAdaptor<Void> result = new LegacyNotifyingFutureAdaptor<Void>();
       final InvocationContext ctx = getInvocationContextWithImplicitTransactionForAsyncOps(false, explicitClassLoader, UNBOUNDED);
       Future<Void> returnValue = asyncExecutor.submit(new Callable<Void>() {
          @Override
@@ -1083,7 +1075,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
 
    final NotifyingFuture<V> putIfAbsentAsync(final K key, final V value, final Metadata metadata,
          final EnumSet<Flag> explicitFlags,final ClassLoader explicitClassLoader) {
-      final NotifyingFutureAdaptor<V> result = new NotifyingFutureAdaptor<V>();
+      final LegacyNotifyingFutureAdaptor<V> result = new LegacyNotifyingFutureAdaptor<V>();
       final InvocationContext ctx = getInvocationContextWithImplicitTransactionForAsyncOps(false, explicitClassLoader, 1);
       Future<V> returnValue = asyncExecutor.submit(new Callable<V>() {
          @Override
@@ -1106,7 +1098,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    }
 
    final NotifyingFuture<V> removeAsync(final Object key, final EnumSet<Flag> explicitFlags, final ClassLoader explicitClassLoader) {
-      final NotifyingFutureAdaptor<V> result = new NotifyingFutureAdaptor<V>();
+      final LegacyNotifyingFutureAdaptor<V> result = new LegacyNotifyingFutureAdaptor<V>();
       final InvocationContext ctx = getInvocationContextWithImplicitTransactionForAsyncOps(false, explicitClassLoader, 1);
       Future<V> returnValue = asyncExecutor.submit(new Callable<V>() {
          @Override
@@ -1129,7 +1121,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    }
 
    final NotifyingFuture<Boolean> removeAsync(final Object key, final Object value, final EnumSet<Flag> explicitFlags, final ClassLoader explicitClassLoader) {
-      final NotifyingFutureAdaptor<Boolean> result = new NotifyingFutureAdaptor<Boolean>();
+      final LegacyNotifyingFutureAdaptor<Boolean> result = new LegacyNotifyingFutureAdaptor<Boolean>();
       final InvocationContext ctx = getInvocationContextWithImplicitTransactionForAsyncOps(false, explicitClassLoader, 1);
       Future<Boolean> returnValue = asyncExecutor.submit(new Callable<Boolean>() {
          @Override
@@ -1156,7 +1148,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
 
    final NotifyingFuture<V> replaceAsync(final K key, final V value, final Metadata metadata,
          final EnumSet<Flag> explicitFlags, final ClassLoader explicitClassLoader) {
-      final NotifyingFutureAdaptor<V> result = new NotifyingFutureAdaptor<V>();
+      final LegacyNotifyingFutureAdaptor<V> result = new LegacyNotifyingFutureAdaptor<V>();
       final InvocationContext ctx = getInvocationContextWithImplicitTransactionForAsyncOps(false, explicitClassLoader, 1);
       Future<V> returnValue = asyncExecutor.submit(new Callable<V>() {
          @Override
@@ -1183,7 +1175,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
 
    final NotifyingFuture<Boolean> replaceAsync(final K key, final V oldValue, final V newValue,
          final Metadata metadata, final EnumSet<Flag> explicitFlags, final ClassLoader explicitClassLoader) {
-      final NotifyingFutureAdaptor<Boolean> result = new NotifyingFutureAdaptor<Boolean>();
+      final LegacyNotifyingFutureAdaptor<Boolean> result = new LegacyNotifyingFutureAdaptor<Boolean>();
       final InvocationContext ctx = getInvocationContextWithImplicitTransactionForAsyncOps(false, explicitClassLoader, 1);
       Future<Boolean> returnValue = asyncExecutor.submit(new Callable<Boolean>() {
          @Override
@@ -1219,7 +1211,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
             appliedFlags = explicitFlags.clone();
             explicitFlags.clear();
          }
-         final NotifyingFutureAdaptor<V> f = new NotifyingFutureAdaptor<V>();
+         final LegacyNotifyingFutureAdaptor<V> f = new LegacyNotifyingFutureAdaptor<V>();
 
          Callable<V> c = new Callable<V>() {
             @Override
@@ -1259,7 +1251,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    }
 
    private boolean isSkipLoader(EnumSet<Flag> flags) {
-      boolean hasCacheLoaderConfig = !config.loaders().cacheLoaders().isEmpty();
+      boolean hasCacheLoaderConfig = !config.persistence().stores().isEmpty();
       return !hasCacheLoaderConfig
             || (flags != null && (flags.contains(Flag.SKIP_CACHE_LOAD) || flags.contains(Flag.SKIP_CACHE_STORE)));
    }
@@ -1267,18 +1259,6 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
    @Override
    public AdvancedCache<K, V> getAdvancedCache() {
       return this;
-   }
-
-   @Override
-   public void compact() {
-      for (InternalCacheEntry e : dataContainer) {
-         if (e.getKey() instanceof MarshalledValue) {
-            ((MarshalledValue) e.getKey()).compact(true, true);
-         }
-         if (e.getValue() instanceof MarshalledValue) {
-            ((MarshalledValue) e.getValue()).compact(true, true);
-         }
-      }
    }
 
    @Override

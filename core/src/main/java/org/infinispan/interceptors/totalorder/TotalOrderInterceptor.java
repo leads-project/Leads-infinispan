@@ -8,15 +8,21 @@ import org.infinispan.commands.tx.RollbackCommand;
 import org.infinispan.commands.tx.totalorder.TotalOrderPrepareCommand;
 import org.infinispan.commons.CacheException;
 import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.factories.KnownComponentNames;
+import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.base.CommandInterceptor;
+import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.TotalOrderRemoteTransactionState;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
 import org.infinispan.transaction.xa.GlobalTransaction;
+import org.infinispan.util.concurrent.BlockingTaskAwareExecutorService;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+
+import java.util.Collection;
 
 /**
  * Created to control the total order validation. It disable the possibility of acquiring locks during execution through
@@ -31,11 +37,18 @@ public class TotalOrderInterceptor extends CommandInterceptor {
    private static final Log log = LogFactory.getLog(TotalOrderInterceptor.class);
    private TransactionTable transactionTable;
    private TotalOrderManager totalOrderManager;
+   private ClusteringDependentLogic clusteringDependentLogic;
+   private BlockingTaskAwareExecutorService executorService;
 
    @Inject
-   public void inject(TransactionTable transactionTable, TotalOrderManager totalOrderManager) {
+   public void inject(TransactionTable transactionTable, TotalOrderManager totalOrderManager,
+                      ClusteringDependentLogic clusteringDependentLogic,
+                      @ComponentName(value = KnownComponentNames.TOTAL_ORDER_EXECUTOR)
+                      BlockingTaskAwareExecutorService executorService) {
       this.transactionTable = transactionTable;
       this.totalOrderManager = totalOrderManager;
+      this.clusteringDependentLogic = clusteringDependentLogic;
+      this.executorService = executorService;
    }
 
    @Override
@@ -51,6 +64,7 @@ public class TotalOrderInterceptor extends CommandInterceptor {
       }
 
       try {
+         simulateLocking(ctx, command, clusteringDependentLogic);
          if (ctx.isOriginLocal()) {
             return invokeNextInterceptor(ctx, command);
          } else {
@@ -141,9 +155,12 @@ public class TotalOrderInterceptor extends CommandInterceptor {
          if (state != null && state.isFinished()) {
             totalOrderManager.release(state);
             if (commit) {
-               transactionTable.remoteTransactionCommitted(command.getGlobalTransaction());
+               transactionTable.remoteTransactionCommitted(command.getGlobalTransaction(), false);
             } else {
                transactionTable.remoteTransactionRollback(command.getGlobalTransaction());
+            }
+            if (context.isOriginLocal()) {
+               executorService.checkForReadyTasks();
             }
          }
       }
@@ -170,5 +187,20 @@ public class TotalOrderInterceptor extends CommandInterceptor {
          log.timeoutWaitingUntilTransactionPrepared(state.getGlobalTransaction().globalId());
       }
       return false;
+   }
+
+   private void simulateLocking(TxInvocationContext context, PrepareCommand command,
+                                ClusteringDependentLogic clusteringDependentLogic) {
+      Collection<Object> affectedKeys = command.getAffectedKeys();
+      //this map is only populated after locks are acquired. However, no locks are acquired when total order is enabled
+      //so we need to populate it here
+      context.addAllAffectedKeys(command.getAffectedKeys());
+      //prepare can be send more than once if we have a state transfer
+      context.clearLockedKeys();
+      for (Object k : affectedKeys) {
+         if (clusteringDependentLogic.localNodeIsPrimaryOwner(k)) {
+            context.addLockedKey(k);
+         }
+      }
    }
 }

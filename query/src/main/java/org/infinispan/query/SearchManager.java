@@ -3,7 +3,7 @@ package org.infinispan.query;
 import org.apache.lucene.search.Query;
 import org.hibernate.search.SearchFactory;
 import org.hibernate.search.query.dsl.EntityContext;
-import org.hibernate.search.query.engine.spi.TimeoutExceptionFactory;
+import org.infinispan.query.dsl.QueryFactory;
 
 /**
  * The SearchManager is the entry point to create full text queries on top of a cache.
@@ -12,6 +12,13 @@ import org.hibernate.search.query.engine.spi.TimeoutExceptionFactory;
  * @author Marko Luksa
  */
 public interface SearchManager {
+
+   /**
+    * Experimental! Obtains the factory for DSL-based queries.
+    *
+    * @return a factory capable of building queries for the cache this SearchManager belongs to
+    */
+   QueryFactory getQueryFactory();
 
    /**
     * This is a simple method that will just return a {@link CacheQuery}, filtered according to a set of classes passed
@@ -54,20 +61,4 @@ public interface SearchManager {
     */
    MassIndexer getMassIndexer();
 
-   /**
-    * Registers a {@link org.infinispan.query.Transformer} for the supplied key class.
-    * When storing keys in cache that are neither simple (String, int, ...) nor annotated with @Transformable,
-    * Infinispan-Query will need to know what Transformer to use when transforming the keys to Strings. Clients
-    * must specify what Transformer to use for a particular key class by registering it through this method.
-    *
-    * @param keyClass the key class for which the supplied transformerClass should be used
-    * @param transformerClass the transformer class to use for the supplied key class
-    */
-   void registerKeyTransformer(Class<?> keyClass, Class<? extends Transformer> transformerClass);
-
-   /**
-    * Define the timeout exception factory to customize the exception thrown when the query timeout is exceeded.
-    * @param timeoutExceptionFactory the timeout exception factory to use
-    */
-   void setTimeoutExceptionFactory(TimeoutExceptionFactory timeoutExceptionFactory);
 }

@@ -1,20 +1,13 @@
 package org.infinispan.jcache;
 
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Collections;
-import java.util.Set;
+import org.infinispan.persistence.spi.InitializationContext;
+import org.infinispan.marshall.core.MarshalledEntry;
 
-import javax.cache.CacheWriter;
+import javax.cache.integration.CacheWriter;
 
-import org.infinispan.container.entries.InternalCacheEntry;
-import org.infinispan.loaders.AbstractCacheStore;
-import org.infinispan.loaders.CacheLoaderConfig;
-import org.infinispan.loaders.CacheLoaderException;
+public class JCacheWriterAdapter<K, V> implements org.infinispan.persistence.spi.CacheWriter {
 
-public class JCacheWriterAdapter<K, V> extends AbstractCacheStore {
-
-   private CacheWriter<K, V> delegate;
+   private CacheWriter<? super K, ? super V> delegate;
 
    public JCacheWriterAdapter() {
       // Empty constructor required so that it can be instantiated with
@@ -22,68 +15,30 @@ public class JCacheWriterAdapter<K, V> extends AbstractCacheStore {
       // loader configuration works.
    }
 
-   public void setCacheWriter(CacheWriter<K, V> delegate) {
+   public void setCacheWriter(CacheWriter<? super K, ? super V> delegate) {
       this.delegate = delegate;
    }
 
    @Override
-   public void store(InternalCacheEntry entry) throws CacheLoaderException {
+   public void init(InitializationContext ctx) {
+   }
+
+   @Override
+   public void write(MarshalledEntry entry) {
       delegate.write(new JCacheEntry(entry.getKey(), entry.getValue()));
    }
 
    @Override
-   public void fromStream(ObjectInput inputStream) throws CacheLoaderException {
-      // TODO
-   }
-
-   @Override
-   public void toStream(ObjectOutput outputStream) throws CacheLoaderException {
-      // TODO
-   }
-
-   @Override
-   public void clear() throws CacheLoaderException {
-      // TODO
-   }
-
-   @Override
-   public boolean remove(Object key) throws CacheLoaderException {
+   public boolean delete(Object key) {
       delegate.delete(key);
       return false;
    }
 
    @Override
-   public InternalCacheEntry load(Object key) throws CacheLoaderException {      
-      //TODO
-      return null;
+   public void start() {
    }
 
    @Override
-   public Set<InternalCacheEntry> loadAll() throws CacheLoaderException {
-      // TODO
-      return Collections.emptySet();
-   }
-
-   @Override
-   public Set<InternalCacheEntry> load(int numEntries) throws CacheLoaderException {
-      // TODO
-      return Collections.emptySet();
-   }
-
-   @Override
-   public Set<Object> loadAllKeys(Set<Object> keysToExclude) throws CacheLoaderException {
-      // TODO
-      return Collections.emptySet();
-   }
-
-   @Override
-   public Class<? extends CacheLoaderConfig> getConfigurationClass() {
-      // TODO
-      return null;
-   }
-
-   @Override
-   protected void purgeInternal() throws CacheLoaderException {
-      // TODO
+   public void stop() {
    }
 }

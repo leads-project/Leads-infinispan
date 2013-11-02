@@ -104,7 +104,7 @@ public interface ClusteringDependentLogic {
          }
       }
 
-      protected final EntryVersionsMap totalOrderCreateNewVersionsAndCheckForWriteSkews(TxInvocationContext context,
+      protected final EntryVersionsMap totalOrderCreateNewVersionsAndCheckForWriteSkews(VersionGenerator versionGenerator, TxInvocationContext context,
                                                                                         VersionedPrepareCommand prepareCommand,
                                                                                         WriteSkewHelper.KeySpecificLogic keySpecificLogic) {
          if (context.isOriginLocal()) {
@@ -115,7 +115,7 @@ public interface ClusteringDependentLogic {
 
          if (!((TotalOrderPrepareCommand) prepareCommand).skipWriteSkewCheck()) {
             updatedVersionMap = performTotalOrderWriteSkewCheckAndReturnNewVersions(prepareCommand, dataContainer,
-                                                                                    context, keySpecificLogic);
+                                                                                    versionGenerator, context, keySpecificLogic);
          }
 
          for (WriteCommand c : prepareCommand.getModifications()) {
@@ -331,7 +331,7 @@ public interface ClusteringDependentLogic {
       @Override
       public EntryVersionsMap createNewVersionsAndCheckForWriteSkews(VersionGenerator versionGenerator, TxInvocationContext context, VersionedPrepareCommand prepareCommand) {
          if (configuration.transaction().transactionProtocol().isTotalOrder()) {
-            return totalOrderCreateNewVersionsAndCheckForWriteSkews(context, prepareCommand, keySpecificLogic);
+            return totalOrderCreateNewVersionsAndCheckForWriteSkews(versionGenerator, context, prepareCommand, keySpecificLogic);
          } else {
             return super.createNewVersionsAndCheckForWriteSkews(versionGenerator, context, prepareCommand);
          }
@@ -348,10 +348,19 @@ public interface ClusteringDependentLogic {
       private RpcManager rpcManager;
       private StateTransferLock stateTransferLock;
 
-      private final WriteSkewHelper.KeySpecificLogic keySpecificLogic = new WriteSkewHelper.KeySpecificLogic() {
+      //in total order, all the owners can perform the write skew check.
+      private final WriteSkewHelper.KeySpecificLogic totalOrderKeySpecificLogic = new WriteSkewHelper.KeySpecificLogic() {
          @Override
          public boolean performCheckOnKey(Object key) {
             return localNodeIsOwner(key);
+         }
+      };
+
+      //in two phase commit, only the primary owner should perform the write skew check
+      private final WriteSkewHelper.KeySpecificLogic keySpecificLogic = new WriteSkewHelper.KeySpecificLogic() {
+         @Override
+         public boolean performCheckOnKey(Object key) {
+            return localNodeIsPrimaryOwner(key);
          }
       };
 
@@ -400,11 +409,23 @@ public interface ClusteringDependentLogic {
             if (isForeignOwned && !entry.isRemoved()) {
                if (configuration.clustering().l1().enabled()) {
                   // transform for L1
-                  if (entry.getLifespan() < 0 || entry.getLifespan() > configuration.clustering().l1().lifespan()) {
-                     Metadata newMetadata = entry.getMetadata().builder()
+                  long lifespan;
+                  if (metadata != null) {
+                     lifespan = metadata.lifespan();
+                  } else {
+                     lifespan = entry.getLifespan();
+                  }
+                  if (lifespan < 0 || lifespan > configuration.clustering().l1().lifespan()) {
+                     Metadata.Builder builder;
+                     if (metadata != null) {
+                        builder = metadata.builder();
+                     } else {
+                        builder = entry.getMetadata().builder();
+                     }
+                     Metadata newMetadata = builder
                            .lifespan(configuration.clustering().l1().lifespan())
                            .build();
-                     entry.setMetadata(newMetadata);
+                     metadata = newMetadata;
                   }
                } else {
                   doCommit = false;
@@ -449,7 +470,7 @@ public interface ClusteringDependentLogic {
       @Override
       public EntryVersionsMap createNewVersionsAndCheckForWriteSkews(VersionGenerator versionGenerator, TxInvocationContext context, VersionedPrepareCommand prepareCommand) {
          if (configuration.transaction().transactionProtocol().isTotalOrder()) {
-            return totalOrderCreateNewVersionsAndCheckForWriteSkews(context, prepareCommand, keySpecificLogic);
+            return totalOrderCreateNewVersionsAndCheckForWriteSkews(versionGenerator, context, prepareCommand, totalOrderKeySpecificLogic);
          }
          // Perform a write skew check on mapped entries.
          EntryVersionsMap uv = performWriteSkewCheckAndReturnNewVersions(prepareCommand, dataContainer,

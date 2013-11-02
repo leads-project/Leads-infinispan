@@ -17,14 +17,14 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 
-@Test(groups = {"functional", "transaction"}, testName = "api.batch.BatchWithTMTest")
+@Test(groups = {"functional", "transaction"}, testName = "api.batch.BatchWithCustomTMTest")
 public class BatchWithCustomTMTest extends AbstractBatchTest {
 
    EmbeddedCacheManager cm;
 
    @BeforeClass
    public void createCacheManager() {
-      cm = TestCacheManagerFactory.createLocalCacheManager(false);
+      cm = TestCacheManagerFactory.createCacheManager(false);
    }
 
    @AfterClass

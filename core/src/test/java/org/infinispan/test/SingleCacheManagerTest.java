@@ -1,10 +1,10 @@
 package org.infinispan.test;
 
 import org.infinispan.Cache;
-import org.infinispan.config.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
+import org.infinispan.transaction.TransactionTable;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -17,7 +17,7 @@ import javax.transaction.TransactionManager;
 
 /**
  * Base class for tests that operate on a single (most likely local) cache instance. This operates similar to {@link
- * org.infinispan.test.MultipleCacheManagersTest}, but on only once CacheManager.
+ * org.infinispan.test.MultipleCacheManagersTest}, but on only one CacheManager.
  *
  * @author Mircea.Markus@jboss.com
  * @see org.infinispan.test.MultipleCacheManagersTest
@@ -59,7 +59,7 @@ public abstract class SingleCacheManagerTest extends AbstractCacheTest {
          throw e;
       }
    }
-   
+
    @AfterClass(alwaysRun=true)
    protected void destroyAfterClass() {
       try {
@@ -77,10 +77,6 @@ public abstract class SingleCacheManagerTest extends AbstractCacheTest {
    @AfterMethod(alwaysRun=true)
    protected void clearContent() {
       if (cleanupAfterTest()) TestingUtil.clearContent(cacheManager);
-   }
-
-   protected Configuration getDefaultStandaloneConfig(boolean transactional) {
-      return TestCacheManagerFactory.getDefaultConfiguration(transactional);
    }
 
    protected ConfigurationBuilder getDefaultStandaloneCacheConfig(boolean transactional) {
@@ -117,5 +113,19 @@ public abstract class SingleCacheManagerTest extends AbstractCacheTest {
 
    protected <K,V> Cache<K, V> cache(String name) {
       return cacheManager.getCache(name);
+   }
+
+   protected void assertNoTransactions() {
+      eventually(new Condition() {
+         @Override
+         public boolean isSatisfied() throws Exception {
+            int localTxCount = TestingUtil.extractComponent(cache, TransactionTable.class).getLocalTxCount();
+            if (localTxCount != 0) {
+               log.tracef("Local tx=%s", localTxCount);
+               return false;
+            }
+            return true;
+         }
+      });
    }
 }

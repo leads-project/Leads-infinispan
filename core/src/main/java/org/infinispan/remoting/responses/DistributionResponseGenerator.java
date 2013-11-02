@@ -27,8 +27,7 @@ public class DistributionResponseGenerator implements ResponseGenerator {
 
    @Override
    public Response getResponse(CacheRpcCommand command, Object returnValue) {
-      if (command.getCommandId() == ClusteredGetCommand.COMMAND_ID) {
-         if (returnValue == null) return null;
+      if (command.getCommandId() == ClusteredGetCommand.COMMAND_ID) {         
          ClusteredGetCommand clusteredGet = (ClusteredGetCommand) command;
          if (distributionManager.isAffectedByRehash(clusteredGet.getKey()))
             return UnsureResponse.INSTANCE;

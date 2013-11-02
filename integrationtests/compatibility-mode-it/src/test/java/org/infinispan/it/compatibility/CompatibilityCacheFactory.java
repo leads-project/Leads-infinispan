@@ -7,6 +7,7 @@ import org.infinispan.api.BasicCacheContainer;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
+import org.infinispan.commons.equivalence.Equivalence;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.marshall.LegacyMarshallerAdapter;
@@ -20,7 +21,6 @@ import org.jboss.resteasy.plugins.server.servlet.HttpServletDispatcher;
 import org.jboss.resteasy.plugins.server.servlet.ResteasyBootstrap;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
-
 import javax.servlet.ServletContext;
 import java.util.Collections;
 
@@ -57,6 +57,10 @@ public class CompatibilityCacheFactory<K, V> {
    private final Marshaller marshaller;
    private final CacheMode cacheMode;
    private int restPort;
+   private final int defaultNumOwners = 2;
+   private int numOwners = defaultNumOwners;
+   private Equivalence keyEquivalence = null;
+   private Equivalence valueEquivalence = null;
 
    CompatibilityCacheFactory(CacheMode cacheMode) {
       this.cacheName = "";
@@ -64,10 +68,30 @@ public class CompatibilityCacheFactory<K, V> {
       this.cacheMode = cacheMode;
    }
 
+   CompatibilityCacheFactory(CacheMode cacheMode, int numOwners) {
+      this(cacheMode);
+      this.numOwners = numOwners;
+   }
+
    CompatibilityCacheFactory(String cacheName, Marshaller marshaller, CacheMode cacheMode) {
       this.cacheName = cacheName;
       this.marshaller = marshaller;
       this.cacheMode = cacheMode;
+   }
+
+   CompatibilityCacheFactory(String cacheName, Marshaller marshaller, CacheMode cacheMode, int numOwners) {
+      this(cacheName, marshaller, cacheMode);
+      this.numOwners = numOwners;
+   }
+
+   CompatibilityCacheFactory<K, V> keyEquivalence(Equivalence equivalence) {
+      this.keyEquivalence = equivalence;
+      return this;
+   }
+
+   CompatibilityCacheFactory<K, V> valueEquivalence(Equivalence equivalence) {
+      this.valueEquivalence = equivalence;
+      return this;
    }
 
    @Deprecated
@@ -84,10 +108,10 @@ public class CompatibilityCacheFactory<K, V> {
       return this;
    }
 
-   CompatibilityCacheFactory<K, V> setup(int basePort, int portOffset) throws Exception {
+   CompatibilityCacheFactory<K, V> setup(int baseHotRodPort, int portOffset) throws Exception {
       createEmbeddedCache();
-      createHotRodCache(basePort + portOffset);
-      createRestMemcachedCaches();
+      createHotRodCache(baseHotRodPort + portOffset);
+      createRestMemcachedCaches(portOffset);
       return this;
    }
 
@@ -98,11 +122,30 @@ public class CompatibilityCacheFactory<K, V> {
       createMemcachedCache(memcachedPort);
    }
 
+   private void createRestMemcachedCaches(int portOffset) throws Exception {
+      restPort = hotrod.getPort() + 20 + portOffset;
+      final int memcachedPort = hotrod.getPort() + 40 + portOffset;
+      createRestCache(restPort);
+      createMemcachedCache(memcachedPort);
+   }
+
    void createEmbeddedCache() {
       org.infinispan.configuration.cache.ConfigurationBuilder builder =
             new org.infinispan.configuration.cache.ConfigurationBuilder();
       builder.clustering().cacheMode(cacheMode)
             .compatibility().enable().marshaller(marshaller);
+
+      if (cacheMode.isDistributed() && numOwners != defaultNumOwners) {
+         builder.clustering().hash().numOwners(numOwners);
+      }
+
+      if (keyEquivalence != null) {
+         builder.dataContainer().keyEquivalence(keyEquivalence);
+      }
+
+      if (valueEquivalence != null) {
+         builder.dataContainer().valueEquivalence(valueEquivalence);
+      }
 
       cacheManager = cacheMode.isClustered()
             ? TestCacheManagerFactory.createClusteredCacheManager(builder)

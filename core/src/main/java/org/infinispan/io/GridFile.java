@@ -20,7 +20,6 @@ import java.util.LinkedList;
 import java.util.Set;
 
 import static java.lang.String.format;
-import static org.infinispan.context.Flag.FORCE_SYNCHRONOUS;
 
 /**
  * Subclass of File to iterate through directories and files in a grid
@@ -38,12 +37,19 @@ public class GridFile extends File {
    private final String path;
    private int chunkSize;
 
+   /**
+    * Creates a GridFile instance
+    * @param pathname path of file
+    * @param metadataCache cache to use to store metadata
+    * @param chunkSize chunk size.  Will be upgraded to next highest power of two.
+    * @param fs GridFilesystem instance
+    */
    GridFile(String pathname, Cache<String, Metadata> metadataCache, int chunkSize, GridFilesystem fs) {
       super(pathname);
       this.fs = fs;
       this.path = formatPath(pathname);
       this.metadataCache = metadataCache.getAdvancedCache();
-      this.chunkSize = chunkSize;
+      this.chunkSize = ModularArithmetic.CANNOT_ASSUME_DENOM_IS_POWER_OF_TWO ? chunkSize : org.infinispan.commons.util.Util.findNextHighestPowerOfTwo(chunkSize);
       initChunkSizeFromMetadata();
    }
 
@@ -163,6 +169,9 @@ public class GridFile extends File {
       metadataCache.put(getAbsolutePath(), metadata);
    }
 
+   /**
+    * Guaranteed to be a power of two
+    */
    public int getChunkSize() {
       return chunkSize;
    }
@@ -179,26 +188,14 @@ public class GridFile extends File {
 
    @Override
    public boolean delete() {
-      return delete(false); // asynchronous delete by default
-   }
-
-   /**
-    *
-    * @deprecated create GridFilesystem instance with additional FORCE_SYNCHRONOUS flag, if operations should be executed synchronously
-    */
-   @Deprecated
-   public boolean delete(boolean synchronous) {
       if (!exists())
          return false;
 
       if (isDirectory() && hasChildren())
          return false;
 
-      fs.remove(getAbsolutePath(), synchronous);    // removes all the chunks belonging to the file
-      if (synchronous)
-         metadataCache.withFlags(FORCE_SYNCHRONOUS).remove(getAbsolutePath()); // removes the metadata information
-      else
-         metadataCache.remove(getAbsolutePath()); // removes the metadata information
+      fs.remove(getAbsolutePath());    // removes all the chunks belonging to the file
+      metadataCache.remove(getAbsolutePath()); // removes the metadata information
       return true;
    }
 
@@ -354,7 +351,7 @@ public class GridFile extends File {
    protected static boolean isChildOf(String parent, String child) {
       if (parent == null || child == null)
          return false;
-      if (!child.startsWith(parent))
+      if (!child.startsWith((parent.endsWith(SEPARATOR) ? parent : parent + SEPARATOR)))
          return false;
       if (child.length() <= parent.length())
          return false;
@@ -532,17 +529,19 @@ public class GridFile extends File {
 
       private int length = 0;
       private long modificationTime = 0;
-      private int chunkSize = 0;
-      private byte flags = 0;
+      private int chunkSize;
+      private byte flags;
 
 
       public Metadata() {
+         chunkSize = 1;
+         flags = 0;
       }
 
       public Metadata(int length, long modificationTime, int chunkSize, byte flags) {
          this.length = length;
          this.modificationTime = modificationTime;
-         this.chunkSize = chunkSize;
+         this.chunkSize = ModularArithmetic.CANNOT_ASSUME_DENOM_IS_POWER_OF_TWO ? chunkSize : org.infinispan.commons.util.Util.findNextHighestPowerOfTwo(chunkSize);
          this.flags = flags;
       }
 

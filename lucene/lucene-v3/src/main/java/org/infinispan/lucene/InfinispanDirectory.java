@@ -26,7 +26,7 @@ import org.infinispan.util.logging.LogFactory;
  * An implementation of Lucene's {@link org.apache.lucene.store.Directory} which uses Infinispan to store Lucene indexes.
  * As the RAMDirectory the data is stored in memory, but provides some additional flexibility:
  * <p><b>Passivation, LRU or LIRS</b> Bigger indexes can be configured to passivate cleverly selected chunks of data to a cache store.
- * This can be a local filesystem, a network filesystem, a database or custom cloud stores like S3. See Infinispan's core documentation for a full list of available implementations, or {@link org.infinispan.loaders.CacheStore} to implement more.</p>
+ * This can be a local filesystem, a network filesystem, a database or custom cloud stores like S3. See Infinispan's core documentation for a full list of available implementations, or {@link org.infinispan.persistence.spi.CacheWriter} to implement more.</p>
  * <p><b>Non-volatile memory</b> The contents of the index can be stored in it's entirety in such a store, so that on shutdown or crash of the system data is not lost.
  * A copy of the index will be copied to the store in sync or async depending on configuration; In case you enable
  * Infinispan's clustering even in case of async the segments are always duplicated synchronously to other nodes, so you can
@@ -61,8 +61,8 @@ import org.infinispan.util.logging.LogFactory;
 public class InfinispanDirectory extends Directory {
    
    /**
-    * Used as default chunk size, can be overriden at construction time.
-    * Each Lucene index segment is splitted into parts with default size defined here
+    * Used as default chunk size, can be overridden at construction time.
+    * Each Lucene index segment is split into parts with default size defined here
     */
    public final static int DEFAULT_BUFFER_SIZE = 16 * 1024;
 
@@ -97,8 +97,8 @@ public class InfinispanDirectory extends Directory {
       checkNotNull(readLocker, "SegmentReadLocker");
       if (chunkSize <= 0)
          throw new IllegalArgumentException("chunkSize must be a positive integer");
-      this.metadataCache = (AdvancedCache<FileCacheKey, FileMetadata>) metadataCache.getAdvancedCache();
-      this.chunksCache = (AdvancedCache<ChunkCacheKey, Object>) chunksCache.getAdvancedCache();
+      this.metadataCache = (AdvancedCache<FileCacheKey, FileMetadata>) metadataCache.getAdvancedCache().withFlags(Flag.SKIP_INDEXING);
+      this.chunksCache = (AdvancedCache<ChunkCacheKey, Object>) chunksCache.getAdvancedCache().withFlags(Flag.SKIP_INDEXING);
       this.indexName = indexName;
       this.lockFactory = lf;
       this.lockFactory.setLockPrefix(this.getLockID());
@@ -143,8 +143,12 @@ public class InfinispanDirectory extends Directory {
     */
    public String[] list() {
       ensureOpen();
-      Set<String> filesList = fileOps.getFileList();
-      String[] array = filesList.toArray(new String[0]);
+      Set<String> files = fileOps.getFileList();
+      //Careful! if you think you can optimize this array allocation, think again.
+      //The _files_ are a concurrent structure, its size could vary in parallel:
+      //the array population and dimensioning need to be performed atomically
+      //to avoid trailing null elements in the returned array.
+      String[] array = files.toArray(new String[0]);
       return array;
    }
 
@@ -179,10 +183,7 @@ public class InfinispanDirectory extends Directory {
    public void touchFile(String fileName) {
       ensureOpen();
       FileMetadata file = fileOps.getFileMetadata(fileName);
-      if (file == null) {
-         return;
-      }
-      else {
+      if (file != null) {
          FileCacheKey key = new FileCacheKey(indexName, fileName);
          file.touch();
          metadataCache.put(key, file);
@@ -209,7 +210,7 @@ public class InfinispanDirectory extends Directory {
       ensureOpen();
 
       final FileCacheKey fromKey = new FileCacheKey(indexName, from);
-      final FileMetadata metadata = (FileMetadata) metadataCache.get(fromKey);
+      final FileMetadata metadata = metadataCache.get(fromKey);
       final int bufferSize = metadata.getBufferSize();
       // preparation: copy all chunks to new keys
       int i = -1;
@@ -267,7 +268,7 @@ public class InfinispanDirectory extends Directory {
    @Override
    public IndexInput openInput(String name) throws IOException {
       final FileCacheKey fileKey = new FileCacheKey(indexName, name);
-      FileMetadata fileMetadata = (FileMetadata) metadataCache.get(fileKey);
+      FileMetadata fileMetadata = metadataCache.get(fileKey);
       if (fileMetadata == null) {
          throw new FileNotFoundException("Error loading metadata for index file: " + fileKey);
       }

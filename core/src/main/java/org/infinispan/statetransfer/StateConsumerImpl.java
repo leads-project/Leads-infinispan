@@ -6,6 +6,7 @@ import org.infinispan.commands.write.InvalidateCommand;
 import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.InfinispanCollections;
+import org.infinispan.commons.util.concurrent.jdk8backported.EquivalentConcurrentHashMapV8;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
@@ -14,14 +15,16 @@ import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.distribution.ch.ConsistentHash;
+import org.infinispan.factories.KnownComponentNames;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
 import org.infinispan.interceptors.InterceptorChain;
-import org.infinispan.loaders.CacheLoaderException;
-import org.infinispan.loaders.CacheLoaderManager;
-import org.infinispan.loaders.CacheStore;
+import org.infinispan.persistence.CollectionKeyFilter;
+import org.infinispan.persistence.manager.PersistenceManager;
+import org.infinispan.persistence.spi.AdvancedCacheLoader;
+import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.SuccessfulResponse;
@@ -35,16 +38,31 @@ import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.totalorder.TotalOrderLatch;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
 import org.infinispan.transaction.xa.CacheTransaction;
+import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.ReadOnlyDataContainerBackedKeySet;
+import org.infinispan.util.concurrent.BlockingTaskAwareExecutorService;
 import org.infinispan.util.concurrent.ConcurrentHashSet;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.infinispan.context.Flag.*;
 import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
@@ -59,6 +77,7 @@ public class StateConsumerImpl implements StateConsumer {
 
    private static final Log log = LogFactory.getLog(StateConsumerImpl.class);
    private static final boolean trace = log.isTraceEnabled();
+   private static final Object UPDATED_KEY_MARKER = new Object();
 
    private ExecutorService executorService;
    private StateTransferManager stateTransferManager;
@@ -69,12 +88,13 @@ public class StateConsumerImpl implements StateConsumer {
    private CommandsFactory commandsFactory;
    private TransactionTable transactionTable;       // optional
    private DataContainer dataContainer;
-   private CacheLoaderManager cacheLoaderManager;
+   private PersistenceManager persistenceManager;
    private InterceptorChain interceptorChain;
    private InvocationContextContainer icc;
    private StateTransferLock stateTransferLock;
    private CacheNotifier cacheNotifier;
    private TotalOrderManager totalOrderManager;
+   private BlockingTaskAwareExecutorService remoteCommandsExecutor;
    private long timeout;
    private boolean isFetchEnabled;
    private boolean isTransactional;
@@ -88,7 +108,7 @@ public class StateConsumerImpl implements StateConsumer {
     * state transfer is not allowed to update anything. This can be null if there is not state transfer in progress at
     * the moment of there is one but a ClearCommand was encountered.
     */
-   private volatile Set<Object> updatedKeys;
+   private volatile EquivalentConcurrentHashMapV8<Object, Object> updatedKeys;
 
    /**
     * Indicates if there is a rebalance in progress. It is set to true when onTopologyUpdate with isRebalance==true is called.
@@ -149,11 +169,11 @@ public class StateConsumerImpl implements StateConsumer {
    @Override
    public void addUpdatedKey(Object key) {
       // grab a copy of the reference to prevent issues if another thread calls stopApplyingState() between null check and actual usage
-      final Set<Object> localUpdatedKeys = updatedKeys;
+      final EquivalentConcurrentHashMapV8<Object, Object> localUpdatedKeys = updatedKeys;
       if (localUpdatedKeys != null) {
          if (cacheTopology.getWriteConsistentHash().isKeyLocalToNode(rpcManager.getAddress(), key)) {
             if (trace) log.tracef("Key %s modified by a regular tx, state transfer will ignore it", key);
-            localUpdatedKeys.add(key);
+            localUpdatedKeys.put(key, UPDATED_KEY_MARKER);
          }
       }
    }
@@ -167,8 +187,25 @@ public class StateConsumerImpl implements StateConsumer {
    @Override
    public boolean isKeyUpdated(Object key) {
       // grab a copy of the reference to prevent issues if another thread calls stopApplyingState() between null check and actual usage
-      final Set<Object> localUpdatedKeys = updatedKeys;
+      final EquivalentConcurrentHashMapV8<Object, Object> localUpdatedKeys = updatedKeys;
       return localUpdatedKeys == null || localUpdatedKeys.contains(key);
+   }
+
+   @Override
+   public boolean executeIfKeyIsNotUpdated(Object key, final Runnable callback) {
+      // grab a copy of the reference to prevent issues if another thread calls stopApplyingState() between null check and actual usage
+      final EquivalentConcurrentHashMapV8<Object, Object> localUpdatedKeys = updatedKeys;
+      if (localUpdatedKeys != null) {
+         Object value = localUpdatedKeys.computeIfAbsent(key, new EquivalentConcurrentHashMapV8.Fun<Object, Object>() {
+            @Override
+            public Object apply(Object o) {
+               callback.run();
+               return null;
+            }
+         });
+         return value == null;
+      }
+      return false;
    }
 
    @Inject
@@ -181,12 +218,13 @@ public class StateConsumerImpl implements StateConsumer {
                     RpcManager rpcManager,
                     TransactionManager transactionManager,
                     CommandsFactory commandsFactory,
-                    CacheLoaderManager cacheLoaderManager,
+                    PersistenceManager persistenceManager,
                     DataContainer dataContainer,
                     TransactionTable transactionTable,
                     StateTransferLock stateTransferLock,
                     CacheNotifier cacheNotifier,
-                    TotalOrderManager totalOrderManager) {
+                    TotalOrderManager totalOrderManager,
+                    @ComponentName(KnownComponentNames.REMOTE_COMMAND_EXECUTOR) BlockingTaskAwareExecutorService remoteCommandsExecutor) {
       this.cacheName = cache.getName();
       this.executorService = executorService;
       this.stateTransferManager = stateTransferManager;
@@ -196,12 +234,13 @@ public class StateConsumerImpl implements StateConsumer {
       this.rpcManager = rpcManager;
       this.transactionManager = transactionManager;
       this.commandsFactory = commandsFactory;
-      this.cacheLoaderManager = cacheLoaderManager;
+      this.persistenceManager = persistenceManager;
       this.dataContainer = dataContainer;
       this.transactionTable = transactionTable;
       this.stateTransferLock = stateTransferLock;
       this.cacheNotifier = cacheNotifier;
       this.totalOrderManager = totalOrderManager;
+      this.remoteCommandsExecutor = remoteCommandsExecutor;
 
       isInvalidationMode = configuration.clustering().cacheMode().isInvalidation();
 
@@ -301,7 +340,9 @@ public class StateConsumerImpl implements StateConsumer {
       this.cacheTopology = cacheTopology;
       if (isRebalance) {
          if (trace) log.tracef("Start keeping track of keys for rebalance");
-         updatedKeys = new ConcurrentHashSet<Object>();
+         updatedKeys = new EquivalentConcurrentHashMapV8<Object, Object>(
+               configuration.dataContainer().keyEquivalence(),
+               configuration.dataContainer().valueEquivalence());
       }
       stateTransferLock.releaseExclusiveTopologyLock();
       stateTransferLock.notifyTopologyInstalled(cacheTopology.getTopologyId());
@@ -377,6 +418,7 @@ public class StateConsumerImpl implements StateConsumer {
          }
       } finally {
          stateTransferLock.notifyTransactionDataReceived(cacheTopology.getTopologyId());
+         remoteCommandsExecutor.checkForReadyTasks();
 
          // Only set the flag here, after all the transfers have been added to the transfersBySource map
          if (rebalanceInProgress.get()) {
@@ -517,11 +559,15 @@ public class StateConsumerImpl implements StateConsumer {
       log.debugf("Applying %d transactions for cache %s transferred from node %s", transactions.size(), cacheName, sender);
       if (isTransactional) {
          for (TransactionInfo transactionInfo : transactions) {
-            CacheTransaction tx = transactionTable.getLocalTransaction(transactionInfo.getGlobalTransaction());
+            GlobalTransaction gtx = transactionInfo.getGlobalTransaction();
+            // Mark the global transaction as remote. Only used for logging, hashCode/equals ignore it.
+            gtx.setRemote(true);
+
+            CacheTransaction tx = transactionTable.getLocalTransaction(gtx);
             if (tx == null) {
-               tx = transactionTable.getRemoteTransaction(transactionInfo.getGlobalTransaction());
+               tx = transactionTable.getRemoteTransaction(gtx);
                if (tx == null) {
-                  tx = transactionTable.getOrCreateRemoteTransaction(transactionInfo.getGlobalTransaction(), transactionInfo.getModifications());
+                  tx = transactionTable.getOrCreateRemoteTransaction(gtx, transactionInfo.getModifications());
                   ((RemoteTransaction) tx).setMissingLookedUpEntries(true);
                }
             }
@@ -532,10 +578,10 @@ public class StateConsumerImpl implements StateConsumer {
       }
    }
 
-   // Must run after the CacheLoaderManager
+   // Must run after the PersistenceManager
    @Start(priority = 20)
    public void start() {
-      isFetchEnabled = configuration.clustering().stateTransfer().fetchInMemoryState() || cacheLoaderManager.isFetchPersistentState();
+      isFetchEnabled = configuration.clustering().stateTransfer().fetchInMemoryState() || configuration.persistence().fetchPersistentState();
       //rpc options does not changes in runtime. we can use always the same instance.
       rpcOptions = rpcManager.getRpcOptionsBuilder(ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS)
             .timeout(timeout, TimeUnit.MILLISECONDS).build();
@@ -790,7 +836,7 @@ public class StateConsumerImpl implements StateConsumer {
       }
    }
 
-   private void invalidateSegments(Set<Integer> newSegments, Set<Integer> segmentsToL1) {
+   private void invalidateSegments(final Set<Integer> newSegments, final Set<Integer> segmentsToL1) {
       // The actual owners keep track of the nodes that hold a key in L1 ("requestors") and
       // they invalidate the key on every requestor after a change.
       // But this information is only present on the owners where the ClusteredGetKeyValueCommand
@@ -801,8 +847,8 @@ public class StateConsumerImpl implements StateConsumer {
       // To compensate for this, we delete all L1 entries in segments that changed ownership during
       // this topology update. We can't actually differentiate between L1 entries and regular entries,
       // so we delete all entries that don't belong to this node in the current OR previous topology.
-      Set<Object> keysToL1 = new HashSet<Object>();
-      Set<Object> keysToRemove = new HashSet<Object>();
+      final ConcurrentHashSet<Object> keysToL1 = new ConcurrentHashSet<Object>();
+      final ConcurrentHashSet<Object> keysToRemove = new ConcurrentHashSet<Object>();
 
       // gather all keys from data container that belong to the segments that are being removed/moved to L1
       for (InternalCacheEntry ice : dataContainer) {
@@ -816,12 +862,13 @@ public class StateConsumerImpl implements StateConsumer {
       }
 
       // gather all keys from cache store that belong to the segments that are being removed/moved to L1
-      CacheStore cacheStore = getCacheStore();
-      if (cacheStore != null) {
-         //todo [anistor] extend CacheStore interface to be able to specify a filter when loading keys (ie. keys should belong to desired segments)
-         try {
-            Set<Object> storedKeys = cacheStore.loadAllKeys(new ReadOnlyDataContainerBackedKeySet(dataContainer));
-            for (Object key : storedKeys) {
+      //todo [anistor] extend CacheStore interface to be able to specify a filter when loading keys (ie. keys should belong to desired segments)
+      try {
+         CollectionKeyFilter filter = new CollectionKeyFilter(new ReadOnlyDataContainerBackedKeySet(dataContainer));
+         persistenceManager.processOnAllStores(filter, new AdvancedCacheLoader.CacheLoaderTask() {
+            @Override
+            public void processEntry(MarshalledEntry marshalledEntry, AdvancedCacheLoader.TaskContext taskContext) throws InterruptedException {
+               Object key = marshalledEntry.getKey();
                int keySegment = getSegment(key);
                if (segmentsToL1.contains(keySegment)) {
                   keysToL1.add(key);
@@ -829,10 +876,9 @@ public class StateConsumerImpl implements StateConsumer {
                   keysToRemove.add(key);
                }
             }
-
-         } catch (CacheLoaderException e) {
-            log.failedLoadingKeysFromCacheStore(e);
-         }
+         }, false, false);
+      } catch (CacheException e) {
+         log.failedLoadingKeysFromCacheStore(e);
       }
 
       if (configuration.clustering().l1().onRehash()) {
@@ -906,17 +952,6 @@ public class StateConsumerImpl implements StateConsumer {
    private int getSegment(Object key) {
       // here we can use any CH version because the routing table is not involved in computing the segment
       return cacheTopology.getReadConsistentHash().getSegment(key);
-   }
-
-   /**
-    * Obtains the CacheStore that will be used for purging segments that are no longer owned by this node.
-    * The CacheStore will be purged only if it is enabled and it is not shared.
-    */
-   private CacheStore getCacheStore() {
-      if (cacheLoaderManager.isEnabled() && !cacheLoaderManager.isShared()) {
-         return cacheLoaderManager.getCacheStore();
-      }
-      return null;
    }
 
    private InboundTransferTask addTransfer(Address source, Set<Integer> segmentsFromSource) {

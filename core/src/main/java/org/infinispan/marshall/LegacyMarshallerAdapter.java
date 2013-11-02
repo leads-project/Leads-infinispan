@@ -1,8 +1,9 @@
 package org.infinispan.marshall;
 
-import java.io.IOException;
+import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.commons.marshall.Marshaller;
-import org.infinispan.io.ByteBuffer;
+
+import java.io.IOException;
 
 /**
  * LegacyMarshallerAdapter.

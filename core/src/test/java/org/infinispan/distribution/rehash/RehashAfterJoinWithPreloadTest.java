@@ -4,7 +4,7 @@ import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.configuration.cache.FileCacheStoreConfigurationBuilder;
+import org.infinispan.configuration.cache.SingleFileStoreConfigurationBuilder;
 import org.infinispan.distribution.DistributionManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
@@ -50,12 +50,13 @@ public class RehashAfterJoinWithPreloadTest extends MultipleCacheManagersTest {
    private Configuration buildCfg(boolean clustered) {
       ConfigurationBuilder cb = new ConfigurationBuilder();
 
-      FileCacheStoreConfigurationBuilder fileStoreCB = cb.loaders().addFileCacheStore().location(fileCacheStoreTmpDir);
+      SingleFileStoreConfigurationBuilder fileStoreCB = cb.persistence()
+            .addSingleFileStore()
+              .location(fileCacheStoreTmpDir)
+              .preload(true).shared(true);
       fileStoreCB.purgeOnStartup(false);
 
-      cb.loaders().passivation(false);
-      cb.loaders().preload(true);
-      cb.loaders().shared(true);
+      cb.persistence().passivation(false);
 
       if (clustered) {
          cb.clustering().l1().disable();
@@ -91,7 +92,8 @@ public class RehashAfterJoinWithPreloadTest extends MultipleCacheManagersTest {
       for (int i = 0; i < getCacheManagers().size(); i++) {
          Cache<String, String> testCache = manager(i).getCache(testCacheName);
          DistributionManager dm = testCache.getAdvancedCache().getDistributionManager();
-         for (String key : testCache.keySet()) {
+         // Note there is stale data in the cache store that this owner no longer owns
+         for (Object key : testCache.getAdvancedCache().getDataContainer().keySet()) {
             // each key must only occur once (numOwners is one)
             assertTrue("Key '" + key + "' is not owned by node " + address(i) + " but it still appears there",
                   dm.getLocality(key).isLocal());
@@ -103,7 +105,7 @@ public class RehashAfterJoinWithPreloadTest extends MultipleCacheManagersTest {
       final int numKeys = 20;
       log.debugf("Using cache store dir %s", fileCacheStoreTmpDir);
       EmbeddedCacheManager cmForCacheStoreInit = TestCacheManagerFactory.createCacheManager(TestCacheManagerFactory
-            .getDefaultConfiguration(true));
+            .getDefaultCacheConfiguration(true));
       try {
          cmForCacheStoreInit.defineConfiguration(testCacheName, buildCfg(false));
 

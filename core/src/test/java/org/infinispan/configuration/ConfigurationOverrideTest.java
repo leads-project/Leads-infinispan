@@ -5,7 +5,7 @@ import org.infinispan.configuration.cache.ClusteringConfiguration;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
-import org.infinispan.loaders.dummy.DummyInMemoryCacheStoreConfigurationBuilder;
+import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.AbstractInfinispanTest;
@@ -42,22 +42,6 @@ public class ConfigurationOverrideTest extends AbstractInfinispanTest {
             cache.getCacheConfiguration().eviction().strategy());
    }
 
-   public void testOldConfigurationOverride() throws Exception {
-      org.infinispan.config.Configuration defaultConfiguration =
-            new org.infinispan.config.Configuration().fluent()
-            .eviction().maxEntries(200).strategy(LIRS)
-            .build();
-
-      cm = TestCacheManagerFactory.createCacheManager(defaultConfiguration);
-      final org.infinispan.config.Configuration cacheConfiguration =
-            new org.infinispan.config.Configuration().fluent().build();
-      cm.defineConfiguration("my-cache", cacheConfiguration);
-      Cache<?, ?> cache = cm.getCache("my-cache");
-      org.infinispan.config.Configuration cfg = cache.getConfiguration();
-      assertEquals(200, cfg.getEvictionMaxEntries());
-      assertEquals(LIRS, cfg.getEvictionStrategy());
-   }
-
    public void testSimpleDistributedClusterModeDefault() throws Exception {
       ConfigurationBuilder builder = new ConfigurationBuilder();
       builder.clustering().cacheMode(DIST_SYNC)
@@ -92,13 +76,13 @@ public class ConfigurationOverrideTest extends AbstractInfinispanTest {
 
    public void testOverrideWithStore() {
       final ConfigurationBuilder builder1 = new ConfigurationBuilder();
-      builder1.loaders().addStore(DummyInMemoryCacheStoreConfigurationBuilder.class);
+      builder1.persistence().addStore(DummyInMemoryStoreConfigurationBuilder.class);
       cm = new DefaultCacheManager(new GlobalConfigurationBuilder().build(), builder1.build());
       ConfigurationBuilder builder2 = new ConfigurationBuilder();
       builder2.read(cm.getDefaultCacheConfiguration());
       builder2.eviction().maxEntries(1000);
       Configuration configuration = cm.defineConfiguration("named", builder2.build());
-      assertEquals(1, configuration.loaders().cacheLoaders().size());
+      assertEquals(1, configuration.persistence().stores().size());
    }
 
 }

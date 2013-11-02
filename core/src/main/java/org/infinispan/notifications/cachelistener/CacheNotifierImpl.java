@@ -9,14 +9,20 @@ import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.factories.annotations.Inject;
+import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.notifications.AbstractListenerImpl;
-import org.infinispan.notifications.ClassLoaderAwareListenable;
+import org.infinispan.notifications.KeyFilter;
 import org.infinispan.notifications.cachelistener.annotation.*;
 import org.infinispan.notifications.cachelistener.event.*;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import javax.transaction.InvalidTransactionException;
+import javax.transaction.Status;
+import javax.transaction.SystemException;
+import javax.transaction.Transaction;
+import javax.transaction.TransactionManager;
 import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,7 +41,7 @@ import static org.infinispan.notifications.cachelistener.event.Event.Type.*;
  * @author Mircea.Markus@jboss.com
  * @since 4.0
  */
-public final class CacheNotifierImpl extends AbstractListenerImpl implements CacheNotifier, ClassLoaderAwareListenable {
+public final class CacheNotifierImpl extends AbstractListenerImpl implements CacheNotifier {
 
    private static final Log log = LogFactory.getLog(CacheNotifierImpl.class);
 
@@ -78,6 +84,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
    final List<ListenerInvocation> cacheEntryEvictedListeners = new CopyOnWriteArrayList<ListenerInvocation>();
 
    private Cache<Object, Object> cache;
+   private ClusteringDependentLogic clusteringDependentLogic;
+   private TransactionManager transactionManager;
 
    public CacheNotifierImpl() {
 
@@ -100,8 +108,11 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
    }
 
    @Inject
-   void injectDependencies(Cache<Object, Object> cache) {
+   void injectDependencies(Cache<Object, Object> cache, ClusteringDependentLogic clusteringDependentLogic,
+                           TransactionManager transactionManager) {
       this.cache = cache;
+      this.clusteringDependentLogic = clusteringDependentLogic;
+      this.transactionManager = transactionManager;
    }
 
    @Override
@@ -112,6 +123,51 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
    @Override
    protected Map<Class<? extends Annotation>, Class<?>> getAllowedMethodAnnotations() {
       return allowedListeners;
+   }
+
+   @Override
+   protected final Transaction suspendIfNeeded() {
+      if (transactionManager == null) {
+         return null;
+      }
+
+      try {
+         switch (transactionManager.getStatus()) {
+            case Status.STATUS_ACTIVE:
+            case Status.STATUS_NO_TRANSACTION:
+               return null;
+            case Status.STATUS_MARKED_ROLLBACK:
+            case Status.STATUS_PREPARED:
+            case Status.STATUS_COMMITTED:
+            case Status.STATUS_ROLLEDBACK:
+            case Status.STATUS_UNKNOWN:
+            case Status.STATUS_PREPARING:
+            case Status.STATUS_COMMITTING:
+            case Status.STATUS_ROLLING_BACK:
+            default:
+               //suspend in default and in unknown status to be safer
+               return transactionManager.suspend();
+         }
+      } catch (Exception e) {
+         if (log.isTraceEnabled()) {
+            log.trace("An error occurred while trying to suspend a transaction.", e);
+         }
+         return null;
+      }
+   }
+
+   @Override
+   protected final void resumeIfNeeded(Transaction transaction) {
+      if (transaction == null || transactionManager == null) {
+         return;
+      }
+      try {
+         transactionManager.resume(transaction);
+      } catch (Exception e) {
+         if (log.isTraceEnabled()) {
+            log.tracef(e, "An error occurred while trying to resume a suspended transaction. tx=%s", transaction);
+         }
+      }
    }
 
    @Override
@@ -128,7 +184,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          e.setPre(pre);
          e.setKey(key);
          setTx(ctx, e);
-         for (ListenerInvocation listener : cacheEntryCreatedListeners) listener.invoke(e);
+         boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
+         for (ListenerInvocation listener : cacheEntryCreatedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -152,7 +209,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          // want to fire it when isPre=false.
          e.setCreated(created);
          setTx(ctx, e);
-         for (ListenerInvocation listener : cacheEntryModifiedListeners) listener.invoke(e);
+         boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
+         for (ListenerInvocation listener : cacheEntryModifiedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -168,7 +226,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          e.setPre(pre);
          e.setKey(key);
          setTx(ctx, e);
-         for (ListenerInvocation listener : cacheEntryRemovedListeners) listener.invoke(e);
+         boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
+         for (ListenerInvocation listener : cacheEntryRemovedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -180,7 +239,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          e.setKey(key);
          e.setValue(value);
          setTx(ctx, e);
-         for (ListenerInvocation listener : cacheEntryVisitedListeners) listener.invoke(e);
+         boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
+         for (ListenerInvocation listener : cacheEntryVisitedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -223,7 +283,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
                EventImpl<Object, Object> e = EventImpl.createEvent(cache, CACHE_ENTRY_EVICTED);
                e.setKey(ice.getKey());
                e.setValue(ice.getValue());
-               for (ListenerInvocation listener : cacheEntryEvictedListeners) listener.invoke(e);
+               boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(ice.getKey());
+               for (ListenerInvocation listener : cacheEntryEvictedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
             }
          }
       }
@@ -232,10 +293,11 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
    @Override
    public void notifyCacheEntryEvicted(Object key, Object value,
          InvocationContext ctx, FlagAffectedCommand command) {
+      boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
       if (isNotificationAllowed(command, cacheEntriesEvictedListeners)) {
          EventImpl<Object, Object> e = EventImpl.createEvent(cache, CACHE_ENTRY_EVICTED);
          e.setEntries(Collections.singletonMap(key, value));
-         for (ListenerInvocation listener : cacheEntriesEvictedListeners) listener.invoke(e);
+         for (ListenerInvocation listener : cacheEntriesEvictedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
 
       // For backward compat
@@ -243,7 +305,7 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          EventImpl<Object, Object> e = EventImpl.createEvent(cache, CACHE_ENTRY_EVICTED);
          e.setKey(key);
          e.setValue(value);
-         for (ListenerInvocation listener : cacheEntryEvictedListeners) listener.invoke(e);
+         for (ListenerInvocation listener : cacheEntryEvictedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -258,7 +320,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          e.setKey(key);
          e.setValue(value);
          setTx(ctx, e);
-         for (ListenerInvocation listener : cacheEntryInvalidatedListeners) listener.invoke(e);
+         boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
+         for (ListenerInvocation listener : cacheEntryInvalidatedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -273,7 +336,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          e.setKey(key);
          e.setValue(value);
          setTx(ctx, e);
-         for (ListenerInvocation listener : cacheEntryLoadedListeners) listener.invoke(e);
+         boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
+         for (ListenerInvocation listener : cacheEntryLoadedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -287,7 +351,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          e.setKey(key);
          e.setValue(value);
          setTx(ctx, e);
-         for (ListenerInvocation listener : cacheEntryActivatedListeners) listener.invoke(e);
+         boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
+         for (ListenerInvocation listener : cacheEntryActivatedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -305,7 +370,8 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
          e.setPre(pre);
          e.setKey(key);
          e.setValue(value);
-         for (ListenerInvocation listener : cacheEntryPassivatedListeners) listener.invoke(e);
+         boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
+         for (ListenerInvocation listener : cacheEntryPassivatedListeners) listener.invoke(e, isLocalNodePrimaryOwner);
       }
    }
 
@@ -362,4 +428,13 @@ public final class CacheNotifierImpl extends AbstractListenerImpl implements Cac
             && !listeners.isEmpty();
    }
 
+   @Override
+   public void addListener(Object listener, KeyFilter filter, ClassLoader classLoader) {
+      validateAndAddListenerInvocation(listener, filter, classLoader);
+   }
+
+   @Override
+   public void addListener(Object listener, KeyFilter filter) {
+      validateAndAddListenerInvocation(listener, filter, null);
+   }
 }

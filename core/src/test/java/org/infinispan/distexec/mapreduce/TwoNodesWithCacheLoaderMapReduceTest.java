@@ -1,8 +1,7 @@
 package org.infinispan.distexec.mapreduce;
 
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.configuration.cache.LegacyStoreConfigurationBuilder;
-import org.infinispan.loaders.dummy.DummyInMemoryCacheStore;
+import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
 import org.testng.annotations.Test;
 
 /**
@@ -19,8 +18,7 @@ public class TwoNodesWithCacheLoaderMapReduceTest extends BaseWordCountMapReduce
    @Override
    protected void createCacheManagers() throws Throwable {
       ConfigurationBuilder builder = getDefaultClusteredCacheConfig(getCacheMode(), true);
-      LegacyStoreConfigurationBuilder store = builder.loaders().addStore().cacheStore(new DummyInMemoryCacheStore(getClass().getSimpleName()));
-      store.purgeOnStartup(true);
+      builder.persistence().addStore(DummyInMemoryStoreConfigurationBuilder.class).storeName(getClass().getSimpleName()).purgeOnStartup(true);
       createClusteredCaches(2, cacheName(), builder);
    }
 }

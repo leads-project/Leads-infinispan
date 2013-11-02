@@ -3,16 +3,18 @@ package org.infinispan.server.hotrod
 import logging.Log
 import scala.collection.JavaConversions._
 import org.infinispan.manager.EmbeddedCacheManager
-import org.infinispan.server.core.AbstractProtocolServer
+import org.infinispan.server.core.{QueryFacade, AbstractProtocolServer}
 import org.infinispan.eviction.EvictionStrategy
 import org.infinispan.commons.util.CollectionFactory
 import org.infinispan.commons.equivalence.AnyEquivalence
 import org.infinispan.Cache
 import org.infinispan.remoting.transport.Address
-import org.infinispan.configuration.cache.{CacheMode, ConfigurationBuilder}
+import org.infinispan.configuration.cache.{Configuration, CacheMode, ConfigurationBuilder}
 import org.infinispan.context.Flag
 import org.infinispan.upgrade.RollingUpgradeManager
 import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration
+import java.util.ServiceLoader
+import org.infinispan.util.concurrent.IsolationLevel
 
 /**
  * Hot Rod server, in charge of defining its encoder/decoder and, if clustered, update the topology information
@@ -34,21 +36,24 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
    private var addressCache: Cache[Address, ServerAddress] = _
    private val knownCaches : java.util.Map[String, Cache[Array[Byte], Array[Byte]]] =
          CollectionFactory.makeConcurrentMap(4, 0.9f, 16)
+   private var queryFacades: Seq[QueryFacade] = _
 
    def getAddress: ServerAddress = address
+
+   def getQueryFacades: Seq[QueryFacade] = queryFacades
 
    override def getEncoder = new HotRodEncoder(getCacheManager, this)
 
    override def getDecoder : HotRodDecoder =
       new HotRodDecoder(getCacheManager, transport, this)
 
-   override def start(configuration: HotRodServerConfiguration, cacheManager: EmbeddedCacheManager) {
+   override def startInternal(configuration: HotRodServerConfiguration, cacheManager: EmbeddedCacheManager) {
       this.configuration = configuration
 
       // 1. Start default cache and the endpoint before adding self to
       // topology in order to avoid topology updates being used before
       // endpoint is available.
-      super.start(configuration, cacheManager)
+      super.startInternal(configuration, cacheManager)
 
       isClustered = cacheManager.getCacheManagerConfiguration.transport().transport() != null
       if (isClustered) {
@@ -58,7 +63,12 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
 
          addSelfToTopologyView(cacheManager)
       }
+
+      queryFacades = loadQueryFacades()
    }
+
+   private def loadQueryFacades(): Seq[QueryFacade] =
+      ServiceLoader.load(classOf[QueryFacade], getClass().getClassLoader()).toSeq
 
    override def startTransport() {
       // Start predefined caches
@@ -68,16 +78,26 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
    }
 
    override def startDefaultCache = {
-      cacheManager.getCache()
+      val cache = cacheManager.getCache[AnyRef, AnyRef]()
+      validateCacheConfiguration(cache.getCacheConfiguration)
+      cache
    }
 
    private def preStartCaches() {
       // Start defined caches to avoid issues with lazily started caches
       for (cacheName <- asScalaIterator(cacheManager.getCacheNames.iterator)) {
          if (!cacheName.startsWith(HotRodServerConfiguration.TOPOLOGY_CACHE_NAME_PREFIX)) {
-            cacheManager.getCache(cacheName)
+            val cache = cacheManager.getCache(cacheName)
+            validateCacheConfiguration(cache.getCacheConfiguration)
          }
       }
+   }
+
+   private def validateCacheConfiguration(cacheCfg: Configuration) {
+      val isolationLevel = cacheCfg.locking().isolationLevel()
+      if (isolationLevel == IsolationLevel.REPEATABLE_READ
+              || isolationLevel == IsolationLevel.SERIALIZABLE)
+         throw log.invalidIsolationLevel(isolationLevel)
    }
 
    private def addSelfToTopologyView(cacheManager: EmbeddedCacheManager) {
@@ -115,10 +135,14 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
                 .valueEquivalence(AnyEquivalence.getInstance())
 
       if (configuration.topologyStateTransfer) {
-         builder.clustering().stateTransfer().fetchInMemoryState(true)
-                 .timeout(distSyncTimeout + configuration.topologyReplTimeout)
+         builder
+            .clustering()
+               .stateTransfer()
+                  .awaitInitialTransfer(configuration.topologyAwaitInitialTransfer)
+                  .fetchInMemoryState(true)
+                  .timeout(distSyncTimeout + configuration.topologyReplTimeout)
       } else {
-         builder.loaders().addClusterCacheLoader().remoteCallTimeout(configuration.topologyReplTimeout)
+         builder.persistence().addClusterLoader().remoteCallTimeout(configuration.topologyReplTimeout)
       }
 
       builder

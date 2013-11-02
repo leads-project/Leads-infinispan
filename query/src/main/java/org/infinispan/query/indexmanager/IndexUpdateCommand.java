@@ -11,11 +11,11 @@ import org.hibernate.search.indexes.spi.IndexManager;
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.remote.BaseRpcCommand;
 import org.infinispan.context.InvocationContext;
-import org.infinispan.query.CommandInitializer;
-import org.infinispan.query.CustomQueryCommand;
-import org.infinispan.query.ModuleCommandIds;
 import org.infinispan.query.backend.KeyTransformationHandler;
 import org.infinispan.query.backend.QueryInterceptor;
+import org.infinispan.query.impl.CommandInitializer;
+import org.infinispan.query.impl.CustomQueryCommand;
+import org.infinispan.query.impl.ModuleCommandIds;
 
 /**
  * Custom RPC command containing an index update request for the
@@ -49,7 +49,7 @@ public class IndexUpdateCommand extends BaseRpcCommand implements ReplicableComm
    @Override
    public Object perform(InvocationContext ctx) throws Throwable {
       queryInterceptor.enableClasses(knownIndexedTypes);
-      IndexManager indexManager = searchFactory.getAllIndexesManager().getIndexManager(indexName);
+      IndexManager indexManager = searchFactory.getIndexManagerHolder().getIndexManager(indexName);
       if (indexManager == null) {
          throw new SearchException("Unknown index referenced");
       }

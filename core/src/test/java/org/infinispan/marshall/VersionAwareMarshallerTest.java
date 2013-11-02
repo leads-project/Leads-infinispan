@@ -44,7 +44,6 @@ import org.infinispan.container.entries.TransientMortalCacheValue;
 import org.infinispan.context.Flag;
 import org.infinispan.distribution.ch.DefaultConsistentHash;
 import org.infinispan.distribution.ch.DefaultConsistentHashFactory;
-import org.infinispan.loaders.bucket.Bucket;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.marshall.core.MarshalledValue;
 import org.infinispan.marshall.core.JBossMarshallingTest.CustomReadObjectMethod;
@@ -184,13 +183,13 @@ public class VersionAwareMarshallerTest extends AbstractInfinispanTest {
    public void testMarshalledValueMarshalling() throws Exception {
       Person p = new Person();
       p.setName("Bob Dylan");
-      MarshalledValue mv = new MarshalledValue(p, true, marshaller);
+      MarshalledValue mv = new MarshalledValue(p, marshaller);
       marshallAndAssertEquality(mv);
    }
 
    public void testMarshalledValueGetMarshalling() throws Exception {
       Pojo ext = new Pojo();
-      MarshalledValue mv = new MarshalledValue(ext, true, marshaller);
+      MarshalledValue mv = new MarshalledValue(ext, marshaller);
       byte[] bytes = marshaller.objectToByteBuffer(mv);
       MarshalledValue rmv = (MarshalledValue) marshaller.objectFromByteBuffer(bytes);
       assert rmv.equals(mv) : "Writen[" + mv + "] and read[" + rmv + "] objects should be the same";
@@ -225,7 +224,7 @@ public class VersionAwareMarshallerTest extends AbstractInfinispanTest {
             new EmbeddedMetadata.Builder().build(), Collections.<Flag>emptySet());
       marshallAndAssertEquality(c5);
 
-      RemoveCommand c6 = new RemoveCommand("key", null, null, Collections.<Flag>emptySet());
+      RemoveCommand c6 = new RemoveCommand("key", null, null, Collections.<Flag>emptySet(), AnyEquivalence.getInstance());
       marshallAndAssertEquality(c6);
 
       // EvictCommand does not have an empty constructor, so doesn't look to be one that is marshallable.
@@ -304,12 +303,12 @@ public class VersionAwareMarshallerTest extends AbstractInfinispanTest {
       oldAddresses.add(a1);
       oldAddresses.add(a2);
       DefaultConsistentHashFactory chf = new DefaultConsistentHashFactory();
-      DefaultConsistentHash oldCh = chf.create(new MurmurHash3(), 2, 3, oldAddresses);
+      DefaultConsistentHash oldCh = chf.create(new MurmurHash3(), 2, 3, oldAddresses, null);
       List<Address> newAddresses = new ArrayList<Address>();
       newAddresses.add(a1);
       newAddresses.add(a2);
       newAddresses.add(a3);
-      DefaultConsistentHash newCh = chf.create(new MurmurHash3(), 2, 3, newAddresses);
+      DefaultConsistentHash newCh = chf.create(new MurmurHash3(), 2, 3, newAddresses, null);
       StateRequestCommand c14 = new StateRequestCommand(cacheName, StateRequestCommand.Type.START_STATE_TRANSFER, a1, 99, null);
       byte[] bytes = marshaller.objectToByteBuffer(c14);
       marshaller.objectFromByteBuffer(bytes);
@@ -365,23 +364,6 @@ public class VersionAwareMarshallerTest extends AbstractInfinispanTest {
       bytes = marshaller.objectToByteBuffer(value4);
       TransientMortalCacheValue rvalue4 = (TransientMortalCacheValue) marshaller.objectFromByteBuffer(bytes);
       assert rvalue4.getValue().equals(value4.getValue()) : "Writen[" + rvalue4.getValue() + "] and read[" + value4.getValue() + "] objects should be the same";
-   }
-
-   public void testBucketMarshalling() throws Exception {
-      ImmortalCacheEntry entry1 = (ImmortalCacheEntry) TestInternalCacheEntryFactory.create("key", "value", System.currentTimeMillis() - 1000, -1, System.currentTimeMillis(), -1);
-      MortalCacheEntry entry2 = (MortalCacheEntry) TestInternalCacheEntryFactory.create("key", "value", System.currentTimeMillis() - 1000, 200000, System.currentTimeMillis(), -1);
-      TransientCacheEntry entry3 = (TransientCacheEntry) TestInternalCacheEntryFactory.create("key", "value", System.currentTimeMillis() - 1000, -1, System.currentTimeMillis(), 4000000);
-      TransientMortalCacheEntry entry4 = (TransientMortalCacheEntry) TestInternalCacheEntryFactory.create("key", "value", System.currentTimeMillis() - 1000, 200000, System.currentTimeMillis(), 4000000);
-      Bucket b = new Bucket(TIME_SERVICE);
-      b.setBucketId(0);
-      b.addEntry(entry1);
-      b.addEntry(entry2);
-      b.addEntry(entry3);
-      b.addEntry(entry4);
-
-      byte[] bytes = marshaller.objectToByteBuffer(b);
-      Bucket rb = (Bucket) marshaller.objectFromByteBuffer(bytes);
-      assert rb.getEntries().equals(b.getEntries()) : "Writen[" + b.getEntries() + "] and read[" + rb.getEntries() + "] objects should be the same";
    }
 
    public void testLongPutKeyValueCommand() throws Exception {

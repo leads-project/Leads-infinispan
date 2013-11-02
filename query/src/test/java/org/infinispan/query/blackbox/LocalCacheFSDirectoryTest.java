@@ -4,9 +4,8 @@ import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
 import java.io.File;
 
 /**
@@ -19,34 +18,30 @@ import java.io.File;
 @Test(groups = "functional", testName = "query.blackbox.LocalCacheFSDirectoryTest")
 public class LocalCacheFSDirectoryTest extends LocalCacheTest {
 
-   private String TMP_DIR;
+   private final String indexDirectory = TestingUtil.tmpDirectory(this);
 
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
       ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
       cfg.indexing().enable()
-         .indexLocalOnly(false) //not meaningful
          .addProperty("default.directory_provider", "filesystem")
-         .addProperty("default.indexBase", TMP_DIR + File.separator + "index")
-         .addProperty("default.lucene_version", "LUCENE_CURRENT");
+         .addProperty("default.indexBase", indexDirectory)
+         .addProperty("lucene_version", "LUCENE_CURRENT");
       return TestCacheManagerFactory.createCacheManager(cfg);
    }
 
-   @BeforeMethod
-   protected void setUpTempDir() {
-      TMP_DIR = TestingUtil.tmpDirectory(this);
-      new File(TMP_DIR).mkdirs();
+   @Override
+   protected void setup() throws Exception {
+      new File(indexDirectory).mkdirs();
+      super.setup();
    }
 
    @Override
-   @AfterMethod
-   protected void destroyAfterMethod() {
+   protected void teardown() {
       try {
-         //first stop cache managers, then clear the index
-         super.destroyAfterMethod();
+         super.teardown();
       } finally {
-         //delete the index otherwise it will mess up the index for next tests
-         TestingUtil.recursiveFileRemove(TMP_DIR);
+         TestingUtil.recursiveFileRemove(indexDirectory);
       }
    }
 }

@@ -130,11 +130,10 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
       // this should only happen if:
       //   a) unsafeUnreliableReturnValues is false
       //   b) unsafeUnreliableReturnValues is true, the command is conditional
-      if (isNeedReliableReturnValues(command) || command.isConditional()) {
+      // In both cases, the remote get shouldn't happen on the backup owners, where the ignorePreviousValue flag is set
+      if ((isNeedReliableReturnValues(command) || command.isConditional()) && !command.isIgnorePreviousValue()) {
          for (Object k : keygen.getKeys()) {
-            Object returnValue = remoteGetBeforeWrite(ctx, command, k);
-            if (returnValue == null && cdl.localNodeIsPrimaryOwner(k)) {
-               // We either did not go remotely (because the value should be local now) or we did but the remote value is null.
+            if (cdl.localNodeIsPrimaryOwner(k)) {
                // Then it makes sense to try a local get and wrap again. This will compensate the fact the the entry was not local
                // earlier when the EntryWrappingInterceptor executed during current invocation context but it should be now.
                localGetCacheEntry(ctx, k, true, command);
@@ -143,34 +142,12 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
       }
    }
 
-   private Object remoteGetBeforeWrite(InvocationContext ctx, WriteCommand command, Object key) throws Throwable {
-      // During state transfer it is possible for an entry to map to the local node, but not have been brought locally yet
-      // (not present in data container yet). In that case we fetch the value remotely first. If the value exists remotely (non-null)
-      // then we use it. Otherwise if remote value is null it's possible that the state transfer finished in between
-      // the "isAffectedByRehash" and "retrieveFromRemoteSource" so the caller can hope to find the value in the local data container.
-      if (dm.isAffectedByRehash(key) && !dataContainer.containsKey(key)) {
-         if (trace) log.tracef("Doing a remote get for key %s", key);
-
-         // attempt a remote lookup
-         InternalCacheEntry ice = retrieveFromRemoteSource(key, ctx, false, command);
-         if (ice != null) {
-            if (!ctx.replaceValue(key, ice)) {
-               entryFactory.wrapEntryForPut(ctx, key, ice, false, command);
-            }
-            return ice.getValue();
-         }
-      } else {
-         if (trace) log.tracef("Not doing a remote get for key %s since entry is not affected by rehash or is already in data container. We are %s, owners are %s", key, rpcManager.getAddress(), dm.locate(key));
-      }
-      return null;
-   }
-
    private InternalCacheEntry localGetCacheEntry(InvocationContext ctx, Object key, boolean isWrite, FlagAffectedCommand command) throws Throwable {
       InternalCacheEntry ice = dataContainer.get(key);
       if (ice != null) {
          if (!ctx.replaceValue(key, ice))  {
             if (isWrite)
-               entryFactory.wrapEntryForPut(ctx, key, ice, false, command);
+               entryFactory.wrapEntryForPut(ctx, key, ice, false, command, true);
             else
                ctx.putLookedUpEntry(key, ice);
          }
@@ -181,7 +158,7 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
 
    private InternalCacheEntry remoteGetCacheEntry(InvocationContext ctx, Object key, GetKeyValueCommand command) throws Throwable {
       if (trace) log.tracef("Doing a remote get for key %s", key);
-      InternalCacheEntry ice = retrieveFromRemoteSource(key, ctx, false, command);
+      InternalCacheEntry ice = retrieveFromRemoteSource(key, ctx, false, command, false);
       command.setRemotelyFetchedValue(ice);
       if (ice != null)
          return ice;

@@ -19,9 +19,9 @@ import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.configuration.cache.LegacyConfigurationAdaptor;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.eviction.EvictionStrategy;
+import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
 import org.infinispan.marshall.TestObjectStreamMarshaller;
 import org.infinispan.test.CacheManagerCallable;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
@@ -47,19 +47,11 @@ public class ConfigurationUnitTest {
    }
 
    @Test
-   public void testAdapt() {
-      // Simple test to ensure we can actually adapt a config to the old config
-      ConfigurationBuilder cb = new ConfigurationBuilder();
-      LegacyConfigurationAdaptor.adapt(cb.build());
-   }
-
-   @Test
    public void testEvictionMaxEntries() {
       Configuration configuration = new ConfigurationBuilder()
          .eviction().maxEntries(20)
          .build();
-      org.infinispan.config.Configuration legacy = LegacyConfigurationAdaptor.adapt(configuration);
-      Assert.assertEquals(legacy.getEvictionMaxEntries(), 20);
+      Assert.assertEquals(configuration.eviction().maxEntries(), 20);
    }
 
    @Test
@@ -68,9 +60,8 @@ public class ConfigurationUnitTest {
          .clustering().cacheMode(CacheMode.DIST_SYNC)
          .transaction().autoCommit(true)
          .build();
-      org.infinispan.config.Configuration legacy = LegacyConfigurationAdaptor.adapt(configuration);
-      Assert.assertTrue(legacy.isTransactionAutoCommit());
-      Assert.assertEquals(legacy.getCacheMode().name(), CacheMode.DIST_SYNC.name());
+      Assert.assertTrue(configuration.transaction().autoCommit());
+      Assert.assertEquals(configuration.clustering().cacheMode(), CacheMode.DIST_SYNC);
    }
 
    @Test
@@ -126,7 +117,8 @@ public class ConfigurationUnitTest {
          .clustering().cacheMode(CacheMode.REPL_ASYNC)
          .async().useReplQueue(true).replQueueInterval(1222)
          .build();
-      org.infinispan.config.Configuration legacy = LegacyConfigurationAdaptor.adapt(configuration);
+      Assert.assertTrue(configuration.clustering().async().useReplQueue());
+      Assert.assertEquals(configuration.clustering().async().replQueueInterval(), 1222);
    }
 
    @Test(expectedExceptions = IllegalStateException.class)
@@ -137,12 +129,6 @@ public class ConfigurationUnitTest {
             .invocationBatching()
             .enable();
       withCacheManager(new CacheManagerCallable(createCacheManager(cb)));
-   }
-
-   @Test
-   public void testConsistentHash() {
-      Configuration config = LegacyConfigurationAdaptor.adapt(new org.infinispan.config.Configuration());
-      Assert.assertNull(config.clustering().hash().consistentHash());
    }
 
    @Test
@@ -163,14 +149,14 @@ public class ConfigurationUnitTest {
    }
 
    @Test
-   public void testClearCacheLoaders() {
+   public void testClearStores() {
       Configuration c = new ConfigurationBuilder()
-            .loaders()
-               .addLoader()
-            .loaders()
-               .clearCacheLoaders()
+            .persistence()
+               .addStore(DummyInMemoryStoreConfigurationBuilder.class)
+            .persistence()
+               .clearStores()
          .build();
-      assertEquals(c.loaders().cacheLoaders().size(), 0);
+      assertEquals(c.persistence().stores().size(), 0);
    }
 
    @Test(expectedExceptions = CacheConfigurationException.class)
@@ -182,7 +168,7 @@ public class ConfigurationUnitTest {
    @Test
    public void testSchema() throws Exception {
       FileLookup lookup = FileLookupFactory.newInstance();
-      URL schemaFile = lookup.lookupFileLocation("schema/infinispan-config-5.3.xsd", Thread.currentThread().getContextClassLoader());
+      URL schemaFile = lookup.lookupFileLocation("schema/infinispan-config-6.0.xsd", Thread.currentThread().getContextClassLoader());
       Source xmlFile = new StreamSource(lookup.lookupFile("configs/all.xml", Thread.currentThread().getContextClassLoader()));
       SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI).newSchema(schemaFile).newValidator().validate(xmlFile);
    }
@@ -229,9 +215,7 @@ public class ConfigurationUnitTest {
    public void testEnableVersioning() {
       ConfigurationBuilder builder = new ConfigurationBuilder();
       builder.versioning().enable();
-      org.infinispan.config.Configuration adapt =
-            LegacyConfigurationAdaptor.adapt(builder.build());
-      assert adapt.isEnableVersioning();
+      assert builder.build().versioning().enabled();
    }
 
    public void testNoneIsolationLevel() {

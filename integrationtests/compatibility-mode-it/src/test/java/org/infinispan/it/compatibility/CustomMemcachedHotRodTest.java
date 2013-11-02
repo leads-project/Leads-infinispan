@@ -2,9 +2,10 @@ package org.infinispan.it.compatibility;
 
 import org.infinispan.client.hotrod.Flag;
 import org.infinispan.client.hotrod.RemoteCache;
+import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.io.ByteBufferImpl;
+import org.infinispan.commons.marshall.AbstractMarshaller;
 import org.infinispan.configuration.cache.CacheMode;
-import org.infinispan.io.ByteBuffer;
-import org.infinispan.marshall.AbstractMarshaller;
 import org.infinispan.test.AbstractInfinispanTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -19,7 +20,7 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
-import static org.testng.AssertJUnit.*;
+import static org.testng.AssertJUnit.assertEquals;
 
 /**
  * Tests compatibility of Memcached, using a different client to SpyMemcached,
@@ -182,7 +183,7 @@ public class CustomMemcachedHotRodTest extends AbstractInfinispanTest {
          out.flush();
       }
 
-      private void close() throws IOException {
+      public void close() throws IOException {
          socket.close();
       }
    }
@@ -194,7 +195,7 @@ public class CustomMemcachedHotRodTest extends AbstractInfinispanTest {
       @Override
       protected ByteBuffer objectToBuffer(Object o, int estimatedSize) {
          byte[] bytes = ((String) o).getBytes(DEFAULT_ENCODING);
-         return new ByteBuffer(bytes, 0, bytes.length);
+         return new ByteBufferImpl(bytes, 0, bytes.length);
       }
 
       @Override

@@ -1,8 +1,8 @@
 package org.infinispan.manager;
 
 import org.infinispan.Cache;
-import org.infinispan.config.Configuration;
-import org.infinispan.config.GlobalConfiguration;
+import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
@@ -30,19 +30,14 @@ public class AbstractDelegatingEmbeddedCacheManager implements EmbeddedCacheMana
    }
 
    @Override
-   public Configuration defineConfiguration(String cacheName, Configuration configurationOverride) {
-      return cm.defineConfiguration(cacheName, configurationOverride);
+   public org.infinispan.configuration.cache.Configuration defineConfiguration(String cacheName,
+         org.infinispan.configuration.cache.Configuration configuration) {
+      return cm.defineConfiguration(cacheName, configuration);
    }
 
    @Override
    public Configuration defineConfiguration(String cacheName, String templateCacheName, Configuration configurationOverride) {
       return cm.defineConfiguration(cacheName, templateCacheName, configurationOverride);
-   }
-   
-   @Override
-   public org.infinispan.configuration.cache.Configuration defineConfiguration(String cacheName,
-         org.infinispan.configuration.cache.Configuration configuration) {
-      return cm.defineConfiguration(cacheName, configuration);
    }
 
    @Override
@@ -75,16 +70,6 @@ public class AbstractDelegatingEmbeddedCacheManager implements EmbeddedCacheMana
       return cm.getStatus();
    }
 
-   @Override
-   public GlobalConfiguration getGlobalConfiguration() {
-      return cm.getGlobalConfiguration();
-   }
-
-   @Override
-   public Configuration getDefaultConfiguration() {
-      return cm.getDefaultConfiguration();
-   }
-   
    @Override
    public org.infinispan.configuration.cache.Configuration getDefaultCacheConfiguration() {
       return cm.getDefaultCacheConfiguration();
@@ -161,6 +146,10 @@ public class AbstractDelegatingEmbeddedCacheManager implements EmbeddedCacheMana
    }
 
    @Override
+   public GlobalComponentRegistry getGlobalComponentRegistry() {
+      return cm.getGlobalComponentRegistry();
+   }
+
    public void addListener(Object listener) {
       cm.addListener(listener);
    }

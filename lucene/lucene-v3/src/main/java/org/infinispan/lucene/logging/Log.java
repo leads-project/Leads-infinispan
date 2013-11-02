@@ -3,7 +3,7 @@ package org.infinispan.lucene.logging;
 import java.io.IOException;
 
 import org.infinispan.commons.CacheException;
-import org.infinispan.loaders.CacheLoaderException;
+import org.infinispan.persistence.CacheLoaderException;
 import org.jboss.logging.Cause;
 import org.jboss.logging.LogMessage;
 import org.jboss.logging.Message;
@@ -69,4 +69,21 @@ public interface Log extends org.infinispan.util.logging.Log {
    @Message(value = "Lucene Directory detected Apache Lucene v. '%d' - this will affect which APIs are going to be provided", id = 15013)
    void detectedLuceneVersion(int version);
 
+   @Message(value = "Lucene Directory for index '%s' can not use Cache '%s': maximum lifespan enabled on the Cache configuration!", id = 15014)
+   IllegalArgumentException luceneStorageHavingLifespanSet(String indexName, String cacheName);
+
+   @Message(value = "Lucene Directory for index '%s' can not use Cache '%s': expiration idle time enabled on the Cache configuration!", id = 15015)
+   IllegalArgumentException luceneStorageHavingIdleTimeSet(String indexName, String cacheName);
+
+   @Message(value = "'%s' must not be null", id = 15016)
+   IllegalArgumentException requiredParameterWasPassedNull(String objectname);
+
+   @Message(value = "Lucene Directory for index '%s' can not use Cache '%s': store as binary enabled on the Cache configuration!", id = 15017)
+   IllegalArgumentException luceneStorageAsBinaryEnabled(String indexName, String cacheName);
+
+   @Message(value = "Lucene Directory for index '%s' can not use Metadata Cache '%s': eviction enabled on the Cache configuration!", id = 15018)
+   IllegalArgumentException evictionNotAllowedInMetadataCache(String indexName, String cacheName);
+
+   @Message(value = "Lucene Directory for index '%s' can not use Metadata Cache '%s': persistence enabled without preload on the Cache configuration!", id = 15019)
+   IllegalArgumentException preloadNeededIfPersistenceIsEnabledForMetadataCache(String indexName, String cacheName);
 }

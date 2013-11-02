@@ -1,6 +1,7 @@
 package org.infinispan.commons.marshall.jboss;
 
 import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.io.ByteBufferImpl;
 import org.infinispan.commons.io.ExposedByteArrayOutputStream;
 import org.infinispan.commons.logging.BasicLogFactory;
 import org.infinispan.commons.marshall.AbstractMarshaller;
@@ -86,7 +87,7 @@ public abstract class AbstractJBossMarshaller extends AbstractMarshaller impleme
       } finally {
          finishObjectOutput(marshaller);
       }
-      return new ByteBuffer(baos.getRawBuffer(), 0, baos.size());
+      return new ByteBufferImpl(baos.getRawBuffer(), 0, baos.size());
    }
 
    @Override
@@ -95,11 +96,6 @@ public abstract class AbstractJBossMarshaller extends AbstractMarshaller impleme
       org.jboss.marshalling.Marshaller marshaller = instanceHolder.getMarshaller(estimatedSize);
       marshaller.start(Marshalling.createByteOutput(os));
       return marshaller;
-   }
-
-   @Override
-   final public ObjectOutput startObjectOutput(final OutputStream os, final boolean isReentrant) throws IOException {
-      return startObjectOutput(os, isReentrant, RIVER_INTERNAL_BUFFER);
    }
 
    @Override

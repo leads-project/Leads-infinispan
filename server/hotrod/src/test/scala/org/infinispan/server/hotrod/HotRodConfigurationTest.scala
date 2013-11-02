@@ -6,10 +6,12 @@ import org.infinispan.test.fwk.TestCacheManagerFactory
 import org.testng.Assert._
 import org.testng.annotations.Test
 import org.infinispan.server.core.test.Stoppable
-import org.infinispan.configuration.cache.Configuration
+import org.infinispan.configuration.cache.{ConfigurationBuilder, Configuration}
 import org.infinispan.server.hotrod.configuration.HotRodServerConfigurationBuilder
-import org.infinispan.configuration.cache.ClusterCacheLoaderConfiguration
+import org.infinispan.configuration.cache.ClusterLoaderConfiguration
 import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration
+import org.infinispan.util.concurrent.IsolationLevel
+import org.infinispan.commons.CacheConfigurationException
 
 /**
  * Test to verify that configuration changes are reflected in backend caches.
@@ -28,7 +30,7 @@ class HotRodConfigurationTest {
          assertEquals(cfg.clustering().sync().replTimeout(), 31000)
          assertTrue(cfg.clustering().stateTransfer().fetchInMemoryState())
          assertEquals(cfg.clustering().stateTransfer().timeout(), 31000 + distSyncTimeout)
-         assertTrue(cfg.loaders().cacheLoaders().isEmpty)
+         assertTrue(cfg.persistence().stores().isEmpty)
       }
    }
 
@@ -38,10 +40,20 @@ class HotRodConfigurationTest {
       withClusteredServer(builder) { (cfg, distSyncTimeout) =>
          assertEquals(cfg.clustering().sync().replTimeout(), 43000)
          assertTrue(cfg.clustering().stateTransfer().fetchInMemoryState())
-         val clcfg = cfg.loaders().cacheLoaders().get(0).asInstanceOf[ClusterCacheLoaderConfiguration]
+         val clcfg = cfg.persistence().stores().get(0).asInstanceOf[ClusterLoaderConfiguration]
          assertNotNull(clcfg)
          assertEquals(clcfg.remoteCallTimeout(), 43000)
       }
+   }
+
+   @Test(expectedExceptions = Array(classOf[CacheConfigurationException]))
+   def testRepeatableReadIsolationLevelValidation() {
+      validateIsolationLevel(IsolationLevel.REPEATABLE_READ)
+   }
+
+   @Test(expectedExceptions = Array(classOf[CacheConfigurationException]))
+   def testSerializableIsolationLevelValidation() {
+      validateIsolationLevel(IsolationLevel.SERIALIZABLE)
    }
 
    private def withClusteredServer(builder: HotRodServerConfigurationBuilder) (assert: (Configuration, Long) => Unit) {
@@ -52,4 +64,15 @@ class HotRodConfigurationTest {
          }
       }
    }
+
+   private def validateIsolationLevel(isolationLevel: IsolationLevel) {
+      val hotRodBuilder = new HotRodServerConfigurationBuilder
+      val builder = new ConfigurationBuilder()
+      builder.locking().isolationLevel(isolationLevel)
+      Stoppable.useCacheManager(TestCacheManagerFactory.createClusteredCacheManager(hotRodCacheConfiguration(builder))) {
+         cm =>
+            startHotRodServer(cm, UniquePortThreadLocal.get.intValue, hotRodBuilder)
+      }
+   }
+
 }

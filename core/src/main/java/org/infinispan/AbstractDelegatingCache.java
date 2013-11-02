@@ -1,8 +1,8 @@
 package org.infinispan;
 
-import org.infinispan.config.Configuration;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.notifications.KeyFilter;
 import org.infinispan.util.concurrent.NotifyingFuture;
 
 import java.util.Collection;
@@ -38,11 +38,6 @@ public abstract class AbstractDelegatingCache<K, V> implements Cache<K, V> {
       cache.evict(key);
    }
 
-   @Override
-   public Configuration getConfiguration() {
-      return cache.getConfiguration();
-   }
-   
    @Override
    public org.infinispan.configuration.cache.Configuration getCacheConfiguration() {
       return cache.getCacheConfiguration();
@@ -227,11 +222,6 @@ public abstract class AbstractDelegatingCache<K, V> implements Cache<K, V> {
    }
 
    @Override
-   public void compact() {
-      cache.compact();
-   }
-
-   @Override
    public ComponentStatus getStatus() {
       return cache.getStatus();
    }
@@ -332,6 +322,11 @@ public abstract class AbstractDelegatingCache<K, V> implements Cache<K, V> {
    }
 
    @Override
+   public void addListener(Object listener, KeyFilter filter) {
+      cache.addListener(listener, filter);
+   }
+
+   @Override
    public void removeListener(Object listener) {
       cache.removeListener(listener);
    }
@@ -345,7 +340,7 @@ public abstract class AbstractDelegatingCache<K, V> implements Cache<K, V> {
    public NotifyingFuture<V> getAsync(K key) {
       return cache.getAsync(key);
    }
-   
+
    @Override
    public String toString() {
       return cache.toString();

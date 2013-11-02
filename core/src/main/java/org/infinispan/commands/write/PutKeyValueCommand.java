@@ -28,6 +28,7 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
    CacheNotifier notifier;
    boolean successful = true;
    Metadata metadata;
+   private boolean ignorePreviousValue;
 
    public PutKeyValueCommand() {
    }
@@ -63,7 +64,13 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
 
    @Override
    public Object perform(InvocationContext ctx) throws Throwable {
-      Object o;
+      if (ctx.isInTxScope() && !ctx.isOriginLocal() && !ignorePreviousValue) {
+         //ignore previous return value in tx mode is false when the command did not succeed during execution
+         //in this case, we should ignore the command
+         //the return value did not matter in remote context
+         successful = false;
+         return null;
+      }
       MVCCEntry e = (MVCCEntry) ctx.lookupEntry(key);
       if (e == null && hasFlag(Flag.PUT_FOR_EXTERNAL_READ)) {
          successful = false;
@@ -73,33 +80,14 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
       if (e == null) return null;
 
       Object entryValue = e.getValue();
-      if (entryValue != null && putIfAbsent && !e.isRemoved()) {
-         // Revert assumption that new value is to be committed
-         e.setChanged(false);
-         successful = false;
-         return entryValue;
-      } else {
-         notifier.notifyCacheEntryModified(
-               key, entryValue, entryValue == null, true, ctx, this);
-
-         if (value instanceof Delta) {
-            // magic
-            Delta dv = (Delta) value;
-            DeltaAware toMergeWith = null;
-            if (entryValue instanceof DeltaAware) toMergeWith = (DeltaAware) entryValue;
-            e.setValue(dv.merge(toMergeWith));
-            o = entryValue;
-            e.setMetadata(metadata);
-         } else {
-            o = e.setValue(value);
-            if (e.isRemoved()) {
-               e.setRemoved(false);
-               e.setValid(true);
-               o = null;
-            }
+      if (putIfAbsent && !ignorePreviousValue) {
+         if (entryValue != null && !e.isRemoved()) {
+            successful = false;
+            return entryValue;
          }
       }
-      return o;
+
+      return performPut(e, ctx);
    }
 
    @Override
@@ -109,7 +97,7 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
 
    @Override
    public Object[] getParameters() {
-      return new Object[]{key, value, metadata, putIfAbsent, Flag.copyWithoutRemotableFlags(flags), previousRead};
+      return new Object[]{key, value, metadata, putIfAbsent, ignorePreviousValue, Flag.copyWithoutRemotableFlags(flags)};
    }
 
    @Override
@@ -120,8 +108,8 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
       value = parameters[1];
       metadata = (Metadata) parameters[2];
       putIfAbsent = (Boolean) parameters[3];
-      flags = (Set<Flag>) parameters[4];
-      previousRead = (Boolean) parameters[5];
+      ignorePreviousValue = (Boolean) parameters[4];
+      flags = (Set<Flag>) parameters[5];
    }
 
    @Override
@@ -176,6 +164,7 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
             .append(", putIfAbsent=").append(putIfAbsent)
             .append(", metadata=").append(metadata)
             .append(", successful=").append(successful)
+            .append(", ignorePreviousValue=").append(ignorePreviousValue)
             .append("}")
             .toString();
    }
@@ -188,5 +177,41 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
    @Override
    public boolean isConditional() {
       return putIfAbsent;
+   }
+
+   @Override
+   public boolean isIgnorePreviousValue() {
+      return ignorePreviousValue;
+   }
+
+   @Override
+   public void setIgnorePreviousValue(boolean ignorePreviousValue) {
+      this.ignorePreviousValue = ignorePreviousValue;
+   }
+
+   private Object performPut(MVCCEntry e, InvocationContext ctx) {
+      Object entryValue = e.getValue();
+      Object o;
+      notifier.notifyCacheEntryModified(
+            key, entryValue, entryValue == null, true, ctx, this);
+
+      if (value instanceof Delta) {
+         // magic
+         Delta dv = (Delta) value;
+         DeltaAware toMergeWith = null;
+         if (entryValue instanceof DeltaAware) toMergeWith = (DeltaAware) entryValue;
+         e.setValue(dv.merge(toMergeWith));
+         o = entryValue;
+         e.setMetadata(metadata);
+      } else {
+         o = e.setValue(value);
+         if (e.isRemoved()) {
+            e.setRemoved(false);
+            e.setValid(true);
+            o = null;
+         }
+      }
+      e.setChanged(true);
+      return !ignorePreviousValue ? o : null;
    }
 }

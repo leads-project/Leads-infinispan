@@ -1,13 +1,6 @@
 package org.infinispan.io;
 
-import org.infinispan.Cache;
-import org.infinispan.manager.DefaultCacheManager;
-import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.test.SingleCacheManagerTest;
-import org.infinispan.test.fwk.TestCacheManagerFactory;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileNotFoundException;
@@ -17,13 +10,24 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.testng.Assert.*;
+import org.infinispan.Cache;
+import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.test.SingleCacheManagerTest;
+import org.infinispan.test.fwk.TestCacheManagerFactory;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(testName = "io.GridFileTest", groups = "functional")
 public class GridFileTest extends SingleCacheManagerTest {
@@ -221,7 +225,7 @@ public class GridFileTest extends SingleCacheManagerTest {
       writeToFile("delete.txt", "delete me", 100);
 
       GridFile file = (GridFile) fs.getFile("delete.txt");
-      boolean deleted = file.delete(true);
+      boolean deleted = file.delete();
       assertTrue(deleted);
       assertFalse(file.exists());
       assertEquals(numberOfChunksInCache(), 0);
@@ -236,10 +240,10 @@ public class GridFileTest extends SingleCacheManagerTest {
    public void testOverwritingFileDoesNotLeaveExcessChunksInCache() throws Exception {
       assertEquals(numberOfChunksInCache(), 0);
 
-      writeToFile("leak.txt", "12345abcde12345", 5); // file length = 15, chunkSize = 5
-      assertEquals(numberOfChunksInCache(), 3);
+      writeToFile("leak.txt", "12345abcde12345", 5); // file length = 15, chunkSize = 5.  Chunk size should "upgrade" to 8
+      assertEquals(numberOfChunksInCache(), 2);
 
-      writeToFile("leak.txt", "12345", 5);           // file length = 5, chunkSize = 5
+      writeToFile("leak.txt", "12345678", 5);           // file length = 5, chunkSize = 5.  Chunk size should "upgrade" to 8
       assertEquals(numberOfChunksInCache(), 1);
    }
 
@@ -352,19 +356,19 @@ public class GridFileTest extends SingleCacheManagerTest {
    @SuppressWarnings("ResultOfMethodCallIgnored")
    public void testAvailable() throws Exception {
       String filePath = "available.txt";
-      writeToFile(filePath, "abcde" + "fghij" + "klmno" + "pqrst" + "uvwxy" + "z", 5);
+      writeToFile(filePath, "abcde" + "fghij" + "klmno" + "pqrst" + "uvwxy" + "z", 5); // Chunk size should get "upgraded" to 8
 
       InputStream in = fs.getInput(filePath);
       try {
          assertEquals(in.available(), 0); // since first chunk hasn't been fetched yet
          in.read();
-         assertEquals(in.available(), 4);
+         assertEquals(in.available(), 7);
          in.skip(3);
-         assertEquals(in.available(), 1);
-         in.read();
-         assertEquals(in.available(), 0);
-         in.read();
          assertEquals(in.available(), 4);
+         in.read();
+         assertEquals(in.available(), 3);
+         in.read();
+         assertEquals(in.available(), 2);
       } finally {
          in.close();
       }
@@ -426,6 +430,13 @@ public class GridFileTest extends SingleCacheManagerTest {
             asSet(getPaths(files)),
             asSet("/myDir/foo1.txt", "/myDir/foo2.txt", "/myDir/fooDir",
                   "/myDir/bar1.txt", "/myDir/bar2.txt", "/myDir/barDir"));
+   }
+
+   public void testListFilesWhereNonChildPathStartsWithParent() throws Exception {
+      File parentDir = createDir("/parentDir");
+      assertEquals(parentDir.listFiles().length, 0);
+      assertEquals(createDir("/parentDir-NOT-CHILD").listFiles().length, 0);
+      assertEquals(parentDir.listFiles().length, 0);
    }
 
    public void testListFilesWithFilenameFilter() throws Exception {
@@ -518,6 +529,22 @@ public class GridFileTest extends SingleCacheManagerTest {
          channel.close();
       }
       assertEquals(getContents("/append.txt"), "Initial text.Appended text.");
+   }
+
+   public void testReadLoop() throws Exception {
+      WritableGridFileChannel wgfc = fs.getWritableChannel("/readTest.txt", false, 100);
+      try {
+         assertTrue(wgfc.isOpen());
+         wgfc.write(ByteBuffer.wrap("This tests read loop.".getBytes()));
+      } finally {
+         wgfc.close();
+      }
+      ReadableGridFileChannel rgfc = fs.getReadableChannel("/readTest.txt");
+      try {
+         assertTrue("This tests read loop.".equals(new String(toBytes(Channels.newInputStream(rgfc)))));
+      } finally {
+         rgfc.close();
+      }
    }
 
    public void testGetAbsolutePath() throws IOException {
@@ -752,6 +779,10 @@ public class GridFileTest extends SingleCacheManagerTest {
 
    private String getContents(String filePath) throws IOException {
       InputStream in = fs.getInput(filePath);
+      return getString(in);
+   }
+
+   private String getString(InputStream in) throws IOException {
       try {
          byte[] buf = new byte[1000];
          int bytesRead = in.read(buf);
@@ -759,6 +790,19 @@ public class GridFileTest extends SingleCacheManagerTest {
       } finally {
          in.close();
       }
+   }
+
+   private static byte[] toBytes(InputStream is) throws IOException {
+      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+      int nRead;
+      byte[] data = new byte[16384];
+
+      while ((nRead = is.read(data, 0, data.length)) != -1) {
+         buffer.write(data, 0, nRead);
+      }
+
+      buffer.flush();
+      return buffer.toByteArray();
    }
 
    private static class FooFilenameFilter implements FilenameFilter {

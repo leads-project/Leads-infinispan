@@ -8,10 +8,12 @@ import java.util.Arrays
 import org.infinispan.server.hotrod.OperationStatus._
 import org.infinispan.server.hotrod.test._
 import org.infinispan.test.TestingUtil.generateRandomString
-import org.infinispan.config.Configuration
 import java.util.concurrent.TimeUnit
 import org.infinispan.server.core.test.Stoppable
 import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration
+import org.infinispan.test.fwk.TestCacheManagerFactory
+import org.infinispan.server.core.QueryFacade
+import org.infinispan.AdvancedCache
 
 /**
  * Hot Rod server functional test.
@@ -473,12 +475,25 @@ class HotRodFunctionalTest extends HotRodSingleNodeTest {
       Stoppable.useCacheManager(createTestCacheManager) { cm =>
          Stoppable.useServer(startHotRodServer(cm, server.getPort + 33)) { server =>
             val cacheName = "cache-" + m.getName
-            val namedCfg = new Configuration().fluent.storeAsBinary.build
-            assertTrue(namedCfg.isStoreAsBinary)
+            val namedBuilder = TestCacheManagerFactory.getDefaultCacheConfiguration(false)
+              .storeAsBinary.enable
+            val namedCfg = namedBuilder.build
+            assertTrue(namedCfg.storeAsBinary().enabled())
             cm.defineConfiguration(cacheName, namedCfg)
-            assertFalse(cm.getCache(cacheName).getConfiguration.isStoreAsBinary)
+            assertFalse(cm.getCache(cacheName).getCacheConfiguration.storeAsBinary().enabled())
          }
       }
    }
 
+   def testQuery() {
+      val query = Array[Byte](1, 2, 3, 4, 5)
+      val resp = client.query(query)
+      assertStatus(resp, Success)
+      assertTrue(Arrays.equals(query, resp.result))
+   }
+
+}
+
+class DummyQueryFacade extends QueryFacade {
+   def query(cache: AdvancedCache[Array[Byte], Array[Byte]], query: Array[Byte]): Array[Byte] = query
 }

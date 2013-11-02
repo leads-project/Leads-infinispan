@@ -368,23 +368,9 @@ public final class Util {
 
    public static String toStr(Object o) {
       if (o instanceof byte[]) {
-         byte[] array = (byte[]) o;
-         StringBuilder sb = new StringBuilder();
-         sb.append("[B0x");
-         if (IS_ARRAYS_DEBUG) {
-            // Convert the entire byte array
-            sb.append(toHexString(array));
-         } else {
-            // Pick the first 8 characters and convert that part
-            sb.append(toHexString(array, 8));
-            sb.append("..(");
-            sb.append(array.length);
-            sb.append(')');
-         }
-         return sb.toString();
+         return printArray((byte[]) o, false);
       } else if (o == null) {
          return "null";
-
       } else {
          return o.toString();
       }
@@ -411,24 +397,29 @@ public final class Util {
 
    public static String printArray(byte[] array, boolean withHash) {
       if (array == null) return "null";
-      StringBuilder sb = new StringBuilder();
-      sb.append("ByteArray{size=").append(array.length);
-      if (withHash) {
-         sb.append(", hashCode=").append(
-               Integer.toHexString(Arrays.hashCode(array)));
-      }
 
-      sb.append(", array=0x");
-      if (IS_ARRAYS_DEBUG) {
+      int limit = 8;
+      StringBuilder sb = new StringBuilder();
+      sb.append("[B0x");
+      if (array.length <= limit || IS_ARRAYS_DEBUG) {
          // Convert the entire byte array
          sb.append(toHexString(array));
+         if (withHash) {
+            sb.append(",h=");
+            sb.append(Integer.toHexString(Arrays.hashCode(array)));
+            sb.append(']');
+         }
       } else {
          // Pick the first 8 characters and convert that part
-         sb.append(toHexString(array, 8));
-         sb.append("..");
+         sb.append(toHexString(array, limit));
+         sb.append("..[");
+         sb.append(array.length);
+         if (withHash) {
+            sb.append("],h=");
+            sb.append(Integer.toHexString(Arrays.hashCode(array)));
+         }
+         sb.append(']');
       }
-      sb.append("}");
-
       return sb.toString();
    }
 
@@ -652,4 +643,32 @@ public final class Util {
 
       return sb.toString();
    }
+
+   /**
+    * Returns a number such that the number is a power of two that is equal to, or greater than, the number passed in as
+    * an argument.  The smallest number returned will be 1, not 0.
+    */
+   public static int findNextHighestPowerOfTwo(int num) {
+      if (num <= 0) return 1;
+      int highestBit = Integer.highestOneBit(num);
+      return num <= highestBit ? highestBit : highestBit << 1;
+   }
+
+   /**
+    * A function that calculates hash code of a byte array based on its
+    * contents but using the given size parameter as deliminator for the
+    * content.
+    */
+   public static int hashCode(byte[] bytes, int size) {
+      int contentLimit = size;
+      if (size > bytes.length)
+         contentLimit = bytes.length;
+
+      int hashCode = 1;
+      for (int i = 0; i < contentLimit; i++)
+         hashCode = 31 * hashCode + bytes[i];
+
+      return hashCode;
+   }
+
 }

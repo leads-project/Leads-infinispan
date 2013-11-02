@@ -6,6 +6,7 @@ import org.infinispan.commands.remote.SingleRpcCommand;
 import org.infinispan.commands.write.InvalidateCommand;
 import org.infinispan.commons.util.CollectionFactory;
 import org.infinispan.commons.util.InfinispanCollections;
+import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.Flag;
 import org.infinispan.factories.KnownComponentNames;
 import org.infinispan.factories.annotations.ComponentName;
@@ -13,15 +14,16 @@ import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
+import org.infinispan.interceptors.distribution.L1WriteSynchronizer;
 import org.infinispan.remoting.rpc.ResponseMode;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.rpc.RpcOptions;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.util.TimeService;
-import org.infinispan.util.concurrent.AggregatingNotifyingFutureImpl;
-import org.infinispan.util.concurrent.NoOpFuture;
-import org.infinispan.util.concurrent.NotifyingFutureImpl;
-import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
+import org.infinispan.commons.util.concurrent.AggregatingNotifyingFutureImpl;
+import org.infinispan.commons.util.concurrent.NoOpFuture;
+import org.infinispan.commons.util.concurrent.NotifyingFutureImpl;
+import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -39,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
 
-public class L1ManagerImpl implements L1Manager {
+public class L1ManagerImpl implements L1Manager, RemoteValueRetrievedListener {
 
    private static final Log log = LogFactory.getLog(L1ManagerImpl.class);
    private final boolean trace = log.isTraceEnabled();
@@ -53,6 +55,7 @@ public class L1ManagerImpl implements L1Manager {
 
    // TODO replace this with a custom, expirable collection
    private final ConcurrentMap<Object, ConcurrentMap<Address, Long>> requestors;
+   private final ConcurrentMap<Object, L1WriteSynchronizer> synchronizers;
    private ScheduledExecutorService scheduledExecutor;
    private ScheduledFuture<?> scheduledRequestorsCleanupTask;
    private TimeService timeService;
@@ -61,7 +64,8 @@ public class L1ManagerImpl implements L1Manager {
    private RpcOptions syncIgnoreLeaversRpcOptions;
 
    public L1ManagerImpl() {
-	   requestors = CollectionFactory.makeConcurrentMap();
+      requestors = CollectionFactory.makeConcurrentMap();
+      synchronizers = CollectionFactory.makeConcurrentMap();
    }
 
    @Inject
@@ -76,7 +80,7 @@ public class L1ManagerImpl implements L1Manager {
       this.scheduledExecutor = scheduledExecutor;
       this.timeService = timeService;
    }
-   
+
    @Start (priority = 3)
    public void start() {
       this.threshold = configuration.clustering().l1().invalidationThreshold();
@@ -90,7 +94,7 @@ public class L1ManagerImpl implements L1Manager {
          }, configuration.clustering().l1().cleanupTaskFrequency(),
                configuration.clustering().l1().cleanupTaskFrequency(), TimeUnit.MILLISECONDS);
       } else {
-         log.warn("Not using an L1 invalidation reaper thread. This could lead to memory leaks as the requestors map may grow indefinitely!");
+         log.warnL1NotHavingReaperThread();
       }
       syncRpcOptions = rpcManager.getRpcOptionsBuilder(ResponseMode.SYNCHRONOUS, false).build();
       syncIgnoreLeaversRpcOptions = rpcManager.getRpcOptionsBuilder(ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, false)
@@ -111,13 +115,13 @@ public class L1ManagerImpl implements L1Manager {
          if (reqs.isEmpty()) requestors.remove(key);
       }
    }
-   
+
    private void prune(ConcurrentMap<Address, Long> reqs, long expiryTime) {
       for (Map.Entry<Address, Long> req: reqs.entrySet()) {
          if (req.getValue() < expiryTime) reqs.remove(req.getKey());
       }
    }
-   
+
    @Override
    public void addRequestor(Object key, Address origin) {
       //we do a plain get first as that's likely to be enough
@@ -266,5 +270,25 @@ public class L1ManagerImpl implements L1Manager {
       if (threshold == 0) return true;
       // we decide:
       return nodes > threshold;
+   }
+
+   @Override
+   public void registerL1WriteSynchronizer(Object key, L1WriteSynchronizer sync) {
+      if (synchronizers.putIfAbsent(key, sync) != null) {
+         throw new IllegalStateException("There is already a L1WriteSynchronizer associated with key: " + key);
+      }
+   }
+
+   @Override
+   public void unregisterL1WriteSynchronizer(Object key) {
+      synchronizers.remove(key);
+   }
+
+   @Override
+   public void remoteValueFound(InternalCacheEntry ice) {
+      L1WriteSynchronizer synchronizer = synchronizers.get(ice.getKey());
+      if (synchronizer != null) {
+         synchronizer.runL1UpdateIfPossible(ice);
+      }
    }
 }

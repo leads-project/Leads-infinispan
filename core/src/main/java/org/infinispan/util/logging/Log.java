@@ -2,12 +2,13 @@ package org.infinispan.util.logging;
 
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.tx.PrepareCommand;
-import org.infinispan.commons.CacheException;
-import org.infinispan.commons.util.TypedProperties;
 import org.infinispan.commons.CacheConfigurationException;
-import org.infinispan.loaders.CacheLoaderException;
-import org.infinispan.loaders.bucket.Bucket;
-import org.infinispan.loaders.decorators.SingletonStore;
+import org.infinispan.commons.CacheException;
+import org.infinispan.commons.marshall.AdvancedExternalizer;
+import org.infinispan.commons.util.TypedProperties;
+import org.infinispan.lifecycle.ComponentStatus;
+import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.support.SingletonCacheWriter;
 import org.infinispan.remoting.RemoteException;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
@@ -31,7 +32,6 @@ import javax.transaction.Synchronization;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAException;
 import javax.xml.namespace.QName;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -233,7 +233,7 @@ public interface Log extends BasicLogger {
    void errorDoingRemoteCall(@Cause Exception e);
 
    @LogMessage(level = ERROR)
-   @Message(value = "Interrupted or timeout while waiting for AsyncStore worker threads to push all state to the decorated store", id = 48)
+   @Message(value = "Interrupted or timeout while waiting for AsyncCacheWriter worker threads to push all state to the decorated store", id = 48)
    void interruptedWaitingAsyncStorePush(@Cause InterruptedException e);
 
    @LogMessage(level = ERROR)
@@ -253,20 +253,12 @@ public interface Log extends BasicLogger {
    void asyncStoreCoordinatorInterrupted(@Cause InterruptedException e);
 
    @LogMessage(level = ERROR)
-   @Message(value = "Unexpected error in AsyncStoreCoordinator thread. AsyncStore is dead!", id = 55)
+   @Message(value = "Unexpected error in AsyncStoreCoordinator thread. AsyncCacheWriter is dead!", id = 55)
    void unexpectedErrorInAsyncStoreCoordinator(@Cause Throwable t);
 
    @LogMessage(level = ERROR)
-   @Message(value = "Error while handling Modification in AsyncStore", id = 56)
-   void errorModifyingAsyncStore(@Cause Exception e);
-
-   @LogMessage(level = ERROR)
-   @Message(value = "Clear() operation in async store could not be performed", id = 57)
-   void unableToClearAsyncStore();
-
-   @LogMessage(level = ERROR)
    @Message(value = "Exception reported changing cache active status", id = 58)
-   void errorChangingSingletonStoreStatus(@Cause SingletonStore.PushStateException e);
+   void errorChangingSingletonStoreStatus(@Cause SingletonCacheWriter.PushStateException e);
 
    @LogMessage(level = WARN)
    @Message(value = "Had problems removing file %s", id = 59)
@@ -284,17 +276,13 @@ public interface Log extends BasicLogger {
    @Message(value = "Error while reading from file: %s", id = 62)
    void errorReadingFromFile(File f, @Cause Exception e);
 
-   @LogMessage(level = ERROR)
-   @Message(value = "Exception while saving bucket %s", id = 63)
-   void errorSavingBucket(Bucket b, @Cause IOException ex);
-
    @LogMessage(level = WARN)
    @Message(value = "Problems creating the directory: %s", id = 64)
    void problemsCreatingDirectory(File dir);
 
    @LogMessage(level = ERROR)
-   @Message(value = "Exception while marshalling object", id = 65)
-   void errorMarshallingObject(@Cause IOException ioe);
+   @Message(value = "Exception while marshalling object: %s", id = 65)
+   void errorMarshallingObject(@Cause IOException ioe, Object obj);
 
    @LogMessage(level = ERROR)
    @Message(value = "Unable to read version id from first two bytes of stream, barfing.", id = 66)
@@ -888,5 +876,148 @@ public interface Log extends BasicLogger {
 
    @Message(value = "Configuration parser %s does not declare any Namespace annotations", id = 235)
    CacheConfigurationException parserDoesNotDeclareNamespaces(String name);
+
+   @Message(value = "Purging expired entries failed", id = 236)
+   CacheLoaderException purgingExpiredEntriesFailed(@Cause Throwable cause);
+
+   @Message(value = "Waiting for expired entries to be purge timed out", id = 237)
+   CacheLoaderException timedOutWaitingForExpiredEntriesToBePurged(@Cause Throwable cause);
+
+   @Message(value = "Directory %s does not exist and cannot be created!", id = 238)
+   CacheConfigurationException directoryCannotBeCreated(String path);
+
+   @Message(value="Cache manager is shutting down, so type write externalizer for type=%s cannot be resolved. Interruption being pushed up.", id = 239)
+   InterruptedException interruptedRetrievingObjectWriter(String className);
+
+   @Message(value="Cache manager is shutting down, so type (id=%d) cannot be resolved. Interruption being pushed up.", id = 240)
+   IOException pushReadInterruptionDueToCacheManagerShutdown(int readerIndex, @Cause InterruptedException cause);
+
+   @Message(value="Cache manager is %s and type (id=%d) cannot be resolved (thread not interrupted)", id = 241)
+   CacheException cannotResolveExternalizerReader(ComponentStatus status, int readerIndex);
+
+   @Message(value="Missing foreign externalizer with id=%s, either externalizer was not configured by client, or module lifecycle implementation adding externalizer was not loaded properly", id = 242)
+   CacheException missingForeignExternalizer(int foreignId);
+
+   @Message(value="Type of data read is unknown. Id=%d is not amongst known reader indexes.", id = 243)
+   CacheException unknownExternalizerReaderIndex(int readerIndex);
+
+   @Message(value="AdvancedExternalizer's getTypeClasses for externalizer %s must return a non-empty set", id = 244)
+   CacheConfigurationException advanceExternalizerTypeClassesUndefined(String className);
+
+   @Message(value="Duplicate id found! AdvancedExternalizer id=%d for %s is shared by another externalizer (%s). Reader index is %d", id = 245)
+   CacheConfigurationException duplicateExternalizerIdFound(int externalizerId, Class<?> typeClass, String otherExternalizer, int readerIndex);
+
+   @Message(value="Internal %s externalizer is using an id(%d) that exceeded the limit. It needs to be smaller than %d", id = 246)
+   CacheConfigurationException internalExternalizerIdLimitExceeded(AdvancedExternalizer<?> ext, int externalizerId, int maxId);
+
+   @Message(value="Foreign %s externalizer is using a negative id(%d). Only positive id values are allowed.", id = 247)
+   CacheConfigurationException foreignExternalizerUsingNegativeId(AdvancedExternalizer<?> ext, int externalizerId);
+
+   @Message(value =  "Invalid cache loader configuration!!  Only ONE cache loader may have fetchPersistentState set " +
+         "to true.  Cache will not start!", id = 248)
+   CacheConfigurationException multipleCacheStoresWithFetchPersistentState();
+
+   @Message(value =  "The cache loader configuration %s does not specify the loader class using @ConfigurationFor", id = 249)
+   CacheConfigurationException loaderConfigurationDoesNotSpecifyLoaderClass(String className);
+
+   @Message(value = "Invalid configuration, expecting '%s' got '%s' instead", id = 250)
+   CacheConfigurationException incompatibleLoaderConfiguration(String expected, String actual);
+
+   @Message(value = "Cache Loader configuration cannot be null", id = 251)
+   CacheConfigurationException cacheLoaderConfigurationCannotBeNull();
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Error executing parallel store task", id = 252)
+   void errorExecutingParallelStoreTask(@Cause Throwable cause);
+
+   @Message(value = "Invalid Cache Loader class: %s", id = 253)
+   CacheConfigurationException invalidCacheLoaderClass(String name);
+
+   @LogMessage(level = WARN)
+   @Message(value = "The transport element's 'strictPeerToPeer' attribute is no longer in use.", id = 254)
+   void strictPeerToPeerDeprecated();
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Error while processing prepare", id = 255)
+   void errorProcessingPrepare(@Cause Throwable e);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Configurator SAXParse error", id = 256)
+   void configuratorSAXParseError(@Cause Exception e);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Configurator SAX error", id = 257)
+   void configuratorSAXError(@Cause Exception e);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Configurator general error", id = 258)
+   void configuratorError(@Cause Exception e);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Async store executor did not stop properly", id = 259)
+   void errorAsyncStoreNotStopped();
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Exception executing command", id = 260)
+   void exceptionExecutingInboundCommand(@Cause Exception e);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Failed to execute outbound transfer", id = 261)
+   void failedOutBoundTransferExecution(@Cause Throwable e);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Failed to enlist TransactionXaAdapter to transaction", id = 262)
+   void failedToEnlistTransactionXaAdapter(@Cause Throwable e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "FIFO strategy is deprecated, LRU will be used instead", id = 263)
+   void warnFifoStrategyIsDeprecated();
+
+   @LogMessage(level = WARN)
+   @Message(value = "Not using an L1 invalidation reaper thread. This could lead to memory leaks as the requestors map may grow indefinitely!", id = 264)
+   void warnL1NotHavingReaperThread();
+
+   @LogMessage(level = WARN)
+   @Message(value = "Unable to reset GlobalComponentRegistry after a failed restart!", id = 265)
+   void unableToResetGlobalComponentRegistryAfterRestart(@Cause Exception e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Unable to reset GlobalComponentRegistry after a failed restart due to an exception of type %s with message %s. Use DEBUG level logging for full exception details.", id = 266)
+   void unableToResetGlobalComponentRegistryAfterRestart(String type, String message, @Cause Exception e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Problems creating interceptor %s", id = 267)
+   void unableToCreateInterceptor(Class type, @Cause Exception e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Unable to broadcast evicts as a part of the prepare phase. Rolling back.", id = 268)
+   void unableToRollbackEvictionsDuringPrepare(@Cause Throwable e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Cache used for Grid metadata should be synchronous.", id = 269)
+   void warnGridFSMetadataCacheRequiresSync();
+
+   @LogMessage(level = WARN)
+   @Message(value = "Could not commit local tx %s", id = 270)
+   void warnCouldNotCommitLocalTx(Object transactionDescription, @Cause Exception e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Could not rollback local tx %s", id = 271)
+   void warnCouldNotRollbackLocalTx(Object transactionDescription, @Cause Exception e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Exception removing recovery information", id = 272)
+   void warnExceptionRemovingRecovery(@Cause Exception e);
+
+   @Message(value = "Indexing can not be enabled on caches in Invalidation mode", id = 273)
+   CacheConfigurationException invalidConfigurationIndexingWithInvalidation();
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Persistence enabled without any CacheLoaderInterceptor in InterceptorChain!", id = 274)
+   void persistenceWithoutCacheLoaderInterceptor();
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Persistence enabled without any CacheWriteInterceptor in InterceptorChain!", id = 275)
+   void persistenceWithoutCacheWriteInterceptor();
 }
 

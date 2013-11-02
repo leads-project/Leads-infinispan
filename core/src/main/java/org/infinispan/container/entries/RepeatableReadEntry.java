@@ -6,6 +6,9 @@ import org.infinispan.transaction.WriteSkewException;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import static org.infinispan.container.entries.ReadCommittedEntry.Flags.COPIED;
+import static org.infinispan.container.entries.ReadCommittedEntry.Flags.SKIP_REMOTE_GET;
+
 /**
  * An extension of {@link ReadCommittedEntry} that provides Repeatable Read semantics
  *
@@ -20,15 +23,11 @@ public class RepeatableReadEntry extends ReadCommittedEntry {
    }
 
    @Override
-   public void copyForUpdate(DataContainer container, boolean localModeWriteSkewCheck) {
-      if (isChanged()) return; // already copied
+   public void copyForUpdate(DataContainer container) {
+      if (isFlagSet(COPIED)) return; // already copied
 
-      // mark entry as changed.
-      setChanged(true);
+      setFlag(COPIED); //mark as copied
 
-      if (localModeWriteSkewCheck) {
-         performLocalWriteSkewCheck(container, false);
-      }
       // make a backup copy
       oldValue = value;
    }
@@ -39,18 +38,36 @@ public class RepeatableReadEntry extends ReadCommittedEntry {
 
       Object actualValue = ice == null ? null : ice.getValue();
       Object valueToCompare = alreadyCopied ? oldValue : value;
+      if (log.isTraceEnabled()) {
+         log.tracef("Performing local write skew check. actualValue=%s, transactionValue=%s", actualValue, valueToCompare);
+      }
       // Note that this identity-check is intentional.  We don't *want* to call actualValue.equals() since that defeats the purpose.
       // the implicit "versioning" we have in R_R creates a new wrapper "value" instance for every update.
       if (actualValue != null && actualValue != valueToCompare) {
          log.unableToCopyEntryForUpdate(getKey());
-         throw new WriteSkewException("Detected write skew.");
+         throw new WriteSkewException("Detected write skew.", key);
       }
 
-      if (ice == null && !isCreated()) {
+      if (valueToCompare != null && ice == null && !isCreated()) {
          // We still have a write-skew here.  When this wrapper was created there was an entry in the data container
          // (hence isCreated() == false) but 'ice' is now null.
          log.unableToCopyEntryForUpdate(getKey());
-         throw new WriteSkewException("Detected write skew - concurrent removal of entry!");
+         throw new WriteSkewException("Detected write skew - concurrent removal of entry!", key);
       }
+   }
+
+   @Override
+   public boolean isNull() {
+      return value == null;
+   }
+
+   @Override
+   public void setSkipRemoteGet(boolean skipRemoteGet) {
+      setFlag(skipRemoteGet, SKIP_REMOTE_GET);
+   }
+
+   @Override
+   public boolean skipRemoteGet() {
+      return isFlagSet(SKIP_REMOTE_GET);
    }
 }

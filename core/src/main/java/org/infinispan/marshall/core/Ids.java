@@ -40,7 +40,7 @@ public interface Ids extends org.infinispan.commons.marshall.Ids {
    int JGROUPS_ADDRESS = 39;
    int MARSHALLED_VALUE = 40;
    // 41 no longer in use, used to be TransactionLog.LogEntry
-   int BUCKET = 42;
+   // 42 no longer in use
    int DEADLOCK_DETECTING_GLOBAL_TRANSACTION = 43;
 
    // 44 and 45 no longer in use, used to belong to tree module
@@ -103,5 +103,15 @@ public interface Ids extends org.infinispan.commons.marshall.Ids {
    int EMBEDDED_METADATA = 98;
 
    int NUMERIC_VERSION = 99;
+   int SCOPED_KEY = 100;
+
+   int NON_EXISTING_VERSION = 101;
+
+   int CACHE_NOT_FOUND_RESPONSE = 102;
+   int KEY_VALUE_PAIR_ID = 103;
+   int INTERNAL_METADATA_ID = 104;
+   int MARSHALLED_ENTRY_ID = 105;
+
+   /* 106 -120 reserved in org.infinispan.commons.marshall.Ids */
 
 }

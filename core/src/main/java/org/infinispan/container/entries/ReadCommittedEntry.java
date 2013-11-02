@@ -51,7 +51,9 @@ public class ReadCommittedEntry implements MVCCEntry {
       REMOVED(1 << 2),
       VALID(1 << 3),
       EVICTED(1 << 4),
-      LOADED(1 << 5);
+      LOADED(1 << 5),
+      SKIP_REMOTE_GET(1 << 6),
+      COPIED(1 << 7);
 
       final byte mask;
 
@@ -122,10 +124,10 @@ public class ReadCommittedEntry implements MVCCEntry {
    }
 
    @Override
-   public void copyForUpdate(DataContainer container, boolean writeSkewCheck) {
-      if (isChanged()) return; // already copied
+   public void copyForUpdate(DataContainer container) {
+      if (isFlagSet(COPIED)) return; // already copied
 
-      setChanged(true); // mark as changed
+      setFlag(COPIED); //mark as copied
 
       // if newly created, then nothing to copy.
       if (!isCreated()) oldValue = value;
@@ -138,8 +140,8 @@ public class ReadCommittedEntry implements MVCCEntry {
       // only do stuff if there are changes.
       if (isChanged() || isLoaded()) {
          if (trace)
-            log.tracef("Updating entry (key=%s removed=%s valid=%s changed=%s created=%s loaded=%s value=%s]",
-                  toStr(getKey()), isRemoved(), isValid(), isChanged(), isCreated(), isLoaded(), toStr(value));
+            log.tracef("Updating entry (key=%s removed=%s valid=%s changed=%s created=%s loaded=%s value=%s metadata=%s)",
+                  toStr(getKey()), isRemoved(), isValid(), isChanged(), isCreated(), isLoaded(), toStr(value), getMetadata());
 
          // Ugh!
          if (value instanceof AtomicHashMap) {
@@ -187,6 +189,17 @@ public class ReadCommittedEntry implements MVCCEntry {
    @Override
    public final void setChanged(boolean changed) {
       setFlag(changed, CHANGED);
+   }
+
+   @Override
+   public void setSkipRemoteGet(boolean skipRemoteGet) {
+      //no-op
+   }
+
+   @Override
+   public boolean skipRemoteGet() {
+      //in read committed, it can read from the data container / remote source multiple times.
+      return false;
    }
 
    @Override
@@ -249,7 +262,7 @@ public class ReadCommittedEntry implements MVCCEntry {
       setFlag(loaded, LOADED);
    }
 
-   private void setFlag(boolean enable, Flags flag) {
+   protected final void setFlag(boolean enable, Flags flag) {
       if (enable)
          setFlag(flag);
       else
@@ -266,6 +279,8 @@ public class ReadCommittedEntry implements MVCCEntry {
             ", isChanged=" + isChanged() +
             ", isRemoved=" + isRemoved() +
             ", isValid=" + isValid() +
+            ", skipRemoteGet=" + skipRemoteGet() +
+            ", metadata=" + metadata +
             '}';
    }
 
@@ -275,6 +290,7 @@ public class ReadCommittedEntry implements MVCCEntry {
          if (trace) log.trace("Entry is deleted in current scope.  Un-deleting.");
          setRemoved(false);
          setValid(true);
+         setValue(null);
          return true;
       }
       return false;

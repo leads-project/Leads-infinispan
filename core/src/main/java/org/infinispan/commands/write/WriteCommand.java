@@ -31,14 +31,26 @@ public interface WriteCommand extends VisitableCommand, FlagAffectedCommand {
    boolean isConditional();
 
    /**
+    * Only relevant for conditional commands.
+    *
+    * @return {@code true} if the command isn't really conditional, because the previous value was already checked
+    * - either on the originator (tx) or on the primary owner (non-tx).
+    */
+   boolean isIgnorePreviousValue();
+
+   /**
+    * Only relevant for conditional commands.
+    *
+    * @param ignorePreviousValue {@code true} if the command isn't really conditional, because the previous value
+    * was already checked - either on the originator (tx) or on the primary owner (non-tx).
+    */
+   void setIgnorePreviousValue(boolean ignorePreviousValue);
+
+   /**
     *
     * @return a collection of keys affected by this write command.  Some commands - such as ClearCommand - may return
     * an empty collection for this method.
     */
    Set<Object> getAffectedKeys();
 
-   /**
-    * @return  {@code true} if the key was previously read in the transaction during this command execution
-    */
-   boolean wasPreviousRead();
 }

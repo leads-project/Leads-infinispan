@@ -4,17 +4,25 @@ import static java.io.File.separator;
 import static org.testng.AssertJUnit.assertFalse;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
@@ -34,6 +42,8 @@ import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
+import org.infinispan.container.entries.InternalCacheEntry;
+import org.infinispan.container.entries.InternalCacheValue;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.factories.ComponentRegistry;
@@ -43,15 +53,23 @@ import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.jmx.PerThreadMBeanServerLookup;
 import org.infinispan.lifecycle.ComponentStatus;
-import org.infinispan.loaders.CacheLoader;
-import org.infinispan.loaders.CacheLoaderManager;
-import org.infinispan.loaders.CacheStore;
+import org.infinispan.marshall.core.MarshalledEntryImpl;
+import org.infinispan.persistence.PersistenceUtil;
+import org.infinispan.persistence.manager.PersistenceManager;
+import org.infinispan.persistence.manager.PersistenceManagerImpl;
+import org.infinispan.persistence.spi.AdvancedCacheLoader;
+import org.infinispan.persistence.spi.AdvancedLoadWriteStore;
+import org.infinispan.persistence.spi.CacheLoader;
+import org.infinispan.persistence.spi.CacheWriter;
+import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.manager.CacheContainer;
-import org.infinispan.manager.CacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.commons.marshall.AbstractDelegatingMarshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.marshall.core.ExternalizerTable;
+import org.infinispan.metadata.EmbeddedMetadata;
+import org.infinispan.metadata.InternalMetadataImpl;
+import org.infinispan.metadata.Metadata;
 import org.infinispan.remoting.ReplicationQueue;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
@@ -61,6 +79,7 @@ import org.infinispan.topology.CacheTopology;
 import org.infinispan.topology.DefaultRebalancePolicy;
 import org.infinispan.topology.RebalancePolicy;
 import org.infinispan.transaction.TransactionTable;
+import org.infinispan.util.concurrent.WithinThreadExecutor;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -76,6 +95,10 @@ public class TestingUtil {
    private static final Random random = new Random();
    public static final String TEST_PATH = "infinispanTempFiles";
    public static final String INFINISPAN_START_TAG = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<infinispan\n" +
+         "      xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
+         "      xsi:schemaLocation=\"urn:infinispan:config:6.0 http://www.infinispan.org/schemas/infinispan-config-6.0.xsd\"\n" +
+         "      xmlns=\"urn:infinispan:config:6.0\">";
+   public static final String INFINISPAN_START_TAG_53 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<infinispan\n" +
          "      xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
          "      xsi:schemaLocation=\"urn:infinispan:config:5.3 http://www.infinispan.org/schemas/infinispan-config-5.3.xsd\"\n" +
          "      xmlns=\"urn:infinispan:config:5.3\">";
@@ -650,20 +673,14 @@ public class TestingUtil {
    }
 
    public static void clearCacheLoader(Cache cache) {
-      CacheLoaderManager cacheLoaderManager = TestingUtil.extractComponent(cache, CacheLoaderManager.class);
-      if (cacheLoaderManager != null && cacheLoaderManager.getCacheStore() != null) {
-         try {
-            cacheLoaderManager.getCacheStore().clear();
-         } catch (Exception e) {
-            throw new RuntimeException(e);
-         }
-      }
+      PersistenceManager persistenceManager = TestingUtil.extractComponent(cache, PersistenceManager.class);
+      persistenceManager.clearAllStores(false);
    }
 
-   public static <K, V> List<CacheStore> cachestores(List<Cache<K, V>> caches) {
-      List<CacheStore> l = new LinkedList<CacheStore>();
+   public static <K, V> List<CacheLoader> cachestores(List<Cache<K, V>> caches) {
+      List<CacheLoader> l = new LinkedList<CacheLoader>();
       for (Cache<?, ?> c: caches)
-         l.add(TestingUtil.extractComponent(c, CacheLoaderManager.class).getCacheStore());
+         l.add(TestingUtil.getFirstLoader(c));
       return l;
    }
 
@@ -683,7 +700,7 @@ public class TestingUtil {
    }
 
    /**
-    * Kills a cache - stops it, clears any data in any cache loaders, and rolls back any associated txs
+    * Kills a cache - stops it, clears any data in any stores, and rolls back any associated txs
     */
    public static void killCaches(Cache... caches) {
       killCaches(Arrays.asList(caches));
@@ -984,9 +1001,9 @@ public class TestingUtil {
    }
 
    public static CacheLoader getCacheLoader(Cache cache) {
-      CacheLoaderManager clm = extractComponent(cache, CacheLoaderManager.class);
-      if (clm != null && clm.isEnabled()) {
-         return clm.getCacheLoader();
+      PersistenceManager clm = extractComponent(cache, PersistenceManager.class);
+      if (cache.getCacheConfiguration().persistence().usingStores()) {
+         return TestingUtil.getFirstLoader(cache);
       } else {
          return null;
       }
@@ -1064,6 +1081,16 @@ public class TestingUtil {
    public static String tmpDirectory(AbstractInfinispanTest test) {
       String prefix = System.getProperty("infinispan.test.tmpdir", System.getProperty("java.io.tmpdir"));
       return prefix + separator + TEST_PATH + separator + test.getClass().getSimpleName();
+   }
+
+   /**
+    * See {@link #tmpDirectory(AbstractInfinispanTest)}
+    *
+    * @return an absolute path
+    */
+   public static String tmpDirectory(String folder) {
+      String prefix = System.getProperty("infinispan.test.tmpdir", System.getProperty("java.io.tmpdir"));
+      return prefix + separator + TEST_PATH + separator + folder;
    }
 
    public static String k(Method method, int index) {
@@ -1247,5 +1274,83 @@ public class TestingUtil {
     */
    public static long now() {
       return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+   }
+
+   public static Metadata metadata(Long lifespan, Long maxIdle) {
+      return new EmbeddedMetadata.Builder().lifespan(lifespan != null ? lifespan : -1)
+            .maxIdle(maxIdle != null ? maxIdle : -1).build();
+   }
+   public static Metadata metadata(Integer lifespan, Integer maxIdle) {
+      return new EmbeddedMetadata.Builder().lifespan(lifespan != null ? lifespan : -1)
+            .maxIdle(maxIdle != null ? maxIdle : -1).build();
+   }
+
+   public static InternalMetadataImpl internalMetadata(Long lifespan, Long maxIdle) {
+      long now = System.currentTimeMillis();
+      return new InternalMetadataImpl(metadata(lifespan, maxIdle), now, now);
+   }
+
+
+   public static CacheLoader getFirstLoader(Cache cache) {
+      PersistenceManagerImpl persistenceManager = (PersistenceManagerImpl) extractComponent(cache, PersistenceManager.class);
+      return persistenceManager.getAllLoaders().get(0);
+   }
+
+   public static CacheWriter getFirstWriter(Cache cache) {
+      PersistenceManagerImpl persistenceManager = (PersistenceManagerImpl) extractComponent(cache, PersistenceManager.class);
+      return persistenceManager.getAllWriters().get(0);
+   }
+
+   public static StreamingMarshaller marshaller(Cache cache) {
+      return cache.getAdvancedCache().getComponentRegistry().getCacheMarshaller();
+   }
+
+   public static Set<MarshalledEntry> allEntries(AdvancedLoadWriteStore cl, AdvancedCacheLoader.KeyFilter filter) {
+      final Set<MarshalledEntry> result = new HashSet<MarshalledEntry>();
+      cl.process(filter, new AdvancedCacheLoader.CacheLoaderTask() {
+         @Override
+         public void processEntry(MarshalledEntry marshalledEntry, AdvancedCacheLoader.TaskContext taskContext) throws InterruptedException {
+            result.add(marshalledEntry);
+         }
+      }, new WithinThreadExecutor(), true, true);
+      return result;
+   }
+
+   public static Set<MarshalledEntry> allEntries(AdvancedLoadWriteStore cl) {
+      return allEntries(cl, null);
+   }
+
+   public static MarshalledEntry marshalledEntry(InternalCacheEntry ice, StreamingMarshaller marshaller) {
+      return new MarshalledEntryImpl(ice.getKey(), ice.getValue(), PersistenceUtil.internalMetadata(ice), marshaller);
+   }
+
+   public static MarshalledEntry marshalledEntry(InternalCacheValue icv, StreamingMarshaller marshaller) {
+      return marshalledEntry(icv, marshaller);
+   }
+
+   public static void outputPropertiesToXML(String outputFile, Properties properties) throws IOException {
+      Properties sorted = new Properties() {
+         @Override
+         public Set<Object> keySet() {
+            return Collections.unmodifiableSet(new TreeSet<Object>(super.keySet()));
+         }
+
+         @Override
+         public synchronized Enumeration<Object> keys() {
+            return Collections.enumeration(new TreeSet<Object>(super.keySet()));
+         }
+
+         @Override
+         public Set<String> stringPropertyNames() {
+            return Collections.unmodifiableSet(new TreeSet<String>(super.stringPropertyNames()));
+         }
+      };
+      sorted.putAll(properties);
+      OutputStream stream = new FileOutputStream(outputFile);
+      try {
+         sorted.storeToXML(stream, null);
+      } finally {
+         stream.close();
+      }
    }
 }

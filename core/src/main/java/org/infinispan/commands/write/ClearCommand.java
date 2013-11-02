@@ -47,6 +47,7 @@ public class ClearCommand extends AbstractFlagAffectedCommand implements WriteCo
             notifier.notifyCacheEntryRemoved(k, v, v, true, ctx, this);
             me.setRemoved(true);
             me.setValid(false);
+            me.setChanged(true);
          }
       }
       return null;
@@ -95,13 +96,17 @@ public class ClearCommand extends AbstractFlagAffectedCommand implements WriteCo
    }
 
    @Override
-   public Set<Object> getAffectedKeys() {
-      return InfinispanCollections.emptySet();
+   public boolean isIgnorePreviousValue() {
+      return false;
    }
 
    @Override
-   public boolean wasPreviousRead() {
-      return false; //no return value from clear
+   public void setIgnorePreviousValue(boolean ignorePreviousValue) {
+   }
+
+   @Override
+   public Set<Object> getAffectedKeys() {
+      return InfinispanCollections.emptySet();
    }
 
    @Override

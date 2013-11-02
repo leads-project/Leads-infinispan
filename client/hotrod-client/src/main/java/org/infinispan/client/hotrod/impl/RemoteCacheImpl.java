@@ -77,6 +77,10 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> {
       this.estimateValueSize = estimateValueSize;
    }
 
+   public OperationsFactory getOperationsFactory() {
+      return operationsFactory;
+   }
+
    @Override
    public RemoteCacheManager getRemoteCacheManager() {
       return remoteCacheManager;
@@ -374,12 +378,14 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> {
       op.execute();
    }
 
+   @Override
    public void start() {
       if (log.isDebugEnabled()) {
          log.debugf("Start called, nothing to do here(%s)", getName());
       }
    }
 
+   @Override
    public void stop() {
       if (log.isDebugEnabled()) {
          log.debugf("Stop called, nothing to do here(%s)", getName());
@@ -393,6 +399,11 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> {
 
    @Override
    public String getVersion() {
+      return RemoteCacheImpl.class.getPackage().getImplementationVersion();
+   }
+
+   @Override
+   public String getProtocolVersion() {
       return Version.getProtocolVersion();
    }
 

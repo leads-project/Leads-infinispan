@@ -21,11 +21,10 @@ import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.equivalence.AnyEquivalence;
 import org.infinispan.commons.equivalence.ByteArrayEquivalence;
 import org.infinispan.configuration.cache.CacheMode;
-import org.infinispan.configuration.cache.ClusterCacheLoaderConfiguration;
+import org.infinispan.configuration.cache.ClusterLoaderConfiguration;
 import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.configuration.cache.FileCacheStoreConfiguration;
-import org.infinispan.configuration.cache.FileCacheStoreConfigurationBuilder;
 import org.infinispan.configuration.cache.InterceptorConfiguration;
+import org.infinispan.configuration.cache.SingleFileStoreConfiguration;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.configuration.global.ShutdownHookBehavior;
 import org.infinispan.eviction.EvictionStrategy;
@@ -114,15 +113,6 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       });
    }
 
-   public void testOldNamedCacheFile() throws IOException {
-      withCacheManager(new CacheManagerCallable(TestCacheManagerFactory.fromXml("configs/named-cache-test-51.xml", true)) {
-         @Override
-         public void call() {
-            assertNamedCacheFile(cm, true);
-         }
-      });
-   }
-
    public void testNoNamedCaches() throws Exception {
       String config = INFINISPAN_START_TAG +
             "   <global>\n" +
@@ -201,12 +191,12 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       "<transaction \n" +
       "transactionManagerLookupClass=\"org.infinispan.transaction.lookup.GenericTransactionManagerLookup\" \n" +
       "syncRollbackPhase=\"false\" syncCommitPhase=\"false\" useEagerLocking=\"false\" />\n" +
-      "<loaders passivation=\"true\" shared=\"true\" preload=\"true\"> \n" +
-      "<loader class=\"org.infinispan.loaders.file.FileCacheStore\" \n" +
-      "fetchPersistentState=\"true\" purgerThreads=\"3\" purgeSynchronously=\"true\" \n" +
+      "<persistence passivation=\"true\"> \n" +
+      "<store shared=\"true\" preload=\"true\" class=\"org.infinispan.persistence.file.SingleFileStore\" \n" +
+      "fetchPersistentState=\"true\" \n" +
       "ignoreModifications=\"false\" purgeOnStartup=\"false\"> \n" +
-      "</loader>\n" +
-      "</loaders>\n" +
+      "</store>\n" +
+      "</persistence>\n" +
       "</default>\n" +
       "<namedCache name=\"Cache1\"> \n" +
       "<jmxStatistics enabled=\"true\" />\n" +
@@ -266,7 +256,7 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
          public void call() {
             Configuration cfg = cm.getDefaultCacheConfiguration();
             assertTrue(cfg.storeAsBinary().enabled());
-            assertTrue(!cfg.storeAsBinary().defensive());
+            assertTrue(cfg.storeAsBinary().defensive());
          }
       });
    }
@@ -364,6 +354,13 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
          assertEquals("10000", gc.asyncListenerExecutor().properties().getProperty("queueSize"));
       }
       assertEquals("AsyncListenerThread", gc.asyncListenerExecutor().properties().getProperty("threadNamePrefix"));
+
+      assertTrue(gc.persistenceExecutor().factory() instanceof DefaultExecutorFactory);
+      assertEquals("6", gc.persistenceExecutor().properties().getProperty("maxThreads"));
+      if (!deprecated) {
+         assertEquals("10001", gc.persistenceExecutor().properties().getProperty("queueSize"));
+      }
+      assertEquals("PersistenceThread", gc.persistenceExecutor().properties().getProperty("threadNamePrefix"));
 
       assertTrue(gc.asyncTransportExecutor().factory() instanceof DefaultExecutorFactory);
       // Should be 25, but it's overriden by the test cache manager factory
@@ -502,19 +499,16 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       assertTrue(c.storeAsBinary().enabled());
 
       c = cm.getCacheConfiguration("withFileStore");
-      assertTrue(c.loaders().preload());
-      assertTrue(!c.loaders().passivation());
-      assertTrue(!c.loaders().shared());
-      assertEquals(1, c.loaders().cacheLoaders().size());
+      assertTrue(c.persistence().preload());
+      assertTrue(!c.persistence().passivation());
+      assertEquals(1, c.persistence().stores().size());
 
-      FileCacheStoreConfiguration loaderCfg = (FileCacheStoreConfiguration) c.loaders().cacheLoaders().get(0);
+      SingleFileStoreConfiguration loaderCfg = (SingleFileStoreConfiguration) c.persistence().stores().get(0);
 
       assertTrue(loaderCfg.fetchPersistentState());
       assertTrue(loaderCfg.ignoreModifications());
       assertTrue(loaderCfg.purgeOnStartup());
       assertEquals("/tmp/FileCacheStore-Location", loaderCfg.location());
-      assertEquals(FileCacheStoreConfigurationBuilder.FsyncMode.PERIODIC, loaderCfg.fsyncMode());
-      assertEquals(2000, loaderCfg.fsyncInterval());
       assertEquals(20000, loaderCfg.singletonStore().pushStateTimeout());
       assertTrue(loaderCfg.singletonStore().pushStateWhenCoordinator());
       assertEquals(5, loaderCfg.async().threadPoolSize());
@@ -523,14 +517,13 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       assertEquals(700, loaderCfg.async().modificationQueueSize());
 
       c = cm.getCacheConfiguration("withClusterLoader");
-      assertEquals(1, c.loaders().cacheLoaders().size());
-      ClusterCacheLoaderConfiguration clusterLoaderCfg = (ClusterCacheLoaderConfiguration) c.loaders().cacheLoaders().get(0);
+      assertEquals(1, c.persistence().stores().size());
+      ClusterLoaderConfiguration clusterLoaderCfg = (ClusterLoaderConfiguration) c.persistence().stores().get(0);
       assertEquals(15000, clusterLoaderCfg.remoteCallTimeout());
 
       c = cm.getCacheConfiguration("withLoaderDefaults");
-      loaderCfg = (FileCacheStoreConfiguration) c.loaders().cacheLoaders().get(0);
+      loaderCfg = (SingleFileStoreConfiguration) c.persistence().stores().get(0);
       assertEquals("/tmp/Another-FileCacheStore-Location", loaderCfg.location());
-      assertEquals(FileCacheStoreConfigurationBuilder.FsyncMode.DEFAULT, loaderCfg.fsyncMode());
 
       c = cm.getCacheConfiguration("withouthJmxEnabled");
       assertTrue(!c.jmxStatistics().enabled());
@@ -549,7 +542,7 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       assertEquals(3, c.clustering().hash().numOwners());
       assertTrue(c.clustering().l1().enabled());
 
-      c = cm.getCacheConfiguration("dist_with_vnodes");
+      c = cm.getCacheConfiguration("dist_with_capacity_factors");
       assertEquals(CacheMode.DIST_SYNC, c.clustering().cacheMode());
       assertEquals(600000, c.clustering().l1().lifespan());
       if (deprecated) assertEquals(120000, c.clustering().hash().rehashRpcTimeout());
@@ -557,7 +550,7 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       assertEquals(null, c.clustering().hash().consistentHash()); // this is just an override.
       assertEquals(3, c.clustering().hash().numOwners());
       assertTrue(c.clustering().l1().enabled());
-      assertEquals(1, c.clustering().hash().numVirtualNodes());
+      assertEquals(0.0f, c.clustering().hash().capacityFactor());
       if (!deprecated) assertEquals(1000, c.clustering().hash().numSegments());
 
       c = cm.getCacheConfiguration("groups");

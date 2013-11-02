@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <infinispan
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xsi:schemaLocation="urn:infinispan:config:5.3 http://www.infinispan.org/schemas/infinispan-config-5.3.xsd"
-      xmlns="urn:infinispan:config:5.3">
+      xsi:schemaLocation="urn:infinispan:config:6.0 http://www.infinispan.org/schemas/infinispan-config-6.0.xsd"
+      xmlns="urn:infinispan:config:6.0">
       
       <global>
         <asyncListenerExecutor factory="com.acme.Factory">
@@ -10,6 +10,11 @@
             <property name="foo" value="bar"/>
           </properties>
         </asyncListenerExecutor>
+        <persistenceExecutor factory="com.acme.Factory">
+          <properties>
+            <property name="foo" value="bar"/>
+          </properties>
+        </persistenceExecutor>
         <asyncTransportExecutor factory="com.acme.Factory">
           <properties>
             <property name="foo" value="bar"/>
@@ -88,17 +93,15 @@
         </indexing>
         <invocationBatching enabled="true"/>
         <jmxStatistics enabled="true"/>
-        <loaders passivation="true" preload="true" shared="true">
-          <loader fetchPersistentState="true" ignoreModifications="true"
-                  purgeOnStartup="true" purgerThreads="1" purgeSynchronously="true"
+        <persistence passivation="true">
+           <store fetchPersistentState="true" ignoreModifications="true" preload="true" shared="true"
+                  purgeOnStartup="true"
                   class="com.acme.TestCacheLoader">
-            <properties>
-              <property name="foo" value="bar"/>
-            </properties>
-            <async enabled="true" flushLockTimeout="1" modificationQueueSize="1" shutdownTimeout="1" threadPoolSize="1"/>
-            <singletonStore enabled="true"/>
-          </loader>
-        </loaders>
+              <async enabled="true" flushLockTimeout="1" modificationQueueSize="1" shutdownTimeout="1" threadPoolSize="1"/>
+              <singleton enabled="true"/>
+              <properties><property name="foo" value="bar"/></properties>
+           </store>
+        </persistence>
         <locking concurrencyLevel="1" isolationLevel="NONE" lockAcquisitionTimeout="1" useLockStriping="true" writeSkewCheck="true"/>
         <storeAsBinary enabled="true" storeKeysAsBinary="true" storeValuesAsBinary="true"/>
         <transaction autoCommit="true" cacheStopTimeout="1" eagerLockSingleNode="true" lockingMode="OPTIMISTIC" syncCommitPhase="true" syncRollbackPhase="true" transactionManagerLookupClass="com.acme.TransactionManagerLookup" transactionMode="NON_TRANSACTIONAL" use1PcForAutoCommitTransactions="true" useEagerLocking="true" useSynchronization="true" transactionProtocol="TOTAL_ORDER">

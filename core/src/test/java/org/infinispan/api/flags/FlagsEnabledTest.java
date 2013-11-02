@@ -14,10 +14,8 @@ import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.VersioningScheme;
 import org.infinispan.context.Flag;
-import org.infinispan.loaders.CacheLoaderManager;
-import org.infinispan.loaders.UnnnecessaryLoadingTest.CountingCacheStore;
-import org.infinispan.loaders.decorators.ChainingCacheStore;
-import org.infinispan.loaders.dummy.DummyInMemoryCacheStore;
+import org.infinispan.persistence.UnnecessaryLoadingTest;
+import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.CleanupAfterMethod;
@@ -40,16 +38,14 @@ public class FlagsEnabledTest extends MultipleCacheManagersTest {
       builder
             .locking().writeSkewCheck(true).isolationLevel(IsolationLevel.REPEATABLE_READ)
             .versioning().enable().scheme(VersioningScheme.SIMPLE)
-            .loaders().addStore().cacheStore(new CountingCacheStore())
-            .loaders().addStore().cacheStore(new DummyInMemoryCacheStore())
+            .persistence().addStore(UnnecessaryLoadingTest.CountingStoreConfigurationBuilder.class)
+            .persistence().addStore(DummyInMemoryStoreConfigurationBuilder.class)
             .transaction().syncCommitPhase(true);
       createClusteredCaches(2, "replication", builder);
    }
 
-   CountingCacheStore getCacheStore(Cache cache) {
-      CacheLoaderManager clm = TestingUtil.extractComponent(cache, CacheLoaderManager.class);
-      ChainingCacheStore ccs = (ChainingCacheStore) clm.getCacheLoader();
-      return (CountingCacheStore) ccs.getStores().keySet().iterator().next();
+   UnnecessaryLoadingTest.CountingStore getCacheStore(Cache cache) {
+      return (UnnecessaryLoadingTest.CountingStore) TestingUtil.getFirstLoader(cache);
    }
 
    public void testWithFlagsSemantics() {

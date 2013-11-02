@@ -4,8 +4,8 @@ import org.infinispan.Cache;
 import org.infinispan.commons.util.Util;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.SingleCacheManagerTest;
+import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
-import org.infinispan.util.concurrent.NotifyingFuture;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -18,11 +18,12 @@ import static org.junit.Assert.*;
 public class AsyncAPITest extends SingleCacheManagerTest {
 
    private Cache<String, String> c;
-   
+
    private long startTime;
 
+   @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
-      EmbeddedCacheManager cm = TestCacheManagerFactory.createLocalCacheManager(false);
+      EmbeddedCacheManager cm = TestCacheManagerFactory.createCacheManager(false);
       c = cm.getCache();
       return cm;
    }
@@ -337,7 +338,7 @@ public class AsyncAPITest extends SingleCacheManagerTest {
 
       final long pollInterval = 50;
       try {
-         assertEquals(expectedValue, c.get(key));
+         assertTrue(expectedValue.equals(c.get(key)) || TestingUtil.moreThanDurationElapsed(startTime, expectedLifetime));
          eventually(new Condition() {
             @Override
             public boolean isSatisfied() {

@@ -156,6 +156,11 @@ public class CoreImmutables extends Immutables {
       }
 
       @Override
+      public boolean skipRemoteGet() {
+         return false;
+      }
+
+      @Override
       public boolean isChanged() {
          return entry.isChanged();
       }
@@ -226,6 +231,11 @@ public class CoreImmutables extends Immutables {
       }
 
       @Override
+      public void setSkipRemoteGet(boolean skipRemoteGet) {
+         throw new UnsupportedOperationException();
+      }
+
+      @Override
       public Metadata getMetadata() {
          return entry.getMetadata();
       }
@@ -286,6 +296,16 @@ public class CoreImmutables extends Immutables {
       @Override
       public InternalCacheEntry toInternalCacheEntry(Object key) {
          return entry;
+      }
+
+      @Override
+      public long getExpiryTime() {
+         return entry.toInternalCacheValue().getExpiryTime();
+      }
+
+      @Override
+      public Metadata getMetadata() {
+         return entry.getMetadata();
       }
    }
 }

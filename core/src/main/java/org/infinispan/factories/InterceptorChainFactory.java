@@ -3,29 +3,17 @@ package org.infinispan.factories;
 
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.CacheException;
-import org.infinispan.configuration.cache.CompatibilityModeConfiguration;
-import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.configuration.cache.Configurations;
-import org.infinispan.configuration.cache.CustomInterceptorsConfiguration;
-import org.infinispan.configuration.cache.InterceptorConfiguration;
-import org.infinispan.configuration.cache.CacheLoaderConfiguration;
-import org.infinispan.configuration.cache.CacheStoreConfiguration;
+import org.infinispan.commons.marshall.Marshaller;
+import org.infinispan.configuration.cache.*;
 import org.infinispan.factories.annotations.DefaultFactoryFor;
 import org.infinispan.interceptors.*;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.interceptors.compat.TypeConverterInterceptor;
-import org.infinispan.interceptors.distribution.L1NonTxInterceptor;
-import org.infinispan.interceptors.distribution.NonTxDistributionInterceptor;
-import org.infinispan.interceptors.distribution.TxDistributionInterceptor;
-import org.infinispan.interceptors.distribution.VersionedDistributionInterceptor;
+import org.infinispan.interceptors.distribution.*;
 import org.infinispan.interceptors.locking.NonTransactionalLockingInterceptor;
 import org.infinispan.interceptors.locking.OptimisticLockingInterceptor;
 import org.infinispan.interceptors.locking.PessimisticLockingInterceptor;
-import org.infinispan.interceptors.totalorder.TotalOrderDistributionInterceptor;
-import org.infinispan.interceptors.totalorder.TotalOrderInterceptor;
-import org.infinispan.interceptors.totalorder.TotalOrderStateTransferInterceptor;
-import org.infinispan.interceptors.totalorder.TotalOrderVersionedDistributionInterceptor;
-import org.infinispan.interceptors.totalorder.TotalOrderVersionedEntryWrappingInterceptor;
+import org.infinispan.interceptors.totalorder.*;
 import org.infinispan.interceptors.xsite.NonTransactionalBackupInterceptor;
 import org.infinispan.interceptors.xsite.OptimisticBackupInterceptor;
 import org.infinispan.interceptors.xsite.PessimisticBackupInterceptor;
@@ -71,7 +59,7 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
       try {
          componentRegistry.registerComponent(chainedInterceptor, clazz);
       } catch (RuntimeException e) {
-         log.warn("Problems creating interceptor " + clazz);
+         log.unableToCreateInterceptor(clazz, e);
          throw e;
       }
    }
@@ -101,12 +89,17 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
 
       CompatibilityModeConfiguration compatibility = configuration.compatibility();
       if (compatibility.enabled()) {
+         Marshaller compatibilityMarshaller = compatibility.marshaller();
+         if (compatibilityMarshaller != null) {
+            componentRegistry.wireDependencies(compatibilityMarshaller);
+         }
          interceptorChain.appendInterceptor(createInterceptor(
-               new TypeConverterInterceptor(compatibility.marshaller()), TypeConverterInterceptor.class), false);
+               new TypeConverterInterceptor(compatibilityMarshaller), TypeConverterInterceptor.class), false);
       }
 
       // add marshallable check interceptor for situations where we want to figure out before marshalling
-      if (isUsingMarshalledValues(configuration) || configuration.clustering().async().asyncMarshalling()
+      // Store as binary marshalls keys/values eagerly now, so avoid extra serialization
+      if (configuration.clustering().async().asyncMarshalling()
             || configuration.clustering().async().useReplQueue() || hasAsyncStore())
          interceptorChain.appendInterceptor(createInterceptor(new IsMarshallableInterceptor(), IsMarshallableInterceptor.class), false);
 
@@ -142,13 +135,8 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
 
       if (isUsingMarshalledValues(configuration)) {
          CommandInterceptor interceptor;
-         if (configuration.storeAsBinary().defensive()) {
-            interceptor = createInterceptor(
-                  new DefensiveMarshalledValueInterceptor(), DefensiveMarshalledValueInterceptor.class);
-         } else {
             interceptor = createInterceptor(
                   new MarshalledValueInterceptor(), MarshalledValueInterceptor.class);
-         }
 
          interceptorChain.appendInterceptor(interceptor, false);
       }
@@ -185,6 +173,11 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
          }
       }
 
+      // This needs to be added after the locking interceptor (for tx caches) but before the wrapping interceptor.
+      if (configuration.clustering().l1().enabled()) {
+         interceptorChain.appendInterceptor(createInterceptor(new L1LastChanceInterceptor(), L1LastChanceInterceptor.class), false);
+      }
+
       if (needsVersionAwareComponents && configuration.clustering().cacheMode().isClustered()) {
          if (isTotalOrder) {
             interceptorChain.appendInterceptor(createInterceptor(new TotalOrderVersionedEntryWrappingInterceptor(),
@@ -195,8 +188,8 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
       } else
          interceptorChain.appendInterceptor(createInterceptor(new EntryWrappingInterceptor(), EntryWrappingInterceptor.class), false);
 
-      if (configuration.loaders().usingCacheLoaders()) {
-         if (configuration.loaders().passivation()) {
+      if (configuration.persistence().usingStores()) {
+         if (configuration.persistence().passivation()) {
             if (configuration.clustering().cacheMode().isClustered())
                interceptorChain.appendInterceptor(createInterceptor(new ClusteredActivationInterceptor(), ClusteredActivationInterceptor.class), false);
             else
@@ -212,10 +205,10 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
                case DIST_ASYNC:
                case REPL_SYNC:
                case REPL_ASYNC:
-                  interceptorChain.appendInterceptor(createInterceptor(new DistCacheStoreInterceptor(), DistCacheStoreInterceptor.class), false);
+                  interceptorChain.appendInterceptor(createInterceptor(new DistCacheWriterInterceptor(), DistCacheWriterInterceptor.class), false);
                   break;
                default:
-                  interceptorChain.appendInterceptor(createInterceptor(new CacheStoreInterceptor(), CacheStoreInterceptor.class), false);
+                  interceptorChain.appendInterceptor(createInterceptor(new CacheWriterInterceptor(), CacheWriterInterceptor.class), false);
                   break;
             }
          }
@@ -225,8 +218,13 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
          interceptorChain.appendInterceptor(createInterceptor(new DeadlockDetectingInterceptor(), DeadlockDetectingInterceptor.class), false);
       }
 
-      if (configuration.clustering().l1().enabled() && !configuration.transaction().transactionMode().isTransactional()) {
-         interceptorChain.appendInterceptor(createInterceptor(new L1NonTxInterceptor(), L1NonTxInterceptor.class), false);
+      if (configuration.clustering().l1().enabled()) {
+         if (configuration.transaction().transactionMode().isTransactional()) {
+            interceptorChain.appendInterceptor(createInterceptor(new L1TxInterceptor(), L1TxInterceptor.class), false);
+         }
+         else {
+            interceptorChain.appendInterceptor(createInterceptor(new L1NonTxInterceptor(), L1NonTxInterceptor.class), false);
+         }
       }
 
       switch (configuration.clustering().cacheMode()) {
@@ -301,9 +299,9 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
    }
 
    private boolean hasAsyncStore() {
-      List<CacheLoaderConfiguration> loaderConfigs = configuration.loaders().cacheLoaders();
-      for (CacheLoaderConfiguration loaderConfig : loaderConfigs) {
-         if (loaderConfig instanceof CacheStoreConfiguration && ((CacheStoreConfiguration)loaderConfig).async().enabled())
+      List<StoreConfiguration> loaderConfigs = configuration.persistence().stores();
+      for (StoreConfiguration loaderConfig : loaderConfigs) {
+         if (loaderConfig.async().enabled())
             return true;
       }
       return false;

@@ -19,7 +19,7 @@ import org.infinispan.distribution.TestAddress;
 import org.infinispan.distribution.ch.DefaultConsistentHash;
 import org.infinispan.distribution.ch.DefaultConsistentHashFactory;
 import org.infinispan.interceptors.InterceptorChain;
-import org.infinispan.loaders.CacheLoaderManager;
+import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.SuccessfulResponse;
@@ -35,6 +35,7 @@ import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
+import org.infinispan.util.concurrent.BlockingTaskAwareExecutorService;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -112,8 +113,8 @@ public class StateConsumerTest extends AbstractInfinispanTest {
 
       // create CHes
       DefaultConsistentHashFactory chf = new DefaultConsistentHashFactory();
-      DefaultConsistentHash ch1 = chf.create(new MurmurHash3(), 2, 40, members1);
-      final DefaultConsistentHash ch2 = chf.updateMembers(ch1, members2);
+      DefaultConsistentHash ch1 = chf.create(new MurmurHash3(), 2, 40, members1, null);
+      final DefaultConsistentHash ch2 = chf.updateMembers(ch1, members2, null);
       DefaultConsistentHash ch3 = chf.rebalance(ch2);
 
       log.debug(ch1);
@@ -139,13 +140,14 @@ public class StateConsumerTest extends AbstractInfinispanTest {
       RpcManager rpcManager = mock(RpcManager.class);
       Transport transport = mock(Transport.class);
       CommandsFactory commandsFactory = mock(CommandsFactory.class);
-      CacheLoaderManager cacheLoaderManager = mock(CacheLoaderManager.class);
+      PersistenceManager persistenceManager = mock(PersistenceManager.class);
       DataContainer dataContainer = mock(DataContainer.class);
       TransactionTable transactionTable = mock(TransactionTable.class);
       StateTransferLock stateTransferLock = mock(StateTransferLock.class);
       InterceptorChain interceptorChain = mock(InterceptorChain.class);
       InvocationContextContainer icc = mock(InvocationContextContainer.class);
       TotalOrderManager totalOrderManager = mock(TotalOrderManager.class);
+      BlockingTaskAwareExecutorService remoteCommandsExecutor = mock(BlockingTaskAwareExecutorService.class);
 
       when(commandsFactory.buildStateRequestCommand(any(StateRequestCommand.Type.class), any(Address.class), anyInt(), any(Set.class))).thenAnswer(new Answer<StateRequestCommand>() {
          @Override
@@ -192,7 +194,8 @@ public class StateConsumerTest extends AbstractInfinispanTest {
       // create state provider
       final StateConsumerImpl stateConsumer = new StateConsumerImpl();
       stateConsumer.init(cache, pooledExecutorService, stateTransferManager, interceptorChain, icc, configuration, rpcManager, null,
-            commandsFactory, cacheLoaderManager, dataContainer, transactionTable, stateTransferLock, cacheNotifier, totalOrderManager);
+            commandsFactory, persistenceManager, dataContainer, transactionTable, stateTransferLock, cacheNotifier,
+            totalOrderManager, remoteCommandsExecutor);
       stateConsumer.start();
 
       final List<InternalCacheEntry> cacheEntries = new ArrayList<InternalCacheEntry>();

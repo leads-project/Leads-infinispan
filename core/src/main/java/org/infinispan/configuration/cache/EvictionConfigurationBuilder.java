@@ -34,6 +34,10 @@ public class EvictionConfigurationBuilder extends AbstractConfigurationChildBuil
       return this;
    }
 
+   EvictionStrategy strategy() {
+      return strategy;
+   }
+
    /**
     * Threading policy for eviction.
     *
@@ -58,10 +62,10 @@ public class EvictionConfigurationBuilder extends AbstractConfigurationChildBuil
 
    @Override
    public void validate() {
-      if (!strategy.isEnabled() && getBuilder().loaders().passivation())
+      if (!strategy.isEnabled() && getBuilder().persistence().passivation())
          log.passivationWithoutEviction();
       if(strategy == EvictionStrategy.FIFO)
-         log.warn("FIFO strategy is deprecated, LRU will be used instead");
+         log.warnFifoStrategyIsDeprecated();
       if (strategy.isEnabled() && maxEntries <= 0)
          throw new CacheConfigurationException("Eviction maxEntries value cannot be less than or equal to zero if eviction is enabled");
       if (maxEntries > 0 && !strategy.isEnabled()) {

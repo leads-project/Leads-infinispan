@@ -9,12 +9,13 @@ import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.VersioningScheme;
 import org.infinispan.container.DataContainer;
+import org.infinispan.container.InternalEntryFactory;
 import org.infinispan.container.entries.ImmortalCacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.distribution.TestAddress;
 import org.infinispan.distribution.ch.DefaultConsistentHash;
 import org.infinispan.distribution.ch.DefaultConsistentHashFactory;
-import org.infinispan.loaders.CacheLoaderManager;
+import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.rpc.ResponseMode;
@@ -28,7 +29,7 @@ import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.RemoteTransaction;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.util.concurrent.IsolationLevel;
-import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
+import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.mockito.invocation.InvocationOnMock;
@@ -72,12 +73,13 @@ public class StateProviderTest {
    private RpcManager rpcManager;
    private CommandsFactory commandsFactory;
    private CacheNotifier cacheNotifier;
-   private CacheLoaderManager cacheLoaderManager;
+   private PersistenceManager persistenceManager;
    private DataContainer dataContainer;
    private TransactionTable transactionTable;
    private StateTransferLock stateTransferLock;
    private StateConsumer stateConsumer;
    private CacheTopology cacheTopology;
+   private InternalEntryFactory ef;
 
    @BeforeTest
    public void setUp() {
@@ -107,11 +109,12 @@ public class StateProviderTest {
       rpcManager = mock(RpcManager.class);
       commandsFactory = mock(CommandsFactory.class);
       cacheNotifier = mock(CacheNotifier.class);
-      cacheLoaderManager = mock(CacheLoaderManager.class);
+      persistenceManager = mock(PersistenceManager.class);
       dataContainer = mock(DataContainer.class);
       transactionTable = mock(TransactionTable.class);
       stateTransferLock = mock(StateTransferLock.class);
       stateConsumer = mock(StateConsumer.class);
+      ef = mock(InternalEntryFactory.class);
       when(stateConsumer.getCacheTopology()).thenAnswer(new Answer<CacheTopology>() {
          @Override
          public CacheTopology answer(InvocationOnMock invocation) {
@@ -137,8 +140,8 @@ public class StateProviderTest {
 
       // create CHes
       DefaultConsistentHashFactory chf = new DefaultConsistentHashFactory();
-      DefaultConsistentHash ch1 = chf.create(new MurmurHash3(), 2, numSegments, members1);
-      DefaultConsistentHash ch2 = chf.updateMembers(ch1, members2);
+      DefaultConsistentHash ch1 = chf.create(new MurmurHash3(), 2, numSegments, members1, null);
+      DefaultConsistentHash ch2 = chf.updateMembers(ch1, members2, null);
 
       // create dependencies
       when(mockExecutorService.submit(any(Runnable.class))).thenAnswer(new Answer<Future<?>>() {
@@ -150,6 +153,7 @@ public class StateProviderTest {
 
       when(rpcManager.getAddress()).thenReturn(A);
       when(rpcManager.getRpcOptionsBuilder(any(ResponseMode.class))).thenAnswer(new Answer<RpcOptionsBuilder>() {
+         @Override
          public RpcOptionsBuilder answer(InvocationOnMock invocation) {
             Object[] args = invocation.getArguments();
             return new RpcOptionsBuilder(10000, TimeUnit.MILLISECONDS, (ResponseMode) args[0], true);
@@ -159,8 +163,8 @@ public class StateProviderTest {
       // create state provider
       StateProviderImpl stateProvider = new StateProviderImpl();
       stateProvider.init(cache, mockExecutorService,
-            configuration, rpcManager, commandsFactory, cacheNotifier, cacheLoaderManager,
-            dataContainer, transactionTable, stateTransferLock, stateConsumer);
+            configuration, rpcManager, commandsFactory, cacheNotifier, persistenceManager,
+            dataContainer, transactionTable, stateTransferLock, stateConsumer, ef);
 
       final List<InternalCacheEntry> cacheEntries = new ArrayList<InternalCacheEntry>();
       Object key1 = new TestKey("key1", 0, ch1);
@@ -224,8 +228,9 @@ public class StateProviderTest {
 
       // create CHes
       DefaultConsistentHashFactory chf = new DefaultConsistentHashFactory();
-      DefaultConsistentHash ch1 = chf.create(new MurmurHash3(), 2, numSegments, members1);
-      DefaultConsistentHash ch2 = chf.updateMembers(ch1, members2);   //todo [anistor] it seems that address 6 is not used for un-owned segments
+      DefaultConsistentHash ch1 = chf.create(new MurmurHash3(), 2, numSegments, members1, null);
+      //todo [anistor] it seems that address 6 is not used for un-owned segments
+      DefaultConsistentHash ch2 = chf.updateMembers(ch1, members2, null);
 
       when(commandsFactory.buildStateResponseCommand(any(Address.class), anyInt(), any(Collection.class))).thenAnswer(new Answer<StateResponseCommand>() {
          @Override
@@ -256,6 +261,7 @@ public class StateProviderTest {
                                                  any(NotifyingNotifiableFuture.class));
 
       when(rpcManager.getRpcOptionsBuilder(any(ResponseMode.class))).thenAnswer(new Answer<RpcOptionsBuilder>() {
+         @Override
          public RpcOptionsBuilder answer(InvocationOnMock invocation) {
             Object[] args = invocation.getArguments();
             return new RpcOptionsBuilder(10000, TimeUnit.MILLISECONDS, (ResponseMode) args[0], true);
@@ -266,8 +272,8 @@ public class StateProviderTest {
       // create state provider
       StateProviderImpl stateProvider = new StateProviderImpl();
       stateProvider.init(cache, pooledExecutorService,
-            configuration, rpcManager, commandsFactory, cacheNotifier, cacheLoaderManager,
-            dataContainer, transactionTable, stateTransferLock, stateConsumer);
+            configuration, rpcManager, commandsFactory, cacheNotifier, persistenceManager,
+            dataContainer, transactionTable, stateTransferLock, stateConsumer, ef);
 
       final List<InternalCacheEntry> cacheEntries = new ArrayList<InternalCacheEntry>();
       Object key1 = new TestKey("key1", 0, ch1);

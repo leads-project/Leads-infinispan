@@ -5,12 +5,13 @@ import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.DataContainer;
+import org.infinispan.container.InternalEntryFactory;
 import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
-import org.infinispan.loaders.CacheLoaderManager;
+import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.notifications.cachelistener.annotation.TopologyChanged;
@@ -18,6 +19,7 @@ import org.infinispan.notifications.cachelistener.event.TopologyChangedEvent;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.topology.CacheTopology;
+import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.TransactionTable;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.util.logging.Log;
@@ -25,6 +27,7 @@ import org.infinispan.util.logging.LogFactory;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
 
@@ -47,9 +50,10 @@ public class StateProviderImpl implements StateProvider {
    private CacheNotifier cacheNotifier;
    private TransactionTable transactionTable;     // optional
    private DataContainer dataContainer;
-   private CacheLoaderManager cacheLoaderManager; // optional
+   private PersistenceManager persistenceManager; // optional
    private ExecutorService executorService;
    private StateTransferLock stateTransferLock;
+   private InternalEntryFactory entryFactory;
    private long timeout;
    private int chunkSize;
 
@@ -71,22 +75,23 @@ public class StateProviderImpl implements StateProvider {
                     RpcManager rpcManager,
                     CommandsFactory commandsFactory,
                     CacheNotifier cacheNotifier,
-                    CacheLoaderManager cacheLoaderManager,
+                    PersistenceManager persistenceManager,
                     DataContainer dataContainer,
                     TransactionTable transactionTable,
                     StateTransferLock stateTransferLock,
-                    StateConsumer stateConsumer) {
+                    StateConsumer stateConsumer, InternalEntryFactory entryFactory) {
       this.cacheName = cache.getName();
       this.executorService = executorService;
       this.configuration = configuration;
       this.rpcManager = rpcManager;
       this.commandsFactory = commandsFactory;
       this.cacheNotifier = cacheNotifier;
-      this.cacheLoaderManager = cacheLoaderManager;
+      this.persistenceManager = persistenceManager;
       this.dataContainer = dataContainer;
       this.transactionTable = transactionTable;
       this.stateTransferLock = stateTransferLock;
       this.stateConsumer = stateConsumer;
+      this.entryFactory = entryFactory;
 
       timeout = configuration.clustering().stateTransfer().timeout();
 
@@ -174,8 +179,8 @@ public class StateProviderImpl implements StateProvider {
       List<TransactionInfo> transactions = new ArrayList<TransactionInfo>();
       //we migrate locks only if the cache is transactional and distributed
       if (configuration.transaction().transactionMode().isTransactional()) {
-         collectTransactionsToTransfer(transactions, transactionTable.getRemoteTransactions(), segments, cacheTopology);
-         collectTransactionsToTransfer(transactions, transactionTable.getLocalTransactions(), segments, cacheTopology);
+         collectTransactionsToTransfer(destination, transactions, transactionTable.getRemoteTransactions(), segments, cacheTopology);
+         collectTransactionsToTransfer(destination, transactions, transactionTable.getLocalTransactions(), segments, cacheTopology);
          if (trace) {
             log.tracef("Found %d transaction(s) to transfer", transactions.size());
          }
@@ -201,13 +206,14 @@ public class StateProviderImpl implements StateProvider {
                   "topology (%d). Waiting for topology %d to be installed locally.", isReqForTransactions ? "Transactions" : "Segments", destination,
                   requestTopologyId, cacheTopology.getTopologyId(), requestTopologyId);
          }
-         stateTransferLock.waitForTopology(requestTopologyId);
+         stateTransferLock.waitForTopology(requestTopologyId, timeout, TimeUnit.MILLISECONDS);
          cacheTopology = stateConsumer.getCacheTopology();
       }
       return cacheTopology;
    }
 
-   private void collectTransactionsToTransfer(List<TransactionInfo> transactionsToTransfer,
+   private void collectTransactionsToTransfer(Address destination,
+                                              List<TransactionInfo> transactionsToTransfer,
                                               Collection<? extends CacheTransaction> transactions,
                                               Set<Integer> segments, CacheTopology cacheTopology) {
       int topologyId = cacheTopology.getTopologyId();
@@ -217,7 +223,8 @@ public class StateProviderImpl implements StateProvider {
       // no need to filter out state transfer generated transactions because there should not be any such transactions running for any of the requested segments
       for (CacheTransaction tx : transactions) {
          // Skip transactions whose originators left. The topology id check is needed for joiners.
-         if (tx.getTopologyId() < topologyId && !members.contains(tx.getGlobalTransaction().getAddress()))
+         // Also skip transactions that originates after state transfer starts.
+         if (tx.getTopologyId() == topologyId || !members.contains(tx.getGlobalTransaction().getAddress()))
             continue;
 
          // transfer only locked keys that belong to requested segments
@@ -239,12 +246,23 @@ public class StateProviderImpl implements StateProvider {
             }
          }
          if (!filteredLockedKeys.isEmpty()) {
+            if (trace) log.tracef("Sending transaction %s to new owner %s", tx, destination);
             List<WriteCommand> txModifications = tx.getModifications();
             WriteCommand[] modifications = null;
             if (!txModifications.isEmpty()) {
                modifications = txModifications.toArray(new WriteCommand[txModifications.size()]);
             }
-            transactionsToTransfer.add(new TransactionInfo(tx.getGlobalTransaction(), tx.getTopologyId(), modifications, filteredLockedKeys));
+
+            // If a key affected by a local transaction has a new owner, we must add the new owner to the transaction's
+            // affected nodes set, so that the it receives the commit/rollback command. See ISPN-3389.
+            if(tx instanceof LocalTransaction) {
+               LocalTransaction localTx = (LocalTransaction) tx;
+               localTx.locksAcquired(Collections.singleton(destination));
+               if (trace) log.tracef("Adding affected node %s to transferred transaction %s (keys %s)", destination,
+                     tx.getGlobalTransaction(), filteredLockedKeys);
+            }
+            transactionsToTransfer.add(new TransactionInfo(tx.getGlobalTransaction(), tx.getTopologyId(),
+                  modifications, filteredLockedKeys));
          }
       }
    }
@@ -261,7 +279,7 @@ public class StateProviderImpl implements StateProvider {
 
       // the destination node must already have an InboundTransferTask waiting for these segments
       OutboundTransferTask outboundTransfer = new OutboundTransferTask(destination, segments, chunkSize, cacheTopology.getTopologyId(),
-            cacheTopology.getReadConsistentHash(), this, dataContainer, cacheLoaderManager, rpcManager, commandsFactory, timeout, cacheName);
+            cacheTopology.getReadConsistentHash(), this, dataContainer, persistenceManager, rpcManager, commandsFactory, entryFactory, timeout, cacheName);
       addTransfer(outboundTransfer);
       outboundTransfer.execute(executorService);
    }

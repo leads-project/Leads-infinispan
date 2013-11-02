@@ -7,6 +7,7 @@ import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.TopologyAffectedCommand;
 import org.infinispan.commands.remote.CacheRpcCommand;
 import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
@@ -27,7 +28,7 @@ import org.infinispan.remoting.transport.Transport;
 import org.infinispan.topology.CacheTopology;
 import org.infinispan.topology.LocalTopologyManager;
 import org.infinispan.util.TimeService;
-import org.infinispan.util.concurrent.NotifyingNotifiableFuture;
+import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -77,12 +78,13 @@ public class RpcManagerImpl implements RpcManager {
 
    @Inject
    public void injectDependencies(Transport t, Cache cache, Configuration cfg,
-            ReplicationQueue replicationQueue, CommandsFactory cf,
-            @ComponentName(ASYNC_TRANSPORT_EXECUTOR) ExecutorService e,
-            LocalTopologyManager localTopologyManager, StateTransferManager stateTransferManager, TimeService timeService) {
+                                  ReplicationQueue replicationQueue, CommandsFactory cf,
+                                  @ComponentName(ASYNC_TRANSPORT_EXECUTOR) ExecutorService e,
+                                  LocalTopologyManager localTopologyManager,
+                                  StateTransferManager stateTransferManager, TimeService timeService) {
       this.t = t;
-      this.configuration = cfg;
       this.cacheName = cache.getName();
+      this.configuration = cfg;
       this.replicationQueue = replicationQueue;
       this.asyncExecutor = e;
       this.cf = cf;
@@ -96,8 +98,7 @@ public class RpcManagerImpl implements RpcManager {
       statisticsEnabled = configuration.jmxStatistics().enabled();
 
       if (configuration.transaction().transactionProtocol().isTotalOrder())
-         t.checkTotalOrderSupported(configuration.clustering().cacheMode().isDistributed()
-               || configuration.clustering().cacheMode().isReplicated());
+         t.checkTotalOrderSupported();
    }
 
    @ManagedAttribute(description = "Retrieves the committed view.", displayName = "Committed view", dataType = DataType.TRAIT)
@@ -184,7 +185,6 @@ public class RpcManagerImpl implements RpcManager {
          }
          Map<Address, Response> rsps = invokeRemotely(recipients, rpc, responseMode, timeout, usePriorityQueue);
          if (trace) log.tracef("Response(s) to %s is %s", rpc, rsps);
-         if (sync) checkResponses(rsps);
          return rsps;
       }
    }
@@ -283,9 +283,6 @@ public class RpcManagerImpl implements RpcManager {
                                                           configuration.clustering().cacheMode().isDistributed());
          if (statisticsEnabled) replicationCount.incrementAndGet();
          if (trace) log.tracef("Response(s) to %s is %s", rpc, result);
-         if (options.responseMode().isSynchronous()) {
-            checkResponses(result);
-         }
          return result;
       } catch (CacheException e) {
          log.trace("replication exception: ", e);
@@ -339,23 +336,6 @@ public class RpcManagerImpl implements RpcManager {
 
    private ResponseMode getResponseMode(boolean sync) {
       return sync ? ResponseMode.SYNCHRONOUS : ResponseMode.getAsyncResponseMode(configuration);
-   }
-
-   /**
-    * Checks whether any of the responses are exceptions. If yes, re-throws them (as exceptions or runtime exceptions).
-    */
-   private void checkResponses(Map<Address, Response> rsps) {
-      if (rsps != null) {
-         for (Map.Entry<Address, Response> rsp : rsps.entrySet()) {
-            // TODO Double-check this logic, rsp.getValue() is a Response so it's 100% not Throwable
-            if (rsp != null && rsp.getValue() instanceof Throwable) {
-               Throwable throwable = (Throwable) rsp.getValue();
-               if (trace)
-                  log.tracef("Received Throwable from remote node %s", throwable, rsp.getKey());
-               throw new RpcException(throwable);
-            }
-         }
-      }
    }
 
    // -------------------------------------------- JMX information -----------------------------------------------

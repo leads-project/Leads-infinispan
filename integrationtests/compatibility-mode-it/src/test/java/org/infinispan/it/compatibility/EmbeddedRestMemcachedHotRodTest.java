@@ -13,9 +13,10 @@ import org.apache.commons.httpclient.methods.PutMethod;
 import org.infinispan.client.hotrod.Flag;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.VersionedValue;
-import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.io.ByteBufferImpl;
 import org.infinispan.commons.marshall.AbstractMarshaller;
+import org.infinispan.configuration.cache.CacheMode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -193,14 +194,14 @@ public class EmbeddedRestMemcachedHotRodTest {
       assertTrue("The version (CAS) should have changed", oldValue.getCas() != newValue.getCas());
    }
 
-   private class SpyMemcachedCompatibleMarshaller extends AbstractMarshaller {
+   static class SpyMemcachedCompatibleMarshaller extends AbstractMarshaller {
 
       private final Transcoder<Object> transcoder = new SerializingTranscoder();
 
       @Override
       protected ByteBuffer objectToBuffer(Object o, int estimatedSize) {
          CachedData encoded = transcoder.encode(o);
-         return new ByteBuffer(encoded.getData(), 0, encoded.getData().length);
+         return new ByteBufferImpl(encoded.getData(), 0, encoded.getData().length);
       }
 
       @Override

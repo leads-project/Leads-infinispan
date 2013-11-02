@@ -1,12 +1,11 @@
 package org.infinispan.api;
 
-import org.infinispan.lifecycle.Lifecycle;
 import org.infinispan.manager.EmbeddedCacheManager;
 
 /**
  * <tt>BasicCacheContainer</tt> defines the methods used to obtain a {@link org.infinispan.api.BasicCache}.
  * <p/>
- * 
+ *
  *
  * @see org.infinispan.manager.EmbeddedCacheManager
  *
@@ -14,8 +13,10 @@ import org.infinispan.manager.EmbeddedCacheManager;
  * @author Galder Zamarreño
  * @author Mircea.Markus@jboss.com
  * @since 4.0
+ * @deprecated Use {@link org.infinispan.commons.api.BasicCacheContainer} instead
  */
-public interface BasicCacheContainer extends Lifecycle {
+@Deprecated
+public interface BasicCacheContainer extends org.infinispan.commons.api.BasicCacheContainer {
    String DEFAULT_CACHE_NAME = "___defaultcache";
 
    /**
@@ -29,6 +30,7 @@ public interface BasicCacheContainer extends Lifecycle {
     *
     * @return the default cache.
     */
+   @Override
    <K, V> BasicCache<K, V> getCache();
 
    /**
@@ -48,5 +50,6 @@ public interface BasicCacheContainer extends Lifecycle {
     * @param cacheName name of cache to retrieve
     * @return a cache instance identified by cacheName
     */
+   @Override
    <K, V> BasicCache<K, V> getCache(String cacheName);
 }

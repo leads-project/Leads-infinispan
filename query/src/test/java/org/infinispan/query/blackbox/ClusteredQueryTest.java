@@ -3,6 +3,7 @@ package org.infinispan.query.blackbox;
 import static org.infinispan.query.helper.TestQueryHelperFactory.createQueryParser;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
@@ -109,16 +110,19 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
 
       for (int i = 0; i < 2; i ++) {
          ResultIterator iterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.LAZY));
-         assert cacheQuery.getResultSize() == 4 : cacheQuery.getResultSize();
+         try {
+            assert cacheQuery.getResultSize() == 4 : cacheQuery.getResultSize();
 
-         int previousAge = 0;
-         while (iterator.hasNext()) {
-            Person person = (Person) iterator.next();
-            assert person.getAge() > previousAge;
-            previousAge = person.getAge();
+            int previousAge = 0;
+            while (iterator.hasNext()) {
+               Person person = (Person) iterator.next();
+               assert person.getAge() > previousAge;
+               previousAge = person.getAge();
+            }
          }
-
-         iterator.close();
+         finally {
+            iterator.close();
+         }
       }
    }
 
@@ -126,8 +130,12 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       populateCache();
 
       ResultIterator iterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.LAZY));
-      assert cacheQuery.getResultSize() == 4 : cacheQuery.getResultSize();
-      iterator.close();
+      try {
+         assert cacheQuery.getResultSize() == 4 : cacheQuery.getResultSize();
+      }
+      finally {
+         iterator.close();
+      }
    }
 
    public void testEagerOrdered() throws ParseException {
@@ -139,28 +147,49 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       cacheQuery.sort(sort);
 
       ResultIterator iterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
-      assert cacheQuery.getResultSize() == 4 : cacheQuery.getResultSize();
+      try {
+         assert cacheQuery.getResultSize() == 4 : cacheQuery.getResultSize();
 
-      int previousAge = 0;
-      while (iterator.hasNext()) {
-         Person person = (Person) iterator.next();
-         assert person.getAge() > previousAge;
-         previousAge = person.getAge();
+         int previousAge = 0;
+         while (iterator.hasNext()) {
+            Person person = (Person) iterator.next();
+            assert person.getAge() > previousAge;
+            previousAge = person.getAge();
+         }
+      } finally {
+         iterator.close();
       }
-
-      iterator.close();
    }
 
-   @Test(expectedExceptions = IllegalArgumentException.class, enabled = false, expectedExceptionsMessageRegExp = "Unknown FetchMode null")
-   public void testIterator() throws Exception {
+   @Test(expectedExceptions = NoSuchElementException.class, expectedExceptionsMessageRegExp = "Out of boundaries")
+   public void testIteratorNextOutOfBounds() throws Exception {
       populateCache();
 
-      ResultIterator iterator = cacheQuery.iterator(new FetchOptions() {
-         public FetchOptions fetchMode(FetchMode fetchMode) {
-            return null;
-         }
-      });
-      assert iterator.hasNext();
+      cacheQuery.maxResults(1);
+      ResultIterator iterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
+      try {
+         assert iterator.hasNext();
+         iterator.next();
+
+         assert !iterator.hasNext();
+         iterator.next();
+      } finally {
+         iterator.close();
+      }
+   }
+
+   @Test(expectedExceptions = UnsupportedOperationException.class)
+   public void testIteratorRemove() throws Exception {
+      populateCache();
+
+      cacheQuery.maxResults(1);
+      ResultIterator iterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
+      try {
+         assert iterator.hasNext();
+         iterator.remove();
+      } finally {
+         iterator.close();
+      }
    }
 
    public void testList() throws ParseException {

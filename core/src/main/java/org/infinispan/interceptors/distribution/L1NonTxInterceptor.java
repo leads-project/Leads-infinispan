@@ -1,87 +1,155 @@
 package org.infinispan.interceptors.distribution;
 
-import org.infinispan.metadata.Metadata;
 import org.infinispan.commands.CommandsFactory;
+import org.infinispan.commands.DataCommand;
 import org.infinispan.commands.FlagAffectedCommand;
+import org.infinispan.commands.LocalFlagAffectedCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.write.DataWriteCommand;
+import org.infinispan.commands.write.InvalidateCommand;
+import org.infinispan.commands.write.InvalidateL1Command;
 import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commands.write.PutMapCommand;
 import org.infinispan.commands.write.RemoveCommand;
 import org.infinispan.commands.write.ReplaceCommand;
+import org.infinispan.commons.util.CollectionFactory;
+import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.container.DataContainer;
 import org.infinispan.container.EntryFactory;
-import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.distribution.L1Manager;
 import org.infinispan.factories.annotations.Inject;
+import org.infinispan.factories.annotations.Start;
 import org.infinispan.interceptors.base.BaseRpcInterceptor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
-import org.infinispan.util.concurrent.locks.LockManager;
+import org.infinispan.statetransfer.StateTransferLock;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Interceptor that handles L1 logic for non-transactional caches.
  *
  * @author Mircea Markus
+ * @author William Burns
  * @since 5.2
  */
 public class L1NonTxInterceptor extends BaseRpcInterceptor {
 
-   private static Log log = LogFactory.getLog(L1NonTxInterceptor.class);
+   private static final Log log = LogFactory.getLog(L1NonTxInterceptor.class);
+   private static final boolean trace = log.isTraceEnabled();
 
-   private L1Manager l1Manager;
-   private ClusteringDependentLogic cdl;
-   private CommandsFactory cf;
-   private LockManager lockManager;
-   private EntryFactory entryFactory;
+   protected L1Manager l1Manager;
+   protected ClusteringDependentLogic cdl;
+   protected EntryFactory entryFactory;
+   protected CommandsFactory commandsFactory;
+   protected DataContainer dataContainer;
+   protected Configuration config;
+   protected StateTransferLock stateTransferLock;
+
+   private long l1Lifespan;
+
+   private final ConcurrentMap<Object, L1WriteSynchronizer> concurrentWrites = CollectionFactory.makeConcurrentMap();
 
    @Inject
-   public void init(L1Manager l1Manager, ClusteringDependentLogic cdl, LockManager lockManager,
-                    EntryFactory entryFactory, CommandsFactory cf) {
+   public void init(L1Manager l1Manager, ClusteringDependentLogic cdl, EntryFactory entryFactory,
+                    DataContainer dataContainer, Configuration config, StateTransferLock stateTransferLock,
+                    CommandsFactory commandsFactory) {
       this.l1Manager = l1Manager;
       this.cdl = cdl;
-      this.lockManager = lockManager;
       this.entryFactory = entryFactory;
-      this.cf = cf;
+      this.dataContainer = dataContainer;
+      this.config = config;
+      this.stateTransferLock = stateTransferLock;
+      this.commandsFactory = commandsFactory;
+   }
+
+   @Start
+   public void start() {
+      l1Lifespan = config.clustering().l1().lifespan();
    }
 
    @Override
    public Object visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
-      Object returnValue = invokeNextInterceptor(ctx, command);
-      InternalCacheEntry ice = command.getRemotelyFetchedValue();
-      if (ctx.isOriginLocal() && ice != null) {
-         log.tracef("Caching remotely retrieved entry for key %s in L1", command.getKey());
-         // This should be fail-safe
-         try {
-            long l1Lifespan = cacheConfiguration.clustering().l1().lifespan();
-            long lifespan = ice.getLifespan() < 0 ? l1Lifespan : Math.min(ice.getLifespan(), l1Lifespan);
-            // Make a copy of the metadata stored internally, adjust
-            // lifespan/maxIdle settings and send them a modification
-            Metadata newMetadata = ice.getMetadata().builder()
-                  .lifespan(lifespan).maxIdle(-1).build();
-            PutKeyValueCommand put = cf.buildPutKeyValueCommand(ice.getKey(), ice.getValue(),
-                  newMetadata, Collections.singleton(Flag.CACHE_MODE_LOCAL));
-            lockAndWrap(ctx, command.getKey(), ice, command);
-            invokeNextInterceptor(ctx, put);
-         } catch (Exception e) {
-            // Couldn't store in L1 for some reason.  But don't fail the transaction!
-            log.infof("Unable to store entry %s in L1 cache", command.getKey());
-            log.debug("Inability to store in L1 caused by", e);
-         }
+      return performCommandWithL1WriteIfAble(ctx, command, false, true);
+   }
 
-      } else if (!ctx.isOriginLocal() && returnValue != null) {
-         l1Manager.addRequestor(command.getKey(), ctx.getOrigin());
+   protected Object performCommandWithL1WriteIfAble(InvocationContext ctx, DataCommand command,
+                                                boolean shouldAlwaysRunNextInterceptor, boolean registerL1) throws Throwable {
+      Object returnValue;
+      if (ctx.isOriginLocal()) {
+         Object key = command.getKey();
+         // If the command isn't going to return a remote value - just pass it down the interceptor chain
+         if (skipL1Lookup(command, key)) {
+            returnValue = invokeNextInterceptor(ctx, command);
+         } else {
+            returnValue = performL1Lookup(ctx, shouldAlwaysRunNextInterceptor, key, command);
+         }
+      } else {
+         returnValue = invokeNextInterceptor(ctx, command);
+         // If this is a remote command, and we found a value in our cache
+         // we store it so that we can later invalidate it
+         if (registerL1) {
+            l1Manager.addRequestor(command.getKey(), ctx.getOrigin());
+         }
       }
       return returnValue;
+   }
+
+    protected Object performL1Lookup(InvocationContext ctx, boolean runInterceptorOnConflict, Object key,
+                                     DataCommand command) throws Throwable {
+      // Most times the putIfAbsent will be successful, so not doing a get first
+      L1WriteSynchronizer l1WriteSync = new L1WriteSynchronizer(dataContainer, l1Lifespan, stateTransferLock,
+                                                                cdl);
+      L1WriteSynchronizer presentSync = concurrentWrites.putIfAbsent(key, l1WriteSync);
+      if (presentSync == null) {
+         try {
+            l1Manager.registerL1WriteSynchronizer(key, l1WriteSync);
+            Object returnValue;
+            try {
+               returnValue = invokeNextInterceptor(ctx, command);
+            }
+            finally {
+               l1Manager.unregisterL1WriteSynchronizer(key);
+            }
+            return returnValue;
+         }
+         catch (Throwable t) {
+            l1WriteSync.retrievalEncounteredException(t);
+            throw t;
+         }
+         finally {
+            concurrentWrites.remove(key);
+         }
+      } else {
+         if (trace) {
+            log.tracef("Found current request for key %s, waiting for their invocation's response", key);
+         }
+         try {
+            Object returnValue = presentSync.get();
+            // Basically write commands could have different values
+            if (runInterceptorOnConflict) {
+               returnValue = invokeNextInterceptor(ctx, command);
+            }
+            return returnValue;
+         }
+         catch (ExecutionException e) {
+            throw e.getCause();
+         }
+      }
+   }
+
+   protected boolean skipL1Lookup(LocalFlagAffectedCommand command, Object key) {
+      return command.hasFlag(Flag.CACHE_MODE_LOCAL) || command.hasFlag(Flag.SKIP_REMOTE_LOOKUP)
+            || command.hasFlag(Flag.IGNORE_RETURN_VALUES) || cdl.localNodeIsOwner(key)
+            || dataContainer.containsKey(key);
    }
 
    @Override
@@ -124,9 +192,49 @@ public class L1NonTxInterceptor extends BaseRpcInterceptor {
       return result;
    }
 
+   @Override
+   public Object visitInvalidateL1Command(InvocationContext ctx, InvalidateL1Command invalidateL1Command) throws Throwable {
+      for (Object key : invalidateL1Command.getKeys()) {
+         abortL1UpdateOrWait(key);
+      }
+      return super.visitInvalidateL1Command(ctx, invalidateL1Command);
+   }
+
+   private void abortL1UpdateOrWait(Object key) throws InterruptedException {
+      L1WriteSynchronizer sync = concurrentWrites.remove(key);
+      if (sync != null) {
+         if (sync.trySkipL1Update()) {
+            if (trace) {
+               log.tracef("Aborted possible L1 update due to concurrent invalidation for key %s", key);
+            }
+         } else {
+            if (trace) {
+               log.tracef("L1 invalidation found a pending update for key %s - need to block until finished", key);
+            }
+            // We have to wait for the pending L1 update to complete before we can properly invalidate.  Any additional
+            // gets that come in after this invalidation we ignore for now.
+            // TODO: Additional gets should be fixed with ISPN-2965
+            boolean success;
+            try {
+               sync.get();
+               success = true;
+            }
+            catch (ExecutionException e) {
+               // We don't care what the L1 update exception was
+               success = false;
+            }
+            if (trace) {
+               log.tracef("Pending L1 update completed successfully: %b - L1 invalidation can occur for key %s", success, key);
+            }
+         }
+      }
+   }
+
    private Object handleDataWriteCommand(InvocationContext ctx, DataWriteCommand command, boolean assumeOriginKeptEntryInL1) throws Throwable {
       if (command.hasFlag(Flag.CACHE_MODE_LOCAL)) {
-         log.tracef("local mode forced, suppressing L1 calls.");
+         if (trace) {
+            log.tracef("local mode forced, suppressing L1 calls.");
+         }
          return invokeNextInterceptor(ctx, command);
       }
       Future<Object> l1InvalidationFuture = invalidateL1(ctx, command, assumeOriginKeptEntryInL1);
@@ -136,18 +244,24 @@ public class L1NonTxInterceptor extends BaseRpcInterceptor {
       return returnValue;
    }
 
-   private void removeFromLocalL1(InvocationContext ctx, DataWriteCommand command) throws InterruptedException {
+   private void removeFromLocalL1(InvocationContext ctx, DataWriteCommand command) throws Throwable {
       if (ctx.isOriginLocal() && !cdl.localNodeIsOwner(command.getKey())) {
          removeFromL1(ctx, command.getKey());
-      } else {
+      } else if (trace) {
          log.trace("Allowing entry to commit as local node is owner");
       }
    }
 
-   private void removeFromL1(InvocationContext ctx, Object key) throws InterruptedException {
-      log.tracef("Removing entry from L1 for key %s", key);
+   private void removeFromL1(InvocationContext ctx, Object key) throws Throwable {
+      if (trace) {
+         log.tracef("Removing entry from L1 for key %s", key);
+      }
+      abortL1UpdateOrWait(key);
       ctx.removeLookedUpEntry(key);
-      entryFactory.wrapEntryForRemove(ctx, key);
+      entryFactory.wrapEntryForRemove(ctx, key, true);
+
+      InvalidateCommand command = commandsFactory.buildInvalidateFromL1Command(false, null, Collections.singleton(key));
+      invokeNextInterceptor(ctx, command);
    }
 
    private void processInvalidationResult(InvocationContext ctx, FlagAffectedCommand command, Future<Object> l1InvalidationFuture) throws InterruptedException, ExecutionException {
@@ -162,16 +276,9 @@ public class L1NonTxInterceptor extends BaseRpcInterceptor {
       Future<Object> l1InvalidationFuture = null;
       if (cdl.localNodeIsOwner(command.getKey())) {
          l1InvalidationFuture = l1Manager.flushCache(Collections.singletonList(command.getKey()), ctx.getOrigin(), assumeOriginKeptEntryInL1);
-      } else  {
+      } else if (trace) {
          log.tracef("Not invalidating key '%' as local node(%s) is not owner", command.getKey(), rpcManager.getAddress());
       }
       return l1InvalidationFuture;
-   }
-
-   private void lockAndWrap(InvocationContext ctx, Object key, InternalCacheEntry ice, FlagAffectedCommand command) throws InterruptedException {
-      boolean skipLocking = hasSkipLocking(command);
-      long lockTimeout = getLockAcquisitionTimeout(command, skipLocking);
-      lockManager.acquireLock(ctx, key, lockTimeout, skipLocking);
-      entryFactory.wrapEntryForPut(ctx, key, ice, false, command);
    }
 }

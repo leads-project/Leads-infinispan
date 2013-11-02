@@ -1,14 +1,22 @@
 package org.infinispan.interceptors;
 
-import org.infinispan.metadata.Metadata;
 import org.infinispan.commands.AbstractVisitor;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.FlagAffectedCommand;
-import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
-import org.infinispan.commands.write.*;
+import org.infinispan.commands.write.ApplyDeltaCommand;
+import org.infinispan.commands.write.ClearCommand;
+import org.infinispan.commands.write.DataWriteCommand;
+import org.infinispan.commands.write.EvictCommand;
+import org.infinispan.commands.write.InvalidateCommand;
+import org.infinispan.commands.write.InvalidateL1Command;
+import org.infinispan.commands.write.PutKeyValueCommand;
+import org.infinispan.commands.write.PutMapCommand;
+import org.infinispan.commands.write.RemoveCommand;
+import org.infinispan.commands.write.ReplaceCommand;
+import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.EntryFactory;
 import org.infinispan.container.entries.CacheEntry;
@@ -21,7 +29,10 @@ import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
+import org.infinispan.metadata.Metadata;
+import org.infinispan.statetransfer.OutdatedTopologyException;
 import org.infinispan.statetransfer.StateConsumer;
+import org.infinispan.statetransfer.StateTransferLock;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -48,7 +59,9 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    protected final EntryWrappingVisitor entryWrappingVisitor = new EntryWrappingVisitor();
    private CommandsFactory commandFactory;
    private boolean isUsingLockDelegation;
+   private boolean isInvalidation;
    private StateConsumer stateConsumer;       // optional
+   private StateTransferLock stateTransferLock;
 
    private static final Log log = LogFactory.getLog(EntryWrappingInterceptor.class);
    private static final boolean trace = log.isTraceEnabled();
@@ -59,18 +72,21 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    }
 
    @Inject
-   public void init(EntryFactory entryFactory, DataContainer dataContainer, ClusteringDependentLogic cdl, CommandsFactory commandFactory, StateConsumer stateConsumer) {
+   public void init(EntryFactory entryFactory, DataContainer dataContainer, ClusteringDependentLogic cdl,
+                    CommandsFactory commandFactory, StateConsumer stateConsumer, StateTransferLock stateTransferLock) {
       this.entryFactory = entryFactory;
       this.dataContainer = dataContainer;
       this.cdl = cdl;
       this.commandFactory = commandFactory;
       this.stateConsumer = stateConsumer;
+      this.stateTransferLock = stateTransferLock;
    }
 
    @Start
    public void start() {
       isUsingLockDelegation = !cacheConfiguration.transaction().transactionMode().isTransactional()
             && cacheConfiguration.clustering().cacheMode().isDistributed();
+      isInvalidation = cacheConfiguration.clustering().cacheMode().isInvalidation();
    }
 
    @Override
@@ -95,13 +111,18 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    @Override
    public final Object visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
       try {
-         checkIfKeyRead(ctx, command.getKey(), command);
          entryFactory.wrapEntryForReading(ctx, command.getKey());
          return invokeNextInterceptor(ctx, command);
       } finally {
          //needed because entries might be added in L1
          if (!ctx.isInTxScope())
             commitContextEntries(ctx, command, null);
+         else {
+            CacheEntry entry = ctx.lookupEntry(command.getKey());
+            if (entry != null) {
+               entry.setSkipRemoteGet(true);
+            }
+         }
       }
    }
 
@@ -109,40 +130,40 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    public final Object visitInvalidateCommand(InvocationContext ctx, InvalidateCommand command) throws Throwable {
       if (command.getKeys() != null) {
          for (Object key : command.getKeys()) {
-            entryFactory.wrapEntryForRemove(ctx, key);
+            entryFactory.wrapEntryForRemove(ctx, key, false);
          }
       }
-      return invokeNextAndApplyChanges(ctx, command, null);
+      return setSkipRemoteGetsAndInvokeNextForDataCommand(ctx, command, null);
    }
 
    @Override
    public final Object visitClearCommand(InvocationContext ctx, ClearCommand command) throws Throwable {
       for (InternalCacheEntry entry : dataContainer.entrySet())
          entryFactory.wrapEntryForClear(ctx, entry.getKey());
-      return invokeNextAndApplyChanges(ctx, command, null);
+      return setSkipRemoteGetsAndInvokeNextForClear(ctx, command);
    }
 
    @Override
    public Object visitInvalidateL1Command(InvocationContext ctx, InvalidateL1Command command) throws Throwable {
       for (Object key : command.getKeys()) {
-        entryFactory.wrapEntryForRemove(ctx, key);
+        entryFactory.wrapEntryForRemove(ctx, key, false);
         if (trace)
            log.tracef("Entry to be removed: %s", ctx.getLookedUpEntries());
       }
-      return invokeNextAndApplyChanges(ctx, command, null);
+      return setSkipRemoteGetsAndInvokeNextForDataCommand(ctx, command, null);
    }
 
    @Override
    public final Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
       wrapEntryForPutIfNeeded(ctx, command);
-      return invokeNextAndApplyChanges(ctx, command, command.getMetadata());
+      return setSkipRemoteGetsAndInvokeNextForDataCommand(ctx, command, command.getMetadata());
    }
 
    private void wrapEntryForPutIfNeeded(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
       if (shouldWrap(command.getKey(), ctx, command)) {
-         entryFactory.wrapEntryForPut(ctx, command.getKey(), null, !command.isPutIfAbsent(), command);
+         entryFactory.wrapEntryForPut(ctx, command.getKey(), null, !command.isPutIfAbsent(), command,
+                                      command.hasFlag(Flag.IGNORE_RETURN_VALUES) && !command.isConditional());
       }
-      checkIfKeyRead(ctx, command.getKey(), command);
    }
 
    private boolean shouldWrap(Object key, InvocationContext ctx, FlagAffectedCommand command) {
@@ -153,10 +174,19 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          return true;
       }
       boolean result;
-      if (cacheConfiguration.transaction().transactionMode().isTransactional()) {
+      boolean isTransactional = cacheConfiguration.transaction().transactionMode().isTransactional();
+      boolean isPutForExternalRead = command.hasFlag(Flag.PUT_FOR_EXTERNAL_READ);
+
+      // Invalidated caches should always wrap entries in order to local
+      // changes from nodes that are not lock owners for these entries.
+      // Switching ClusteringDependentLogic to handle this, i.e.
+      // localNodeIsPrimaryOwner to always return true, would have had negative
+      // impact on locking since locks would be always be acquired locally
+      // and that would lead to deadlocks.
+      if (isInvalidation || (isTransactional && !isPutForExternalRead)) {
          result = true;
       } else {
-         if (isUsingLockDelegation) {
+         if (isUsingLockDelegation || isTransactional) {
             result = cdl.localNodeIsPrimaryOwner(key) || (cdl.localNodeIsOwner(key) && !ctx.isOriginLocal());
          } else {
             result = cdl.localNodeIsOwner(key);
@@ -177,34 +207,50 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
 
    @Override
    public final Object visitRemoveCommand(InvocationContext ctx, RemoveCommand command) throws Throwable {
+      wrapEntryForRemoveIfNeeded(ctx, command);
+      return setSkipRemoteGetsAndInvokeNextForDataCommand(ctx, command, null);
+   }
+
+   private void wrapEntryForRemoveIfNeeded(InvocationContext ctx, RemoveCommand command) throws InterruptedException {
       if (shouldWrap(command.getKey(), ctx, command)) {
-         entryFactory.wrapEntryForRemove(ctx, command.getKey());
+         if (command.isIgnorePreviousValue()) {
+            //wrap it for put, as the previous value might not be present by now (e.g. might have been deleted)
+            // but we still need to apply the new value.
+            entryFactory.wrapEntryForPut(ctx, command.getKey(), null, false, command, false);
+         } else {
+            entryFactory.wrapEntryForRemove(ctx, command.getKey(),
+                  command.hasFlag(Flag.IGNORE_RETURN_VALUES) && !command.isConditional());
+         }
       }
-      checkIfKeyRead(ctx, command.getKey(), command);
-      return invokeNextAndApplyChanges(ctx, command, null);
    }
 
    @Override
    public final Object visitReplaceCommand(InvocationContext ctx, ReplaceCommand command) throws Throwable {
       wrapEntryForReplaceIfNeeded(ctx, command);
-      return invokeNextAndApplyChanges(ctx, command, command.getMetadata());
+      return setSkipRemoteGetsAndInvokeNextForDataCommand(ctx, command, command.getMetadata());
    }
 
    private void wrapEntryForReplaceIfNeeded(InvocationContext ctx, ReplaceCommand command) throws InterruptedException {
       if (shouldWrap(command.getKey(), ctx, command)) {
-         entryFactory.wrapEntryForReplace(ctx, command);
+         if (command.isIgnorePreviousValue()) {
+            //wrap it for put, as the previous value might not be present by now (e.g. might have been deleted)
+            // but we still need to apply the new value.
+            entryFactory.wrapEntryForPut(ctx, command.getKey(), null, false, command, false);
+         } else  {
+            entryFactory.wrapEntryForReplace(ctx, command);
+         }
       }
-      checkIfKeyRead(ctx, command.getKey(), command);
    }
 
    @Override
    public Object visitPutMapCommand(InvocationContext ctx, PutMapCommand command) throws Throwable {
       for (Object key : command.getMap().keySet()) {
          if (shouldWrap(key, ctx, command)) {
-            entryFactory.wrapEntryForPut(ctx, key, null, true, command);
+            //the put map never reads the keys
+            entryFactory.wrapEntryForPut(ctx, key, null, true, command, true);
          }
       }
-      return invokeNextAndApplyChanges(ctx, command, command.getMetadata());
+      return setSkipRemoteGetsAndInvokeNextForPutMapCommand(ctx, command);
    }
 
    @Override
@@ -269,11 +315,93 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
 
    private Object invokeNextAndApplyChanges(InvocationContext ctx, FlagAffectedCommand command, Metadata metadata) throws Throwable {
       final Object result = invokeNextInterceptor(ctx, command);
-      if (!ctx.isInTxScope())
-         commitContextEntries(ctx, command, metadata);
 
-      log.tracef("The return value is %s", result);
+      if (!ctx.isInTxScope()) {
+         stateTransferLock.acquireSharedTopologyLock();
+         try {
+            // We only retry non-tx write commands
+            if (command instanceof WriteCommand) {
+               WriteCommand writeCommand = (WriteCommand) command;
+               // Can't perform the check during preload or if the cache isn't clustered
+               boolean isSync = (cacheConfiguration.clustering().cacheMode().isSynchronous() &&
+                     !command.hasFlag(Flag.FORCE_ASYNCHRONOUS)) || command.hasFlag(Flag.FORCE_SYNCHRONOUS);
+               if (writeCommand.isSuccessful() && stateConsumer != null &&
+                     stateConsumer.getCacheTopology() != null) {
+                  int commandTopologyId = command.getTopologyId();
+                  int currentTopologyId = stateConsumer.getCacheTopology().getTopologyId();
+                  // TotalOrderStateTransferInterceptor doesn't set the topology id for PFERs.
+                  if ( isSync && currentTopologyId != commandTopologyId && commandTopologyId != -1) {
+                     if (trace) log.tracef("Cache topology changed while the command was executing: expected %d, got %d",
+                           commandTopologyId, currentTopologyId);
+                     writeCommand.setIgnorePreviousValue(true);
+                     throw new OutdatedTopologyException("Cache topology changed while the command was executing: expected " +
+                           commandTopologyId + ", got " + currentTopologyId);
+                  }
+               }
+            }
+
+            commitContextEntries(ctx, command, metadata);
+         } finally {
+            stateTransferLock.releaseSharedTopologyLock();
+         }
+      }
+
+      if (trace) log.tracef("The return value is %s", result);
       return result;
+   }
+
+   /**
+    * Locks the value for the keys accessed by the command to avoid being override from a remote get.
+    */
+   private Object setSkipRemoteGetsAndInvokeNextForClear(InvocationContext context, ClearCommand command) throws Throwable {
+      boolean txScope = context.isInTxScope();
+      if (txScope) {
+         for (CacheEntry entry : context.getLookedUpEntries().values()) {
+            if (entry != null) {
+               entry.setSkipRemoteGet(true);
+            }
+         }
+      }
+      Object retVal = invokeNextAndApplyChanges(context, command, command.getMetadata());
+      if (txScope) {
+         for (CacheEntry entry : context.getLookedUpEntries().values()) {
+            if (entry != null) {
+               entry.setSkipRemoteGet(true);
+            }
+         }
+      }
+      return retVal;
+   }
+
+   /**
+    * Locks the value for the keys accessed by the command to avoid being override from a remote get.
+    */
+   private Object setSkipRemoteGetsAndInvokeNextForPutMapCommand(InvocationContext context, PutMapCommand command) throws Throwable {
+      Object retVal = invokeNextAndApplyChanges(context, command, command.getMetadata());
+      if (context.isInTxScope()) {
+         for (Object key : command.getAffectedKeys()) {
+            CacheEntry entry = context.lookupEntry(key);
+            if (entry != null) {
+               entry.setSkipRemoteGet(true);
+            }
+         }
+      }
+      return retVal;
+   }
+
+   /**
+    * Locks the value for the keys accessed by the command to avoid being override from a remote get.
+    */
+   private Object setSkipRemoteGetsAndInvokeNextForDataCommand(InvocationContext context, DataWriteCommand command,
+                                                               Metadata metadata) throws Throwable {
+      Object retVal = invokeNextAndApplyChanges(context, command, metadata);
+      if (context.isInTxScope()) {
+         CacheEntry entry = context.lookupEntry(command.getKey());
+         if (entry != null) {
+            entry.setSkipRemoteGet(true);
+         }
+      }
+      return retVal;
    }
 
    private final class EntryWrappingVisitor extends AbstractVisitor {
@@ -301,7 +429,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          for (Map.Entry<Object, Object> e : command.getMap().entrySet()) {
             Object key = e.getKey();
             if (cdl.localNodeIsOwner(key)) {
-               entryFactory.wrapEntryForPut(ctx, key, null, true, command);
+               entryFactory.wrapEntryForPut(ctx, key, null, true, command, false);
                newMap.put(key, e.getValue());
             }
          }
@@ -318,7 +446,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          if (command.getKeys() != null) {
             for (Object key : command.getKeys()) {
                if (cdl.localNodeIsOwner(key)) {
-                  entryFactory.wrapEntryForRemove(ctx, key);
+                  entryFactory.wrapEntryForRemove(ctx, key, false);
                   invokeNextInterceptor(ctx, command);
                }
             }
@@ -329,7 +457,13 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
       @Override
       public Object visitRemoveCommand(InvocationContext ctx, RemoveCommand command) throws Throwable {
          if (cdl.localNodeIsOwner(command.getKey())) {
-            entryFactory.wrapEntryForRemove(ctx, command.getKey());
+            if (command.isIgnorePreviousValue()) {
+               //wrap it for put, as the previous value might not be present by now (e.g. might have been deleted)
+               // but we still need to apply the new value.
+               entryFactory.wrapEntryForPut(ctx, command.getKey(), null, false, command, false);
+            } else  {
+               entryFactory.wrapEntryForRemove(ctx, command.getKey(), false);
+            }
             invokeNextInterceptor(ctx, command);
          }
          return null;
@@ -338,7 +472,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
       @Override
       public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
          if (cdl.localNodeIsOwner(command.getKey())) {
-            entryFactory.wrapEntryForPut(ctx, command.getKey(), null, !command.isPutIfAbsent(), command);
+            entryFactory.wrapEntryForPut(ctx, command.getKey(), null, !command.isPutIfAbsent(), command, false);
             invokeNextInterceptor(ctx, command);
          }
          return null;
@@ -359,7 +493,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
             if (command.isIgnorePreviousValue()) {
                //wrap it for put, as the previous value might not be present by now (e.g. might have been deleted)
                // but we still need to apply the new value.
-               entryFactory.wrapEntryForPut(ctx, command.getKey(), null, false, command);
+               entryFactory.wrapEntryForPut(ctx, command.getKey(), null, false, command, false);
             } else  {
                entryFactory.wrapEntryForReplace(ctx, command);
             }
@@ -369,20 +503,8 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
       }
    }
 
-   /**
-    * invoked when a command that may return a value to the application, it has the logic of keep track of the keys read
-    * by the transaction. This information is later used to perform the write skew check.
-    * 
-    * @param context the invocation context
-    * @param key     the key accessed
-    * @param command the visitable command (can be a read or write command)
-    */
-   protected void checkIfKeyRead(InvocationContext context, Object key, VisitableCommand command) {
-      //no-op, it is only needed to check the write skew
-   }
-
-   private boolean commitEntryIfNeeded(InvocationContext ctx, FlagAffectedCommand command,
-         Object key, CacheEntry entry, boolean isPutForStateTransfer, Metadata metadata) {
+   private boolean commitEntryIfNeeded(final InvocationContext ctx, final FlagAffectedCommand command,
+         Object key, final CacheEntry entry, boolean isPutForStateTransfer, final Metadata metadata) {
       if (entry == null) {
          if (key != null && !isPutForStateTransfer && stateConsumer != null) {
             // this key is not yet stored locally
@@ -391,20 +513,29 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          return false;
       }
 
-      if (isPutForStateTransfer && stateConsumer.isKeyUpdated(key)) {
-         // This is a state transfer put command on a key that was already modified by other user commands. We need to back off.
-         log.tracef("State transfer will not write key/value %s/%s because it was already updated by somebody else", key, entry.getValue());
-         entry.rollback();
-         return false;
+      if (isPutForStateTransfer && (entry.isChanged() || entry.isLoaded())) {
+         boolean updated = stateConsumer.executeIfKeyIsNotUpdated(key, new Runnable() {
+            @Override
+            public void run() {
+               log.tracef("About to commit entry %s", entry);
+               commitContextEntry(entry, ctx, command, metadata);
+            }
+         });
+         if (!updated) {
+            // This is a state transfer put command on a key that was already modified by other user commands. We need to back off.
+            log.tracef("State transfer will not write key/value %s/%s because it was already updated by somebody else", key, entry.getValue());
+            entry.rollback();
+         }
+         return updated;
       }
 
       if (entry.isChanged() || entry.isLoaded()) {
-         log.tracef("About to commit entry %s", entry);
-         commitContextEntry(entry, ctx, command, metadata);
-
-         if (!isPutForStateTransfer && stateConsumer != null) {
+         if (stateConsumer != null) {
             stateConsumer.addUpdatedKey(key);
          }
+
+         log.tracef("About to commit entry %s", entry);
+         commitContextEntry(entry, ctx, command, metadata);
 
          return true;
       }

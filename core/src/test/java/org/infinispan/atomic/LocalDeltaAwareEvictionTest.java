@@ -4,9 +4,9 @@ import org.infinispan.Cache;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.container.DataContainer;
 import org.infinispan.eviction.EvictionStrategy;
-import org.infinispan.loaders.CacheLoaderManager;
-import org.infinispan.loaders.CacheStore;
-import org.infinispan.loaders.dummy.DummyInMemoryCacheStore;
+import org.infinispan.persistence.PersistenceUtil;
+import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
+import org.infinispan.persistence.spi.AdvancedCacheLoader;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.CleanupAfterMethod;
@@ -36,7 +36,7 @@ public class LocalDeltaAwareEvictionTest extends MultipleCacheManagersTest {
    protected void createCacheManagers() throws Throwable {
       ConfigurationBuilder configBuilder = TestCacheManagerFactory.getDefaultCacheConfiguration(true);
       configBuilder.eviction().maxEntries(1).strategy(EvictionStrategy.LRU)
-            .loaders().addStore().cacheStore(new DummyInMemoryCacheStore());
+            .persistence().addStore(DummyInMemoryStoreConfigurationBuilder.class);
 
       addClusterEnabledCacheManager(configBuilder);
    }
@@ -75,8 +75,8 @@ public class LocalDeltaAwareEvictionTest extends MultipleCacheManagersTest {
    }
 
    protected void assertNumberOfEntries(int cacheIndex) throws Exception {
-      CacheStore cacheStore = TestingUtil.extractComponent(cache(cacheIndex), CacheLoaderManager.class).getCacheStore();
-      assertEquals(2, cacheStore.loadAllKeys(null).size()); // two entries in store
+      AdvancedCacheLoader loader = (AdvancedCacheLoader) TestingUtil.getCacheLoader(cache(cacheIndex));
+      assertEquals(2, PersistenceUtil.count(loader, null)); // two entries in store
 
       DataContainer dataContainer = cache(cacheIndex).getAdvancedCache().getDataContainer();
       assertEquals(1, dataContainer.size());        // only one entry in memory (the other one was evicted)
@@ -85,6 +85,7 @@ public class LocalDeltaAwareEvictionTest extends MultipleCacheManagersTest {
    protected void test(final DeltaAwareAccessor daa, final int nodeThatReads, final int nodeThatWrites) throws Exception {
       // create two delta-aware objects populated with initial values for components
       withTx(nodeThatWrites, new Callable<Object>() {
+         @Override
          public Object call() {
             daa.createObject(cache(nodeThatWrites), KEY1);
             daa.createObject(cache(nodeThatWrites), KEY2);
@@ -100,6 +101,7 @@ public class LocalDeltaAwareEvictionTest extends MultipleCacheManagersTest {
 
       // update first component of both objects
       withTx(nodeThatWrites, new Callable<Object>() {
+         @Override
          public Object call() throws Exception {
             Object obj1 = daa.getObject(cache(nodeThatWrites), KEY1);
             daa.setFirstComponent(obj1, "** UPDATED** first component of object with key=key1");

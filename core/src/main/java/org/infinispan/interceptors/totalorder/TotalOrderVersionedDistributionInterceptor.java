@@ -19,8 +19,6 @@ import org.infinispan.util.logging.LogFactory;
 
 import java.util.Collection;
 
-import static org.infinispan.transaction.WriteSkewHelper.setVersionsSeenOnPrepareCommand;
-
 /**
  * This interceptor is used in total order in distributed mode when the write skew check is enabled. After sending the
  * prepare through TOA (Total Order Anycast), it blocks the execution thread until the transaction outcome is known
@@ -32,14 +30,6 @@ import static org.infinispan.transaction.WriteSkewHelper.setVersionsSeenOnPrepar
 public class TotalOrderVersionedDistributionInterceptor extends VersionedDistributionInterceptor {
 
    private static final Log log = LogFactory.getLog(TotalOrderVersionedDistributionInterceptor.class);
-
-   @Override
-   public Object visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
-      //this map is only populated after locks are acquired. However, no locks are acquired when total order is enabled
-      //so we need to populate it here
-      ctx.addAllAffectedKeys(command.getAffectedKeys());
-      return super.visitPrepareCommand(ctx, command);
-   }
 
    @Override
    public Object visitRollbackCommand(TxInvocationContext ctx, RollbackCommand command) throws Throwable {
@@ -82,7 +72,6 @@ public class TotalOrderVersionedDistributionInterceptor extends VersionedDistrib
          KeysValidateFilter responseFilter = ctx.getCacheTransaction().hasModification(ClearCommand.class) || isSyncCommitPhase() ?
                null : new KeysValidateFilter(rpcManager.getAddress(), ctx.getAffectedKeys());
 
-         setVersionsSeenOnPrepareCommand((VersionedPrepareCommand) command, ctx);
          totalOrderAnycastPrepare(recipients, command, responseFilter);
 
          if (responseFilter != null && !responseFilter.isAllKeysValidated()) {
@@ -95,6 +84,11 @@ public class TotalOrderVersionedDistributionInterceptor extends VersionedDistrib
 
    @Override
    protected void lockAndWrap(InvocationContext ctx, Object key, InternalCacheEntry ice, FlagAffectedCommand command) throws InterruptedException {
-      entryFactory.wrapEntryForPut(ctx, key, ice, false, command);
+      entryFactory.wrapEntryForPut(ctx, key, ice, false, command, true);
+   }
+
+   @Override
+   protected Log getLog() {
+      return log;
    }
 }

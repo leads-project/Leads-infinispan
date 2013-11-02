@@ -7,6 +7,7 @@ import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
 import org.infinispan.commands.tx.*;
 import org.infinispan.commands.write.*;
+import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.InfinispanCollections;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.context.Flag;
@@ -14,26 +15,42 @@ import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.base.CommandInterceptor;
+import org.infinispan.remoting.RemoteException;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.topology.CacheTopology;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.transaction.RemoteTransaction;
-import org.infinispan.transaction.WriteSkewHelper;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 //todo [anistor] command forwarding breaks the rule that we have only one originator for a command. this opens now the possibility to have two threads processing incoming remote commands for the same TX
 /**
- * // TODO: Document this
+ * This interceptor has two tasks:
+ * <ol>
+ *    <li>If the command's topology id is higher than the current topology id,
+ *    wait for the node to receive transaction data for the new topology id.</li>
+ *    <li>If the topology id changed during a command's execution, forward the command to the new owners.</li>
+ * </ol>
+ *
+ * Note that we don't keep track of old cache topologies (yet), so we actually forward the command to all the owners
+ * -- not just the ones added in the new topology. Transactional commands are idempotent, so this is fine.
+ *
+ * In non-transactional mode, the semantic of these tasks changes:
+ * <ol>
+ *    <li>We don't have transaction data, so the interceptor only waits for the new topology to be installed.</li>
+ *    <li>Instead of forwarding commands from any owner, we retry the command on the originator.</li>
+ * </ol>
  *
  * @author anistor@redhat.com
  * @since 5.2
  */
-public class StateTransferInterceptor extends CommandInterceptor {   //todo [anistor] this interceptor should be added to stack only if we have state transfer. maybe we need this for invalidation mode too!
+public class StateTransferInterceptor extends CommandInterceptor {
 
    private static final Log log = LogFactory.getLog(StateTransferInterceptor.class);
+   private static boolean trace = log.isTraceEnabled();
 
    private StateTransferLock stateTransferLock;
 
@@ -42,6 +59,7 @@ public class StateTransferInterceptor extends CommandInterceptor {   //todo [ani
    private CommandsFactory commandFactory;
 
    private boolean useVersioning;
+   private long transactionDataTimeout;
 
    private final AffectedKeysVisitor affectedKeysVisitor = new AffectedKeysVisitor();
 
@@ -59,6 +77,7 @@ public class StateTransferInterceptor extends CommandInterceptor {   //todo [ani
 
       useVersioning = configuration.transaction().transactionMode().isTransactional() && configuration.locking().writeSkewCheck() &&
             configuration.transaction().lockingMode() == LockingMode.OPTIMISTIC && configuration.versioning().enabled();
+      transactionDataTimeout = configuration.clustering().sync().replTimeout();
    }
 
    @Override
@@ -79,12 +98,12 @@ public class StateTransferInterceptor extends CommandInterceptor {   //todo [ani
          // the transaction on local node to ensure its locks are acquired and lookedUpEntries is properly populated.
          RemoteTransaction remoteTx = (RemoteTransaction) ctx.getCacheTransaction();
          if (remoteTx.isMissingLookedUpEntries()) {
+            ctx.skipTransactionCompleteCheck(true);
             remoteTx.setMissingLookedUpEntries(false);
 
             PrepareCommand prepareCommand;
             if (useVersioning) {
                prepareCommand = commandFactory.buildVersionedPrepareCommand(ctx.getGlobalTransaction(), ctx.getModifications(), false);
-               WriteSkewHelper.setVersionsSeenOnPrepareCommand((VersionedPrepareCommand) prepareCommand, ctx);
             } else {
                prepareCommand = commandFactory.buildPrepareCommand(ctx.getGlobalTransaction(), ctx.getModifications(), false);
             }
@@ -110,32 +129,32 @@ public class StateTransferInterceptor extends CommandInterceptor {   //todo [ani
 
    @Override
    public Object visitPutKeyValueCommand(InvocationContext ctx, PutKeyValueCommand command) throws Throwable {
-      return handleWriteCommand(ctx, command);
+      return handleNonTxWriteCommand(ctx, command);
    }
 
    @Override
    public Object visitPutMapCommand(InvocationContext ctx, PutMapCommand command) throws Throwable {
-      return handleWriteCommand(ctx, command);
+      return handleNonTxWriteCommand(ctx, command);
    }
 
    @Override
    public Object visitApplyDeltaCommand(InvocationContext ctx, ApplyDeltaCommand command) throws Throwable {
-      return handleWriteCommand(ctx, command);
+      return handleNonTxWriteCommand(ctx, command);
    }
 
    @Override
    public Object visitRemoveCommand(InvocationContext ctx, RemoveCommand command) throws Throwable {
-      return handleWriteCommand(ctx, command);
+      return handleNonTxWriteCommand(ctx, command);
    }
 
    @Override
    public Object visitReplaceCommand(InvocationContext ctx, ReplaceCommand command) throws Throwable {
-      return handleWriteCommand(ctx, command);
+      return handleNonTxWriteCommand(ctx, command);
    }
 
    @Override
    public Object visitClearCommand(InvocationContext ctx, ClearCommand command) throws Throwable {
-      return handleWriteCommand(ctx, command);
+      return handleNonTxWriteCommand(ctx, command);
    }
 
    @Override
@@ -166,9 +185,51 @@ public class StateTransferInterceptor extends CommandInterceptor {   //todo [ani
       return handleTopologyAffectedCommand(ctx, command, address, true);
    }
 
-   private Object handleWriteCommand(InvocationContext ctx, WriteCommand command) throws Throwable {
-      // ISPN-2473 - forward non-transactional commands asynchronously
-      return handleTopologyAffectedCommand(ctx, command, ctx.getOrigin(), false);
+   /**
+    * For non-tx write commands, we retry the command locally if the topology changed, instead of forwarding to the
+    * new owners like we do for tx commands. But we only retry on the originator, and only if the command doesn't have
+    * the {@code CACHE_MODE_LOCAL} flag.
+    */
+   private Object handleNonTxWriteCommand(InvocationContext ctx, WriteCommand command) throws Throwable {
+      log.tracef("handleNonTxWriteCommand for command %s", command);
+
+      if (isLocalOnly(ctx, command)) {
+         return invokeNextInterceptor(ctx, command);
+      }
+
+      updateTopologyId(command);
+
+      // Only catch OutdatedTopologyExceptions on the originator
+      if (!ctx.isOriginLocal()) {
+         return invokeNextInterceptor(ctx, command);
+      }
+
+      int commandTopologyId = command.getTopologyId();
+      Object localResult;
+      try {
+         localResult = invokeNextInterceptor(ctx, command);
+         return localResult;
+      } catch (CacheException e) {
+         Throwable ce = e;
+         while (ce instanceof RemoteException) {
+            ce = ce.getCause();
+         }
+         if (!(ce instanceof OutdatedTopologyException))
+            throw e;
+
+         log.tracef("Retrying command because of topology change: %s", command);
+         // We increment the topology id so that updateTopologyIdAndWaitForTransactionData waits for the next topology.
+         // Without this, we could retry the command too fast and we could get the OutdatedTopologyException again.
+         int newTopologyId = Math.max(stateTransferManager.getCacheTopology().getTopologyId(), commandTopologyId + 1);
+         command.setTopologyId(newTopologyId);
+         stateTransferLock.waitForTransactionData(newTopologyId, transactionDataTimeout, TimeUnit.MILLISECONDS);
+         localResult = handleNonTxWriteCommand(ctx, command);
+      }
+
+      // We retry the command every time the topology changes, either in NonTxConcurrentDistributionInterceptor or in
+      // EntryWrappingInterceptor. So we don't need to forward the command again here (without holding a lock).
+      // stateTransferManager.forwardCommandIfNeeded(command, command.getAffectedKeys(), ctx.getOrigin(), false);
+      return localResult;
    }
 
    @Override
@@ -187,7 +248,7 @@ public class StateTransferInterceptor extends CommandInterceptor {   //todo [ani
       if (isLocalOnly(ctx, command)) {
          return invokeNextInterceptor(ctx, command);
       }
-      updateTopologyIdAndWaitForTransactionData((TopologyAffectedCommand) command);
+      updateTopologyId((TopologyAffectedCommand) command);
 
       // TODO we may need to skip local invocation for read/write/tx commands if the command is too old and none of its keys are local
       Object localResult = invokeNextInterceptor(ctx, command);
@@ -205,7 +266,7 @@ public class StateTransferInterceptor extends CommandInterceptor {   //todo [ani
       return localResult;
    }
 
-   private void updateTopologyIdAndWaitForTransactionData(TopologyAffectedCommand command) throws InterruptedException {
+   private void updateTopologyId(TopologyAffectedCommand command) throws InterruptedException {
       // set the topology id if it was not set before (ie. this is local command)
       // TODO Make tx commands extend FlagAffectedCommand so we can use CACHE_MODE_LOCAL in TransactionTable.cleanupStaleTransactions
       if (command.getTopologyId() == -1) {
@@ -214,10 +275,6 @@ public class StateTransferInterceptor extends CommandInterceptor {   //todo [ani
             command.setTopologyId(cacheTopology.getTopologyId());
          }
       }
-
-      // remote/forwarded command
-      int cmdTopologyId = command.getTopologyId();
-      stateTransferLock.waitForTransactionData(cmdTopologyId);
    }
 
    private boolean isLocalOnly(InvocationContext ctx, VisitableCommand command) {
