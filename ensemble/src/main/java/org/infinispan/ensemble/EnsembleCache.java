@@ -1,14 +1,21 @@
  package org.infinispan.ensemble;
 
- import org.infinispan.client.hotrod.RemoteCache;
+ import org.infinispan.AdvancedCache;
+ import org.infinispan.Cache;
+ import org.infinispan.configuration.cache.Configuration;
+ import org.infinispan.lifecycle.ComponentStatus;
+ import org.infinispan.manager.EmbeddedCacheManager;
+ import org.infinispan.notifications.KeyFilter;
+ import org.infinispan.util.concurrent.NotifyingFuture;
 
  import java.util.Collection;
  import java.util.List;
  import java.util.Map;
  import java.util.Set;
  import java.util.concurrent.ConcurrentMap;
+ import java.util.concurrent.TimeUnit;
 
-/**
+ /**
  *
  * TODO change the atomic object factory to support a basic cache.
  * The atomicity of the cache will be thus part of the property on the put operation of the underlying cache.
@@ -18,7 +25,7 @@
  * @author Pierre Sutra
  * @since 6.0
  */
-public class EnsembleCache<K,V> implements ConcurrentMap<K,V> {
+public class EnsembleCache<K,V> implements Cache<K,V> {
 
     private String name;
     private Collection<ConcurrentMap<K,V>> caches;
@@ -30,7 +37,7 @@ public class EnsembleCache<K,V> implements ConcurrentMap<K,V> {
         this.primary = caches.iterator().next();
     }
 
-    public void addCache(RemoteCache<K,V> cache){
+    public void addCache(Cache<K,V> cache){
          caches.add(cache);
     }
 
@@ -44,7 +51,7 @@ public class EnsembleCache<K,V> implements ConcurrentMap<K,V> {
         return name;
     }
 
-    /**
+     /**
      * {@inheritDoc}
      */
     @Override
@@ -100,11 +107,6 @@ public class EnsembleCache<K,V> implements ConcurrentMap<K,V> {
         for(ConcurrentMap<K,V> c : caches)
             ret = c.put(key,value);
         return ret;
-    }
-
-    @Override
-    public V remove(Object o) {
-        return null;  // TODO: Customise this generated block
     }
 
     @Override
@@ -173,4 +175,235 @@ public class EnsembleCache<K,V> implements ConcurrentMap<K,V> {
         return ret;
     }
 
-}
+
+     /*
+     * NOT YET IMPLEMENTED INTERFACES.
+     *
+      */
+
+
+     @Override
+     public String getVersion() {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public void putForExternalRead(K key, V value) {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public void evict(K key) {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public Configuration getCacheConfiguration() {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public EmbeddedCacheManager getCacheManager() {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public AdvancedCache<K, V> getAdvancedCache() {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public ComponentStatus getStatus() {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public V put(K key, V value, long lifespan, TimeUnit unit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public V putIfAbsent(K key, V value, long lifespan, TimeUnit unit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit unit) {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public V replace(K key, V value, long lifespan, TimeUnit unit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit unit) {
+         return false;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public V put(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public V putIfAbsent(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public V replace(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
+         return false;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public V remove(Object o) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> putAsync(K key, V value) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit unit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit unit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<Void> clearAsync() {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> putIfAbsentAsync(K key, V value) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit unit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> removeAsync(Object key) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<Boolean> removeAsync(Object key, Object value) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> replaceAsync(K key, V value) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit unit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit unit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public NotifyingFuture<V> getAsync(K key) {
+         return null;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public boolean startBatch() {
+         return false;  // TODO: Customise this generated block
+     }
+
+     @Override
+     public void endBatch(boolean successful) {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public void addListener(Object listener, KeyFilter filter) {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public void start() {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public void stop() {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public void addListener(Object listener) {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public void removeListener(Object listener) {
+         // TODO: Customise this generated block
+     }
+
+     @Override
+     public Set<Object> getListeners() {
+         return null;  // TODO: Customise this generated block
+     }
+ }

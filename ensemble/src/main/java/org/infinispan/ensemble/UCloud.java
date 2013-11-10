@@ -1,11 +1,9 @@
 package org.infinispan.ensemble;
 
-import net.killa.kept.KeptConcurrentMap;
+import org.infinispan.manager.CacheContainer;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -24,14 +22,22 @@ public class UCloud {
 
     @XmlAttribute
     private String name;
+    private CacheContainer container;
 
-    public UCloud(String name){
+    public UCloud(String name, CacheContainer container) {
         this.name = name;
-        uclouds.putIfAbsent(name, this);
+        this.container= container;
+        if(uclouds.putIfAbsent(name, this)!=null)
+            throw new IllegalAccessError();
+
     }
 
     public String getName(){
         return name;
+    }
+
+    public CacheContainer getContainer(){
+        return container;
     }
 
     @Override
