@@ -37,6 +37,7 @@ public class AtomicObjectContainer {
             return true;
         }
     };
+    private static Random callUID = new Random(System.currentTimeMillis());
     private static Log log = LogFactory.getLog(AtomicObjectContainer.class);
     private static final int N_RETRIEVE_HELPERS= 2;
     private static final int CALL_TTIMEOUT_TIME = 3000;
@@ -246,7 +247,7 @@ public class AtomicObjectContainer {
     //
 
     private static int nextCallID(Cache c){
-        return ThreadLocalRandom.current().nextInt()+c.hashCode();
+        return callUID.nextInt()+c.hashCode();
     }
 
     private static Object doCall(Object obj, String method, Object[] args) throws InvocationTargetException, IllegalAccessException {
