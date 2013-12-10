@@ -8,7 +8,7 @@ The implementation extends Lucene's _org.apache.lucene.store.Directory_ so it ca
 Two different _LockFactory_ implementations are provided to guarantee only one _IndexWriter_ at a time will make changes to the index, again implementing the same semantics as when opening an index on a local filesystem. As with other Lucene Directories, you can override the _LockFactory_ if you prefer to use an alternative implementation. 
 
 === Additional Links
-Javadoc: link:$$http://docs.jboss.org/infinispan/5.3/apidocs/org/infinispan/lucene/InfinispanDirectory.html$$[] Issue tracker: link:$$https://jira.jboss.org/browse/ISPN/component/12312732$$[] Source code: link:$$http://www.jboss.org/infinispan/sourcecode.html$$[] 
+Javadoc: link:$$http://docs.jboss.org/infinispan/6.0/apidocs/org/infinispan/lucene/InfinispanDirectory.html$$[] Issue tracker: link:$$https://jira.jboss.org/browse/ISPN/component/12312732$$[] Source code: link:$$http://www.jboss.org/infinispan/sourcecode.html$$[]
 
 === Lucene compatibility
 The current version was developed and compiled against both _Lucene 3.6.2_ and _Lucene 4.3.0_ (separately and then assembled in a single jar for your convenience as most code is shared). It is also regularly tested to work with Lucene versions from 3.0.x to 3.5.0, version 2.9.x, the older 2.4.1 and newer version 4.0, 4.1, 4.2. 
@@ -51,7 +51,7 @@ As better explained in the javadocs of _org.infinispan.lucene.InfinispanDirector
 Any Infinispan configuration should work fine as long as caches are not configured to remove entries after thresholds.
 
 === Demo
-There is a simple command-line demo of it's capabilities distributed with Infinispan under demos/lucene-directory; make sure you grab the _"Binaries, server and demos"_ package from link:$$http://www.jboss.org/infinispan/downloads$$[download page] , which contains all demos. 
+There is a simple command-line demo of its capabilities distributed with Infinispan under demos/lucene-directory; make sure you grab the _"Binaries, server and demos"_ package from link:$$http://www.jboss.org/infinispan/downloads$$[download page] , which contains all demos. 
 
 Start several instances, then try adding text in one instance and searching for it on the other. The configuration is not tuned at all, but should work out-of-the box without any changes. If your network interface has multicast enabled, it will cluster across the local network with other instances of the demo.
 
@@ -70,7 +70,7 @@ All you need is _org.infinispan:infinispan-lucene-directory_ :
 ----
 
 === Using a CacheLoader
-Using a CacheLoader you can have the index content backed up to a permanent storage; you can use a shared store for all nodes or one per node, see <<sid-68355053>> for more details. 
+Using a CacheLoader you can have the index content backed up to a permanent storage; you can use a shared store for all nodes or one per node, see <<cache-passivation, cache passivation>> for more details.
 
 When using a CacheLoader to store a Lucene index, to get best write performance you would need to configure the CacheLoader with _async=true_ . 
 

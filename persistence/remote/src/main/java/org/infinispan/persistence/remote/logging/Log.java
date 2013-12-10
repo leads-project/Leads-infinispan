@@ -2,7 +2,7 @@ package org.infinispan.persistence.remote.logging;
 
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.CacheException;
-import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.jboss.logging.Cause;
 import org.jboss.logging.LogMessage;
 import org.jboss.logging.Message;
@@ -25,7 +25,7 @@ public interface Log extends org.infinispan.util.logging.Log {
    void sharedModeOnlyAllowed();
 
    @Message(value = "Wrapper cannot handle values of class %s", id = 10004)
-   CacheLoaderException unsupportedValueFormat(String name);
+   PersistenceException unsupportedValueFormat(String name);
 
    @Message(value = "Cannot enable HotRod wrapping if a marshaller and/or an entryWrapper have already been set", id = 10005)
    CacheConfigurationException cannotEnableHotRodWrapping();
@@ -36,10 +36,4 @@ public interface Log extends org.infinispan.util.logging.Log {
    @Message(value = "The RemoteCacheStore for cache %s should be configured with hotRodWrapping enabled", id = 10007)
    CacheException remoteStoreNoHotRodWrapping(String cacheName);
 
-   @Message(value = "Could not find migration data in cache %s", id = 10008)
-   CacheException missingMigrationData(String name);
-
-   @LogMessage(level = WARN)
-   @Message(value = "Could not migrate key %s", id = 10009)
-   void keyMigrationFailed(String key, @Cause Throwable cause);
 }

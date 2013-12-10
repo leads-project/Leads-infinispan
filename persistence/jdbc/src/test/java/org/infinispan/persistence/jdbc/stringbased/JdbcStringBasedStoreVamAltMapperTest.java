@@ -1,6 +1,6 @@
 package org.infinispan.persistence.jdbc.stringbased;
 
-import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
@@ -22,10 +22,9 @@ public class JdbcStringBasedStoreVamAltMapperTest extends JdbcStringBasedStoreAl
    EmbeddedCacheManager cm;
    StreamingMarshaller marshaller;
 
-
    @BeforeTest
    @Override
-   public void createCacheStore() throws CacheLoaderException {
+   public void createCacheStore() throws PersistenceException {
       cm = TestCacheManagerFactory.createCacheManager(false);
       marshaller = extractCacheMarshaller(cm.getCache());
 
@@ -34,13 +33,11 @@ public class JdbcStringBasedStoreVamAltMapperTest extends JdbcStringBasedStoreAl
 
    @AfterTest
    @Override
-   public void destroyStore() throws CacheLoaderException {
+   public void destroyStore() throws PersistenceException {
       super.destroyStore();
-
       cm.stop();
    }
 
-   @Override
    protected StreamingMarshaller getMarshaller() {
       return marshaller;
    }

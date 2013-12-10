@@ -2,7 +2,7 @@ package org.infinispan.persistence.jdbc.stringbased;
 
 import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.marshall.core.MarshalledEntry;
-import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.TaskContextImpl;
 import org.infinispan.persistence.jdbc.JdbcUtil;
 import org.infinispan.persistence.jdbc.TableManipulation;
@@ -18,6 +18,7 @@ import org.infinispan.persistence.spi.InitializationContext;
 import org.infinispan.util.KeyValuePair;
 import org.infinispan.util.logging.LogFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -132,7 +133,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          log.debug("Exception while stopping", t);
       }
       if (cause != null) {
-         throw new CacheLoaderException("Exceptions occurred while stopping store", cause);
+         throw new PersistenceException("Exceptions occurred while stopping store", cause);
       }
    }
 
@@ -165,7 +166,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          ps.executeUpdate();
       } catch (SQLException ex) {
          log.sqlFailureStoringKey(keyStr, ex);
-         throw new CacheLoaderException(String.format("Error while storing string key to database; key: '%s'", keyStr), ex);
+         throw new PersistenceException(String.format("Error while storing string key to database; key: '%s'", keyStr), ex);
       } catch (InterruptedException e) {
          if (log.isTraceEnabled()) {
             log.trace("Interrupted while marshalling to store");
@@ -197,7 +198,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          }
       } catch (SQLException e) {
          log.sqlFailureReadingKey(key, lockingKey, e);
-         throw new CacheLoaderException(String.format(
+         throw new PersistenceException(String.format(
                "SQL error while fetching stored entry with key: %s, lockingKey: %s",
                key, lockingKey), e);
       } finally {
@@ -228,7 +229,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          return ps.executeUpdate() == 1;
       } catch (SQLException ex) {
          log.sqlFailureRemovingKeys(ex);
-         throw new CacheLoaderException("Error while removing string keys from database", ex);
+         throw new PersistenceException("Error while removing string keys from database", ex);
       } finally {
          JdbcUtil.safeClose(ps);
          connectionFactory.releaseConnection(connection);
@@ -236,7 +237,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
    }
 
    @Override
-   public void clear() throws CacheLoaderException {
+   public void clear() throws PersistenceException {
       Connection conn = null;
       PreparedStatement ps = null;
       try {
@@ -249,7 +250,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          }
       } catch (SQLException ex) {
          log.failedClearingJdbcCacheStore(ex);
-         throw new CacheLoaderException("Failed clearing cache store", ex);
+         throw new PersistenceException("Failed clearing cache store", ex);
       } finally {
          JdbcUtil.safeClose(ps);
          connectionFactory.releaseConnection(conn);
@@ -276,7 +277,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
                }
             } catch (SQLException ex) {
                log.failedClearingJdbcCacheStore(ex);
-               throw new CacheLoaderException("Failed clearing string based JDBC store", ex);
+               throw new PersistenceException("Failed clearing string based JDBC store", ex);
             } finally {
                JdbcUtil.safeClose(ps);
                connectionFactory.releaseConnection(conn);
@@ -290,7 +291,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          Thread.currentThread().interrupt();
       } catch (ExecutionException e) {
          log.errorExecutingParallelStoreTask(e);
-         throw new CacheLoaderException(e);
+         throw new PersistenceException(e);
       }
    }
 
@@ -342,7 +343,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
                return null;
             } catch (SQLException e) {
                log.sqlFailureFetchingAllStoredEntries(e);
-               throw new CacheLoaderException("SQL error while fetching all StoredEntries", e);
+               throw new PersistenceException("SQL error while fetching all StoredEntries", e);
             } finally {
                JdbcUtil.safeClose(rs);
                JdbcUtil.safeClose(ps);
@@ -356,7 +357,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          Thread.currentThread().interrupt();
       } catch (ExecutionException e) {
          log.errorExecutingParallelStoreTask(e);
-         throw new CacheLoaderException(e);
+         throw new PersistenceException(e);
       }
    }
 
@@ -374,7 +375,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          return rs.getInt(1);
       } catch (SQLException e) {
          log.sqlFailureIntegratingState(e);
-         throw new CacheLoaderException("SQL failure while integrating state into store", e);
+         throw new PersistenceException("SQL failure while integrating state into store", e);
       } finally {
          JdbcUtil.safeClose(rs);
          JdbcUtil.safeClose(ps);
@@ -384,12 +385,12 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
 
    private void updateStatement(MarshalledEntry entry, String key, PreparedStatement ps) throws InterruptedException, SQLException {
       ByteBuffer byteBuffer = JdbcUtil.marshall(ctx.getMarshaller(), new KeyValuePair(entry.getValueBytes(), entry.getMetadataBytes()));
-      ps.setBinaryStream(1, byteBuffer.getStream(), byteBuffer.getLength());
+      ps.setBinaryStream(1, new ByteArrayInputStream(byteBuffer.getBuf(), byteBuffer.getOffset(), byteBuffer.getLength()), byteBuffer.getLength());
       ps.setLong(2, getExpiryTime(entry.getMetadata()));
       ps.setString(3, key);
    }
 
-   private String key2Str(Object key) throws CacheLoaderException {
+   private String key2Str(Object key) throws PersistenceException {
       if (!key2StringMapper.isSupportedType(key.getClass())) {
          throw new UnsupportedKeyTypeException(key);
       }
@@ -406,7 +407,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
     * want the store to manage the connection factory, perhaps because it is using an shared connection factory: see
     * {@link org.infinispan.persistence.jdbc.mixed.JdbcMixedStore} for such an example of this.
     */
-   public void initializeConnectionFactory(ConnectionFactory connectionFactory) throws CacheLoaderException {
+   public void initializeConnectionFactory(ConnectionFactory connectionFactory) throws PersistenceException {
       this.connectionFactory = connectionFactory;
       tableManipulation = new TableManipulation(configuration.table());
       tableManipulation.setCacheName(cacheName);
@@ -421,10 +422,10 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
       return tableManipulation;
    }
 
-   private void enforceTwoWayMapper(String where) throws CacheLoaderException {
+   private void enforceTwoWayMapper(String where) throws PersistenceException {
       if (!(key2StringMapper instanceof TwoWayKey2StringMapper)) {
          log.invalidKey2StringMapper(where, key2StringMapper.getClass().getName());
-         throw new CacheLoaderException(String.format("Invalid key to string mapper", key2StringMapper.getClass().getName()));
+         throw new PersistenceException(String.format("Invalid key to string mapper", key2StringMapper.getClass().getName()));
       }
    }
    public boolean isDistributed() {

@@ -20,6 +20,7 @@ import org.infinispan.persistence.spi.InitializationContext;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.marshall.TestObjectStreamMarshaller;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.CleanupAfterMethod;
@@ -66,7 +67,7 @@ public class UnnecessaryLoadingTest extends SingleCacheManagerTest {
 
    }
 
-   public void testRepeatedLoads() throws CacheLoaderException {
+   public void testRepeatedLoads() throws PersistenceException {
       CountingStore countingCS = getCountingCacheStore();
       store.write(new MarshalledEntryImpl("k1", "v1", null, marshaller(cache)));
 
@@ -86,7 +87,7 @@ public class UnnecessaryLoadingTest extends SingleCacheManagerTest {
 
 
 
-   public void testSkipCacheFlagUsage() throws CacheLoaderException {
+   public void testSkipCacheFlagUsage() throws PersistenceException {
       CountingStore countingCS = getCountingCacheStore();
 
       store.write(new MarshalledEntryImpl("k1", "v1", null, marshaller(cache)));
@@ -142,23 +143,28 @@ public class UnnecessaryLoadingTest extends SingleCacheManagerTest {
       return countingCS;
    }
 
-   public void testSkipCacheLoadFlagUsage() throws CacheLoaderException {
+   public void testSkipCacheLoadFlagUsage() throws PersistenceException {
       CountingStore countingCS = getCountingCacheStore();
 
-      store.write(new MarshalledEntryImpl("home", "Vermezzo", null, new TestObjectStreamMarshaller()));
-      store.write(new MarshalledEntryImpl("home-second", "Newcastle Upon Tyne", null, new TestObjectStreamMarshaller()));
+      TestObjectStreamMarshaller sm = new TestObjectStreamMarshaller();
+      try {
+         store.write(new MarshalledEntryImpl("home", "Vermezzo", null, sm));
+         store.write(new MarshalledEntryImpl("home-second", "Newcastle Upon Tyne", null, sm));
 
-      assert countingCS.numLoads == 0;
-      //load using SKIP_CACHE_LOAD should not find the object in the store
-      assert cache.getAdvancedCache().withFlags(Flag.SKIP_CACHE_LOAD).get("home") == null;
-      assert countingCS.numLoads == 0;
+         assert countingCS.numLoads == 0;
+         //load using SKIP_CACHE_LOAD should not find the object in the store
+         assert cache.getAdvancedCache().withFlags(Flag.SKIP_CACHE_LOAD).get("home") == null;
+         assert countingCS.numLoads == 0;
 
-      assert cache.getAdvancedCache().withFlags(Flag.SKIP_CACHE_LOAD).put("home", "Newcastle") == null;
-      assert countingCS.numLoads == 0;
+         assert cache.getAdvancedCache().withFlags(Flag.SKIP_CACHE_LOAD).put("home", "Newcastle") == null;
+         assert countingCS.numLoads == 0;
 
-      final Object put = cache.getAdvancedCache().put("home-second", "Newcastle Upon Tyne, second");
-      assertEquals(put, "Newcastle Upon Tyne");
-      assert countingCS.numLoads == 1;
+         final Object put = cache.getAdvancedCache().put("home-second", "Newcastle Upon Tyne, second");
+         assertEquals(put, "Newcastle Upon Tyne");
+         assert countingCS.numLoads == 1;
+      } finally {
+         sm.stop();
+      }
    }
 
    private void reset(Cache<?, ?> cache, CountingStore countingCS) {
@@ -207,7 +213,7 @@ public class UnnecessaryLoadingTest extends SingleCacheManagerTest {
 
 
       @Override
-      public MarshalledEntry load(Object key) throws CacheLoaderException {
+      public MarshalledEntry load(Object key) throws PersistenceException {
          incrementLoads();
          return null;
       }
@@ -221,7 +227,7 @@ public class UnnecessaryLoadingTest extends SingleCacheManagerTest {
       }
 
       @Override
-      public boolean contains(Object key) throws CacheLoaderException {
+      public boolean contains(Object key) throws PersistenceException {
          numContains++;
          return false;
       }

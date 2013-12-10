@@ -13,6 +13,7 @@ import org.infinispan.marshall.core.MarshalledEntryFactoryImpl;
 import org.infinispan.persistence.BaseStoreTest;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.persistence.DummyInitializationContext;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.async.AdvancedAsyncCacheLoader;
 import org.infinispan.persistence.async.AdvancedAsyncCacheWriter;
 import org.infinispan.persistence.dummy.DummyInMemoryStore;
@@ -23,7 +24,6 @@ import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.marshall.TestObjectStreamMarshaller;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.infinispan.test.fwk.TestInternalCacheEntryFactory;
-import org.infinispan.persistence.CacheLoaderException;
 import org.infinispan.persistence.modifications.Modification;
 import org.infinispan.persistence.modifications.Remove;
 import org.infinispan.persistence.modifications.Store;
@@ -34,6 +34,7 @@ import org.infinispan.test.TestingUtil;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
@@ -53,9 +54,9 @@ public class AsyncStoreTest extends AbstractInfinispanTest {
    private static final Log log = LogFactory.getLog(AsyncStoreTest.class);
    private AdvancedAsyncCacheWriter writer;
    private AdvancedAsyncCacheLoader loader;
-   private TestObjectStreamMarshaller testObjectStreamMarshaller;
+   private TestObjectStreamMarshaller marshaller;
 
-   private void createStore() throws CacheLoaderException {
+   private void createStore() throws PersistenceException {
       DummyInMemoryStoreConfigurationBuilder dummyCfg = TestCacheManagerFactory.getDefaultCacheConfiguration(false)
             .persistence()
                .addStore(DummyInMemoryStoreConfigurationBuilder.class)
@@ -66,8 +67,7 @@ public class AsyncStoreTest extends AbstractInfinispanTest {
             .threadPoolSize(10);
       DummyInMemoryStore underlying = new DummyInMemoryStore();
       writer = new AdvancedAsyncCacheWriter(underlying);
-      TestObjectStreamMarshaller ma = new TestObjectStreamMarshaller();
-      DummyInitializationContext ctx = new DummyInitializationContext(dummyCfg.create(), getCache(), ma, new ByteBufferFactoryImpl(), new MarshalledEntryFactoryImpl(ma));
+      DummyInitializationContext ctx = new DummyInitializationContext(dummyCfg.create(), getCache(), marshaller(), new ByteBufferFactoryImpl(), new MarshalledEntryFactoryImpl(marshaller()));
       writer.init(ctx);
       writer.start();
       loader = new AdvancedAsyncCacheLoader(underlying, writer.getState());
@@ -75,13 +75,18 @@ public class AsyncStoreTest extends AbstractInfinispanTest {
       loader.start();
       underlying.init(ctx);
       underlying.start();
-      testObjectStreamMarshaller = new TestObjectStreamMarshaller(false);
+   }
+
+   @BeforeMethod
+   public void createMarshaller() {
+      marshaller = new TestObjectStreamMarshaller();
    }
 
    @AfterMethod
-   public void tearDown() throws CacheLoaderException {
+   public void tearDown() throws PersistenceException {
       if (writer != null) writer.stop();
       if (loader != null) loader.stop();
+      marshaller.stop();
    }
 
    @Test(timeOut=30000)
@@ -150,7 +155,7 @@ public class AsyncStoreTest extends AbstractInfinispanTest {
    }
 
    private TestObjectStreamMarshaller marshaller() {
-      return testObjectStreamMarshaller;
+      return marshaller;
    }
 
    public void testThreadSafetyWritingDiffValuesForKey(Method m) throws Exception {
@@ -269,7 +274,7 @@ public class AsyncStoreTest extends AbstractInfinispanTest {
       }
 
       @Override
-      protected void applyModificationsSync(List<Modification> mods) throws CacheLoaderException {
+      protected void applyModificationsSync(List<Modification> mods) throws PersistenceException {
          boolean keyFound = findModificationForKey(key, mods) != null;
          if (keyFound && block) {
             log("Wait for v1 latch" + mods);

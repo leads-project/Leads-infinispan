@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
    <modelVersion>4.0.0</modelVersion>
    <groupId>org.infinispan</groupId>
    <artifactId>infinispan-parent</artifactId>
-      <version>6.0.0-SNAPSHOT</version>
+      <version>6.0.1-SNAPSHOT</version>
    <packaging>pom</packaging>
    <name>Infinispan Common Parent</name>
    <description>Infinispan common parent POM module</description>
@@ -85,10 +85,10 @@
       <packaging>jar</packaging>
       <module.skipComponentMetaDataProcessing>true</module.skipComponentMetaDataProcessing>
       <module.metadata.isCoreModule>false</module.metadata.isCoreModule>
-      <!-- Versions for dependencies -->
+      
       <version.antlr>3.4</version.antlr>
       <version.arquillian>1.0.3.Final</version.arquillian>
-      <version.arquillian.container.managed>7.2.0.Final</version.arquillian.container.managed>
+      <version.arquillian.container.managed>8.0.0.Beta1</version.arquillian.container.managed>
       <version.arquillian.container.weld>1.0.0.CR3</version.arquillian.container.weld>
       <version.avro>1.3.3</version.avro>
       <version.c3p0>0.9.1.2</version.c3p0>
@@ -108,11 +108,12 @@
       <version.hibernate.annotations>3.5.6-Final</version.hibernate.annotations>
       <version.hibernate.hql.parser>1.0.0.Alpha5</version.hibernate.hql.parser>
       <version.hibernate.javax.persistence>1.0.1.Final</version.hibernate.javax.persistence>
+      <version.httpclient>4.2.4</version.httpclient>
       <version.jackson>1.9.2</version.jackson>
-      <version.javax.cache>0.8</version.javax.cache>
+      <version.javax.cache>1.0.0-PFD</version.javax.cache>
+      <version.javax.cache.cache-tests>0.11</version.javax.cache.cache-tests>
       <version.javax.persistence>1.0</version.javax.persistence>
       <version.javax.servlet>2.5</version.javax.servlet>
-      <version.jboss.as>7.2.0.Alpha1-redhat-4</version.jboss.as>
       <version.jbossjta>4.17.13.Final</version.jbossjta>
       <version.jboss.logging.processor>1.1.0.Final</version.jboss.logging.processor>
       <version.jboss.logmanager>1.3.1.Final</version.jboss.logmanager>
@@ -123,9 +124,11 @@
       <version.jsap>2.1</version.jsap>
       <version.jstl>1.2</version.jstl>
       <version.junit>4.10</version.junit>
+      <version.leveldb>0.5</version.leveldb>
+      <version.leveldbjni>1.7</version.leveldbjni>
       <version.log4j>1.2.16</version.log4j>
       <version.lucene.v3>3.6.2</version.lucene.v3>
-      <version.lucene.v4>4.5.0</version.lucene.v4>
+      <version.lucene.v4>4.6.0</version.lucene.v4>
       <version.mc4j>1.2.6</version.mc4j>
       <version.milyn.smooks>1.2.2</version.milyn.smooks>
       <version.mockito>1.9.5</version.mockito>
@@ -141,6 +144,7 @@
       <version.testng.arquillian>6.5.2</version.testng.arquillian>
       <version.webdav.servlet>2.0.1</version.webdav.servlet>
       <version.weld>1.1.13.Final</version.weld>
+      <version.wildfly>8.0.0.Beta1</version.wildfly>
       <version.javassist>3.15.0-GA</version.javassist>
       <version.maven.animal.sniffer>1.9</version.maven.animal.sniffer>
       <version.maven.buildhelper>1.8</version.maven.buildhelper>
@@ -303,6 +307,16 @@
             <version>${project.version}</version>
          </dependency>
          <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-cli-client</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-cli-server</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
             <groupId>c3p0</groupId>
             <artifactId>c3p0</artifactId>
             <version>${version.c3p0}</version>
@@ -361,12 +375,12 @@
          <dependency>
             <groupId>javax.cache</groupId>
             <artifactId>cache-tests</artifactId>
-            <version>${version.javax.cache}</version>
+            <version>${version.javax.cache.cache-tests}</version>
          </dependency>
          <dependency>
             <groupId>javax.cache</groupId>
             <artifactId>cache-tests</artifactId>
-            <version>${version.javax.cache}</version>
+            <version>${version.javax.cache.cache-tests}</version>
             <classifier>tests</classifier>
          </dependency>
          <dependency>
@@ -482,8 +496,8 @@
             <scope>import</scope>
          </dependency>
          <dependency>
-            <groupId>org.jboss.as</groupId>
-            <artifactId>jboss-as-arquillian-container-managed</artifactId>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-arquillian-container-managed</artifactId>
             <version>${version.arquillian.container.managed}</version>
             <scope>test</scope>
          </dependency>
@@ -621,10 +635,25 @@
             <artifactId>memcached</artifactId>
             <version>${version.spymemcached}</version>
          </dependency>
+         <dependency>
+            <groupId>org.fusesource.leveldbjni</groupId>
+            <artifactId>leveldbjni-all</artifactId>
+            <version>${version.leveldbjni}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.iq80.leveldb</groupId>
+            <artifactId>leveldb</artifactId>
+            <version>${version.leveldb}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${version.httpclient}</version>
+         </dependency>
       </dependencies>
    </dependencyManagement>
    <dependencies>
-      <!-- used to serialize non-serializable objects for a dummy marshaller -->
+      
       <dependency>
          <groupId>com.thoughtworks.xstream</groupId>
          <artifactId>xstream</artifactId>
@@ -919,7 +948,7 @@
             <plugin>
                <groupId>org.apache.maven.plugins</groupId>
                <artifactId>maven-pmd-plugin</artifactId>
-               <!-- See also reporting plugins -->
+               
                <version>2.7.1</version>
                <configuration>
                   <minimumTokens>100</minimumTokens>
@@ -960,7 +989,7 @@
                <artifactId>ideauidesigner-maven-plugin</artifactId>
                <version>1.0-beta-1</version>
             </plugin>
-            <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+            
             <plugin>
                <groupId>org.eclipse.m2e</groupId>
                <artifactId>lifecycle-mapping</artifactId>
@@ -979,7 +1008,7 @@
                               </goals>
                            </pluginExecutionFilter>
                            <action>
-                              <ignore></ignore>
+                              <ignore />
                            </action>
                         </pluginExecution>
                         <pluginExecution>
@@ -992,7 +1021,7 @@
                               </goals>
                            </pluginExecutionFilter>
                            <action>
-                              <ignore></ignore>
+                              <ignore />
                            </action>
                         </pluginExecution>
                         <pluginExecution>
@@ -1005,7 +1034,7 @@
                               </goals>
                            </pluginExecutionFilter>
                            <action>
-                              <ignore></ignore>
+                              <ignore />
                            </action>
                         </pluginExecution>
                         <pluginExecution>
@@ -1018,7 +1047,7 @@
                               </goals>
                            </pluginExecutionFilter>
                            <action>
-                              <ignore></ignore>
+                              <ignore />
                            </action>
                         </pluginExecution>
                         <pluginExecution>
@@ -1032,7 +1061,7 @@
                               </goals>
                            </pluginExecutionFilter>
                            <action>
-                              <ignore></ignore>
+                              <ignore />
                            </action>
                         </pluginExecution>
                         <pluginExecution>
@@ -1045,7 +1074,7 @@
                               </goals>
                            </pluginExecutionFilter>
                            <action>
-                              <ignore></ignore>
+                              <ignore />
                            </action>
                         </pluginExecution>
                      </pluginExecutions>
@@ -1151,7 +1180,7 @@
                </instructions>
             </configuration>
          </plugin>
-         <!-- Copy the resulting persisted metadata into the build directory for packaging into the jar -->
+         
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-antrun-plugin</artifactId>
@@ -1166,13 +1195,13 @@
                   <configuration>
                      <skip>${module.skipComponentMetaDataProcessing}</skip>
                      <target>
-                        <copy file="${basedir}/src/main/resources/${project.artifactId}-component-metadata.dat" todir="${project.build.outputDirectory}"></copy>
+                        <copy file="${basedir}/src/main/resources/${project.artifactId}-component-metadata.dat" todir="${project.build.outputDirectory}" />
                      </target>
                   </configuration>
                </execution>
             </executions>
          </plugin>
-         <!-- by default, compile to JDK 1.6 compatibility (individual modules and/or user can override) -->
+         
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
@@ -1184,7 +1213,7 @@
                <compilerArgument>-AtranslationFilesPath=${project.basedir}/target/generated-translation-files</compilerArgument>
             </configuration>
          </plugin>
-         <!-- eclipse project file generation -->
+         
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-eclipse-plugin</artifactId>
@@ -1194,7 +1223,7 @@
                <buildOutputDirectory>${basedir}/eclipse-output</buildOutputDirectory>
             </configuration>
          </plugin>
-         <!-- IntelliJ project file generation -->
+         
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-idea-plugin</artifactId>
@@ -1255,7 +1284,7 @@
                <encoding>UTF-8</encoding>
             </configuration>
          </plugin>
-         <!-- ensure parallel test execution -->
+         
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
@@ -1271,6 +1300,7 @@
                   <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
                   <infinispan.unsafe.allow_jdk8_chm>true</infinispan.unsafe.allow_jdk8_chm>
                   <log4j.configuration>${log4j.configuration}</log4j.configuration>
+                  <build.directory>${project.build.directory}</build.directory>
                </systemPropertyVariables>
                <trimStackTrace>false</trimStackTrace>
                <properties>
@@ -1279,11 +1309,11 @@
                      <value>${testNGListener}</value>
                   </property>
                </properties>
-               <!-- -Dsun.nio.ch.bugLevel needed because of http://bugs.sun.com/view_bug.do?bug_id=6427854 -->
+               
                <argLine>-Xmx1024m -XX:MaxPermSize=256m -Dsun.nio.ch.bugLevel</argLine>
             </configuration>
          </plugin>
-         <!-- Scan module for components and persist these into a data file, for use at runtime -->
+         
          <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
@@ -1315,11 +1345,11 @@
    </build>
    <reporting>
       <plugins>
-         <!-- PMD report -->
+         
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-pmd-plugin</artifactId>
-            <!-- Needs to be re-defined and configured in pluginManagement section -->
+            
             <version>2.7.1</version>
          </plugin>
          <plugin>
@@ -1327,7 +1357,7 @@
             <artifactId>maven-surefire-report-plugin</artifactId>
             <version>2.12.2</version>
          </plugin>
-         <!-- Findbugs report -->
+         
          <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>findbugs-maven-plugin</artifactId>
@@ -1349,7 +1379,7 @@
 
          <build>
             <plugins>
-               <!-- generate target/runtime-classpath.txt, to be included in bundle -->
+               
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-dependency-plugin</artifactId>
@@ -1380,7 +1410,7 @@
          </activation>
          <build>
             <plugins>
-               <!-- Make sure we generate src jars too -->
+               
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-source-plugin</artifactId>
@@ -1399,7 +1429,7 @@
             </plugins>
          </build>
          <properties>
-            <!-- By default create OSGI bundles -->
+            
             <packaging>bundle</packaging>
          </properties>
       </profile>
@@ -1419,7 +1449,7 @@
                   <artifactId>maven-surefire-plugin</artifactId>
                   <configuration>
                      <systemPropertyVariables>
-                           <!-- this is picked up in the log4j xml which prepends it to each module's log file-->
+                           
                            <infinispan.module-name>${project.artifactId}</infinispan.module-name>
                      </systemPropertyVariables>
                   </configuration>
@@ -1494,8 +1524,7 @@
          </activation>
          <build>
             <plugins>
-               <!-- Redefine surefire plugin to avoid external log4j settings
-               not being discovered when passed as command line arguments -->
+               
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-surefire-plugin</artifactId>
@@ -1515,18 +1544,13 @@
             <activeByDefault>false</activeByDefault>
          </activation>
 
-         <properties>
-            <infinispan.test.parallel.threads>1</infinispan.test.parallel.threads>
-            <infinispan.test.jgroups.protocol>tcp</infinispan.test.jgroups.protocol>
-         </properties>
-
          <build>
             <plugins>
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-dependency-plugin</artifactId>
                   <executions>
-                     <!-- Copy the ant tasks jar. Needed for ts.jacoco.report-ant . -->
+                     
                      <execution>
                         <id>jacoco-dependency-ant</id>
                         <goals>
@@ -1564,7 +1588,7 @@
                   </executions>
                </plugin>
 
-               <!-- Starting jacoco agent for recording code coverage. -->
+               
                <plugin>
                   <groupId>org.jacoco</groupId>
                   <artifactId>jacoco-maven-plugin</artifactId>
@@ -1580,7 +1604,7 @@
                   </configuration>
                </plugin>
 
-               <!-- Overriding surefire configuration, for attaching jacoco agent to command line. -->
+               
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-surefire-plugin</artifactId>
@@ -1623,10 +1647,10 @@
                         <goals>
                            <goal>run</goal>
                         </goals>
-                        <configuration>
-                           <target combine.self="override">
-                              <!-- Execute an ant task within maven -->
-                              <taskdef name="report" classname="org.jacoco.ant.ReportTask">
+                        <configuration combine.self="override">
+                           <target>
+                              
+                              <taskdef classname="org.jacoco.ant.ReportTask" name="report">
                                  <classpath path="${basedir}/target/jacoco-jars/org.jacoco.ant.jar" />
                                  <classpath path="target/jacoco-jars/org.jacoco.core.jar" />
                                  <classpath path="target/jacoco-jars/org.jacoco.report.jar" />
@@ -1641,12 +1665,12 @@
 
                               <echo message="Generating JaCoCo Reports" />
                               <report>
-                                 <!-- Specifying the execution data files locations. -->
+                                 
                                  <executiondata>
                                     <fileset dir="${dir.ispn}" includes="**/target/jacoco.exec" />
                                  </executiondata>
 
-                                 <!-- Defining the report structure with class and source files. -->
+                                 
                                  <structure name="${reportTitle}">
                                     <classfiles>
                                        <fileset dir="${dir.ispn}">
@@ -1656,13 +1680,13 @@
                                     <sourcefiles encoding="UTF-8">
                                        <mappedresources>
                                           <fileset dir="${dir.ispn}" includes="**/src/main/java/**/*.java" />
-                                          <mapper type="regexp" from="^(.*/java/)(.*)$" to="\2"/>
+                                          <mapper from="^(.*/java/)(.*)$" to="\2" type="regexp" />
                                        </mappedresources>
                                     </sourcefiles>
 
                                  </structure>
 
-                                 <!-- Only HTML report is generated with specified path. -->
+                                 
                                  <html destdir="${dir.report}" />
                               </report>
                            </target>
@@ -1836,7 +1860,7 @@
                            <value>${testNGListener}</value>
                         </property>
                      </properties>
-                     <!-- -Dsun.nio.ch.bugLevel needed because of http://bugs.sun.com/view_bug.do?bug_id=6427854 -->
+                     
                      <argLine>-Xmx1024m -XX:MaxPermSize=256m -Dsun.nio.ch.bugLevel</argLine>
                   </configuration>
                </plugin>

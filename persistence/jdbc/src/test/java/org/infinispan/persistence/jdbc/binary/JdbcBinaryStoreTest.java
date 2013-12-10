@@ -6,7 +6,7 @@ import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.marshall.core.MarshalledEntryFactoryImpl;
 import org.infinispan.persistence.BaseStoreTest;
-import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.InitializationContextImpl;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.persistence.jdbc.TableManipulation;
@@ -55,7 +55,7 @@ public class JdbcBinaryStoreTest extends BaseStoreTest {
 
       cache = cacheManager.getCache();
 
-      JdbcBinaryStore jdbcBinaryCacheStore = (JdbcBinaryStore) TestingUtil.getFirstWriter(cache);
+      JdbcBinaryStore jdbcBinaryCacheStore = TestingUtil.getFirstWriter(cache);
       assert jdbcBinaryCacheStore.getConnectionFactory() != null;
       csc = jdbcBinaryCacheStore.getConfiguration();
       return jdbcBinaryCacheStore;
@@ -63,7 +63,7 @@ public class JdbcBinaryStoreTest extends BaseStoreTest {
 
    @AfterMethod
    @Override
-   public void tearDown() throws CacheLoaderException {
+   public void tearDown() throws PersistenceException {
       super.tearDown();
       TestingUtil.killCacheManagers(cacheManager);
    }

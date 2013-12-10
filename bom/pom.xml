@@ -1,10 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
    <modelVersion>4.0.0</modelVersion>
    <groupId>org.infinispan</groupId>
    <artifactId>infinispan-bom</artifactId>
-   <version>6.0.0-SNAPSHOT</version>
+   <version>6.0.1-SNAPSHOT</version>
    <packaging>pom</packaging>
    <name>Infinispan BOM</name>
    <description>Infinispan BOM module</description>
@@ -53,15 +52,15 @@
    </issueManagement>
 
    <properties>
-      <!-- Versions for dependencies -->
-      <version.protostream>1.0.0.Alpha7</version.protostream>
+      
+      <version.protostream>1.0.0.CR1</version.protostream>
       <version.aesh>0.33.7</version.aesh>
       <version.antlr>3.4</version.antlr>
       <version.gnu.getopt>1.0.13</version.gnu.getopt>
       <version.hibernate.search>4.4.0.Final</version.hibernate.search>
       <version.jboss.marshalling>1.3.18.GA</version.jboss.marshalling>
       <version.jboss.logging>3.1.2.GA</version.jboss.logging>
-      <version.jgroups>3.4.0.Beta1</version.jgroups>
+      <version.jgroups>3.4.1.Final</version.jgroups>
       <version.json>20090211</version.json>
       <version.jta>1.0.1.Final</version.jta>
       <version.netty>3.6.6.Final</version.netty>
@@ -86,7 +85,7 @@
 
    <dependencyManagement>
       <dependencies>
-         <!-- Infinispan module versions -->
+         
          <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>infinispan-cachestore-jdbc</artifactId>
@@ -95,6 +94,16 @@
          <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>infinispan-cachestore-remote</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-persistence-cli</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-cachestore-leveldb</artifactId>
             <version>${project.version}</version>
          </dependency>
          <dependency>
@@ -198,7 +207,7 @@
             <artifactId>infinispan-jcache</artifactId>
             <version>${project.version}</version>
          </dependency>
-         <!-- Infinispan core modules dependencies -->
+         
          <dependency>
             <groupId>gnu-getopt</groupId>
             <artifactId>getopt</artifactId>
@@ -249,7 +258,7 @@
             <artifactId>org.osgi.core</artifactId>
             <version>${version.osgi}</version>
          </dependency>
-         <!-- Infinispan RHQ module dependencies -->
+         
          <dependency>
             <groupId>org.rhq</groupId>
             <artifactId>rhq-core-domain</artifactId>
@@ -281,7 +290,7 @@
             <artifactId>rhq-core-native-system</artifactId>
             <version>${version.rhq}</version>
          </dependency>
-         <!-- Infinispan Query module dependencies -->
+         
          <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-search-engine</artifactId>
@@ -292,7 +301,7 @@
             <artifactId>hibernate-search-infinispan</artifactId>
             <version>${version.hibernate.search}</version>
          </dependency>
-         <!-- Infinispan Remote Query module dependencies -->
+         
          <dependency>
             <groupId>org.infinispan.protostream</groupId>
             <artifactId>protostream</artifactId>
@@ -303,7 +312,7 @@
             <artifactId>sample-domain-implementation</artifactId>
             <version>${version.protostream}</version>
          </dependency>
-         <!-- Infinispan Protocols module dependencies -->
+         
          <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty</artifactId>
@@ -322,4 +331,3 @@
       </dependencies>
    </dependencyManagement>
 </project>
-

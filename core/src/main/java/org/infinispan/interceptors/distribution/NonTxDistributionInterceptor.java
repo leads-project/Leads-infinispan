@@ -48,7 +48,7 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
                InternalCacheEntry remoteEntry = remoteGetCacheEntry(ctx, key, command);
                returnValue = computeGetReturn(remoteEntry, command);
             }
-            if (returnValue == null) {
+            if (returnValue == null && isValueAvailableLocally(dm.getReadConsistentHash(), key)) {
                InternalCacheEntry localEntry = localGetCacheEntry(ctx, key, false, command);
                returnValue = computeGetReturn(localEntry, command);
             }
@@ -130,8 +130,8 @@ public class NonTxDistributionInterceptor extends BaseDistributionInterceptor {
       // this should only happen if:
       //   a) unsafeUnreliableReturnValues is false
       //   b) unsafeUnreliableReturnValues is true, the command is conditional
-      // In both cases, the remote get shouldn't happen on the backup owners, where the ignorePreviousValue flag is set
-      if ((isNeedReliableReturnValues(command) || command.isConditional()) && !command.isIgnorePreviousValue()) {
+      // On the backup owners, the value matching policy should be set to MATCH_ALWAYS, and command.isConditional() should return true
+      if (isNeedReliableReturnValues(command) || command.isConditional()) {
          for (Object k : keygen.getKeys()) {
             if (cdl.localNodeIsPrimaryOwner(k)) {
                // Then it makes sense to try a local get and wrap again. This will compensate the fact the the entry was not local

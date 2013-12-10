@@ -2,12 +2,11 @@ package org.infinispan.persistence.file;
 
 import org.infinispan.Cache;
 import org.infinispan.commons.io.ByteBufferFactoryImpl;
-import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.configuration.cache.SingleFileStoreConfiguration;
 import org.infinispan.configuration.cache.SingleFileStoreConfigurationBuilder;
 import org.infinispan.marshall.core.MarshalledEntryFactoryImpl;
 import org.infinispan.persistence.BaseStoreTest;
-import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.DummyInitializationContext;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.marshall.TestObjectStreamMarshaller;
@@ -34,10 +33,11 @@ public class BoundedSingleFileStoreTest extends AbstractInfinispanTest {
 
    SingleFileStore store;
    String tmpDirectory;
+   private TestObjectStreamMarshaller marshaller;
 
    @BeforeClass
    protected void setUpTempDir() {
-      tmpDirectory = TestingUtil.tmpDirectory(this);
+      tmpDirectory = TestingUtil.tmpDirectory(this.getClass());
    }
 
    @AfterClass
@@ -56,19 +56,21 @@ public class BoundedSingleFileStoreTest extends AbstractInfinispanTest {
                   .location(this.tmpDirectory)
                   .maxEntries(1)
                   .create();
-      store.init(new DummyInitializationContext(fileStoreConfiguration, getCache(), getMarshaller(),
+      marshaller = new TestObjectStreamMarshaller();
+      store.init(new DummyInitializationContext(fileStoreConfiguration, getCache(), marshaller,
                                                 new ByteBufferFactoryImpl(),
-                                                new MarshalledEntryFactoryImpl(getMarshaller())));
+                                                new MarshalledEntryFactoryImpl(marshaller)));
       store.start();
    }
 
    @AfterMethod
-   public void tearDown() throws CacheLoaderException {
+   public void tearDown() throws PersistenceException {
       try {
          if (store != null) {
             store.clear();
             store.stop();
          }
+         marshaller.stop();
       } finally {
          store = null;
       }
@@ -76,9 +78,14 @@ public class BoundedSingleFileStoreTest extends AbstractInfinispanTest {
 
    public void testStoreSizeExceeded() throws Exception {
       assertStoreSize(0, 0);
-      store.write(new MarshalledEntryImpl(1, "v1", null, new TestObjectStreamMarshaller()));
-      store.write(new MarshalledEntryImpl(2, "v2", null, new TestObjectStreamMarshaller()));
-      assertStoreSize(1, 1);
+      TestObjectStreamMarshaller sm = new TestObjectStreamMarshaller();
+      try {
+         store.write(new MarshalledEntryImpl(1, "v1", null, sm));
+         store.write(new MarshalledEntryImpl(2, "v2", null, sm));
+         assertStoreSize(1, 1);
+      } finally {
+         sm.stop();
+      }
    }
 
    private void assertStoreSize(int expectedEntries, int expectedFree) {
@@ -88,10 +95,6 @@ public class BoundedSingleFileStoreTest extends AbstractInfinispanTest {
 
    Cache getCache() {
       return BaseStoreTest.mockCache("mockCache-" + getClass().getName());
-   }
-
-   StreamingMarshaller getMarshaller() {
-      return new TestObjectStreamMarshaller(false);
    }
 
 }
