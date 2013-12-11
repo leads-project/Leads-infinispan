@@ -4,7 +4,7 @@ import org.infinispan.Cache;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.persistence.BaseStoreTest;
-import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.jdbc.configuration.JdbcMixedStoreConfigurationBuilder;
 import org.infinispan.persistence.spi.AdvancedLoadWriteStore;
 import org.infinispan.manager.EmbeddedCacheManager;
@@ -34,7 +34,7 @@ public class JdbcMixedStore2Test extends BaseStoreTest {
       cacheManager = TestCacheManagerFactory.createCacheManager(cc);
       cache = cacheManager.getCache();
 
-      JdbcMixedStore jdbcMixed = (JdbcMixedStore) TestingUtil.getFirstWriter(cache);
+      JdbcMixedStore jdbcMixed = TestingUtil.getFirstWriter(cache);
 
       csc = jdbcMixed.getConfiguration();
       return jdbcMixed;
@@ -52,7 +52,7 @@ public class JdbcMixedStore2Test extends BaseStoreTest {
 
    @AfterMethod
    @Override
-   public void tearDown() throws CacheLoaderException {
+   public void tearDown() throws PersistenceException {
       TestingUtil.killCacheManagers(cacheManager);
    }
 }

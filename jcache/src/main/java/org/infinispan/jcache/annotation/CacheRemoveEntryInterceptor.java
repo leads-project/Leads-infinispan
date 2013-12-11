@@ -3,20 +3,14 @@ package org.infinispan.jcache.annotation;
 import org.infinispan.jcache.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import javax.cache.Cache;
-import javax.cache.annotation.CacheKeyGenerator;
-import javax.cache.annotation.CacheKeyInvocationContext;
-import javax.cache.annotation.CacheRemoveEntry;
-import javax.cache.annotation.CacheResolver;
-import javax.cache.annotation.GeneratedCacheKey;
+import javax.cache.annotation.CacheRemove;
 import javax.inject.Inject;
 import javax.interceptor.AroundInvoke;
 import javax.interceptor.Interceptor;
 import javax.interceptor.InvocationContext;
-import java.io.Serializable;
 
 /**
- * <p>{@link javax.cache.annotation.CacheRemoveEntry} interceptor implementation.This interceptor uses the following algorithm describes in
+ * <p>{@link javax.cache.annotation.CacheRemove} interceptor implementation.This interceptor uses the following algorithm describes in
  * JSR-107.</p>
  *
  * <p>The interceptor that intercepts method annotated with {@code @CacheRemoveEntry} must do the following, generate a
@@ -29,50 +23,26 @@ import java.io.Serializable;
  * @author Galder Zamarreño
  */
 @Interceptor
-@CacheRemoveEntry
-public class CacheRemoveEntryInterceptor implements Serializable {
+@CacheRemove
+public class CacheRemoveEntryInterceptor extends AbstractCacheRemoveEntryInterceptor {
 
-   private static final long serialVersionUID = -9079291622309963969L;
    private static final Log log = LogFactory.getLog(CacheRemoveEntryInterceptor.class, Log.class);
 
-
-   private final CacheResolver cacheResolver;
-   private final CacheKeyInvocationContextFactory contextFactory;
-
    @Inject
-   public CacheRemoveEntryInterceptor(CacheResolver cacheResolver, CacheKeyInvocationContextFactory contextFactory) {
-      this.cacheResolver = cacheResolver;
-      this.contextFactory = contextFactory;
+   public CacheRemoveEntryInterceptor(DefaultCacheResolver cacheResolver,
+         CacheKeyInvocationContextFactory contextFactory) {
+      super(cacheResolver, contextFactory);
    }
 
+   @Override
    @AroundInvoke
    public Object cacheRemoveEntry(InvocationContext invocationContext) throws Exception {
-      if (log.isTraceEnabled()) {
-         log.tracef("Interception of method named '%s'", invocationContext.getMethod().getName());
-      }
-
-      final CacheKeyInvocationContext<CacheRemoveEntry> cacheKeyInvocationContext = contextFactory.getCacheKeyInvocationContext(invocationContext);
-      final CacheKeyGenerator cacheKeyGenerator = cacheKeyInvocationContext.unwrap(CacheKeyInvocationContextImpl.class).getCacheKeyGenerator();
-      final Cache<GeneratedCacheKey, Object> cache = cacheResolver.resolveCache(cacheKeyInvocationContext);
-      final CacheRemoveEntry cacheRemoveEntry = cacheKeyInvocationContext.getCacheAnnotation();
-      final GeneratedCacheKey cacheKey = cacheKeyGenerator.generateCacheKey(cacheKeyInvocationContext);
-
-      if (!cacheRemoveEntry.afterInvocation()) {
-         cache.remove(cacheKey);
-         if (log.isTraceEnabled()) {
-            log.tracef("Remove entry with key '%s' in cache '%s' before method invocation", cacheKey, cache.getName());
-         }
-      }
-
-      final Object result = invocationContext.proceed();
-
-      if (cacheRemoveEntry.afterInvocation()) {
-         cache.remove(cacheKey);
-         if (log.isTraceEnabled()) {
-            log.tracef("Remove entry with key '%s' in cache '%s' after method invocation", cacheKey, cache.getName());
-         }
-      }
-
-      return result;
+      return super.cacheRemoveEntry(invocationContext);
    }
+
+   @Override
+   protected Log getLog() {
+      return log;
+   }
+
 }

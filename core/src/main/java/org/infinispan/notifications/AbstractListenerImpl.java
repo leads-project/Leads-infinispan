@@ -16,7 +16,6 @@ import java.lang.annotation.Annotation;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Collections;
@@ -124,6 +123,7 @@ public abstract class AbstractListenerImpl {
             Class<?> value = annotationEntry.getValue();
             if (m.isAnnotationPresent(key)) {
                testListenerMethodValidity(m, value, key.getName());
+               m.setAccessible(true);
                addListenerInvocation(key, new ListenerInvocation(listener, m, l.sync(), l.primaryOnly(), filter, classLoader));
                foundMethods = true;
             }
@@ -149,8 +149,6 @@ public abstract class AbstractListenerImpl {
       Listener l = ReflectionUtil.getAnnotation(listenerClass, Listener.class);
       if (l == null)
          throw new IncorrectListenerException(String.format("Cache listener class %s must be annotated with org.infinispan.notifications.annotation.Listener", listenerClass.getName()));
-      if (!Modifier.isPublic(listenerClass.getModifiers()))
-         throw new IncorrectListenerException(String.format("Cache listener class %s must be public!", listenerClass.getName()));
       return l;
    }
 
@@ -210,10 +208,8 @@ public abstract class AbstractListenerImpl {
                   } catch (InvocationTargetException exception) {
                      Throwable cause = getRealException(exception);
                      if (sync) {
-                        throw new CacheException(String.format(
-                              "Caught exception [%s] while invoking method [%s] on listener instance: %s"
-                              , cause.getClass().getName(), method, target
-                        ), cause);
+                        throw getLog().exceptionInvokingListener(
+                              cause.getClass().getName(), method, target, cause);
                      } else {
                         getLog().unableToInvokeListenerMethod(method, target, cause);
                      }
@@ -246,7 +242,7 @@ public abstract class AbstractListenerImpl {
    private Throwable getRealException(Throwable re) {
       if (re.getCause() == null) return re;
       Throwable cause = re.getCause();
-      if (cause instanceof CacheException || cause instanceof RuntimeException)
+      if (cause instanceof RuntimeException || cause instanceof Error)
          return getRealException(cause);
       else
          return re;

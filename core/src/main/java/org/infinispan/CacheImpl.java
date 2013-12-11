@@ -17,8 +17,10 @@ import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commands.write.PutMapCommand;
 import org.infinispan.commands.write.RemoveCommand;
 import org.infinispan.commands.write.ReplaceCommand;
+import org.infinispan.commands.write.ValueMatcher;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.commons.CacheConfigurationException;
+import org.infinispan.configuration.format.PropertyFormatter;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
@@ -73,6 +75,7 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -890,6 +893,7 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
       assertKeyValueNotNull(key, value);
       PutKeyValueCommand command = commandsFactory.buildPutKeyValueCommand(key, value, metadata, explicitFlags);
       command.setPutIfAbsent(true);
+      command.setValueMatcher(ValueMatcher.MATCH_EXPECTED);
       return (V) executeCommandAndCommitIfNeeded(ctx, command);
    }
 
@@ -1376,5 +1380,15 @@ public class CacheImpl<K, V> implements AdvancedCache<K, V> {
             throw new IllegalStateException("Null transaction not possible!");
          transactionManager.resume(transaction);
       }
+   }
+
+   @ManagedAttribute(
+         description = "Returns the cache configuration in form of properties",
+         displayName = "Cache configuration properties",
+         dataType = DataType.TRAIT,
+         displayType = DisplayType.SUMMARY
+   )
+   public Properties getConfigurationAsProperties() {
+      return new PropertyFormatter().format(config);
    }
 }

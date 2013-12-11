@@ -4,14 +4,16 @@ import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.CacheException;
+import org.infinispan.commons.CacheListenerException;
 import org.infinispan.commons.marshall.AdvancedExternalizer;
 import org.infinispan.commons.util.TypedProperties;
 import org.infinispan.lifecycle.ComponentStatus;
-import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.support.SingletonCacheWriter;
 import org.infinispan.remoting.RemoteException;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.remoting.transport.jgroups.SuspectException;
 import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.recovery.RecoveryAwareRemoteTransaction;
@@ -82,7 +84,7 @@ public interface Log extends BasicLogger {
 
    @LogMessage(level = WARN)
    @Message(value = "Unable to load %s from cache loader", id = 1)
-   void unableToLoadFromCacheLoader(Object key, @Cause CacheLoaderException cle);
+   void unableToLoadFromCacheLoader(Object key, @Cause PersistenceException cle);
 
    @LogMessage(level = WARN)
    @Message(value = "Field %s not found!!", id = 2)
@@ -266,7 +268,7 @@ public interface Log extends BasicLogger {
 
    @LogMessage(level = WARN)
    @Message(value = "Problems purging file %s", id = 60)
-   void problemsPurgingFile(File buckedFile, @Cause CacheLoaderException e);
+   void problemsPurgingFile(File buckedFile, @Cause PersistenceException e);
 
    @LogMessage(level = WARN)
    @Message(value = "Unable to acquire global lock to purge cache store", id = 61)
@@ -321,8 +323,8 @@ public interface Log extends BasicLogger {
    void localAndPhysicalAddress(Address address, List<Address> physicalAddresses);
 
    @LogMessage(level = INFO)
-   @Message(value = "Disconnecting and closing JGroups Channel", id = 80)
-   void disconnectAndCloseJGroups();
+   @Message(value = "Disconnecting JGroups Channel", id = 80)
+   void disconnectJGroups();
 
    @LogMessage(level = ERROR)
    @Message(value = "Problem closing channel; setting it to null", id = 81)
@@ -878,10 +880,10 @@ public interface Log extends BasicLogger {
    CacheConfigurationException parserDoesNotDeclareNamespaces(String name);
 
    @Message(value = "Purging expired entries failed", id = 236)
-   CacheLoaderException purgingExpiredEntriesFailed(@Cause Throwable cause);
+   PersistenceException purgingExpiredEntriesFailed(@Cause Throwable cause);
 
    @Message(value = "Waiting for expired entries to be purge timed out", id = 237)
-   CacheLoaderException timedOutWaitingForExpiredEntriesToBePurged(@Cause Throwable cause);
+   PersistenceException timedOutWaitingForExpiredEntriesToBePurged(@Cause Throwable cause);
 
    @Message(value = "Directory %s does not exist and cannot be created!", id = 238)
    CacheConfigurationException directoryCannotBeCreated(String path);
@@ -1019,5 +1021,24 @@ public interface Log extends BasicLogger {
    @LogMessage(level = ERROR)
    @Message(value = "Persistence enabled without any CacheWriteInterceptor in InterceptorChain!", id = 275)
    void persistenceWithoutCacheWriteInterceptor();
-}
 
+   @Message(value = "Could not find migration data in cache %s", id = 276)
+   CacheException missingMigrationData(String name);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Could not migrate key %s", id = 277)
+   void keyMigrationFailed(String key, @Cause Throwable cause);
+
+   @Message(value = "Indexing can only be enabled if infinispan-query.jar is available on your classpath, and this jar has not been detected.", id = 278)
+   CacheConfigurationException invalidConfigurationIndexingWithoutModule();
+
+   @Message(value = "Failed to read stored entries from file. Error in file %s at offset %d", id = 279)
+   PersistenceException errorReadingFileStore(String path, long offset);
+
+   @Message(value = "Caught exception [%s] while invoking method [%s] on listener instance: %s", id = 280)
+   CacheListenerException exceptionInvokingListener(String name, Method m, Object target, @Cause Throwable cause);
+
+   @Message(value = "%s reported that a third node was suspected, see cause for info on the node that was suspected", id = 281)
+   SuspectException thirdPartySuspected(Address sender, @Cause SuspectException e);
+
+}

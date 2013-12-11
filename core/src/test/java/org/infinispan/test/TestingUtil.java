@@ -4,7 +4,6 @@ import static java.io.File.separator;
 import static org.testng.AssertJUnit.assertFalse;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -1078,9 +1077,9 @@ public class TestingUtil {
     *
     * @return an absolute path
     */
-   public static String tmpDirectory(AbstractInfinispanTest test) {
+   public static String tmpDirectory(Class<?> test) {
       String prefix = System.getProperty("infinispan.test.tmpdir", System.getProperty("java.io.tmpdir"));
-      return prefix + separator + TEST_PATH + separator + test.getClass().getSimpleName();
+      return prefix + separator + TEST_PATH + separator + test.getSimpleName();
    }
 
    /**
@@ -1296,9 +1295,10 @@ public class TestingUtil {
       return persistenceManager.getAllLoaders().get(0);
    }
 
-   public static CacheWriter getFirstWriter(Cache cache) {
+   @SuppressWarnings("unchecked")
+   public static <T extends CacheWriter> T getFirstWriter(Cache cache) {
       PersistenceManagerImpl persistenceManager = (PersistenceManagerImpl) extractComponent(cache, PersistenceManager.class);
-      return persistenceManager.getAllWriters().get(0);
+      return (T) persistenceManager.getAllWriters().get(0);
    }
 
    public static StreamingMarshaller marshaller(Cache cache) {
@@ -1353,4 +1353,18 @@ public class TestingUtil {
          stream.close();
       }
    }
+
+   public static <K, V> void writeToAllStores(K key, V value, Cache<K, V> cache) {
+      AdvancedCache<K, V> advCache = cache.getAdvancedCache();
+      PersistenceManager pm = advCache.getComponentRegistry().getComponent(PersistenceManager.class);
+      StreamingMarshaller marshaller = advCache.getComponentRegistry().getCacheMarshaller();
+      pm.writeToAllStores(new MarshalledEntryImpl(key, value, null, marshaller), false);
+   }
+
+   public static <K, V> boolean deleteFromAllStores(K key, Cache<K, V> cache) {
+      AdvancedCache<K, V> advCache = cache.getAdvancedCache();
+      PersistenceManager pm = advCache.getComponentRegistry().getComponent(PersistenceManager.class);
+      return pm.deleteFromAllStores(key, false);
+   }
+
 }

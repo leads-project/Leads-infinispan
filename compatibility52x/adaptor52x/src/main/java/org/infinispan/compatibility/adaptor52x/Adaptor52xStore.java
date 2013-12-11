@@ -13,6 +13,7 @@ import org.infinispan.marshall.StreamingMarshallerAdapter;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.metadata.InternalMetadataImpl;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.PersistenceUtil;
 import org.infinispan.persistence.TaskContextImpl;
 import org.infinispan.persistence.spi.AdvancedLoadWriteStore;
@@ -46,7 +47,7 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
       try {
          loader.init(cacheLoaderConfig, ctx.getCache(), new StreamingMarshallerAdapter(ctx.getMarshaller()));
       } catch (CacheLoaderException e) {
-         throw newCacheLoaderException(e);
+         throw newPersistenceException(e);
       }
    }
 
@@ -55,7 +56,7 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
       try {
          loader.start();
       } catch (CacheLoaderException e) {
-         throw newCacheLoaderException(e);
+         throw newPersistenceException(e);
       }
       entryFactory = ctx.getCache().getAdvancedCache().getComponentRegistry().getComponent(InternalEntryFactory.class);
    }
@@ -65,7 +66,7 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
       try {
          loader.stop();
       } catch (CacheLoaderException e) {
-         throw newCacheLoaderException(e);
+         throw newPersistenceException(e);
       }
    }
 
@@ -106,10 +107,10 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
          }
          eacs.waitUntilAllCompleted();
          if (eacs.isExceptionThrown()) {
-            throw newCacheLoaderException(eacs.getFirstException());
+            throw newPersistenceException(eacs.getFirstException());
          }
       } catch (CacheLoaderException e) {
-         throw newCacheLoaderException(e);
+         throw newPersistenceException(e);
       }
    }
 
@@ -146,7 +147,7 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
          try {
             ((CacheStore) loader).clear();
          } catch (CacheLoaderException e) {
-            throw newCacheLoaderException(e);
+            throw newPersistenceException(e);
          }
       }
    }
@@ -157,7 +158,7 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
          try {
             ((CacheStore) loader).purgeExpired();
          } catch (CacheLoaderException e) {
-            throw newCacheLoaderException(e);
+            throw newPersistenceException(e);
          }
       }
    }
@@ -170,7 +171,7 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
             return null;
          return new MarshalledEntryImpl(key, load.getValue(), new InternalMetadataImpl(load), ctx.getMarshaller());
       } catch (CacheLoaderException e) {
-         throw newCacheLoaderException(e);
+         throw newPersistenceException(e);
       }
    }
 
@@ -185,7 +186,7 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
          try {
             ((CacheStore) loader).store(entryFactory.create(entry.getKey(), entry.getValue(), entry.getMetadata()));
          } catch (CacheLoaderException e) {
-            throw newCacheLoaderException(e);
+            throw newPersistenceException(e);
          }
    }
 
@@ -195,13 +196,13 @@ public class Adaptor52xStore implements AdvancedLoadWriteStore {
          try {
             return ((CacheStore) loader).remove(key);
          } catch (CacheLoaderException e) {
-            throw newCacheLoaderException(e);
+            throw newPersistenceException(e);
          }
       return false;
    }
 
-   private org.infinispan.persistence.CacheLoaderException newCacheLoaderException(Throwable cause) {
-      return new org.infinispan.persistence.CacheLoaderException(cause);
+   private PersistenceException newPersistenceException(Throwable cause) {
+      return new PersistenceException(cause);
    }
 
    public CacheLoader getLoader() {

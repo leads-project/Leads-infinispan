@@ -7,8 +7,8 @@ import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.factories.AbstractNamedCacheComponentFactory;
 import org.infinispan.factories.AutoInstantiableFactory;
 import org.infinispan.factories.GlobalComponentRegistry;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.async.AsyncCacheWriter;
-import org.infinispan.persistence.CacheLoaderException;
 import org.infinispan.persistence.dummy.DummyInMemoryStore;
 import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
 import org.infinispan.persistence.manager.PersistenceManager;
@@ -63,7 +63,7 @@ public class AsyncStoreFunctionalTest {
 
             Cache<Integer, String> cache = cm.getCache();
 
-            MockAsyncCacheWriter cacheStore = (MockAsyncCacheWriter) TestingUtil.getFirstWriter(cache);
+            MockAsyncCacheWriter cacheStore = TestingUtil.getFirstWriter(cache);
             CountDownLatch modApplyLatch = cacheStore.modApplyLatch;
             CountDownLatch lockedWaitLatch = cacheStore.lockedWaitLatch;
 
@@ -108,7 +108,7 @@ public class AsyncStoreFunctionalTest {
 
             Cache<Integer, String> cache = cm.getCache();
 
-            MockAsyncCacheWriter cacheStore = (MockAsyncCacheWriter) TestingUtil.getFirstWriter(cache);
+            MockAsyncCacheWriter cacheStore = TestingUtil.getFirstWriter(cache);
             CountDownLatch modApplyLatch = cacheStore.modApplyLatch;
             CountDownLatch lockedWaitLatch = cacheStore.lockedWaitLatch;
 
@@ -156,7 +156,7 @@ public class AsyncStoreFunctionalTest {
 
             Cache<Integer, String> cache = cm.getCache();
 
-            MockAsyncCacheWriter cacheStore = (MockAsyncCacheWriter) TestingUtil.getFirstWriter(cache);
+            MockAsyncCacheWriter cacheStore = TestingUtil.getFirstWriter(cache);
             CountDownLatch modApplyLatch = cacheStore.modApplyLatch;
             CountDownLatch lockedWaitLatch = cacheStore.lockedWaitLatch;
 
@@ -225,7 +225,7 @@ public class AsyncStoreFunctionalTest {
 
       @Override
       protected void applyModificationsSync(List<Modification> mods)
-            throws CacheLoaderException {
+            throws PersistenceException {
          try {
             // Wait for signal to do the modification
             if (containsModificationForKey(1, mods) && !isSkip(findModificationForKey(1, mods))) {

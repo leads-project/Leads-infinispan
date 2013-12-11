@@ -4,7 +4,7 @@ import org.infinispan.Cache;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.StoreConfiguration;
-import org.infinispan.persistence.CacheLoaderException;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.jdbc.ManagedConnectionFactoryTest;
 import org.infinispan.persistence.jdbc.configuration.JdbcBinaryStoreConfiguration;
 import org.infinispan.persistence.jdbc.configuration.JdbcBinaryStoreConfigurationBuilder;
@@ -39,7 +39,7 @@ public class BinaryStoreWithManagedConnectionTest extends ManagedConnectionFacto
       cacheManager = TestCacheManagerFactory.createCacheManager(cc);
 
       cache = cacheManager.getCache();
-      JdbcBinaryStore jdbcBinaryCacheStore = (JdbcBinaryStore) TestingUtil.getFirstWriter(cache);
+      JdbcBinaryStore jdbcBinaryCacheStore = TestingUtil.getFirstWriter(cache);
       assert jdbcBinaryCacheStore.getConnectionFactory() instanceof ManagedConnectionFactory;
       csc = jdbcBinaryCacheStore.getConfiguration();
       return jdbcBinaryCacheStore;
@@ -47,7 +47,7 @@ public class BinaryStoreWithManagedConnectionTest extends ManagedConnectionFacto
 
    @AfterMethod
    @Override
-   public void tearDown() throws CacheLoaderException {
+   public void tearDown() throws PersistenceException {
       super.tearDown();
       TestingUtil.killCacheManagers(cacheManager);
    }
@@ -88,28 +88,4 @@ public class BinaryStoreWithManagedConnectionTest extends ManagedConnectionFacto
       return "java:/BinaryStoreWithManagedConnectionTest/DS";
    }
 
-   @Override
-   public void testLoadAll() throws CacheLoaderException {
-      super.testLoadAll();    // TODO: Customise this generated block
-   }
-
-   @Override
-   public void testLoadAndStoreImmortal() throws CacheLoaderException {
-      super.testLoadAndStoreImmortal();    // TODO: Customise this generated block
-   }
-
-   @Override
-   public void testLoadAndStoreWithIdle() throws Exception {
-      super.testLoadAndStoreWithIdle();    // TODO: Customise this generated block
-   }
-
-   @Override
-   public void testLoadAndStoreWithLifespanAndIdle() throws Exception {
-      super.testLoadAndStoreWithLifespanAndIdle();    // TODO: Customise this generated block
-   }
-
-   @Override
-   public void testStopStartDoesNotNukeValues() throws InterruptedException, CacheLoaderException {
-      super.testStopStartDoesNotNukeValues();    // TODO: Customise this generated block
-   }
 }

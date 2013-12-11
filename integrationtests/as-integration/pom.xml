@@ -1,12 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
    <modelVersion>4.0.0</modelVersion>
 
    <parent>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-parent</artifactId>
-      <version>6.0.0-SNAPSHOT</version>
+      <version>6.0.1-SNAPSHOT</version>
       <relativePath>../../parent/pom.xml</relativePath>
    </parent>
 
@@ -15,10 +14,15 @@
    <description>Integration tests: AS Module Integration Tests</description>
    
    <properties>
-      <eap.dir></eap.dir>
+      <eap.dir />
    </properties>
 
    <dependencies>
+      <dependency>
+         <groupId>org.infinispan</groupId>
+         <artifactId>infinispan-cdi</artifactId>
+         <scope>test</scope>
+      </dependency>
       <dependency>
          <groupId>org.infinispan</groupId>
          <artifactId>infinispan-core</artifactId>
@@ -26,7 +30,18 @@
       </dependency>
       <dependency>
          <groupId>org.infinispan</groupId>
+         <artifactId>infinispan-core</artifactId>
+         <type>test-jar</type>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.infinispan</groupId>
          <artifactId>infinispan-cachestore-jdbc</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.infinispan</groupId>
+         <artifactId>infinispan-jcache</artifactId>
          <scope>test</scope>
       </dependency>
       <dependency>
@@ -61,8 +76,18 @@
          <scope>test</scope>
       </dependency>
       <dependency>
-         <groupId>org.jboss.as</groupId>
-         <artifactId>jboss-as-arquillian-container-managed</artifactId>
+         <groupId>org.wildfly</groupId>
+         <artifactId>wildfly-arquillian-container-managed</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>javax.enterprise</groupId>
+         <artifactId>cdi-api</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>javax.cache</groupId>
+         <artifactId>cache-api</artifactId>
          <scope>test</scope>
       </dependency>
    </dependencies>
@@ -88,7 +113,7 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
             <configuration>
-               <!-- Force use of JUnit, since TestNG+Arquillian break in wonderful ways -->
+               
                <testNGArtifactName>none:none</testNGArtifactName>
             </configuration>
             <executions>
@@ -117,9 +142,9 @@
                   <configuration>
                      <artifactItems>
                         <artifactItem>
-                           <groupId>org.jboss.as</groupId>
-                           <artifactId>jboss-as-dist</artifactId>
-                           <version>${version.jboss.as}</version>
+                           <groupId>org.wildfly</groupId>
+                           <artifactId>wildfly-dist</artifactId>
+                           <version>${version.wildfly}</version>
                            <type>zip</type>
                            <overWrite>false</overWrite>
                            <outputDirectory>${project.build.directory}</outputDirectory>
@@ -130,7 +155,7 @@
                            <version>${project.version}</version>
                            <type>zip</type>
                            <overWrite>false</overWrite>
-                           <outputDirectory>${project.build.directory}/jboss-eap-6.1/modules</outputDirectory>
+                           <outputDirectory>${project.build.directory}/wildfly-${version.wildfly}/modules</outputDirectory>
                         </artifactItem>
                      </artifactItems>
                   </configuration>
@@ -142,7 +167,7 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-resources-plugin</artifactId>
             <executions>
-               <!-- Copy the AS configuration files so we can use our custom configurations -->
+               
                <execution>
                   <id>configure-as-node</id>
                   <phase>pre-integration-test</phase>
@@ -150,11 +175,11 @@
                      <goal>copy-resources</goal>
                   </goals>
                   <configuration>
-                     <outputDirectory>${project.build.directory}/jboss-eap-6.1</outputDirectory>
+                     <outputDirectory>${project.build.directory}/wildfly-${version.wildfly}</outputDirectory>
                      <overwrite>true</overwrite>
                      <resources>
                         <resource>
-                           <directory>${basedir}/src/as7config</directory>
+                           <directory>${basedir}/src/as-config</directory>
                         </resource>
                      </resources>
                   </configuration>

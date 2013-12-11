@@ -9,10 +9,8 @@ import java.util.TreeMap;
 import org.hibernate.search.Environment;
 import org.hibernate.search.cfg.SearchMapping;
 import org.hibernate.search.cfg.spi.SearchConfiguration;
-import org.hibernate.search.jmx.StatisticsInfo;
 import org.hibernate.search.spi.SearchFactoryBuilder;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
-import org.hibernate.search.stat.Statistics;
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
 import org.infinispan.commons.CacheException;
@@ -24,7 +22,6 @@ import org.infinispan.configuration.cache.InterceptorConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.GlobalComponentRegistry;
-import org.infinispan.factories.components.ComponentMetadataRepo;
 import org.infinispan.factories.components.ManageableComponentMetadata;
 import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.interceptors.locking.NonTransactionalLockingInterceptor;
@@ -62,17 +59,9 @@ public class LifecycleManager extends AbstractModuleLifecycle {
 
    private static final Object REMOVED_REGISTRY_COMPONENT = new Object();
 
-   private MBeanServer mbeanServer;     //todo [anistor] these should not be global! they are per cache manager
-
-   private ComponentMetadataRepo metadataRepo;
+   private MBeanServer mbeanServer;
 
    private String jmxDomain;
-
-   @Override
-   public void cacheManagerStarting(
-         GlobalComponentRegistry gcr, GlobalConfiguration globalCfg) {
-      metadataRepo = gcr.getComponentMetadataRepo();
-   }
 
    /**
     * Registers the Search interceptor in the cache before it gets started
@@ -145,7 +134,7 @@ public class LifecycleManager extends AbstractModuleLifecycle {
       Cache<?, ?> cache = cr.getComponent(Cache.class);
       CommandInitializer initializer = cr.getComponent(CommandInitializer.class);
       EmbeddedCacheManager cacheManager = cr.getGlobalComponentRegistry().getComponent(EmbeddedCacheManager.class);
-      initializer.setCache(cache, cacheManager);
+      initializer.setCacheManager(cacheManager);
 
       QueryBox queryBox = new QueryBox();
       queryBox.setCache(cache.getAdvancedCache());
@@ -167,39 +156,40 @@ public class LifecycleManager extends AbstractModuleLifecycle {
       mbeanServer = JmxUtil.lookupMBeanServer(globalCfg);
 
       // Resolve jmx domain to use for query mbeans
-      String queryGroupName = getQueryGroupName(cacheName);
+      String cacheManagerName = cr.getGlobalComponentRegistry().getGlobalConfiguration().globalJmxStatistics().cacheManagerName();
+      String queryGroupName = getQueryGroupName(cacheManagerName, cacheName);
       jmxDomain = JmxUtil.buildJmxDomain(globalCfg, mbeanServer, queryGroupName);
 
       // Register statistics MBean, but only enable if Infinispan config says so
-      Statistics stats = sf.getStatistics();
+      InfinispanQueryStatisticsInfo stats = new InfinispanQueryStatisticsInfo(sf);
       stats.setStatisticsEnabled(cfg.jmxStatistics().enabled());
       try {
          ObjectName statsObjName = new ObjectName(
                jmxDomain + ":" + queryGroupName + ",component=Statistics");
-         JmxUtil.registerMBean(new StatisticsInfo(stats), statsObjName, mbeanServer);
+         JmxUtil.registerMBean(stats, statsObjName, mbeanServer);
       } catch (Exception e) {
          throw new CacheException(
                "Unable to register query module statistics mbean", e);
       }
 
       // Register mass indexer MBean, picking metadata from repo
-      ManageableComponentMetadata metadata = metadataRepo
+      ManageableComponentMetadata massIndexerCompMetadata = cr.getGlobalComponentRegistry().getComponentMetadataRepo()
             .findComponentMetadata(MassIndexer.class)
             .toManageableComponentMetadata();
       try {
          // TODO: MassIndexer should be some kind of query cache component?
          MapReduceMassIndexer maxIndexer = new MapReduceMassIndexer(cache, sf);
-         ResourceDMBean mbean = new ResourceDMBean(maxIndexer, metadata);
+         ResourceDMBean mbean = new ResourceDMBean(maxIndexer, massIndexerCompMetadata);
          ObjectName massIndexerObjName = new ObjectName(jmxDomain + ":"
-               + queryGroupName+ ",component=" + metadata.getJmxObjectName());
+               + queryGroupName + ",component=" + massIndexerCompMetadata.getJmxObjectName());
          JmxUtil.registerMBean(mbean, massIndexerObjName, mbeanServer);
       } catch (Exception e) {
          throw new CacheException("Unable to create ", e);
       }
    }
 
-   private String getQueryGroupName(String cacheName) {
-      return "type=Query,name=" + ObjectName.quote(cacheName);
+   private String getQueryGroupName(String cacheManagerName, String cacheName) {
+      return "type=Query,manager=" + ObjectName.quote(cacheManagerName) + ",cache=" + ObjectName.quote(cacheName);
    }
 
    private boolean verifyChainContainsQueryInterceptor(ComponentRegistry cr) {
@@ -238,7 +228,6 @@ public class LifecycleManager extends AbstractModuleLifecycle {
             indexingProperties = amendedProperties;
          }
          Cache cache = cr.getComponent(Cache.class);
-
          while (providers.hasNext()) {
             ProgrammaticSearchMappingProvider provider = providers.next();
             provider.defineMappings(cache, mapping);
@@ -259,7 +248,8 @@ public class LifecycleManager extends AbstractModuleLifecycle {
 
       // Unregister MBeans
       if (mbeanServer != null) {
-         String queryMBeanFilter = jmxDomain + ":" + getQueryGroupName(cacheName) + ",*";
+         String cacheManagerName = cr.getGlobalComponentRegistry().getGlobalConfiguration().globalJmxStatistics().cacheManagerName();
+         String queryMBeanFilter = jmxDomain + ":" + getQueryGroupName(cacheManagerName, cacheName) + ",*";
          JmxUtil.unregisterMBeans(queryMBeanFilter, mbeanServer);
       }
    }

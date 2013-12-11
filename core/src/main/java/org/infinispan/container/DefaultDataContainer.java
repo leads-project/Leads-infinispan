@@ -2,6 +2,8 @@ package org.infinispan.container;
 
 import net.jcip.annotations.ThreadSafe;
 
+import org.infinispan.commons.logging.Log;
+import org.infinispan.commons.logging.LogFactory;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.commons.equivalence.Equivalence;
 import org.infinispan.commons.util.CollectionFactory;
@@ -41,6 +43,9 @@ import java.util.concurrent.ConcurrentMap;
  */
 @ThreadSafe
 public class DefaultDataContainer implements DataContainer {
+
+   private static final Log log = LogFactory.getLog(DefaultDataContainer.class);
+   private static final boolean trace = log.isTraceEnabled();
 
    final protected ConcurrentMap<Object, InternalCacheEntry> entries;
    protected InternalEntryFactory entryFactory;
@@ -150,15 +155,23 @@ public class DefaultDataContainer implements DataContainer {
          e.setValue(v);
          InternalCacheEntry original = e;
          e = entryFactory.update(e, metadata);
-         // we have the same instance. So we need to reincarnate.
-         if (original == e) {
+         // we have the same instance. So we need to reincarnate, if mortal.
+         if (isMortalEntry(e) && original == e) {
             e.reincarnate(timeService.wallClockTime());
          }
       } else {
          // this is a brand-new entry
          e = entryFactory.create(k, v, metadata);
       }
+
+      if (trace)
+         log.tracef("Store %s in container", e);
+
       entries.put(k, e);
+   }
+
+   private boolean isMortalEntry(InternalCacheEntry e) {
+      return e.getLifespan() > 0;
    }
 
    @Override

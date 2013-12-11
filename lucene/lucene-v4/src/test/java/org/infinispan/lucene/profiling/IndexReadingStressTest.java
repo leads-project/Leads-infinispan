@@ -10,7 +10,6 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
-import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
@@ -20,7 +19,6 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.LockObtainFailedException;
 import org.apache.lucene.store.RAMDirectory;
 import org.infinispan.Cache;
 import org.infinispan.lucene.CacheTestSupport;
@@ -40,7 +38,7 @@ import org.testng.annotations.Test;
  * the performance measurement is started and is not changed during the searches. To use it set a
  * DURATION_MS as long as you can afford; choose thread number and terms number according to your
  * use case as they will affect the results.
- * 
+ *
  * @author Sanne Grinovero
  * @since 4.0
  */
@@ -55,7 +53,7 @@ public class IndexReadingStressTest {
 
    /** Number of Terms written in the index **/
    private static final int TERMS_NUMBER = 200000;
-   
+
    private static final String indexName = "tempIndexName";
 
    private static final ClusteredCacheFactory cacheFactory = new ClusteredCacheFactory(
@@ -69,7 +67,7 @@ public class IndexReadingStressTest {
 
    @Test
    public void profileTestFSDirectory() throws InterruptedException, IOException {
-      File indexDir = new File(new File("."), indexName);
+      File indexDir = new File(TestingUtil.tmpDirectory(this.getClass()), indexName);
       boolean directoriesCreated = indexDir.mkdirs();
       assert directoriesCreated : "couldn't create directory for FSDirectory test";
       FSDirectory dir = FSDirectory.open(indexDir);
@@ -113,7 +111,7 @@ public class IndexReadingStressTest {
                + writerTaskCount);
    }
 
-   static SharedState fillDirectory(Directory directory, int termsNumber) throws CorruptIndexException, LockObtainFailedException, IOException {
+   static SharedState fillDirectory(Directory directory, int termsNumber) throws IOException {
       CacheTestSupport.initializeDirectory(directory);
       SharedState state = new SharedState(0);
       IndexWriter iwriter = LuceneSettings.openWriter(directory, 100000);
@@ -145,7 +143,7 @@ public class IndexReadingStressTest {
       cacheFactory.stop();
       TestingUtil.recursiveFileRemove(indexName);
    }
-   
+
    private static class IndependentLuceneReaderThread extends LuceneUserThread {
 
       private final int startValue;
@@ -154,7 +152,7 @@ public class IndexReadingStressTest {
       private final IndexReader indexReader;
       private final IndexSearcher searcher;
 
-      IndependentLuceneReaderThread(Directory dir, SharedState state, int startValue, int increment, int max) throws CorruptIndexException, IOException {
+      IndependentLuceneReaderThread(Directory dir, SharedState state, int startValue, int increment, int max) throws IOException {
          super(dir, state);
          this.startValue = startValue;
          this.increment = increment;
@@ -162,7 +160,7 @@ public class IndexReadingStressTest {
          indexReader = IndexReader.open(directory);
          searcher = new IndexSearcher(indexReader);
       }
-      
+
       @Override
       protected void testLoop() throws IOException {
          Term t = new Term("main", "0");
@@ -185,7 +183,7 @@ public class IndexReadingStressTest {
       protected void cleanup() throws IOException {
          indexReader.close();
       }
-      
+
    }
-      
+
 }
