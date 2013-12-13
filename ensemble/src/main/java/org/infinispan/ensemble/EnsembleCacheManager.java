@@ -1,8 +1,10 @@
 package org.infinispan.ensemble;
 
 import org.apache.zookeeper.KeeperException;
-import org.infinispan.Cache;
-import org.infinispan.manager.CacheContainer;
+import org.infinispan.client.hotrod.RemoteCacheManager;
+import org.infinispan.commons.api.BasicCache;
+import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.ensemble.zk.ZkManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,31 +27,40 @@ import java.util.concurrent.ConcurrentMap;
  * It is also possible that the manger are found on the fly using Zk
  *
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 6.0
  */
-public class EnsembleCacheManager implements  CacheContainer{
+public class EnsembleCacheManager implements  BasicCacheContainer{
 
+    private ZkManager zkManager;
     private Map<String,EnsembleCache> ensembles;
-    private Map<UCloud,CacheContainer> containers;
-    private ConcurrentMap<String,List<UCloud>> index;
+    private Map<Site,BasicCacheContainer> containers;
+    private ConcurrentMap<String,List<Site>> index;
     private int replicationFactor;
 
-    public EnsembleCacheManager(UCloud lucloud, List<UCloud> uclouds, int replicationFactor) throws IOException, KeeperException, InterruptedException {
-        assert replicationFactor > uclouds.size();
+    public EnsembleCacheManager(List<Site> sites, int replicationFactor)
+            throws IOException, KeeperException, InterruptedException {
+        assert replicationFactor <= sites.size();
+        init(sites,"127.0.0.1","2181",replicationFactor);
+    }
 
-        ensembles = new HashMap<String, EnsembleCache>();
-        this.containers = new HashMap<UCloud, CacheContainer>();
-        this.replicationFactor = replicationFactor;
-        for(UCloud ucloud : uclouds){
-            this.containers.put(ucloud, ucloud.getContainer());
+    public EnsembleCacheManager(List<String> hosts, String zhost, String zport, int replicationFactor)
+            throws IOException, KeeperException, InterruptedException {
+        assert replicationFactor <= hosts.size();
+        List<Site> sites = new ArrayList<Site>();
+        for(String host: hosts){
+            sites.add(new Site(host, new RemoteCacheManager(host+":11222")));
         }
-        this.index = ZkManager.getInstance().newConcurrentMap("/index");
+        init(sites, zhost, zport, replicationFactor);
     }
 
     @Override
-    public <K, V> Cache<K, V> getCache() {
-        return getCache("");
+    public synchronized <K, V> BasicCache<K, V> getCache() {
+
+        if(ensembles.containsKey(DEFAULT_CACHE_NAME))
+            return ensembles.get(DEFAULT_CACHE_NAME);
+
+        return getCache(DEFAULT_CACHE_NAME);
     }
 
     /**
@@ -60,23 +71,18 @@ public class EnsembleCacheManager implements  CacheContainer{
      * @param <V>
      * @return null if no cache exists.
      */
-    public <K,V> Cache<K,V> getCache(String cacheName){
+    @Override
+    public synchronized <K,V> BasicCache<K,V> getCache(String cacheName){
 
         if(ensembles.containsKey(cacheName))
-            return ensembles.get(cacheName);
+            return (BasicCache<K,V>) ensembles.get(cacheName);
 
-        List<UCloud> uClouds = index.get(cacheName);
-        if(uClouds==null){
-            uClouds = assignRandomly();
-            index.put(cacheName,uClouds);
-        }
-
-        return getCache(cacheName,uClouds);
+        return getCache(cacheName,assignRandomly());
     }
 
     /**
      *
-     * Create a cache object in the shared index.
+     * Create or retrieve a cache object in the shared index with an explicit data placement.
      * The object is retrieved in case, it was already existing.
      *
      * @param cacheName
@@ -85,57 +91,47 @@ public class EnsembleCacheManager implements  CacheContainer{
      * @param <V>
      * @return an EnsembleCache with name <i>cacheName</i>backed by RemoteCaches on <i>uclouds</i>.
      */
-    public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<UCloud> uclouds) {
+    public synchronized <K,V> BasicCache<K,V> getCache(String cacheName, List<Site> uclouds) {
 
         if(ensembles.containsKey(cacheName))
-            return ensembles.get(cacheName);
+            return (BasicCache<K,V>) ensembles.get(cacheName);
 
-        List<UCloud> uClouds = index.get(cacheName);
-        if(uClouds==null)
-            return null;
+        // TODO concurrency
+        index.put(cacheName,uclouds);
 
-        List<ConcurrentMap<K,V>> caches = new ArrayList<ConcurrentMap<K,V>>();
-        for(UCloud ucloud: uClouds){
-            caches.add((Cache<K, V>) containers.get(ucloud).getCache(cacheName));
+        List<BasicCache<K,V>> caches = new ArrayList<BasicCache<K, V>>();
+        for(Site ucloud: uclouds){
+            caches.add((BasicCache<K, V>) containers.get(ucloud).getCache(cacheName));
         }
 
         EnsembleCache e = new EnsembleCache<K, V>(cacheName, caches);
         ensembles.put(cacheName, e);
         return e;
-
-    }
-
-    /**
-     *
-     * Remove the cache object from the shared index.
-     *
-     * @param cache
-     * @param <K>
-     * @param <V>
-     * @return
-     */
-    public <K,V> boolean removeCache(EnsembleCache<K,V> cache){
-        return index.remove(cache.getName()) == null;
     }
 
 
     //
     // INNER METHIDS
-    //
-
-    private UCloud retrieveUCloudByName(String name){
-        for(UCloud ucloud : containers.keySet()){
-            if(ucloud.getName().equals(name)) return  ucloud;
+       
+    private void init(List<Site> sites, String zhost, String zport, int replicationFactor)
+            throws IOException {
+        ensembles = new HashMap<String, EnsembleCache>();
+        this.containers = new HashMap<Site, BasicCacheContainer>();
+        this.replicationFactor = replicationFactor;
+        for(Site ucloud : sites){
+            this.containers.put(ucloud, ucloud.getContainer());
         }
-        return null;
+
+        this.zkManager = new ZkManager(zhost,zport);
+        this.index = zkManager.newConcurrentMap("/index");
     }
 
     /**
      *
      * @return a list of <i>replicationFactor</i> uclouds.
      */
-    private List<UCloud> assignRandomly(){
-        List<UCloud> uclouds = new ArrayList<UCloud>(containers.keySet());
+    private List<Site> assignRandomly(){
+        List<Site> uclouds = new ArrayList<Site>(containers.keySet());
         java.util.Collections.shuffle(uclouds);
         for(int i=uclouds.size()-replicationFactor;i>0;i--)
             uclouds.remove(0);

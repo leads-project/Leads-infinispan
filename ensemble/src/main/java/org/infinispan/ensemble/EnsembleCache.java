@@ -1,23 +1,22 @@
  package org.infinispan.ensemble;
 
  import org.infinispan.AdvancedCache;
- import org.infinispan.Cache;
- import org.infinispan.configuration.cache.Configuration;
- import org.infinispan.lifecycle.ComponentStatus;
- import org.infinispan.manager.EmbeddedCacheManager;
- import org.infinispan.notifications.KeyFilter;
- import org.infinispan.util.concurrent.NotifyingFuture;
+import org.infinispan.Cache;
+import org.infinispan.commons.api.BasicCache;
+import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.lifecycle.ComponentStatus;
+import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.notifications.KeyFilter;
+import org.infinispan.util.concurrent.NotifyingFuture;
 
- import java.util.Collection;
- import java.util.List;
- import java.util.Map;
- import java.util.Set;
- import java.util.concurrent.ConcurrentMap;
- import java.util.concurrent.TimeUnit;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
  /**
  *
- * TODO change the atomic object factory to support a basic cache.
  * The atomicity of the cache will be thus part of the property on the put operation of the underlying cache.
  * Hence, this will be possible to use an assembled cache as input of the factory.
  *
@@ -28,10 +27,10 @@
 public class EnsembleCache<K,V> implements Cache<K,V> {
 
     private String name;
-    private Collection<ConcurrentMap<K,V>> caches;
-    private ConcurrentMap<K,V> primary;
+    private Collection<BasicCache<K,V>> caches;
+    private BasicCache<K,V> primary;
 
-    public EnsembleCache(String name, List<ConcurrentMap<K, V>> caches){
+    public EnsembleCache(String name, List<BasicCache<K, V>> caches){
         this.name = name;
         this.caches = caches;
         this.primary = caches.iterator().next();
@@ -41,7 +40,7 @@ public class EnsembleCache<K,V> implements Cache<K,V> {
          caches.add(cache);
     }
 
-    public void removeCache(ConcurrentMap<K,V> cache){
+    public void removeCache(BasicCache<K,V> cache){
         caches.remove(cache);
         if(cache == primary)
             primary = caches.iterator().next();
@@ -104,21 +103,21 @@ public class EnsembleCache<K,V> implements Cache<K,V> {
     @Override
     public V put(K key, V value) {
         V ret = null;
-        for(ConcurrentMap<K,V> c : caches)
+        for(BasicCache<K,V> c : caches)
             ret = c.put(key,value);
         return ret;
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
-        for(ConcurrentMap<K,V> c: caches){
+        for(BasicCache<K,V> c: caches){
             c.putAll(map);
         }
     }
 
     @Override
     public void clear() {
-        for(ConcurrentMap<K,V> c: caches){
+        for(BasicCache<K,V> c: caches){
             c.clear();
         }
     }
@@ -141,7 +140,7 @@ public class EnsembleCache<K,V> implements Cache<K,V> {
     @Override
     public V putIfAbsent(K k, V v) {
         V ret = null;
-        for(ConcurrentMap<K,V> c: caches){
+        for(BasicCache<K,V> c: caches){
             ret = (V) c.putIfAbsent(k, v);
         }
         return ret;
@@ -151,7 +150,7 @@ public class EnsembleCache<K,V> implements Cache<K,V> {
     public boolean remove(Object o, Object o2) {
         boolean ret = false;
 
-        for(ConcurrentMap c: caches){
+        for(BasicCache c: caches){
             ret |= c.remove(o,o2);
         }
         return ret;
@@ -160,7 +159,7 @@ public class EnsembleCache<K,V> implements Cache<K,V> {
     @Override
     public boolean replace(K k, V v, V v2) {
         boolean ret = false;
-        for(ConcurrentMap<K,V> c: caches){
+        for(BasicCache<K,V> c: caches){
             ret |= c.replace(k,v,v2);
         }
         return ret;
@@ -169,7 +168,7 @@ public class EnsembleCache<K,V> implements Cache<K,V> {
     @Override
     public V replace(K k, V v) {
         V ret = null;
-        for(ConcurrentMap<K,V> c: caches){
+        for(BasicCache<K,V> c: caches){
             ret = (V) c.replace(k,v);
         }
         return ret;
