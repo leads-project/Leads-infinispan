@@ -1,11 +1,11 @@
 package org.infinispan.ensemble;
 
+import org.infinispan.client.hotrod.test.MultiHotRodServersTest;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.test.MultipleCacheManagersTest;
-import org.infinispan.test.fwk.TransportFlags;
+import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -18,7 +18,7 @@ import java.util.List;
  * @since 6.0
  */
 @Test(groups = "functional", testName = "ensemble.AtomicObjectFactoryTest")
-public class EnsembleBasicTest extends MultipleCacheManagersTest {
+public class EnsembleBasicTest extends MultiHotRodServersTest {
 
     private static int NCACHES = 4;
 
@@ -31,7 +31,7 @@ public class EnsembleBasicTest extends MultipleCacheManagersTest {
         uclouds.add(cloud1);
         uclouds.add(cloud2);
         uclouds.add(cloud3);
-        EnsembleCacheManager manager = new EnsembleCacheManager(uclouds,2);
+        EnsembleCacheManager manager = new EnsembleCacheManager(uclouds);
         BasicCache cache = manager.getCache();
         cache.put("test","smthing");
         assert cache.containsKey("test");
@@ -39,11 +39,15 @@ public class EnsembleBasicTest extends MultipleCacheManagersTest {
         assert !cache.containsKey("test");
     }
 
+
     @Override
     protected void createCacheManagers() throws Throwable {
-        ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
-        TransportFlags flags = new TransportFlags();
-        createClusteredCaches(NCACHES, builder, flags);
+        ConfigurationBuilder builder = hotRodCacheConfiguration(
+                getDefaultClusteredCacheConfig(CacheMode.REPL_ASYNC, false));
+        builder.clustering().async().replQueueInterval(1000L).useReplQueue(true);
+        builder.eviction().maxEntries(3);
+
+        createHotRodServers(2, builder);
     }
 
 }

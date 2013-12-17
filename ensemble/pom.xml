@@ -39,7 +39,7 @@
        </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>infinispan-core</artifactId>
+            <artifactId>infinispan-client-hotrod</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

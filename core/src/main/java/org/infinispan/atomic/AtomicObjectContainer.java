@@ -246,7 +246,8 @@ public class AtomicObjectContainer {
     //
 
     private static int nextCallID(Cache c){
-        return ThreadLocalRandom.current().nextInt()+c.hashCode();
+        Random random = new Random(System.currentTimeMillis());
+        return random.nextInt()+c.hashCode();
     }
 
     private static Object doCall(Object obj, String method, Object[] args) throws InvocationTargetException, IllegalAccessException {

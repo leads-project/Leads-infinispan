@@ -21,6 +21,7 @@
       <module>parent</module>
       <module>commons</module>
       <module>core</module>
+      <module>ensemble</module>
       <module>extended-statistics</module>
       <module>tools</module>
       <module>query</module>
