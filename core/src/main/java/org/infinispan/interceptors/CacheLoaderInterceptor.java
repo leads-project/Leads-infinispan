@@ -54,7 +54,7 @@ public class CacheLoaderInterceptor extends JmxStatsCommandInterceptor {
    protected PersistenceManager persistenceManager;
    protected CacheNotifier notifier;
    protected volatile boolean enabled = true;
-   private EntryFactory entryFactory;
+   protected EntryFactory entryFactory;
    private TimeService timeService;
    private InternalEntryFactory iceFactory;
 
@@ -260,7 +260,7 @@ public class CacheLoaderInterceptor extends JmxStatsCommandInterceptor {
       // first check if the container contains the key we need.  Try and load this into the context.
       CacheEntry e = ctx.lookupEntry(key);
       if (e == null || e.isNull() || e.getValue() == null) {
-         MarshalledEntry loaded = persistenceManager.loadFromAllStores(key);
+         MarshalledEntry loaded = persistenceManager.loadFromAllStores(key, ctx);
          if(loaded == null)
             return Boolean.FALSE;
          InternalMetadata metadata = loaded.getMetadata();
