@@ -822,7 +822,11 @@ public abstract class AbstractComponentRegistry implements Lifecycle, Cloneable 
                }
                Method m = meta.getMethod();
                if (m == null) {
-                  m = ReflectionUtil.findMethod(clazz, meta.getMethodName(), parameterClasses);
+                   try{
+                       m = ReflectionUtil.findMethod(clazz, meta.getMethodName(), parameterClasses);
+                   }catch(Exception e){
+                       System.err.println(clazz+">>>"+meta.getMethodName());
+                   }
                   meta.setMethod(m);
                }
             }

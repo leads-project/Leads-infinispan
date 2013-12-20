@@ -42,6 +42,7 @@ public class AtomicObjectContainer {
     private static final int CALL_TTIMEOUT_TIME = 3000;
     private static final int RETRIEVE_TTIMEOUT_TIME = 30000;
     private static ExecutorService service = Executors.newCachedThreadPool();
+    private static Random random = new Random(System.currentTimeMillis());
 
     //
     // OBJECT FIELDS
@@ -105,7 +106,7 @@ public class AtomicObjectContainer {
                 AtomicObjectCallFuture future = new AtomicObjectCallFuture();
                 registeredCalls.put(callID, future);
                 cache.put(key, bb);
-                log.debug("Called "+invoke+" on object "+key);
+                log.debug("Called " + invoke + " on object " + key);
 
                 Object ret = future.get(CALL_TTIMEOUT_TIME,TimeUnit.MILLISECONDS);
                 registeredCalls.remove(callID);
@@ -147,6 +148,8 @@ public class AtomicObjectContainer {
         if( !event.getKey().equals(key) )
             return;
 
+        // System.out.println("receive "+event.getValue()+" with "+event.isPre());
+
         if(event.isPre())
             return;
 
@@ -155,7 +158,7 @@ public class AtomicObjectContainer {
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
             byte[] bb = (byte[]) event.getValue();
             AtomicObjectCall call = (AtomicObjectCall) marshaller.objectFromByteBuffer(bb);
-            log.debug("Received " + call+ " from " + event.getCache().toString());
+            log.debug("Received " + call + " from " + event.getCache().toString());
             calls.add(call);
 
         } catch (Exception e) {
@@ -174,6 +177,7 @@ public class AtomicObjectContainer {
             cache.put(key,marshaller.objectToByteBuffer(persist));
         }
         callHandlerFuture.cancel(true);
+        cache.removeListener(this);
     }
 
     private void initObject(boolean forceNew) throws IllegalAccessException, InstantiationException {
@@ -245,9 +249,9 @@ public class AtomicObjectContainer {
     // HELPERS
     //
 
-    private static int nextCallID(Cache c){
-        Random random = new Random(System.currentTimeMillis());
-        return random.nextInt()+c.hashCode();
+    private synchronized static int nextCallID(Cache c){
+        int rand = random.nextInt();
+        return rand+c.hashCode();
     }
 
     private static Object doCall(Object obj, String method, Object[] args) throws InvocationTargetException, IllegalAccessException {
@@ -326,7 +330,7 @@ public class AtomicObjectContainer {
 
                             AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
                             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
-                            cache.put(key,marshaller.objectToByteBuffer(persist));
+                            cache.put(key, marshaller.objectToByteBuffer(persist));
 
                         }else if (retrieve_call != null && retrieve_call.callID == ((AtomicObjectCallRetrieve)call).callID) {
 

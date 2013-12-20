@@ -22,8 +22,8 @@ import java.util.concurrent.*;
 @Test(groups = "functional", testName = "distexec.AtomicObjectFactoryTest")
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
-    private static int NCALLS= 1000;
-    private static int NCACHES = 4;
+    private static int NCALLS= 10000;
+    private static int NCACHES = 6;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
