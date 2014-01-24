@@ -60,7 +60,6 @@ public class AtomicObjectFactory {
             throws InvalidCacheUsageException{
         return getInstanceOf(clazz, key, false);
 	}
-
     /**
      *
      * Returns an object of class <i>clazz</i>.
@@ -102,7 +101,7 @@ public class AtomicObjectFactory {
      * @return an object of the class <i>clazz</i>
      * @throws InvalidCacheUsageException
      */
-    public synchronized <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization, Method equalsMethod, boolean forceNew, Object ... initArgs)
+    public synchronized <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization, Method equalsMethod, boolean forceNew)
             throws InvalidCacheUsageException{
 
         if( !(clazz instanceof Serializable)){
@@ -111,10 +110,9 @@ public class AtomicObjectFactory {
 
         try{
             if(!registeredContainers.containsKey(key)){
-                registeredContainers.put(key,new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs));
+                registeredContainers.put(key,new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew));
             }
         } catch (Exception e){
-            e.printStackTrace();
             throw new InvalidCacheUsageException(e.getCause());
         }
 

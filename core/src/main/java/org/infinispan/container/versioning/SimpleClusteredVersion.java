@@ -7,7 +7,6 @@ import org.infinispan.marshall.core.Ids;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.Set;
 
@@ -18,7 +17,7 @@ import java.util.Set;
  * @since 5.1
  */
 @Immutable
-public class SimpleClusteredVersion implements IncrementableEntryVersion, Serializable {
+public class SimpleClusteredVersion implements IncrementableEntryVersion {
 
    /**
     * The cache topology id in which it was first created.

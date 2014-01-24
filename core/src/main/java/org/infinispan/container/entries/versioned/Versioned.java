@@ -8,7 +8,7 @@ import org.infinispan.container.versioning.EntryVersion;
  * @author Manik Surtani
  * @since 5.1
  */
-public interface Versioned{
+public interface Versioned {
 
    /**
     * @return the version of the entry.  May be null if versioning is not supported, and must never be null if

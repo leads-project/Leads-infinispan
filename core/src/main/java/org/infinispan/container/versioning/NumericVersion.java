@@ -6,7 +6,6 @@ import org.infinispan.marshall.core.Ids;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.Set;
 
@@ -16,7 +15,7 @@ import java.util.Set;
  * @author Galder Zamarreño
  * @since 5.3
  */
-public class NumericVersion implements IncrementableEntryVersion,Serializable {
+public class NumericVersion implements IncrementableEntryVersion {
 
    private final long version;
 
