@@ -68,8 +68,8 @@ public class AtomicObjectContainer {
     private ArrayList<AtomicObjectCallInvoke> retrieve_calls;
     private AtomicObjectCallRetrieve retrieve_call;
 
-    public AtomicObjectContainer(Cache c, Class cl, Object k, boolean readOptimization, Method m, boolean forceNew)
-            throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, InterruptedException, ExecutionException {
+    public AtomicObjectContainer(Cache c, Class cl, Object k, boolean readOptimization, Method m, boolean forceNew, Object ... initArgs)
+            throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException {
 
         cache = c;
         clazz = cl;
@@ -131,7 +131,7 @@ public class AtomicObjectContainer {
         cache.addListener(this);
 
         // Build the object
-        initObject(forceNew);
+        initObject(forceNew,initArgs);
 
     }
 
@@ -180,7 +180,7 @@ public class AtomicObjectContainer {
         cache.removeListener(this);
     }
 
-    private void initObject(boolean forceNew) throws IllegalAccessException, InstantiationException {
+    private void initObject(boolean forceNew, Object ... initArgs) throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
 
         if( !forceNew){
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
@@ -204,7 +204,7 @@ public class AtomicObjectContainer {
         }
 
         log.info("Object "+key+" is created.");
-        object = clazz.newInstance();
+        object = clazz.getConstructor().newInstance(initArgs);
 
     }
 
@@ -268,6 +268,8 @@ public class AtomicObjectContainer {
                             break;
                         }
                     }
+                }else{
+                    isAssignable = false;
                 }
                 if(!isAssignable)
                     continue;

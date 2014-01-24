@@ -34,6 +34,10 @@ public class SimpleClusteredVersionGenerator implements VersionGenerator {
       cache.addListener(new TopologyIdUpdater());
    }
 
+   public void setTopologyID(int id){
+       this.topologyId = id;
+   }
+
    @Override
    public IncrementableEntryVersion generateNew() {
       if (topologyId == -1) {
