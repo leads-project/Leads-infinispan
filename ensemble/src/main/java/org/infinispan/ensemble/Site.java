@@ -1,10 +1,11 @@
 package org.infinispan.ensemble;
 
-import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.client.hotrod.RemoteCacheManager;
 
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import org.infinispan.commons.CacheException;
 
 /**
  *
@@ -20,30 +21,35 @@ public class Site implements Serializable{
     }
 
     private String name;
-    private transient BasicCacheContainer container;
+    private transient RemoteCacheManager container;
 
-    public Site(String name, BasicCacheContainer container) {
+    public Site(String name, RemoteCacheManager container) {
         this.name = name;
         this.container= container;
+        synchronized(this.getClass()){
+            if(_sites.containsValue(this))
+                throw new CacheException("Already existing site: "+name);
+            _sites.put(name,this);
+        }
     }
 
     public String getName(){
         return name;
     }
 
-    public BasicCacheContainer getContainer(){
+    public RemoteCacheManager getContainer(){
         return container;
     }
 
     @Override
     public boolean equals(Object o){
-        if(!(o instanceof Site)) return false;
+        if( !(o instanceof Site) ) return false;
         return ((Site)o).getName().equals(this.getName());
     }
 
 
     //
-    // Serializable management
+    // Serializability management
     //
 
     @SuppressWarnings("unchecked")
@@ -53,9 +59,8 @@ public class Site implements Serializable{
                 if(site.equals(this))
                     return site;
             }
-            _sites.put(name,this);
+            throw new CacheException("No definition for site: "+this.name);
         }
-        return this;
     }
 
 }

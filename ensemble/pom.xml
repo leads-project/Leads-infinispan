@@ -20,6 +20,51 @@
 
    <dependencies>
        <dependency>
+           <groupId>org.testng</groupId>
+           <artifactId>testng</artifactId>
+           <scope>test</scope>
+       </dependency>
+       <dependency>
+           <groupId>${project.groupId}</groupId>
+           <artifactId>infinispan-core</artifactId>
+           <type>test-jar</type>
+           <scope>test</scope>
+       </dependency>
+       <dependency>
+           <groupId>${project.groupId}</groupId>
+           <artifactId>infinispan-client-hotrod</artifactId>
+           <type>test-jar</type>
+           <scope>test</scope>
+       </dependency>
+       <dependency>
+           <groupId>${project.groupId}</groupId>
+           <artifactId>infinispan-server-core</artifactId>
+           <type>test-jar</type>
+           <scope>test</scope>
+       </dependency>
+       <dependency>
+           <groupId>${project.groupId}</groupId>
+           <artifactId>infinispan-server-hotrod</artifactId>
+           <type>test-jar</type>
+           <scope>test</scope>
+       </dependency>
+       <dependency>
+           <groupId>${project.groupId}</groupId>
+           <artifactId>infinispan-server-hotrod</artifactId>
+           <scope>test</scope>
+       </dependency>
+       <dependency>
+           <groupId>org.jboss.arquillian.testng</groupId>
+           <artifactId>arquillian-testng-container</artifactId>
+           <scope>test</scope>
+       </dependency>
+       <dependency>
+           <groupId>org.jboss.shrinkwrap.resolver</groupId>
+           <artifactId>shrinkwrap-resolver-impl-maven</artifactId>
+           <scope>test</scope>
+       </dependency>
+
+       <dependency>
            <groupId>${project.groupId}</groupId>
            <artifactId>infinispan-core</artifactId>
        </dependency>

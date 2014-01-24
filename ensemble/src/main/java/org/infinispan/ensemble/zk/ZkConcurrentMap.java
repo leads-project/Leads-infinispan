@@ -26,9 +26,7 @@ public class ZkConcurrentMap<K,V> implements ConcurrentMap<K,V> {
 
     @Override
     public V putIfAbsent(K k, V v) {
-        Object o = keptConcurrentMap .put(marshal(k),marshal(v));
-        System.out.println(o.getClass().toString());
-        return null;
+        return (V) unmarshal(keptConcurrentMap .putIfAbsent(marshal(k),marshal(v)));
     }
 
     @Override
@@ -106,14 +104,14 @@ public class ZkConcurrentMap<K,V> implements ConcurrentMap<K,V> {
         throw new RuntimeException("NYI");
     }
 
-    public static <T> String marshal(T object)
+    private static <T> String marshal(T object)
     {
         return Base64.encodeObject((Serializable) object);
     }
 
-    public static <T> Object unmarshal(String objectString)
+    private static <T> Object unmarshal(String objectString)
     {
-        if(objectString==null)
+        if(objectString==null || objectString.length()==0)
             return null;
         return Base64.decodeToObject(objectString);
     }

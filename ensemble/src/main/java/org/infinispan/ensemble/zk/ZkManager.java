@@ -14,11 +14,10 @@ import java.util.concurrent.ConcurrentMap;
 public class ZkManager {
 
     private ZooKeeper zk;
-    private final int TIMEOUT = 2000;
+    private final int TIMEOUT = 1200000; // TODO put a proper timer
     Watcher watcher = new Watcher(){
         @Override
         public void process(WatchedEvent event) {
-            System.out.println("[Watcher] Event: " + event.getType());
         }
     };
 
@@ -26,16 +25,9 @@ public class ZkManager {
         zk =  new ZooKeeper(host+":"+port,TIMEOUT,watcher);
     }
 
-    public <K,V> ConcurrentMap<K,V> newConcurrentMap(String name){
-        try {
-            return new ZkConcurrentMap<K,V>(
-                    new KeptConcurrentMap(zk, name, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT));
-        } catch (KeeperException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        return null;
+    public <K,V> ConcurrentMap<K,V> newConcurrentMap(String name) throws KeeperException, InterruptedException {
+        return new ZkConcurrentMap<K,V>(
+                new KeptConcurrentMap(zk, name, ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT));
     }
 
 }
