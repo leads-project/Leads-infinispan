@@ -20,6 +20,9 @@ public interface VersionedCache<K,V> extends BasicCache<K,V> {
     V get(K key, IncrementableEntryVersion version);
     // do the same for *Async(), evict(), remove()
 
+    @Override
+    V put(K key, V value);
+
     V getLatest(K key, IncrementableEntryVersion upperBound);
     V getEarliest(K key, IncrementableEntryVersion lowerBound);
 

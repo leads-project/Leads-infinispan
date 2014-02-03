@@ -31,8 +31,8 @@ import java.util.concurrent.Future;
 @Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
 public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
 
-    private static int NCACHES = 3;
-    private static int NCALLS = 10;
+    private static int NCACHES = 1;
+    private static int NCALLS = 10000;
     private List<Cache> delegates = new ArrayList<Cache>(NCACHES);
     private List<VersionedCache> vcaches = new ArrayList<VersionedCache>(NCACHES);
 
@@ -84,7 +84,6 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
             total += future.get();
         }
 
-        System.out.println(vcaches.get(0).values());
         assert total == NCACHES*NCALLS;
 
     }
@@ -103,10 +102,37 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
         @Override
         public Integer call() throws Exception {
             int ret = 0;
+            float avrg = 0;
+            int nkeys = 1000;
             Random rand = new Random(System.nanoTime());
+            IncrementableEntryVersion version = null;
             for(int i=0; i<ncalls;i++){
-                versionedCache.put(Integer.toString(rand.nextInt()), Integer.toString(i));
+                long start = System.nanoTime();
+                String k = Integer.toString(rand.nextInt(nkeys));
+                versionedCache.put(k, Integer.toString(i));
+                avrg += System.nanoTime() - start;
+                if(i==ncalls/2)
+                    version = versionedCache.getLatestVersion(k);
+
             }
+            System.out.println("avrg put() time: "+(avrg/NCALLS)/1000000+" ms");
+
+            for(int i=0; i<ncalls;i++){
+                String k = Integer.toString(rand.nextInt(nkeys));
+                long start = System.nanoTime();
+                versionedCache.get(k);
+                avrg += System.nanoTime() - start;
+            }
+            System.out.println("avrg get() time: "+(avrg/NCALLS)/1000000+" ms");
+
+            for(int i=0; i<ncalls;i++){
+                String k = Integer.toString(rand.nextInt(nkeys));
+                long start = System.nanoTime();;
+                versionedCache.get(k,versionedCache.getEarliestVersion(k),version );
+                avrg += System.nanoTime() - start;
+            }
+            System.out.println("avrg get(v1,v2) time: "+(avrg/NCALLS)/1000000+" ms");
+
             return  new Integer(ncalls);
         }
     }
