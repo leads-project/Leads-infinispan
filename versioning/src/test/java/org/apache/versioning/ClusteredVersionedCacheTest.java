@@ -1,7 +1,7 @@
 package org.apache.versioning;
 
+import org.hibernate.search.cfg.SearchMapping;
 import org.infinispan.Cache;
-import org.infinispan.versioning.*;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.VersioningScheme;
@@ -15,8 +15,10 @@ import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
 import org.testng.annotations.Test;
 
+import java.lang.annotation.ElementType;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -43,6 +45,19 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
     protected void createCacheManagers() throws Throwable {
         ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
         builder.versioning().scheme(VersioningScheme.SIMPLE);
+        SearchMapping mapping = new SearchMapping();
+        mapping.entity(HibernateProxy.class).indexed().providedId()
+                .property("k", ElementType.METHOD).field()
+                .property("v", ElementType.METHOD).field()
+                .property("version", ElementType.METHOD).field();
+
+        Properties properties = new Properties();
+        properties.put(org.hibernate.search.Environment.MODEL_MAPPING, mapping);
+        properties.put("hibernate.search.[other options]", "[...]");
+        builder.indexing()
+               .enable()
+               .indexLocalOnly(true)
+               .withProperties(properties);
         TransportFlags flags = new TransportFlags();
         createClusteredCaches(NCACHES, builder, flags);
     }
@@ -52,7 +67,7 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
         Cache cache = cacheManager.getCache();
         NumericVersionGenerator generator = new NumericVersionGenerator();
-        VersionedCache<String,String> vcache = new VersionedCacheAtomicObjectFactoryImpl<String,String>(cache,generator,"test");
+        VersionedCache<String,String> vcache = new VersionedCacheHibernateImpl<String, String>(cache,generator,"test");
         vcache.put("k","a");
         vcache.put("k","b");
         assert vcache.size()==2;
