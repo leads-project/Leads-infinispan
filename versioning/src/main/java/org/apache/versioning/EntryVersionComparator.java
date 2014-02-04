@@ -1,4 +1,7 @@
-package org.infinispan.container.versioning;
+package org.apache.versioning;
+
+import org.infinispan.container.versioning.IncrementableEntryVersion;
+import org.infinispan.container.versioning.InequalVersionComparisonResult;
 
 import java.io.Serializable;
 import java.util.Comparator;

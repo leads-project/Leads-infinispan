@@ -1,7 +1,7 @@
-package org.infinispan;
+package org.apache.versioning;
 
+import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.container.versioning.EntryVersionTreeMap;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.util.concurrent.NotifyingFuture;
@@ -15,13 +15,13 @@ import java.util.concurrent.TimeUnit;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class VersionedCacheImpl<K,V> implements VersionedCache<K,V> {
+public class VersionedCacheAtomicObjectFactoryImpl<K,V> implements VersionedCache<K,V> {
 
     AtomicObjectFactory factory;
     Cache delegate;
     VersionGenerator generator;
 
-    public VersionedCacheImpl(Cache delegate, VersionGenerator generator, String name) {
+    public VersionedCacheAtomicObjectFactoryImpl(Cache delegate, VersionGenerator generator, String name) {
         this.delegate = delegate;
         this.generator = generator;
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
@@ -45,48 +45,64 @@ public class VersionedCacheImpl<K,V> implements VersionedCache<K,V> {
     @Override
     public Collection<V> get(K key, IncrementableEntryVersion first, IncrementableEntryVersion last) {
         SortedMap<IncrementableEntryVersion,V> map = factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        if(map.isEmpty())
+            return null;
         return map.subMap(first, last).values();
     }
 
     @Override
     public V get(K key, IncrementableEntryVersion version) {
         SortedMap<IncrementableEntryVersion,V> map = factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        if(map.isEmpty())
+            return null;
         return map.get(version);
     }
 
     @Override
     public V getLatest(K key, IncrementableEntryVersion upperBound) {
         SortedMap<IncrementableEntryVersion,V> map = factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        if(map.isEmpty())
+            return null;
         return map.get(map.headMap(upperBound).lastKey());
     }
 
     @Override
     public V getEarliest(K key, IncrementableEntryVersion lowerBound) {
         SortedMap<IncrementableEntryVersion,V> map = factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        if(map.isEmpty())
+            return null;
         return map.get(map.tailMap(lowerBound).firstKey());
     }
 
     @Override
     public IncrementableEntryVersion getLatestVersion(K key) {
         SortedMap<IncrementableEntryVersion,V> map = factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        if(map.isEmpty())
+            return null;
         return map.lastKey();
     }
 
     @Override
     public IncrementableEntryVersion getLatestVersion(K key, IncrementableEntryVersion upperBound) {
         SortedMap<IncrementableEntryVersion,V> map = factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        if(map.isEmpty())
+            return null;
         return map.tailMap(upperBound).firstKey();
     }
 
     @Override
     public IncrementableEntryVersion getEarliestVersion(K key) {
         SortedMap<IncrementableEntryVersion,V> map = factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        if(map.isEmpty())
+            return null;
         return map.firstKey();
     }
 
     @Override
     public IncrementableEntryVersion getEarliestVersion(K key, IncrementableEntryVersion lowerBound) {
         SortedMap<IncrementableEntryVersion,V> map = factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        if(map.isEmpty())
+            return null;
         return map.headMap(lowerBound).firstKey();
     }
 
@@ -124,6 +140,8 @@ public class VersionedCacheImpl<K,V> implements VersionedCache<K,V> {
     @Override
     public V get(Object o) {
         TreeMap m = factory.getInstanceOf(EntryVersionTreeMap.class,o,true,null,false);
+        if(m.isEmpty())
+            return null;
         return (V) m.get(m.lastKey());
     }
 

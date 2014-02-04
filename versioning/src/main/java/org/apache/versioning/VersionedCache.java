@@ -1,4 +1,4 @@
-package org.infinispan;
+package org.apache.versioning;
 
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
@@ -22,6 +22,9 @@ public interface VersionedCache<K,V> extends BasicCache<K,V> {
 
     @Override
     V put(K key, V value);
+
+    @Override
+    V get(Object k);
 
     V getLatest(K key, IncrementableEntryVersion upperBound);
     V getEarliest(K key, IncrementableEntryVersion lowerBound);
