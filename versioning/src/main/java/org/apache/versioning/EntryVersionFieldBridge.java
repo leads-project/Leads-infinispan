@@ -15,7 +15,7 @@ import org.infinispan.container.versioning.NumericVersion;
 
 public class EntryVersionFieldBridge implements TwoWayFieldBridge{
 
-    private static LongNumericFieldBridge bridge;
+    private static LongNumericFieldBridge bridge = new LongNumericFieldBridge();
 
     @Override
     public Object get(String name, Document document) {
@@ -28,7 +28,7 @@ public class EntryVersionFieldBridge implements TwoWayFieldBridge{
                 NumericVersion version = (NumericVersion) object;
                 return bridge.objectToString(version.getVersion());
             }
-            throw new IllegalArgumentException("not a numberic version");
+            throw new IllegalArgumentException("not a numeric version  "+object.getClass().toString());
         }
 
     @Override

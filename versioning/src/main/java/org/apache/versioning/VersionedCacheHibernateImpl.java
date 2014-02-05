@@ -36,13 +36,16 @@ public class VersionedCacheHibernateImpl<K,V> implements VersionedCache<K,V> {
     @Override
     public void put(K key, V value, IncrementableEntryVersion version) {
         HibernateProxy<K,V> proxy = new HibernateProxy<K, V>(key,value,version);
-        delegate.put(key,proxy);
+        delegate.put(proxy.getId(),proxy);
     }
 
     @Override
     public Collection<V> get(K key, IncrementableEntryVersion first, IncrementableEntryVersion last) {
-        TreeMap<IncrementableEntryVersion,V> map = getVersionMap(key);
+        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
+        if(map.isEmpty())
+            return null;
         return map.subMap(first, last).values();
+
     }
 
     @Override
@@ -58,7 +61,7 @@ public class VersionedCacheHibernateImpl<K,V> implements VersionedCache<K,V> {
 
     @Override
     public String getVersion() {
-        return null;  // TODO: Customise this generated block
+        return delegate.getVersion();
     }
 
     @Override
@@ -161,7 +164,7 @@ public class VersionedCacheHibernateImpl<K,V> implements VersionedCache<K,V> {
 
     @Override
     public int size() {
-        return 0;  // TODO: Customise this generated block
+        return delegate.size();
     }
 
     @Override
@@ -181,37 +184,58 @@ public class VersionedCacheHibernateImpl<K,V> implements VersionedCache<K,V> {
 
     @Override
     public V get(Object k) {
-        return null;  // TODO: Customise this generated block
+        TreeMap m = getVersionMap((K)k);
+        if(m.isEmpty())
+            return null;
+        return (V) m.get(m.lastKey());
     }
 
     @Override
     public V getLatest(K key, IncrementableEntryVersion upperBound) {
-        return null;  // TODO: Customise this generated block
+        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
+        if(map.isEmpty())
+            return null;
+        return map.get(map.headMap(upperBound).lastKey());
     }
 
     @Override
     public V getEarliest(K key, IncrementableEntryVersion lowerBound) {
-        return null;  // TODO: Customise this generated block
+        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
+        if(map.isEmpty())
+            return null;
+        return map.get(map.firstKey());
     }
 
     @Override
     public IncrementableEntryVersion getLatestVersion(K key) {
-        return null;  // TODO: Customise this generated block
+        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
+        if(map.isEmpty())
+            return null;
+        return map.lastKey();
     }
 
     @Override
     public IncrementableEntryVersion getLatestVersion(K key, IncrementableEntryVersion upperBound) {
-        return null;  // TODO: Customise this generated block
+        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
+        if(map.isEmpty())
+            return null;
+        return map.tailMap(upperBound).firstKey();
     }
 
     @Override
     public IncrementableEntryVersion getEarliestVersion(K key) {
-        return null;  // TODO: Customise this generated block
+        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
+        if(map.isEmpty())
+            return null;
+        return map.firstKey();
     }
 
     @Override
     public IncrementableEntryVersion getEarliestVersion(K key, IncrementableEntryVersion lowerBound) {
-        return null;  // TODO: Customise this generated block
+        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
+        if(map.isEmpty())
+            return null;
+        return map.firstKey();
     }
 
     @Override
@@ -345,13 +369,33 @@ public class VersionedCacheHibernateImpl<K,V> implements VersionedCache<K,V> {
 
     private TreeMap<IncrementableEntryVersion,V> getVersionMap(K key){
         Query query = (Query) qf.from(HibernateProxy.class)
-                .having("k").eq(key)
-                .toBuilder().build();
+                .having("k").eq(key.toString())
+                .toBuilder()
+                .build();
         List<HibernateProxy<K,V>> list = query.list();
-        TreeMap<IncrementableEntryVersion,V> map = new TreeMap<IncrementableEntryVersion, V>();
+        TreeMap<IncrementableEntryVersion,V> map = new TreeMap<IncrementableEntryVersion, V>(
+                new EntryVersionComparator());
         for(HibernateProxy<K,V> proxy : list)
             map.put(proxy.version,proxy.v);
         return map;
     }
+
+//    private TreeMap<IncrementableEntryVersion,V> getVersionMap(K key,
+//                                                               IncrementableEntryVersion v1,
+//                                                               IncrementableEntryVersion v2){
+//        Query query = (Query) qf.from(HibernateProxy.class)
+//                .having("k").eq(key.toString())
+//                .and().having("version").gte(v1)
+//                .and().having("version").lte(v2)
+//                .toBuilder()
+//                .build();
+//        List<HibernateProxy<K,V>> list = query.list();
+//        TreeMap<IncrementableEntryVersion,V> map = new TreeMap<IncrementableEntryVersion, V>(
+//                new EntryVersionComparator());
+//        for(HibernateProxy<K,V> proxy : list)
+//            map.put(proxy.version,proxy.v);
+//        return map;
+//
+//    }
 
 }

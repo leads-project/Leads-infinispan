@@ -31,23 +31,6 @@
            <scope>test</scope>
        </dependency>
        <dependency>
-           <groupId>${project.groupId}</groupId>
-           <artifactId>infinispan-client-hotrod</artifactId>
-           <type>test-jar</type>
-           <scope>test</scope>
-       </dependency>
-       <dependency>
-           <groupId>${project.groupId}</groupId>
-           <artifactId>infinispan-server-core</artifactId>
-           <type>test-jar</type>
-           <scope>test</scope>
-       </dependency>
-       <dependency>
-           <groupId>${project.groupId}</groupId>
-           <artifactId>infinispan-server-hotrod</artifactId>
-           <scope>test</scope>
-       </dependency>
-       <dependency>
            <groupId>org.jboss.arquillian.testng</groupId>
            <artifactId>arquillian-testng-container</artifactId>
            <scope>test</scope>
@@ -57,7 +40,6 @@
            <artifactId>shrinkwrap-resolver-impl-maven</artifactId>
            <scope>test</scope>
        </dependency>
-
        <dependency>
            <groupId>${project.groupId}</groupId>
            <artifactId>infinispan-core</artifactId>
@@ -67,12 +49,17 @@
            <artifactId>infinispan-commons</artifactId>
        </dependency>
        <dependency>
+           <groupId>${project.groupId}</groupId>
+           <artifactId>infinispan-query</artifactId>
+       </dependency>
+       <dependency>
+           <groupId>${project.groupId}</groupId>
+           <artifactId>infinispan-query-dsl</artifactId>
+       </dependency>
+       <dependency>
            <groupId>org.hibernate</groupId>
            <artifactId>hibernate-search-infinispan</artifactId>
        </dependency>
-
-
-
    </dependencies>
 
     <build>

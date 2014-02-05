@@ -2,6 +2,9 @@ package org.apache.versioning;
 
 import org.hibernate.search.annotations.*;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
+import org.infinispan.container.versioning.NumericVersion;
+
+import java.io.Serializable;
 
 /**
  * // TODO: Document this
@@ -11,18 +14,18 @@ import org.infinispan.container.versioning.IncrementableEntryVersion;
  */
 
 @Indexed
-public class HibernateProxy<K,V> {
+public class HibernateProxy<K,V> implements Serializable{
 
-    @Field(index= Index.NO, analyze= Analyze.NO, store= Store.YES)
+    @Field(index= Index.YES, analyze= Analyze.NO, store= Store.NO)
     @FieldBridge(impl = DummyFieldBridge.class)
     K k;
 
-    @Field(index= Index.NO, analyze= Analyze.NO, store= Store.YES)
-    @FieldBridge(impl = DummyFieldBridge.class)
+//    @Field(index= Index.NO, analyze= Analyze.NO, store= Store.YES)
+//    @FieldBridge(impl = DummyFieldBridge.class)
     V v;
 
     @DocumentId
-    @Field(index= Index.YES, analyze= Analyze.NO, store= Store.YES)
+    @Field(index= Index.YES, analyze= Analyze.NO, store= Store.NO)
     @FieldBridge(impl = EntryVersionFieldBridge.class)
     IncrementableEntryVersion version;
 
@@ -30,6 +33,10 @@ public class HibernateProxy<K,V> {
         this.k = k;
         this.v = v;
         this.version = version;
+    }
+
+    public String getId(){
+        return k.toString()+Long.toString( ((NumericVersion)version).getVersion() );
     }
 
 }
