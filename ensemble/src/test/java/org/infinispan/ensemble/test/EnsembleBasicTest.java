@@ -5,17 +5,16 @@ import org.infinispan.client.hotrod.test.MultiHotRodServersTest;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.ensemble.EnsembleCacheManager;
 import org.infinispan.ensemble.Site;
+import org.infinispan.manager.EmbeddedCacheManager;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 
-import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
 import static org.infinispan.ensemble.EnsembleCacheManager.Consistency.STRONG;
+import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
 
 /**
   *
@@ -62,21 +61,25 @@ public class EnsembleBasicTest extends MultiHotRodServersTest {
     @Override
     protected void createCacheManagers() throws Throwable {
         ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, false));
-        createHotRodServers(3 , builder);
+        createHotRodServers(NCACHES, builder);
         for(EmbeddedCacheManager m: cacheManagers){
             m.defineConfiguration(WEAK_CACHE_NAME, builder.build());
             m.defineConfiguration(STRONG_CACHE_NAME, builder.build());
         }
 
-        List<Site> uclouds = new ArrayList<Site>();
+        manager = new EnsembleCacheManager();
         Iterator<RemoteCacheManager> it =  clients.iterator();
-        Site cloud1 = new Site("neuchatel",it.next());
-        Site cloud2 = new Site("dresen",it.next());
-        Site cloud3 = new Site("chania",it.next());
-        uclouds.add(cloud1);
-        uclouds.add(cloud2);
-        uclouds.add(cloud3);
-        manager = new EnsembleCacheManager(uclouds);
+        manager.addSite(new Site("neuchatel",it.next()));
+        manager.addSite(new Site("dresden",it.next()));
+        manager.addSite(new Site("chania",it.next()));
+     }
+
+
+    @AfterClass(alwaysRun = true)
+    @Override
+    public void destroy(){
+        super.destroy();
+        manager.stop();
     }
 
 }

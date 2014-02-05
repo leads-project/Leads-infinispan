@@ -62,6 +62,10 @@ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
              c.stop();
      }
 
+     public int replicationFactor(){
+         return caches.size();
+     }
+
      //
      // OBJECT METHODS
      //

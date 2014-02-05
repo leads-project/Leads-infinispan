@@ -17,7 +17,7 @@ public class WeakEnsembleCache<K,V> extends EnsembleCache<K,V> {
     @Override
     public V put(K key, V value) {
         V ret = null;
-        for(RemoteCache<K,V> c : quorumCache()){
+        for(RemoteCache<K,V> c : caches){
             ret = c.put(key,value);
         }
         return ret;
