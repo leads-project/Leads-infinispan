@@ -1,6 +1,8 @@
 package org.apache.versioning;
 
-import org.hibernate.search.bridge.StringBridge;
+import org.apache.lucene.document.Document;
+import org.hibernate.search.bridge.LuceneOptions;
+import org.hibernate.search.bridge.TwoWayFieldBridge;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 
 import java.io.IOException;
@@ -12,7 +14,21 @@ import java.io.IOException;
  * @since 6.0
  */
 
-public class DummyFieldBridge implements StringBridge {
+public class DummyFieldBridge implements TwoWayFieldBridge {
+
+    @Override
+    public Object get(String name, Document document) {
+        GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
+        try {
+            marshaller.objectFromByteBuffer(document.get(name).getBytes());
+        } catch (IOException e) {
+            e.printStackTrace();  // TODO: Customise this generated block
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();  // TODO: Customise this generated block
+        }
+        return null;
+    }
+
     @Override
     public String objectToString(Object object) {
         GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
@@ -24,5 +40,11 @@ public class DummyFieldBridge implements StringBridge {
             e.printStackTrace();  // TODO: Customise this generated block
         }
         return null;
+    }
+
+    @Override
+    public void set(String name, Object value, Document document, LuceneOptions luceneOptions) {
+        String fieldValue = objectToString(value);
+        luceneOptions.addFieldToDocument(name, fieldValue, document);
     }
 }

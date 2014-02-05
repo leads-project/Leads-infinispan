@@ -34,8 +34,8 @@ import java.util.concurrent.Future;
 @Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
 public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
 
-    private static int NCACHES = 4;
-    private static int NCALLS = 100000;
+    private static int NCACHES = 1;
+    private static int NCALLS = 10000;
     private static int NKEYS = 1;
     private List<Cache> delegates = new ArrayList<Cache>(NCACHES);
     private List<VersionedCache> vcaches = new ArrayList<VersionedCache>(NCACHES);
@@ -165,7 +165,7 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
             avrg=0;
             for(int i=0; i<ncalls;i++){
                 String k = Integer.toString(rand.nextInt(NKEYS));
-                long start = System.nanoTime();;
+                long start = System.nanoTime();
                 versionedCache.get(k,versionedCache.getEarliestVersion(k),version );
                 avrg += System.nanoTime() - start;
             }

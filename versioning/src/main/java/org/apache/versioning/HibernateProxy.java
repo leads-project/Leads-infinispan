@@ -16,6 +16,7 @@ import java.io.Serializable;
 @Indexed
 public class HibernateProxy<K,V> implements Serializable{
 
+    @DocumentId
     @Field(index= Index.YES, analyze= Analyze.NO, store= Store.NO)
     @FieldBridge(impl = DummyFieldBridge.class)
     K k;
@@ -24,7 +25,6 @@ public class HibernateProxy<K,V> implements Serializable{
 //    @FieldBridge(impl = DummyFieldBridge.class)
     V v;
 
-    @DocumentId
     @Field(index= Index.YES, analyze= Analyze.NO, store= Store.NO)
     @FieldBridge(impl = EntryVersionFieldBridge.class)
     IncrementableEntryVersion version;
