@@ -75,6 +75,20 @@ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
          return caches.iterator().next();
      }
 
+     protected int majoritySize(){
+         return Math.round(size()/(float)2)+1;
+     }
+
+     protected Collection<RemoteCache<K,V>> quorumCache(){
+         List<RemoteCache<K,V>> quorum = new ArrayList<RemoteCache<K, V>>();
+         Collections.shuffle(caches);
+         for(int i=0; i<majoritySize(); i++){
+             quorum.add(caches.get(i));
+         }
+         return quorum;
+
+     }
+
      //
      // NYI
      //

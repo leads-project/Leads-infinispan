@@ -3,8 +3,6 @@ package org.infinispan.ensemble;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.VersionedValue;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 
@@ -61,14 +59,6 @@ public class StrongEnsembleCache<K,V> extends EnsembleCache<K,V> {
             if(tmp.getVersion() < version)
                 c.replaceWithVersion(key,v,tmp.getVersion());
         }
-    }
-
-    protected List<RemoteCache<K,V>> quorumCache(){
-        Collections.shuffle(caches);
-        List<RemoteCache<K,V>> q = new ArrayList<RemoteCache<K,V>>();
-        for(int i=0; i<q.size()/2+1; i++)
-            q.add(caches.get(i));
-        return q;
     }
 
     protected VersionedValue<V> latestValue(K k){
