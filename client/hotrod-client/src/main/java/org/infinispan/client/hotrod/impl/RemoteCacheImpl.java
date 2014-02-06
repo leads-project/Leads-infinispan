@@ -1,48 +1,23 @@
 package org.infinispan.client.hotrod.impl;
 
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import org.infinispan.client.hotrod.*;
+import org.infinispan.client.hotrod.exceptions.HotRodClientException;
+import org.infinispan.client.hotrod.exceptions.RemoteCacheManagerNotStartedException;
+import org.infinispan.client.hotrod.impl.async.NotifyingFutureImpl;
+import org.infinispan.client.hotrod.impl.operations.*;
+import org.infinispan.client.hotrod.logging.Log;
+import org.infinispan.client.hotrod.logging.LogFactory;
+import org.infinispan.commons.marshall.Marshaller;
+import org.infinispan.commons.util.concurrent.NotifyingFuture;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import org.infinispan.client.hotrod.Flag;
-import org.infinispan.client.hotrod.MetadataValue;
-import org.infinispan.client.hotrod.RemoteCache;
-import org.infinispan.client.hotrod.RemoteCacheManager;
-import org.infinispan.client.hotrod.ServerStatistics;
-import org.infinispan.client.hotrod.Version;
-import org.infinispan.client.hotrod.VersionedValue;
-import org.infinispan.client.hotrod.exceptions.HotRodClientException;
-import org.infinispan.client.hotrod.exceptions.RemoteCacheManagerNotStartedException;
-import org.infinispan.client.hotrod.impl.async.NotifyingFutureImpl;
-import org.infinispan.client.hotrod.impl.operations.BulkGetKeysOperation;
-import org.infinispan.client.hotrod.impl.operations.BulkGetOperation;
-import org.infinispan.client.hotrod.impl.operations.ClearOperation;
-import org.infinispan.client.hotrod.impl.operations.ContainsKeyOperation;
-import org.infinispan.client.hotrod.impl.operations.GetOperation;
-import org.infinispan.client.hotrod.impl.operations.GetWithMetadataOperation;
-import org.infinispan.client.hotrod.impl.operations.GetWithVersionOperation;
-import org.infinispan.client.hotrod.impl.operations.OperationsFactory;
-import org.infinispan.client.hotrod.impl.operations.PingOperation;
-import org.infinispan.client.hotrod.impl.operations.PutIfAbsentOperation;
-import org.infinispan.client.hotrod.impl.operations.PutOperation;
-import org.infinispan.client.hotrod.impl.operations.RemoveIfUnmodifiedOperation;
-import org.infinispan.client.hotrod.impl.operations.RemoveOperation;
-import org.infinispan.client.hotrod.impl.operations.ReplaceIfUnmodifiedOperation;
-import org.infinispan.client.hotrod.impl.operations.ReplaceOperation;
-import org.infinispan.client.hotrod.impl.operations.StatsOperation;
-import org.infinispan.client.hotrod.logging.Log;
-import org.infinispan.client.hotrod.logging.LogFactory;
-import org.infinispan.commons.marshall.Marshaller;
-import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * @author Mircea.Markus@jboss.com
@@ -142,7 +117,23 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> {
       return binary2VersionedValue(value);
    }
 
-   @Override
+    @Override
+    public NotifyingFuture<VersionedValue<V>> getVersionedAsynch(final K key) {
+        assertRemoteCacheManagerIsStarted();
+        final NotifyingFutureImpl<VersionedValue<V>> result = new NotifyingFutureImpl<VersionedValue<V>>();
+        Future<VersionedValue<V>> future = executorService.submit(new Callable<VersionedValue<V>>() {
+            @Override
+            public VersionedValue<V> call() throws Exception {
+                VersionedValue<V> removed = getVersioned(key);
+                result.notifyFutureCompletion();
+                return removed;
+            }
+        });
+        result.setExecuting(future);
+        return result;
+    }
+
+    @Override
    public MetadataValue<V> getWithMetadata(K key) {
       assertRemoteCacheManagerIsStarted();
       GetWithMetadataOperation op = operationsFactory.newGetWithMetadataOperation(obj2bytes(key, true));
