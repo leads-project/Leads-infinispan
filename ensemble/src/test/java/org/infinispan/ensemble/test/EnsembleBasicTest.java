@@ -61,7 +61,6 @@ public class EnsembleBasicTest extends MultiHotRodServersTest {
     @Override
     protected void createCacheManagers() throws Throwable {
         ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, false));
-        builder.sites().addBackup().site("NYC");
         createHotRodServers(NCACHES, builder);
         for(EmbeddedCacheManager m: cacheManagers){
             m.defineConfiguration(WEAK_CACHE_NAME, builder.build());
