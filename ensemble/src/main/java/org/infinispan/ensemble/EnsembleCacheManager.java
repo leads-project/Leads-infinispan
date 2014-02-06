@@ -1,20 +1,17 @@
 package org.infinispan.ensemble;
 
-import org.apache.zookeeper.KeeperException;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.api.BasicCacheContainer;
-import org.infinispan.ensemble.zk.ZkManager;
+import org.menagerie.DefaultZkSessionManager;
+import org.menagerie.ZkSessionManager;
+import org.menagerie.collections.ZkHashMap;
+import org.menagerie.collections.ZkListSet;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
-
 
 
 /**
@@ -34,29 +31,65 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class EnsembleCacheManager implements  BasicCacheContainer{
 
-    public static enum Consistency { STRONG, WEAK }
     public static final int ENSEMBLE_VERSION_MAJOR = 0;
     public static final int ENSEMBLE_VERSION_MINOR = 1;
 
-    private ZkManager zkManager;
+    public static enum Consistency {
+        STRONG,
+        WEAK
+    }
+
+    public static final String ZK_INDEX = "/index";
+    public static final String ZK_SITES = "/sites";
+    public static final int ZK_TO = 12000;
+
+
     private Map<String,EnsembleCache> ensembles;
-    private Map<Site,RemoteCacheManager> containers;
+
+    private ZkSessionManager zkManager;
     private ConcurrentMap<String,List<Site>> index;
+    private Set<Site> sites;
 
-    public EnsembleCacheManager(List<Site> sites)
-            throws IOException, KeeperException, InterruptedException {
-        init(sites,"127.0.0.1","2181");
+
+    public EnsembleCacheManager() throws CacheException{
+        this(Collections.EMPTY_LIST,"127.0.0.1",ZK_TO);
     }
 
-    public EnsembleCacheManager(List<String> hosts, String zhost, String zport)
-            throws IOException, KeeperException, InterruptedException {
-        List<Site> sites = new ArrayList<Site>();
-        for(String host: hosts){
-            sites.add(new Site(host, new RemoteCacheManager(host+":11222")));
+    public EnsembleCacheManager(String sites) throws CacheException{
+        this(Arrays.asList(sites.split("|")),"127.0.0.1:2181",ZK_TO);
+    }
+
+    public EnsembleCacheManager(String sites, String zkConnectString) throws CacheException{
+        this(Arrays.asList(sites.split("|")),zkConnectString,ZK_TO);
+    }
+
+    public EnsembleCacheManager(List<String> sites, String zkHost, int to) throws CacheException{
+
+        try {
+            zkManager = new DefaultZkSessionManager(zkHost,to);
+            this.index = new ZkHashMap<String, List<Site>>(ZK_INDEX,zkManager,new menagerieSerializer<Map.Entry<String, List<Site>>>());
+            this.sites = new ZkListSet<Site>(ZK_SITES,zkManager,new menagerieSerializer<Site>());
+        } catch (Exception e) {
+            throw new CacheException("Cannot connect to Zk; reason = "+e.getMessage());
         }
-        init(sites, zhost, zport);
+
+        this.ensembles = new HashMap<String, EnsembleCache>();
+
+        for(String s: sites){
+            Site site = new Site(s, new RemoteCacheManager(s));
+            addSite(site);
+        }
+
+
     }
 
+    //
+    // PUBLIC INTERFACE
+    //
+
+    /**
+     * {@inheritDoc}
+     **/
     @Override
     public synchronized <K, V> BasicCache<K, V> getCache() {
 
@@ -67,35 +100,18 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     }
 
     /**
-     * Retrieve a cache object from the shared index.
-     *
-     * @param cacheName
-     * @param <K>
-     * @param <V>
-     * @return null if no cache exists.
-     */
+     * {@inheritDoc}
+     **/
     @Override
-    public synchronized <K,V> BasicCache<K,V> getCache(String cacheName){
-
-        if(ensembles.containsKey(cacheName))
-            return (BasicCache<K,V>) ensembles.get(cacheName);
-
+    public <K,V> BasicCache<K,V> getCache(String cacheName){
         return getCache(cacheName,assignRandomly(1),Consistency.WEAK);
     }
 
-    public synchronized <K,V> BasicCache<K,V> getCache(String cacheName, int replicationFactor){
-
-        if(ensembles.containsKey(cacheName))
-            return (BasicCache<K,V>) ensembles.get(cacheName);
-
+    public <K,V> BasicCache<K,V> getCache(String cacheName, int replicationFactor){
         return getCache(cacheName,assignRandomly(replicationFactor),Consistency.WEAK);
     }
 
-    public synchronized <K,V> BasicCache<K,V> getCache(String cacheName, int replicationFactor, Consistency consistency){
-
-        if(ensembles.containsKey(cacheName))
-            return (BasicCache<K,V>) ensembles.get(cacheName);
-
+    public <K,V> BasicCache<K,V> getCache(String cacheName, int replicationFactor, Consistency consistency){
         return getCache(cacheName,assignRandomly(replicationFactor),Consistency.WEAK);
     }
 
@@ -106,23 +122,24 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      * The object is retrieved in case, it was already existing.
      *
      * @param cacheName
-     * @param uclouds
+     * @param sites
      * @param <K>
      * @param <V>
      * @return an EnsembleCache with name <i>cacheName</i>backed by RemoteCaches on <i>uclouds</i>.
      */
-    public synchronized <K,V> BasicCache<K,V> getCache(String cacheName, List<Site> uclouds, Consistency consistency) {
+    public synchronized <K,V> BasicCache<K,V> getCache(String cacheName, List<Site> sites, Consistency consistency) {
 
         if(ensembles.containsKey(cacheName))
             return (BasicCache<K,V>) ensembles.get(cacheName);
 
-        if(index.putIfAbsent(cacheName,uclouds)!=null){
-            uclouds = index.get(cacheName);
+        List<Site> previous = index.putIfAbsent(cacheName,sites);
+        if(previous != null){
+            sites = previous;
         }
 
         List<RemoteCache<K,V>> caches = new ArrayList<RemoteCache<K, V>>();
-        for(Site ucloud: uclouds){
-            RemoteCache<K,V> c = (RemoteCache<K,V>) ucloud.getContainer().getCache(cacheName);
+        for(Site site: sites){
+            RemoteCache<K,V> c = site.getManager().getCache(cacheName);
             caches.add(c);
         }
 
@@ -140,43 +157,34 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         return e;
     }
 
-
-    //
-    // INNER METHIDS
-    //
-       
-    private void init(List<Site> sites, String zhost, String zport)
-            throws IOException {
-        ensembles = new HashMap<String, EnsembleCache>();
-        this.containers = new HashMap<Site, RemoteCacheManager>();
-        for(Site ucloud : sites){
-            this.containers.put(ucloud, ucloud.getContainer());
-        }
-
-        this.zkManager = new ZkManager(zhost,zport);
-        try {
-            this.index = zkManager.newConcurrentMap("/index");
-        } catch (Exception e) {
-            throw new CacheException("Cannot connect to Zk; reason = "+e.getMessage());
-        }
+    public synchronized void addSite(Site site){
+        sites.add(site);
     }
 
     @Override
-    public void start() {}
+    public void start() {
+    }
 
     @Override
-    public void stop() {}
+    public void stop() {
+        zkManager.shutdown();
+    }
+
+
+    //
+    // INNER METHODS
+    //
 
     /**
      *
      * @return a random list of <i>replicationFactor</i> uclouds.
      */
     private List<Site> assignRandomly(int replicationFactor){
-        List<Site> uclouds = new ArrayList<Site>(containers.keySet());
-        java.util.Collections.shuffle(uclouds);
-        for(int i=uclouds.size()-replicationFactor;i>0;i--)
-            uclouds.remove(0);
-        return uclouds;
+        List<Site> replicas = new ArrayList<Site>(sites);
+        java.util.Collections.shuffle(replicas);
+        for(int i=replicas.size()-replicationFactor;i>0;i--)
+            replicas.remove(0);
+        return replicas;
     }
 
 }

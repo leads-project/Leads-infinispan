@@ -2,10 +2,11 @@ package org.infinispan.ensemble;
 
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.VersionedValue;
+import org.infinispan.commons.util.concurrent.NotifyingFuture;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 
 /**
@@ -56,27 +57,45 @@ public class StrongEnsembleCache<K,V> extends EnsembleCache<K,V> {
     //
 
     protected void writeBack(K key, V v, long version){
+        List<NotifyingFuture<Boolean>> futures = new ArrayList<NotifyingFuture<Boolean>>();
         for(RemoteCache<K,V> c :quorumCache()){
             VersionedValue<V> tmp = c.getVersioned(key);
             if(tmp.getVersion() < version)
-                c.replaceWithVersion(key,v,tmp.getVersion());
+                futures.add(c.replaceWithVersionAsync(key, v, tmp.getVersion()));
+        }
+        for(NotifyingFuture<Boolean> future : futures){
+            try {
+                future.get();
+            } catch (InterruptedException e) {
+                e.printStackTrace();  // TODO: Customise this generated block
+            } catch (ExecutionException e) {
+                e.printStackTrace();  // TODO: Customise this generated block
+            }
         }
     }
 
-    protected List<RemoteCache<K,V>> quorumCache(){
-        Collections.shuffle(caches);
-        List<RemoteCache<K,V>> q = new ArrayList<RemoteCache<K,V>>();
-        for(int i=0; i<q.size()/2+1; i++)
-            q.add(caches.get(i));
-        return q;
-    }
-
     protected VersionedValue<V> latestValue(K k){
-        VersionedValue<V> ret = null;
+        List<NotifyingFuture<VersionedValue<V>>> futures = new ArrayList<NotifyingFuture<VersionedValue<V>>>();
         for(RemoteCache<K,V> cache : quorumCache()){
-            VersionedValue<V> tmp = cache.getVersioned(k);
-            if(tmp !=  null && tmp.getVersion()>ret.getVersion())
+            futures.add(cache.getVersionedAsynch(k));
+        }
+
+        VersionedValue<V> ret = null;
+        for(NotifyingFuture<VersionedValue<V>> future : futures){
+            VersionedValue<V> tmp = null;
+            try {
+                tmp = future.get();
+            } catch (InterruptedException e) {
+                e.printStackTrace();  // TODO: Customise this generated block
+            } catch (ExecutionException e) {
+                e.printStackTrace();  // TODO: Customise this generated block
+            }
+            if(ret == null){
                 ret = tmp;
+            }else{
+                if(tmp !=  null && tmp.getVersion() > ret.getVersion())
+                    ret = tmp;
+            }
         }
         return ret;
     }

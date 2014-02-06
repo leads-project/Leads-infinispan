@@ -1,7 +1,11 @@
 package org.infinispan.ensemble;
 
 import org.infinispan.client.hotrod.RemoteCache;
+import org.infinispan.commons.util.concurrent.NotifyingFuture;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 /**
  *
@@ -17,8 +21,18 @@ public class WeakEnsembleCache<K,V> extends EnsembleCache<K,V> {
     @Override
     public V put(K key, V value) {
         V ret = null;
+        List<NotifyingFuture<V>> futures = new ArrayList<NotifyingFuture<V>>();
         for(RemoteCache<K,V> c : caches){
-            ret = c.put(key,value);
+            futures.add(c.putAsync(key, value));
+        }
+        for(NotifyingFuture<V> f : futures){
+            try {
+                ret = f.get();
+            } catch (InterruptedException e) {
+                e.printStackTrace();  // TODO: Customise this generated block
+            } catch (ExecutionException e) {
+                e.printStackTrace();  // TODO: Customise this generated block
+            }
         }
         return ret;
     }

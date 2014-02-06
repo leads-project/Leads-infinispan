@@ -92,6 +92,12 @@
            <groupId>${project.groupId}</groupId>
            <artifactId>infinispan-client-hotrod</artifactId>
        </dependency>
+       <dependency>
+           <groupId>org.menagerie</groupId>
+           <artifactId>menagerie</artifactId>
+           <version>1.2-SNAPSHOT</version>
+       </dependency>
+
 
    </dependencies>
 
