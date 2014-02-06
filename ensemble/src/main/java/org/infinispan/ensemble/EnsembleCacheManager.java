@@ -67,8 +67,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
         try {
             zkManager = new DefaultZkSessionManager(zkHost,to);
-            this.index = new ZkHashMap<String, List<Site>>(ZK_INDEX,zkManager,new menagerieSerializer<Map.Entry<String, List<Site>>>());
-            this.sites = new ZkListSet<Site>(ZK_SITES,zkManager,new menagerieSerializer<Site>());
+            this.index = new ZkHashMap<String, List<Site>>(ZK_INDEX,zkManager,new MenagerieSerializer<Map.Entry<String, List<Site>>>());
+            this.sites = new ZkListSet<Site>(ZK_SITES,zkManager,new MenagerieSerializer<Site>());
         } catch (Exception e) {
             throw new CacheException("Cannot connect to Zk; reason = "+e.getMessage());
         }
@@ -169,6 +169,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     public void stop() {
         zkManager.shutdown();
     }
+
+
 
 
     //
