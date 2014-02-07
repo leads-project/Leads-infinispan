@@ -36,14 +36,14 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
 
     private static int NCACHES = 1;
     private static int NCALLS = 10000;
-    private static int NKEYS = 1;
+    private static int NKEYS = 10;
     private List<Cache> delegates = new ArrayList<Cache>(NCACHES);
     private List<VersionedCache> vcaches = new ArrayList<VersionedCache>(NCACHES);
     private Random rand = new Random(System.nanoTime());
 
     @Override
     protected void createCacheManagers() throws Throwable {
-        ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, false);
+        ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
         builder.persistence().passivation(true);
         SearchMapping mapping = new SearchMapping();
         mapping.entity(HibernateProxy.class).indexed().providedId()
@@ -93,24 +93,6 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
         // simple test to create the topology.
         initAndTest();
 
-        Cache cache = cacheManagers.get(0).getCache("aa");
-        float avrg = 0;
-        cache.put("a","a");
-        for(int i=0;i<NCALLS;i++){
-            long start = System.nanoTime();
-            String k = Integer.toString(rand.nextInt(NKEYS));
-            cache.put(k,"a");
-            avrg += System.nanoTime()-start;
-        }
-        System.out.println("baseline put(): "+(avrg/NCALLS)/1000000+" ms");
-        avrg = 0;
-        for(int i=0;i<NCALLS;i++){
-            long start = System.nanoTime();
-            cache.get("a");
-            avrg += System.nanoTime()-start;
-        }
-        System.out.println("baseline get(): "+(avrg/NCALLS)/1000000+" ms");
-
 
         for(VersionedCache  vcache : vcaches){
             if(vcache.equals(vcaches.get(0)))
@@ -126,6 +108,53 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
         Thread.sleep(3000);
 
     }
+
+
+    public void computeBaseLine(){
+        Cache cache = cacheManagers.get(0).getCache("baseline");
+        float avrg = 0;
+        for(int i=0;i<NCALLS;i++){
+            long start = System.nanoTime();
+            String k = Integer.toString(rand.nextInt(NKEYS));
+            cache.put(k,"a");
+            avrg += System.nanoTime()-start;
+        }
+        System.out.println("baseline put(): "+(avrg/NCALLS)/1000000+" ms");
+        avrg = 0;
+        for(int i=0;i<NCALLS;i++){
+            long start = System.nanoTime();
+            cache.get("a");
+            avrg += System.nanoTime()-start;
+        }
+        System.out.println("baseline get(): "+(avrg/NCALLS)/1000000+" ms");
+    }
+
+    //
+    // OBJECT METHODS
+    //
+
+    protected void initAndTest() {
+        for (Cache<Object, String> c : delegates) assert c.isEmpty();
+        delegates.iterator().next().put("k1", "value");
+        assertOnAllCaches("k1", "value");
+    }
+
+    protected void assertOnAllCaches(Object key, String value) {
+        for (Cache<Object, String> c : delegates) {
+            Object realVal = c.get(key);
+            if (value == null) {
+                assert realVal == null : "Expecting [" + key + "] to equal [" + value + "] on cache "+ c.toString();
+            } else {
+                assert value.equals(realVal) : "Expecting [" + key + "] to equal [" + value + "] on cache "+c.toString();
+            }
+        }
+        // Allow some time for all ClusteredGetCommands to finish executing
+        TestingUtil.sleepThread(1000);
+    }
+
+    //
+    // INNER CLASSES
+    //
 
     private class ExerciceVersionedCache implements Callable<Integer> {
 
@@ -174,25 +203,6 @@ public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
 
             return  new Integer(ncalls);
         }
-    }
-
-    protected void initAndTest() {
-        for (Cache<Object, String> c : delegates) assert c.isEmpty();
-        delegates.iterator().next().put("k1", "value");
-        assertOnAllCaches("k1", "value");
-    }
-
-    protected void assertOnAllCaches(Object key, String value) {
-        for (Cache<Object, String> c : delegates) {
-            Object realVal = c.get(key);
-            if (value == null) {
-                assert realVal == null : "Expecting [" + key + "] to equal [" + value + "] on cache "+ c.toString();
-            } else {
-                assert value.equals(realVal) : "Expecting [" + key + "] to equal [" + value + "] on cache "+c.toString();
-            }
-        }
-        // Allow some time for all ClusteredGetCommands to finish executing
-        TestingUtil.sleepThread(1000);
     }
 
 }
