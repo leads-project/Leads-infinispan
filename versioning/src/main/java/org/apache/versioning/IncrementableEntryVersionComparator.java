@@ -11,9 +11,9 @@ import java.util.Comparator;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class EntryVersionComparator implements Comparator<IncrementableEntryVersion>, Serializable{
+public class IncrementableEntryVersionComparator implements Comparator<IncrementableEntryVersion>, Serializable{
 
-    public EntryVersionComparator(){}
+    public IncrementableEntryVersionComparator(){}
 
     @Override
     public int compare(IncrementableEntryVersion o, IncrementableEntryVersion o2) {
