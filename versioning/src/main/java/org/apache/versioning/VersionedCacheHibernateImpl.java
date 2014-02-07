@@ -1,401 +1,110 @@
 package org.apache.versioning;
 
+import org.apache.lucene.search.Query;
+import org.hibernate.search.query.dsl.QueryBuilder;
 import org.infinispan.Cache;
-import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.query.CacheQuery;
 import org.infinispan.query.SearchManager;
-import org.infinispan.query.dsl.Query;
-import org.infinispan.query.dsl.QueryFactory;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  *
  * @author Pierre Sutra
  * @since 6.0
  */
-public class VersionedCacheHibernateImpl<K,V> implements VersionedCache<K,V> {
+public class VersionedCacheHibernateImpl<K,V> extends VersionedCacheImpl<K,V> {
 
-    private VersionGenerator generator;
-    private Cache delegate;
-    private String name;
     private SearchManager searchManager;
-    private QueryFactory qf;
 
     public VersionedCacheHibernateImpl(Cache delegate, VersionGenerator generator, String name) {
-        this.delegate = delegate;
+        super(delegate, generator, name);
         // TODO check that the delegate is correct
-        this.generator = generator;
-        this.name = name;
         searchManager = org.infinispan.query.Search.getSearchManager(delegate);
-        qf = searchManager.getQueryFactory();
     }
 
-    @Override
-    public void put(K key, V value, IncrementableEntryVersion version) {
-        HibernateProxy<K,V> proxy = new HibernateProxy<K, V>(key,value,version);
-        delegate.put(proxy.getId(),proxy);
-    }
-
-    @Override
-    public Collection<V> get(K key, IncrementableEntryVersion first, IncrementableEntryVersion last) {
-        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        if(map.isEmpty())
-            return null;
-        return map.subMap(first, last).values();
-
+    protected TreeMap<IncrementableEntryVersion,V> versionMapGet(K key){
+        QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
+        Query q = qb.keyword().onField("k").matching(key).createQuery();
+        CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
+        TreeMap<IncrementableEntryVersion,V> map = new TreeMap<IncrementableEntryVersion, V>(
+                new IncrementableEntryVersionComparator());
+        for(Object proxy : cq.list())
+            map.put(((HibernateProxy<K,V>)proxy).version,((HibernateProxy<K,V>)proxy).v);
+        return map;
     }
 
     @Override
     public V get(K key, IncrementableEntryVersion version) {
-        TreeMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        return map.pollLastEntry().getValue();
+        QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
+        Query q = qb.bool()
+                .must(qb.keyword().onField("k").matching(key).createQuery())
+                .must(qb.keyword().onField("version").matching(version).createQuery())
+                .createQuery();
+        CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
+        List list = cq.list();
+        if(list.isEmpty())
+            return null;
+        assert list.size()==1 : list.toString();
+        return ((HibernateProxy<K,V>)list.get(0)).v;
     }
 
-    @Override
-    public String getName() {
-        return name;
-    }
+//    @Override
+//    public Collection<V> get(K key, IncrementableEntryVersion first, IncrementableEntryVersion last) {
+//        Set<V> result = new HashSet<V>();
+//        QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
+//        Query q = qb.bool()
+//                .must(qb.keyword().onField("k").matching(key).createQuery())
+//                .must(qb.range().onField("version").above(first).createQuery())
+//                .must(qb.range().onField("version").below(last).createQuery())
+//                .createQuery();
+//        CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
+//        for(Object proxy : cq.list())
+//            result.add(((HibernateProxy<K,V>)proxy).v);
+//        return  result;
+//    }
+
 
     @Override
-    public String getVersion() {
-        return delegate.getVersion();
-    }
-
-    @Override
-    public V put(K key, V value) {
-        TreeMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        IncrementableEntryVersion lversion;
-        V lval;
-
-        if(map.isEmpty()){
-            lversion = generator.generateNew();
-            lval = null;
-        }else{
-            lversion =  map.lastKey();
-            lval = map.get(lversion);
-        }
-        IncrementableEntryVersion entryVersion = generator.increment(lversion);
-        put(key,value,entryVersion);
-        return lval;
-    }
-
-    @Override
-    public V put(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public V putIfAbsent(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit unit) {
-        // TODO: Customise this generated block
-    }
-
-    @Override
-    public V replace(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit unit) {
-        return false;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public V put(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public V putIfAbsent(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        // TODO: Customise this generated block
-    }
-
-    @Override
-    public V replace(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return false;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public V remove(Object key) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public void putAll(Map<? extends K, ? extends V> map) {
-        // TODO: Customise this generated block
-    }
-
-    @Override
-    public void clear() {
-        // TODO: Customise this generated block
-    }
-
-    @Override
-    public Set<K> keySet() {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public Collection<V> values() {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public Set<Entry<K, V>> entrySet() {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public int size() {
-        return delegate.size();
+    protected void verionsMapPut(K key, V value, IncrementableEntryVersion version) {
+        HibernateProxy<K,V> proxy = new HibernateProxy<K, V>(key,value,version);
+        ((Cache<String,HibernateProxy<K,V>>)delegate).put(proxy.getId(), proxy);
     }
 
     @Override
     public boolean isEmpty() {
-        return false;  // TODO: Customise this generated block
+        QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
+        Query q = qb.all().createQuery();
+        CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
+        return cq.list().isEmpty();
     }
 
     @Override
     public boolean containsKey(Object o) {
-        return false;  // TODO: Customise this generated block
+        QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
+        Query q = qb.keyword().onField("k").matching(o).createQuery();
+        CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
+        return cq.list().isEmpty();
     }
 
     @Override
     public boolean containsValue(Object o) {
-        return false;  // TODO: Customise this generated block
+        QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
+        Query q = qb.keyword().onField("v").matching(o).createQuery();
+        CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
+        return cq.list().isEmpty();
     }
 
     @Override
-    public V get(Object k) {
-        TreeMap m = getVersionMap((K)k);
-        if(m.isEmpty())
-            return null;
-        return (V) m.get(m.lastKey());
+    public Set<K> keySet() {
+        HashSet<K> result = new HashSet<K>();
+        QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
+        Query q = qb.all().createQuery();
+        CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
+        for(Object proxy : cq.list())
+            result.add(((HibernateProxy<K,V>)proxy).k);
+        return result;
     }
-
-    @Override
-    public V getLatest(K key, IncrementableEntryVersion upperBound) {
-        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        if(map.isEmpty())
-            return null;
-        return map.get(map.headMap(upperBound).lastKey());
-    }
-
-    @Override
-    public V getEarliest(K key, IncrementableEntryVersion lowerBound) {
-        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        if(map.isEmpty())
-            return null;
-        return map.get(map.firstKey());
-    }
-
-    @Override
-    public IncrementableEntryVersion getLatestVersion(K key) {
-        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        if(map.isEmpty())
-            return null;
-        return map.lastKey();
-    }
-
-    @Override
-    public IncrementableEntryVersion getLatestVersion(K key, IncrementableEntryVersion upperBound) {
-        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        if(map.isEmpty())
-            return null;
-        return map.tailMap(upperBound).firstKey();
-    }
-
-    @Override
-    public IncrementableEntryVersion getEarliestVersion(K key) {
-        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        if(map.isEmpty())
-            return null;
-        return map.firstKey();
-    }
-
-    @Override
-    public IncrementableEntryVersion getEarliestVersion(K key, IncrementableEntryVersion lowerBound) {
-        SortedMap<IncrementableEntryVersion,V> map = getVersionMap(key);
-        if(map.isEmpty())
-            return null;
-        return map.firstKey();
-    }
-
-    @Override
-    public NotifyingFuture<V> putAsync(K key, V value) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<Void> clearAsync() {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> putIfAbsentAsync(K key, V value) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> removeAsync(Object key) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<Boolean> removeAsync(Object key, Object value) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> replaceAsync(K key, V value) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public NotifyingFuture<V> getAsync(K key) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public V putIfAbsent(K k, V v) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public boolean remove(Object o, Object o2) {
-        return false;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public boolean replace(K k, V v, V v2) {
-        return false;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public V replace(K k, V v) {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public void start() {
-        // TODO: Customise this generated block
-    }
-
-    @Override
-    public void stop() {
-        // TODO: Customise this generated block
-    }
-
-    //
-    // INNER METHODS
-    //
-
-    private TreeMap<IncrementableEntryVersion,V> getVersionMap(K key){
-        Query query = (Query) qf.from(HibernateProxy.class)
-                .having("k").eq(key.toString())
-                .toBuilder()
-                .build();
-        List<HibernateProxy<K,V>> list = query.list();
-        TreeMap<IncrementableEntryVersion,V> map = new TreeMap<IncrementableEntryVersion, V>(
-                new EntryVersionComparator());
-        for(HibernateProxy<K,V> proxy : list)
-            map.put(proxy.version,proxy.v);
-        return map;
-    }
-
-//    private TreeMap<IncrementableEntryVersion,V> getVersionMap(K key,
-//                                                               IncrementableEntryVersion v1,
-//                                                               IncrementableEntryVersion v2){
-//        Query query = (Query) qf.from(HibernateProxy.class)
-//                .having("k").eq(key.toString())
-//                .and().having("version").gte(v1)
-//                .and().having("version").lte(v2)
-//                .toBuilder()
-//                .build();
-//        List<HibernateProxy<K,V>> list = query.list();
-//        TreeMap<IncrementableEntryVersion,V> map = new TreeMap<IncrementableEntryVersion, V>(
-//                new EntryVersionComparator());
-//        for(HibernateProxy<K,V> proxy : list)
-//            map.put(proxy.version,proxy.v);
-//        return map;
-//
-//    }
-
 }

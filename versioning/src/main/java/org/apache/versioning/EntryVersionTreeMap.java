@@ -13,7 +13,7 @@ import java.util.TreeMap;
 public class EntryVersionTreeMap<IncrementableEntryVersion,V> extends TreeMap<IncrementableEntryVersion,V> implements Serializable{
 
     public EntryVersionTreeMap(){
-        super((Comparator<? super IncrementableEntryVersion>) new EntryVersionComparator());
+        super((Comparator<? super IncrementableEntryVersion>) new IncrementableEntryVersionComparator());
     }
 
 }

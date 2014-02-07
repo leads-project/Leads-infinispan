@@ -1,10 +1,57 @@
 package org.apache.versioning;
 
+import org.infinispan.Cache;
+import org.infinispan.atomic.AtomicMapLookup;
+import org.infinispan.container.versioning.IncrementableEntryVersion;
+import org.infinispan.container.versioning.VersionGenerator;
+
+import java.util.Set;
+import java.util.TreeMap;
+
 /**
- * // TODO: Document this
  *
- * @author otrack
+ * @author Fábio André Coelho, Pierre Sutra
  * @since 4.0
  */
-public class VersionedCacheAtomicMapImpl {
+public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheImpl<K,V> {
+
+    public VersionedCacheAtomicMapImpl(Cache delegate, VersionGenerator generator, String name) {
+        super(delegate,generator,name);
+    }
+
+    @Override
+    protected TreeMap<IncrementableEntryVersion, V> versionMapGet(K key) {
+        TreeMap map =  new TreeMap<IncrementableEntryVersion, V>(new IncrementableEntryVersionComparator());
+        map.putAll(AtomicMapLookup.getAtomicMap(delegate, key));
+        return map;
+    }
+
+    @Override
+    protected void verionsMapPut(K key, V value, IncrementableEntryVersion version) {
+        AtomicMapLookup.getAtomicMap(delegate, key).put(version,value);
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return delegate.isEmpty();
+    }
+
+    @Override
+    public boolean containsKey(Object o) {
+        return delegate.containsKey(o);
+    }
+
+    @Override
+    public boolean containsValue(Object o) {
+        for(K k: delegate.keySet()){
+            if(AtomicMapLookup.getAtomicMap(delegate,k).containsValue(o))
+                return true;
+        }
+        return false;
+    }
+
+    @Override
+    public Set<K> keySet() {
+        return delegate.keySet();
+    }
 }

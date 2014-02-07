@@ -23,16 +23,17 @@ public class EntryVersionFieldBridge implements TwoWayFieldBridge{
     }
 
     @Override
-        public String objectToString(final Object object) {
-            if(object instanceof NumericVersion){
-                NumericVersion version = (NumericVersion) object;
-                return bridge.objectToString(version.getVersion());
-            }
-            throw new IllegalArgumentException("not a numeric version  "+object.getClass().toString());
+    public String objectToString(final Object object) {
+        if(object instanceof NumericVersion){
+            NumericVersion version = (NumericVersion) object;
+            return bridge.objectToString(version.getVersion());
         }
+        throw new IllegalArgumentException("not a numeric version  "+object.getClass().toString());
+    }
 
     @Override
     public void set(String name, Object value, Document document, LuceneOptions luceneOptions) {
         bridge.set(name,value,document,luceneOptions);
     }
+
 }

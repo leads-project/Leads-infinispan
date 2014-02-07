@@ -39,4 +39,8 @@ public class HibernateProxy<K,V> implements Serializable{
         return k.toString()+Long.toString( ((NumericVersion)version).getVersion() );
     }
 
+    public String toString(){
+        return "HibernateProxy{"+this.k.toString()+","+this.version.toString()+"}";
+    }
+
 }
