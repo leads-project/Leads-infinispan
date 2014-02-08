@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
-  * @author Pierre Sutra
+ * @author Pierre Sutra
  *  @since 6.0
  *
  */
@@ -55,6 +55,7 @@ public class AtomicObjectContainer {
 
     private Boolean withReadOptimization;
     private Set<String> readOptimizationFailedMethods;
+    private Set<String> readOptimizationSucceedMethods;
     private Method equalsMethod;
 
     private Object key;
@@ -76,6 +77,7 @@ public class AtomicObjectContainer {
         key = k;
 
         readOptimizationFailedMethods = new HashSet<String>();
+        readOptimizationSucceedMethods = new HashSet<String>();
         withReadOptimization = readOptimization;
 
         equalsMethod = m;
@@ -90,13 +92,19 @@ public class AtomicObjectContainer {
                 GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
 
                 synchronized(withReadOptimization){
-                    if (withReadOptimization && !readOptimizationFailedMethods.contains(m.getName())) {
-                        Object copy = marshaller.objectFromByteBuffer(marshaller.objectToByteBuffer(object));
-                        Object ret = doCall(copy,m.getName(),args);
-                        if( equalsMethod == null ? copy.equals(object) : equalsMethod.invoke(copy, object).equals(Boolean.TRUE) )
-                            return ret;
-                        else
-                            readOptimizationFailedMethods.add(m.getName());
+                    if (withReadOptimization){
+                        if(readOptimizationSucceedMethods.contains(m.getName())){
+                            return doCall(object,m.getName(),args);
+                        }else if(!readOptimizationFailedMethods.contains(m.getName())){
+                            Object copy = marshaller.objectFromByteBuffer(marshaller.objectToByteBuffer(object));
+                            Object ret = doCall(copy,m.getName(),args);
+                            if( equalsMethod == null ? copy.equals(object) : equalsMethod.invoke(copy, object).equals(Boolean.TRUE) ){
+                                readOptimizationSucceedMethods.add(m.getName());
+                                return ret;
+                            }else{
+                                readOptimizationFailedMethods.add(m.getName());
+                            }
+                        }
                     }
                 }
 
