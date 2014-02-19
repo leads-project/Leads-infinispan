@@ -3,10 +3,10 @@ package org.infinispan.atomic;
 import java.io.Serializable;
 
 /**
-* // TODO: Document this
 *
-* @author otrack
-* @since 4.0
+*
+* @author Pierre Sutra
+* @since 6.0
 */
 abstract class AtomicObjectCall implements Serializable {
     int callID;
