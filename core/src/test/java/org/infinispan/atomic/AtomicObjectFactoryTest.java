@@ -12,7 +12,10 @@ import org.infinispan.util.logging.LogFactory;
 import org.testng.annotations.Test;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 
 /**
@@ -23,7 +26,7 @@ import java.util.concurrent.*;
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
     private static int NCALLS= 10000;
-    private static int NCACHES = 6;
+    private static int NCACHES = 4;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
@@ -58,17 +61,25 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
         Cache cache = cacheManager.getCache();
         AtomicObjectFactory factory = new AtomicObjectFactory(cache);
 
-        Map map = (Map) factory.getInstanceOf(HashMap.class, "set", true);
+        Random rand = new Random();
 
-        for(int i=0; i<NCALLS*10;i++){
-            map.containsKey("1");
+        boolean[] a = {false};
+        for(boolean b: a){
+            Map map = (Map) factory.getInstanceOf(HashMap.class, "set", b);
+            for(int p=10; p<=80; p+=10){
+                // map.clear();
+                long start = System.nanoTime();
+                for(int i=0; i<NCALLS*10;i++){
+                    if(rand.nextFloat()<=((float)p/(float)100))
+                        map.size();
+                    else
+                        map.put(i,i); //("1");
+                }
+                System.out.println(("percent = "+p+" ("+b+") : " + ((float)System.nanoTime() - start)/((float)1000000*NCALLS))+" ms");
+                map.clear();
+            }
         }
-        long start = System.currentTimeMillis();
-        for(int i=0; i<NCALLS*10;i++){
-            map.containsKey("1");
-        }
-
-        log.debug(System.currentTimeMillis() - start);
+        Thread.sleep(3000);
 
     }
 

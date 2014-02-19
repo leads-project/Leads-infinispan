@@ -56,11 +56,11 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     }
 
     public EnsembleCacheManager(String sites) throws CacheException{
-        this(Arrays.asList(sites.split("|")),"127.0.0.1:2181",ZK_TO);
+        this(Arrays.asList(sites.split("\\|")),"127.0.0.1:2181",ZK_TO);
     }
 
     public EnsembleCacheManager(String sites, String zkConnectString) throws CacheException{
-        this(Arrays.asList(sites.split("|")),zkConnectString,ZK_TO);
+        this(Arrays.asList(sites.split("\\|")),zkConnectString,ZK_TO);
     }
 
     public EnsembleCacheManager(List<String> sites, String zkHost, int to) throws CacheException{
@@ -76,10 +76,11 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         this.ensembles = new HashMap<String, EnsembleCache>();
 
         for(String s: sites){
+            System.out.println("Creating site : "+s);
             Site site = new Site(s, new RemoteCacheManager(s));
+            Site._sites.put(s,site);
             addSite(site);
         }
-
 
     }
 
@@ -129,8 +130,12 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      */
     public synchronized <K,V> BasicCache<K,V> getCache(String cacheName, List<Site> sites, Consistency consistency) {
 
-        if(ensembles.containsKey(cacheName))
+        System.out.println("Creating cache : "+cacheName+" with ("+sites.toString()+";"+consistency+")");
+
+        if(ensembles.containsKey(cacheName)){
+            System.out.println("Cache exists");
             return (BasicCache<K,V>) ensembles.get(cacheName);
+        }
 
         List<Site> previous = index.putIfAbsent(cacheName,sites);
         if(previous != null){
@@ -140,6 +145,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         List<RemoteCache<K,V>> caches = new ArrayList<RemoteCache<K, V>>();
         for(Site site: sites){
             RemoteCache<K,V> c = site.getManager().getCache(cacheName);
+            assert site != null;
+            assert site.getManager() != null : site.getName();
             caches.add(c);
         }
 
@@ -159,6 +166,11 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
     public synchronized void addSite(Site site){
         sites.add(site);
+    }
+
+    public void clear(){
+        sites.clear();
+        index.clear();
     }
 
     @Override
@@ -182,7 +194,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      * @return a random list of <i>replicationFactor</i> uclouds.
      */
     private List<Site> assignRandomly(int replicationFactor){
-        List<Site> replicas = new ArrayList<Site>(sites);
+        assert  replicationFactor < Site._sites.size();
+        List<Site> replicas = new ArrayList<Site>(Site._sites.values());
         java.util.Collections.shuffle(replicas);
         for(int i=replicas.size()-replicationFactor;i>0;i--)
             replicas.remove(0);

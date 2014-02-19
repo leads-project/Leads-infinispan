@@ -15,7 +15,7 @@ import java.util.Map;
 
 public class Site implements Serializable{
 
-    private transient static Map<String,Site> _sites;
+    public transient static Map<String,Site> _sites;
     static{
         _sites = new HashMap<String, Site>();
     }
@@ -50,6 +50,11 @@ public class Site implements Serializable{
         return ((Site)o).getName().equals(this.getName());
     }
 
+
+    @Override
+    public String toString(){
+        return name;
+    }
 
     //
     // Serializability management

@@ -76,7 +76,7 @@ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
      }
 
      protected int majoritySize(){
-         return Math.round(size()/(float)2)+1;
+         return Math.round((float)caches.size()/(float)2) +1;
      }
 
      protected Collection<RemoteCache<K,V>> quorumCache(){
