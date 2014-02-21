@@ -1,5 +1,8 @@
 package org.apache.versioning;
 
+import org.infinispan.atomic.AtomicObjectFactory;
+import org.infinispan.manager.DefaultCacheManager;
+
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.*;
@@ -13,6 +16,7 @@ public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V>
         implements Serializable, SortedMap<IncrementableEntryVersion, V> {
 
     private static int THRESHOLD = 100;
+    private static AtomicObjectFactory factory = new AtomicObjectFactory((new DefaultCacheManager()).getCache());
 
     private Set<IncrementableEntryVersion> entries;
     private volatile SortedMap<IncrementableEntryVersion,EntryVersionTreeMap> delegate;
@@ -24,14 +28,18 @@ public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V>
 
     @Override
     public Comparator<? super IncrementableEntryVersion> comparator() {
-        return null;  // TODO: Customise this generated block
+        return (Comparator<? super IncrementableEntryVersion>) new IncrementableEntryVersionComparator();
     }
 
     @Override
     public SortedMap<IncrementableEntryVersion, V> subMap(
-            IncrementableEntryVersion incrementableEntryVersion,
-            IncrementableEntryVersion incrementableEntryVersion2) {
-        return null;  // TODO: Customise this generated block
+            IncrementableEntryVersion v1,
+            IncrementableEntryVersion v2) {
+        SortedMap<IncrementableEntryVersion,V> result = new TreeMap<IncrementableEntryVersion, V>();
+        for(IncrementableEntryVersion version : delegate.subMap(v1, v2).keySet()){
+            result.putAll(delegate.get(version).subMap(v1, v2));
+        }
+        return result;
     }
 
     @Override
@@ -116,20 +124,21 @@ public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V>
 
     @Override
     public boolean equals(Object o) {
-        return false;  // TODO: Customise this generated block
+        return this == o;
     }
 
     @Override
     public int hashCode() {
-        return 0;  // TODO: Customise this generated block
+        return delegate.hashCode();
     }
 
-    public Object readResolve()
-            throws ObjectStreamException {
+    public Object readResolve() throws ObjectStreamException {
         delegate = new TreeMap<IncrementableEntryVersion, EntryVersionTreeMap>();
-//        for(IncrementableEntryVersion version : entries){
-//        }
-        return null;
+        for(IncrementableEntryVersion version : entries){
+            EntryVersionTreeMap map = factory.getInstanceOf(EntryVersionTreeMap.class,version.toString(),true,null,false);
+            delegate.put(version,map);
+        }
+        return this;
     }
 
 }
