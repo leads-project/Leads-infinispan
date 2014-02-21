@@ -42,7 +42,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
      */
     @Override
     public Collection<V> get(K key, IncrementableEntryVersion first, IncrementableEntryVersion last) {
-        TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.subMap(first, last).values();
@@ -50,7 +50,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
 
     @Override
     public V get(K key, IncrementableEntryVersion version) {
-        TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.get(version);
@@ -58,7 +58,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
 
     @Override
     public V getLatest(K key, IncrementableEntryVersion upperBound) {
-        TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.get(map.headMap(upperBound).lastKey());
@@ -66,7 +66,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
 
     @Override
     public V getEarliest(K key, IncrementableEntryVersion lowerBound) {
-        TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.get(map.tailMap(lowerBound).firstKey());
@@ -74,7 +74,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
 
     @Override
     public IncrementableEntryVersion getLatestVersion(K key) {
-        TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.lastKey();
@@ -82,7 +82,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
 
     @Override
     public IncrementableEntryVersion getLatestVersion(K key, IncrementableEntryVersion upperBound) {
-        TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.tailMap(upperBound).firstKey();
@@ -90,7 +90,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
 
     @Override
     public IncrementableEntryVersion getEarliestVersion(K key) {
-        TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.firstKey();
@@ -98,7 +98,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
 
     @Override
     public IncrementableEntryVersion getEarliestVersion(K key, IncrementableEntryVersion lowerBound) {
-        TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.headMap(lowerBound).firstKey();
@@ -108,7 +108,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
     public int size() {
         int result=0;
         for(K key: keySet()){
-            TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+            SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
             result += map.size();
         }
         return result;
@@ -123,7 +123,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
     public Collection<V> values() {
         Collection<V> result = new ArrayList<V>();
         for(K key: keySet()){
-            TreeMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+            SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
             result.addAll(map.values());
         }
         return result;
@@ -148,7 +148,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
     // OBJECT METHODS
     //
 
-    protected abstract TreeMap<IncrementableEntryVersion,V> versionMapGet(K key);
+    protected abstract SortedMap<IncrementableEntryVersion,V> versionMapGet(K key);
 
     protected abstract void verionsMapPut(K key, V value, IncrementableEntryVersion verrsion);
 

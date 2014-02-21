@@ -6,7 +6,7 @@ import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 
 import java.util.Set;
-import java.util.TreeMap;
+import java.util.SortedMap;
 
 /**
  * // TODO: Document this
@@ -14,17 +14,17 @@ import java.util.TreeMap;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class VersionedCacheAtomicObjectFactoryImpl<K,V> extends VersionedCacheImpl<K,V> {
+public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheImpl<K,V> {
 
     AtomicObjectFactory factory;
 
-    public VersionedCacheAtomicObjectFactoryImpl(Cache delegate, VersionGenerator generator, String name) {
+    public VersionedCacheAtomicTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
     }
 
     @Override
-    protected TreeMap<IncrementableEntryVersion, V> versionMapGet(K key) {
+    protected SortedMap<IncrementableEntryVersion, V> versionMapGet(K key) {
         return factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
     }
 

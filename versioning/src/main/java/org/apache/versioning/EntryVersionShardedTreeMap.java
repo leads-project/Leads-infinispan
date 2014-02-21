@@ -1,5 +1,6 @@
 package org.apache.versioning;
 
+import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.*;
 
@@ -8,12 +9,17 @@ import java.util.*;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V> implements Serializable, SortedMap<IncrementableEntryVersion, V> {
+public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V>
+        implements Serializable, SortedMap<IncrementableEntryVersion, V> {
 
-    private SortedMap<IncrementableEntryVersion,TreeMap<IncrementableEntryVersion,V>> delegate;
+    private static int THRESHOLD = 100;
 
-    public EntryVersionShardedTreeMap(int THRESHOLD){
-        delegate = new TreeMap<IncrementableEntryVersion, TreeMap<IncrementableEntryVersion, V>>();
+    private Set<IncrementableEntryVersion> entries;
+    private volatile SortedMap<IncrementableEntryVersion,EntryVersionTreeMap> delegate;
+
+    public EntryVersionShardedTreeMap(){
+        entries = new HashSet<IncrementableEntryVersion>();
+        delegate = new TreeMap<IncrementableEntryVersion, EntryVersionTreeMap>();
     }
 
     @Override
@@ -40,7 +46,7 @@ public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V> implements 
 
     @Override
     public IncrementableEntryVersion firstKey() {
-        return null;  // TODO: Customise this generated block
+        return (IncrementableEntryVersion) delegate.get(delegate.firstKey()).firstKey();
     }
 
     @Override
@@ -55,7 +61,7 @@ public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V> implements 
 
     @Override
     public boolean isEmpty() {
-        return false;  // TODO: Customise this generated block
+        return delegate.isEmpty();
     }
 
     @Override
@@ -117,4 +123,13 @@ public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V> implements 
     public int hashCode() {
         return 0;  // TODO: Customise this generated block
     }
+
+    public Object readResolve()
+            throws ObjectStreamException {
+        delegate = new TreeMap<IncrementableEntryVersion, EntryVersionTreeMap>();
+//        for(IncrementableEntryVersion version : entries){
+//        }
+        return null;
+    }
+
 }

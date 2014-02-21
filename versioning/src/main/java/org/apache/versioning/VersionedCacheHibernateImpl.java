@@ -25,7 +25,7 @@ public class VersionedCacheHibernateImpl<K,V> extends VersionedCacheImpl<K,V> {
         searchManager = org.infinispan.query.Search.getSearchManager(delegate);
     }
 
-    protected TreeMap<IncrementableEntryVersion,V> versionMapGet(K key){
+    protected SortedMap<IncrementableEntryVersion,V> versionMapGet(K key){
         QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
         Query q = qb.keyword().onField("k").matching(key).createQuery();
         CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
