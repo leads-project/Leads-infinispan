@@ -68,7 +68,7 @@ public class VersionedCacheHibernateImpl<K,V> extends VersionedCacheImpl<K,V> {
 
 
     @Override
-    protected void verionsMapPut(K key, V value, IncrementableEntryVersion version) {
+    protected void versionMapPut(K key, V value, IncrementableEntryVersion version) {
         HibernateProxy<K,V> proxy = new HibernateProxy<K, V>(key,value,version);
         ((Cache<String,HibernateProxy<K,V>>)delegate).put(proxy.getId(), proxy);
     }

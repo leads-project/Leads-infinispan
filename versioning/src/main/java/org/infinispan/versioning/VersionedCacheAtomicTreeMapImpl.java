@@ -29,7 +29,7 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheImpl<K,V
     }
 
     @Override
-    protected void verionsMapPut(K key, V value, IncrementableEntryVersion version) {
+    protected void versionMapPut(K key, V value, IncrementableEntryVersion version) {
         factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false).put(version, value);
     }
 

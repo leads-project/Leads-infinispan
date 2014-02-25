@@ -31,7 +31,7 @@ public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheI
     }
 
     @Override
-    protected void verionsMapPut(K key, V value, IncrementableEntryVersion version) {
+    protected void versionMapPut(K key, V value, IncrementableEntryVersion version) {
         factory.getInstanceOf(EntryVersionShardedTreeMap.class,key,true,null,false).put(version, value);
     }
 

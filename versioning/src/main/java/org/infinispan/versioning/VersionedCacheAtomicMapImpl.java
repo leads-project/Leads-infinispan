@@ -28,7 +28,7 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheImpl<K,V> {
     }
 
     @Override
-    protected void verionsMapPut(K key, V value, IncrementableEntryVersion version) {
+    protected void versionMapPut(K key, V value, IncrementableEntryVersion version) {
         AtomicMapLookup.getAtomicMap(delegate, key).put(version,value);
     }
 
