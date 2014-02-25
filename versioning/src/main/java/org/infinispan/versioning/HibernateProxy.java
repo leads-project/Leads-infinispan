@@ -1,4 +1,4 @@
-package org.apache.versioning;
+package org.infinispan.versioning;
 
 import org.hibernate.search.annotations.*;
 import org.infinispan.container.versioning.IncrementableEntryVersion;

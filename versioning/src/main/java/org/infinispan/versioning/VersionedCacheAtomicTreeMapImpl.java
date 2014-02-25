@@ -1,4 +1,4 @@
-package org.apache.versioning;
+package org.infinispan.versioning;
 
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;

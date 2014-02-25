@@ -1,4 +1,4 @@
-package org.apache.versioning;
+package org.infinispan.versioning;
 
 import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.InequalVersionComparisonResult;

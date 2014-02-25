@@ -1,4 +1,4 @@
-package org.apache.versioning;
+package org.infinispan.versioning;
 
 import org.apache.lucene.search.Query;
 import org.hibernate.search.query.dsl.QueryBuilder;

@@ -1,4 +1,4 @@
-package org.apache.versioning;
+package org.infinispan.versioning;
 
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
