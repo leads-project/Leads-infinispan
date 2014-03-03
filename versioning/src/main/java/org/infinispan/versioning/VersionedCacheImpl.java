@@ -150,7 +150,7 @@ public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
 
     protected abstract SortedMap<IncrementableEntryVersion,V> versionMapGet(K key);
 
-    protected abstract void versionMapPut(K key, V value, IncrementableEntryVersion verrsion);
+    protected abstract void versionMapPut(K key, V value, IncrementableEntryVersion version);
 
 
     //
