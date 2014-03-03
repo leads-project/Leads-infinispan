@@ -7,6 +7,15 @@ import org.infinispan.Cache;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 
+/**
+ * Implement the Naive multi-versioning technique.
+ * In this implementation, all the versions are stored under the same key.
+ * 
+ * @author valerio.schiavoni@gmail.com
+ *
+ * @param <K>
+ * @param <V>
+ */
 public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheImpl<K,V> {
 
 	
