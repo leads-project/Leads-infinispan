@@ -13,8 +13,8 @@ import org.infinispan.container.versioning.VersionGenerator;
  * 
  * @author valerio.schiavoni@gmail.com
  *
- * @param <K>
- * @param <V>
+ * @param <K> the type of the key
+ * @param <V> the type of the value
  */
 public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheImpl<K,V> {
 
@@ -26,8 +26,7 @@ public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheImpl<K,V> {
 
 	@Override
 	public boolean containsKey(Object arg0) {
-		// TODO Auto-generated method stub
-		return false;
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
