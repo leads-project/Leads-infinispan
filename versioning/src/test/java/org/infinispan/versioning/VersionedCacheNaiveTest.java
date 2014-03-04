@@ -11,7 +11,7 @@ import org.infinispan.test.fwk.TransportFlags;
 import org.testng.annotations.Test;
 
 @Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
-public class NaiveVersionedCacheTest  extends MultipleCacheManagersTest {
+public class VersionedCacheNaiveTest  extends MultipleCacheManagersTest {
 	 private static int NCACHES = 1;
 	@Override
 	protected void createCacheManagers() throws Throwable {
