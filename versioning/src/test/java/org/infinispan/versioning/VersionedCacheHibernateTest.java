@@ -35,7 +35,7 @@ import java.util.concurrent.Future;
  */
 
 @Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
-public class ClusteredVersionedCacheTest extends MultipleCacheManagersTest {
+public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
 
     private static int NCACHES = 1;
     private static int NCALLS = 10000;
