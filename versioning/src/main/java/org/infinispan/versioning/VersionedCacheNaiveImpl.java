@@ -26,12 +26,12 @@ public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheImpl<K,V> {
 
 	@Override
 	public boolean containsKey(Object arg0) {
-		throw new UnsupportedOperationException();
+		throw new UnsupportedOperationException("to be implemented");
 	}
 
 	@Override
 	public boolean containsValue(Object arg0) {
-		throw new UnsupportedOperationException();
+		throw new UnsupportedOperationException("to be implemented");
 	}
 
 	@Override
@@ -41,19 +41,19 @@ public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheImpl<K,V> {
 
 	@Override
 	public Set keySet() {
-		throw new UnsupportedOperationException();
+		throw new UnsupportedOperationException("to be implemented");
 	}
 
 	@Override
 	protected SortedMap versionMapGet(Object key) {
-		throw new UnsupportedOperationException();
+		throw new UnsupportedOperationException("to be implemented");
 
 	}
 
 	@Override
 	protected void versionMapPut(Object key, Object value,
 			IncrementableEntryVersion verrsion) {
-		throw new UnsupportedOperationException();
+		throw new UnsupportedOperationException("to be implemented");
 
 	}
 
