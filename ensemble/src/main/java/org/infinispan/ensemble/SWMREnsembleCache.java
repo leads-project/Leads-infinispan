@@ -25,9 +25,9 @@ import java.util.concurrent.ExecutionException;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class StrongEnsembleCache<K,V> extends EnsembleCache<K,V> {
+public class SWMREnsembleCache<K,V> extends EnsembleCache<K,V> {
 
-    public StrongEnsembleCache(String name, List<RemoteCache<K, V>> caches){
+    public SWMREnsembleCache(String name, List<RemoteCache<K, V>> caches){
         super(name,caches);
     }
 

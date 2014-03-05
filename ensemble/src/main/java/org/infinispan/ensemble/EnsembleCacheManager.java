@@ -153,7 +153,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         EnsembleCache e  = null;
         switch (consistency){
             case STRONG:
-                e = new StrongEnsembleCache(cacheName, caches);
+                e = new SWMREnsembleCache(cacheName, caches);
                 break;
             default:
                 e = new WeakEnsembleCache(cacheName,caches);
