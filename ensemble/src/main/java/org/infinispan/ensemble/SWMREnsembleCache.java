@@ -4,23 +4,11 @@ import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.VersionedValue;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 
 /**
- *
- * TODO this is a SWMR register.
- * To implement WMWMR, there are a few solutions:
- * (1) vector clocks, with one entry per writer.
- * (2) in case the participants are unknown, with the coniditional write API of a remoteCache,
- *     one can implement an obstruction-free timestamp, and on top of it, we can do a MWMR register;
- * (3) best approach: a version is now two integers, a TS and an ID; we use ID to break equalities.
- *
- * TODO we assume here that null cannot be written inside a cache.
- *
- * TODO double-check the write-back mechanism according to the total order semantics
  *
  * @author Pierre Sutra
  * @since 6.0
@@ -33,37 +21,31 @@ public class SWMREnsembleCache<K,V> extends EnsembleCache<K,V> {
 
     @Override
     public V get(Object key) {
-        VersionedValue<V> v = latestValue((K)key);
-        if(v!=null)
-            writeBack((K)key,v.getValue(),v.getVersion());
-        return v.getValue();
+        Map<RemoteCache<K,V>, VersionedValue<V>> previous= previousValues((K)key);
+        VersionedValue<V> g = greatestValue(previous);
+        if(!isStable(previous, g))
+            writeStable((K) key, g.getValue(), previous.keySet());
+        return g.getValue();
     }
 
     @Override
     public V put(K key, V value) {
-        VersionedValue<V> v = latestValue(key);
-        if(v==null){
-            for(RemoteCache<K,V> c :quorumCache()){
-                c.putIfAbsent(key,value);
-            }
-            return null;
-        }
-        writeBack(key,value,v.getVersion());
-        return v.getValue();
+        Map<RemoteCache<K,V>, VersionedValue<V>> previous= previousValues((K)key);
+        VersionedValue<V> g = greatestValue(previous);
+        writeStable(key, value, previous.keySet());
+        return g.getValue();
     }
 
     //
     // OBJECT METHODS
     //
 
-    protected void writeBack(K key, V v, long version){
-        List<NotifyingFuture<Boolean>> futures = new ArrayList<NotifyingFuture<Boolean>>();
-        for(RemoteCache<K,V> c :quorumCache()){
-            VersionedValue<V> tmp = c.getVersioned(key);
-            if(tmp.getVersion() < version)
-                futures.add(c.replaceWithVersionAsync(key, v, tmp.getVersion()));
+    private void writeStable(K key, V value, Set<RemoteCache<K, V>> caches) {
+        List<NotifyingFuture<V>> futures = new ArrayList<NotifyingFuture<V>>();
+        for(RemoteCache<K,V> c : caches) {
+            futures.add(c.putAsync(key,value));
         }
-        for(NotifyingFuture<Boolean> future : futures){
+        for(NotifyingFuture<V> future : futures){
             try {
                 future.get();
             } catch (InterruptedException e) {
@@ -72,30 +54,45 @@ public class SWMREnsembleCache<K,V> extends EnsembleCache<K,V> {
                 e.printStackTrace();  // TODO: Customise this generated block
             }
         }
+
     }
 
-    protected VersionedValue<V> latestValue(K k){
-        List<NotifyingFuture<VersionedValue<V>>> futures = new ArrayList<NotifyingFuture<VersionedValue<V>>>();
+    private Map<RemoteCache<K,V>, VersionedValue<V>> previousValues(K k){
+        Map<RemoteCache<K,V>,NotifyingFuture<VersionedValue<V>>> futures
+                = new HashMap<RemoteCache<K, V>, NotifyingFuture<VersionedValue<V>>>();
         for(RemoteCache<K,V> cache : quorumCache()){
-            futures.add(cache.getVersionedAsynch(k));
+            futures.put(cache, cache.getVersionedAsynch(k));
         }
-
-        VersionedValue<V> ret = null;
-        for(NotifyingFuture<VersionedValue<V>> future : futures){
+        Map<RemoteCache<K,V>, VersionedValue<V>> ret = new HashMap<RemoteCache<K, V>, VersionedValue<V>>();
+        for(RemoteCache<K,V> cache : futures.keySet()){
             VersionedValue<V> tmp = null;
             try {
-                tmp = future.get();
+                tmp = futures.get(cache).get();
             } catch (InterruptedException e) {
                 e.printStackTrace();  // TODO: Customise this generated block
             } catch (ExecutionException e) {
                 e.printStackTrace();  // TODO: Customise this generated block
             }
-            if(ret == null){
-                ret = tmp;
-            }else{
-                if(tmp !=  null && tmp.getVersion() > ret.getVersion())
-                    ret = tmp;
-            }
+            ret.put(cache,tmp);
+        }
+        return ret;
+    }
+
+    private boolean isStable(Map<RemoteCache<K, V>, VersionedValue<V>> map, VersionedValue<V> v){
+        int count = 0;
+        if(v==null) return true;
+        for(VersionedValue<V> w: map.values()){
+            if( w!=null && w.getVersion()==v.getVersion())
+                count++;
+        }
+        return count >= quorumSize();
+    }
+
+    private VersionedValue<V> greatestValue(Map<RemoteCache<K,V>,VersionedValue<V>> map){
+        VersionedValue<V> ret = null;
+        for(VersionedValue<V> v: map.values()){
+            if ( v!=null && (ret==null || v.getVersion()>ret.getVersion()))
+                ret = v;
         }
         return ret;
     }

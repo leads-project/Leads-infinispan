@@ -13,8 +13,9 @@ import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
-import static org.infinispan.ensemble.EnsembleCacheManager.Consistency.STRONG;
+import static org.infinispan.ensemble.EnsembleCacheManager.Consistency.SWMR;
 import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
+
 
 /**
   *
@@ -26,7 +27,7 @@ public class EnsembleBasicTest extends MultiHotRodServersTest {
 
     private static int NCACHES = 3;
     private static String WEAK_CACHE_NAME = "georeplicatedWeakCache";
-    private static String STRONG_CACHE_NAME = "georeplicatedSWMRCache";
+    private static String SWMR_CACHE_NAME = "georeplicatedSWMRCache";
     private static EnsembleCacheManager manager;
 
      public void basicWeakCacheUsageTest() throws  Exception {
@@ -36,22 +37,22 @@ public class EnsembleBasicTest extends MultiHotRodServersTest {
         assert cache.get("key").equals("smthing");
     }
 
-    public void georeplicatedWeakCacheUsageTest() throws Exception {
+    public void replicateddWeakCacheUsageTest() throws Exception {
         BasicCache cache = manager.getCache(WEAK_CACHE_NAME,2);
         cache.put("key","smthing");
         assert cache.containsKey("key");
         assert cache.get("key").equals("smthing");
     }
 
-    public void basicStrongCacheUsageTest() throws  Exception {
+    public void basicSWMRCacheUsageTest() throws  Exception {
         BasicCache cache = manager.getCache();
         cache.put("key", "smthing");
         assert cache.containsKey("key");
         assert cache.get("key").equals("smthing");
     }
 
-    public void georeplicatedStrongCacheUsageTest() throws Exception {
-        BasicCache cache = manager.getCache(STRONG_CACHE_NAME,2,STRONG);
+    public void replicatedSWMRCacheUsageTest() throws Exception {
+        BasicCache cache = manager.getCache(SWMR_CACHE_NAME,2,SWMR);
         cache.put("key","smthing");
         assert cache.containsKey("key");
         assert cache.get("key").equals("smthing");
@@ -64,7 +65,7 @@ public class EnsembleBasicTest extends MultiHotRodServersTest {
         createHotRodServers(NCACHES, builder);
         for(EmbeddedCacheManager m: cacheManagers){
             m.defineConfiguration(WEAK_CACHE_NAME, builder.build());
-            m.defineConfiguration(STRONG_CACHE_NAME, builder.build());
+            m.defineConfiguration(SWMR_CACHE_NAME, builder.build());
         }
 
         manager = new EnsembleCacheManager();

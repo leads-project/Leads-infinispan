@@ -35,7 +35,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     public static final int ENSEMBLE_VERSION_MINOR = 1;
 
     public static enum Consistency {
-        STRONG,
+        SWMR,
+        MWMR,
         WEAK
     }
 
@@ -63,10 +64,10 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         this(Arrays.asList(sites.split("\\|")),zkConnectString,ZK_TO);
     }
 
-    public EnsembleCacheManager(List<String> sites, String zkHost, int to) throws CacheException{
+    public EnsembleCacheManager(List<String> sites, String zkConnectString, int to) throws CacheException{
 
         try {
-            zkManager = new DefaultZkSessionManager(zkHost,to);
+            zkManager = new DefaultZkSessionManager(zkConnectString,to);
             this.index = new ZkHashMap<String, List<Site>>(ZK_INDEX,zkManager,new MenagerieSerializer<Map.Entry<String, List<Site>>>());
             this.sites = new ZkListSet<Site>(ZK_SITES,zkManager,new MenagerieSerializer<Site>());
         } catch (Exception e) {
@@ -113,7 +114,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     }
 
     public <K,V> BasicCache<K,V> getCache(String cacheName, int replicationFactor, Consistency consistency){
-        return getCache(cacheName,assignRandomly(replicationFactor),Consistency.WEAK);
+        return getCache(cacheName,assignRandomly(replicationFactor),consistency);
     }
 
 
@@ -152,12 +153,18 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
         EnsembleCache e  = null;
         switch (consistency){
-            case STRONG:
-                e = new SWMREnsembleCache(cacheName, caches);
+            case SWMR:
+                e = new SWMREnsembleCache<K,V>(cacheName, caches);
+                break;
+            case MWMR:
+                e = new MWMREnsembleCache<K,V>(cacheName, caches);
+                e.put(null,null);
+                break;
+            case WEAK:
+                e = new WeakEnsembleCache<K,V>(cacheName,caches);
                 break;
             default:
-                e = new WeakEnsembleCache(cacheName,caches);
-                break;
+                throw new CacheException("Invalid consistency level "+consistency.toString());
         }
 
         ensembles.put(cacheName, e);
@@ -168,7 +175,21 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         sites.add(site);
     }
 
-    public void clear(){
+    /**
+     *
+     * @return the available sites in the current state.
+     */
+    public synchronized Set<Site> sites(){
+        return new HashSet<Site>(sites);
+    }
+
+    public synchronized void clear(){
+        System.out.println("Clearing Ensemble");
+        for(String cache : index.keySet()){
+            for(Site site : index.get(cache)){
+                site.getManager().getCache(cache).clear();
+            }
+        }
         sites.clear();
         index.clear();
     }
@@ -194,7 +215,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      * @return a random list of <i>replicationFactor</i> uclouds.
      */
     private List<Site> assignRandomly(int replicationFactor){
-        assert  replicationFactor < Site._sites.size();
+        assert  replicationFactor <= Site._sites.size() : Site._sites.values().toString();
         List<Site> replicas = new ArrayList<Site>(Site._sites.values());
         java.util.Collections.shuffle(replicas);
         for(int i=replicas.size()-replicationFactor;i>0;i--)

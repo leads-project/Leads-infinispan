@@ -20,7 +20,7 @@ public class WeakEnsembleCache<K,V> extends EnsembleCache<K,V> {
 
     @Override
     public V put(K key, V value) {
-        V ret = null;
+        V ret;
         List<NotifyingFuture<V>> futures = new ArrayList<NotifyingFuture<V>>();
         for(RemoteCache<K,V> c : quorumCache()){
             futures.add(c.putAsync(key, value));
@@ -28,13 +28,14 @@ public class WeakEnsembleCache<K,V> extends EnsembleCache<K,V> {
         for(NotifyingFuture<V> f : futures){
             try {
                 ret = f.get();
+                return ret;
             } catch (InterruptedException e) {
                 e.printStackTrace();  // TODO: Customise this generated block
             } catch (ExecutionException e) {
                 e.printStackTrace();  // TODO: Customise this generated block
             }
         }
-        return ret;
+        return null;
     }
 
     /**

@@ -9,7 +9,7 @@
 
  /**
  *
- * The atomicity of the cache will be thus part of the property on the put operation of the underlying cache.
+ * The atomicity of the cache will be thus part of the property on the writeBack operation of the underlying cache.
  * Hence, this will be possible to use an assembled cache as input of the factory.
  *
  *
@@ -75,18 +75,28 @@ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
          return caches.iterator().next();
      }
 
-     protected int majoritySize(){
-         return Math.round((float)caches.size()/(float)2) +1;
+     protected int quorumSize(){
+         return (int)Math.floor((double)caches.size()/(double)2) +1;
      }
 
      protected Collection<RemoteCache<K,V>> quorumCache(){
          List<RemoteCache<K,V>> quorum = new ArrayList<RemoteCache<K, V>>();
-         Collections.shuffle(caches);
-         for(int i=0; i<majoritySize(); i++){
+         for(int i=0; i< quorumSize(); i++){
              quorum.add(caches.get(i));
          }
+         assert quorum.size() == quorumSize();
          return quorum;
+     }
 
+     protected Collection<RemoteCache<K,V>> quorumCacheContaining(RemoteCache<K, V> cache){
+         List<RemoteCache<K,V>> quorum = new ArrayList<RemoteCache<K, V>>();
+         quorum.add(cache);
+         for(int i=0; quorum.size()<quorumSize(); i++){
+             if(!caches.get(i).equals(cache))
+                 quorum.add(caches.get(i));
+         }
+         assert quorum.size() == quorumSize();
+         return quorum;
      }
 
      //
