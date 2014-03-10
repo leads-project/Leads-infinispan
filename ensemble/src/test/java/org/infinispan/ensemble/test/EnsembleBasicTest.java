@@ -70,9 +70,9 @@ public class EnsembleBasicTest extends MultiHotRodServersTest {
 
         manager = new EnsembleCacheManager();
         Iterator<RemoteCacheManager> it =  clients.iterator();
-        manager.addSite(new Site("neuchatel",it.next()));
-        manager.addSite(new Site("dresden",it.next()));
-        manager.addSite(new Site("chania",it.next()));
+        manager.addSite(new Site("neuchatel",it.next(),false));
+        manager.addSite(new Site("dresden",it.next(),false));
+        manager.addSite(new Site("chania",it.next(),false));
      }
 
 

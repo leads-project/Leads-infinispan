@@ -22,7 +22,7 @@ public class WeakEnsembleCache<K,V> extends EnsembleCache<K,V> {
     public V put(K key, V value) {
         V ret;
         List<NotifyingFuture<V>> futures = new ArrayList<NotifyingFuture<V>>();
-        for(RemoteCache<K,V> c : quorumCache()){
+        for(RemoteCache<K,V> c : caches){
             futures.add(c.putAsync(key, value));
         }
         for(NotifyingFuture<V> f : futures){

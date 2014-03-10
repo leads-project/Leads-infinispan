@@ -71,7 +71,6 @@ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
      }
 
      protected RemoteCache<K,V> someCache(){
-         Collections.shuffle(caches);
          return caches.iterator().next();
      }
 

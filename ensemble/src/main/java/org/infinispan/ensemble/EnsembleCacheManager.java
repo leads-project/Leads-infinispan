@@ -7,10 +7,9 @@ import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.api.BasicCacheContainer;
 import org.menagerie.DefaultZkSessionManager;
 import org.menagerie.ZkSessionManager;
-import org.menagerie.collections.ZkHashMap;
-import org.menagerie.collections.ZkListSet;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 
@@ -68,17 +67,21 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
         try {
             zkManager = new DefaultZkSessionManager(zkConnectString,to);
-            this.index = new ZkHashMap<String, List<Site>>(ZK_INDEX,zkManager,new MenagerieSerializer<Map.Entry<String, List<Site>>>());
-            this.sites = new ZkListSet<Site>(ZK_SITES,zkManager,new MenagerieSerializer<Site>());
+            // this.index = new ZkHashMap<String, List<Site>>(ZK_INDEX,zkManager,new MenagerieSerializer<Map.Entry<String, List<Site>>>());
+            this.index = new ConcurrentHashMap<String, List<Site>>();
+            // this.sites = new ZkListSet<Site>(ZK_SITES,zkManager,new MenagerieSerializer<Site>());
+            this.sites = new HashSet<Site>();
         } catch (Exception e) {
             throw new CacheException("Cannot connect to Zk; reason = "+e.getMessage());
         }
 
         this.ensembles = new HashMap<String, EnsembleCache>();
 
+        // By convention, the first site is local
+        boolean local=true;
         for(String s: sites){
-            System.out.println("Creating site : "+s);
-            Site site = new Site(s, new RemoteCacheManager(s));
+            Site site = new Site(s, new RemoteCacheManager(s),local);
+            if(local) local=false;
             Site._sites.put(s,site);
             addSite(site);
         }
@@ -134,12 +137,13 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         System.out.println("Creating cache : "+cacheName+" with ("+sites.toString()+";"+consistency+")");
 
         if(ensembles.containsKey(cacheName)){
-            System.out.println("Cache exists");
+            System.out.println("Cache already exists (local)");
             return (BasicCache<K,V>) ensembles.get(cacheName);
         }
 
         List<Site> previous = index.putIfAbsent(cacheName,sites);
         if(previous != null){
+            System.out.println("Cache already exists (remote)");
             sites = previous;
         }
 
@@ -171,8 +175,10 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         return e;
     }
 
-    public synchronized void addSite(Site site){
-        sites.add(site);
+    public synchronized boolean addSite(Site site){
+        boolean ret = sites.add(site);
+        System.out.println("Site added : "+ret);
+        return ret;
     }
 
     /**
@@ -216,10 +222,18 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      */
     private List<Site> assignRandomly(int replicationFactor){
         assert  replicationFactor <= Site._sites.size() : Site._sites.values().toString();
-        List<Site> replicas = new ArrayList<Site>(Site._sites.values());
-        java.util.Collections.shuffle(replicas);
-        for(int i=replicas.size()-replicationFactor;i>0;i--)
-            replicas.remove(0);
+        List<Site> replicas = new ArrayList<Site>();
+        Set<Site> all = new HashSet<Site>(Site._sites.values());
+        // First add local site
+        if(Site.localSite!=null)
+            replicas.add(Site.localSite());
+        // Then, complete
+        for(Site s: all){
+            if(replicas.size()==replicationFactor)
+                break;
+            if(!replicas.contains(s))
+                replicas.add(s);
+        }
         return replicas;
     }
 

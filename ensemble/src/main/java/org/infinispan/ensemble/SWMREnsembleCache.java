@@ -23,6 +23,8 @@ public class SWMREnsembleCache<K,V> extends EnsembleCache<K,V> {
     public V get(Object key) {
         Map<RemoteCache<K,V>, VersionedValue<V>> previous= previousValues((K)key);
         VersionedValue<V> g = greatestValue(previous);
+        if(g==null)
+            return null;
         if(!isStable(previous, g))
             writeStable((K) key, g.getValue(), previous.keySet());
         return g.getValue();
@@ -33,7 +35,9 @@ public class SWMREnsembleCache<K,V> extends EnsembleCache<K,V> {
         Map<RemoteCache<K,V>, VersionedValue<V>> previous= previousValues((K)key);
         VersionedValue<V> g = greatestValue(previous);
         writeStable(key, value, previous.keySet());
-        return g.getValue();
+        if(g!=null)
+            return g.getValue();
+        return null;
     }
 
     //
