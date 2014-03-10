@@ -34,7 +34,7 @@ import java.util.concurrent.Future;
  * @since 6.0
  */
 
-@Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
+@Test(testName = "org.infinispan.versioning.VersionedCacheHibernateTest", groups = "functional")
 public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
 
     private static int NCACHES = 1;

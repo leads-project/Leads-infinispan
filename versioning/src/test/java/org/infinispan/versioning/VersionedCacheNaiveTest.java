@@ -10,7 +10,7 @@ import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.fwk.TransportFlags;
 import org.testng.annotations.Test;
 
-@Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
+@Test(testName = "org.infinispan.versioning.VersionedCacheNaiveTest", groups = "functional")
 public class VersionedCacheNaiveTest  extends MultipleCacheManagersTest {
 	 private static int NCACHES = 1;
 	@Override
