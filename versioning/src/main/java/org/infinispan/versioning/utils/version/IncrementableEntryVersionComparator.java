@@ -1,4 +1,4 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.utils.version;
 
 import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.InequalVersionComparisonResult;

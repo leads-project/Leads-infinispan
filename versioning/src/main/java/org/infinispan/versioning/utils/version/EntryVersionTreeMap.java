@@ -1,11 +1,13 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.utils.version;
 
 import java.io.Serializable;
 import java.util.Comparator;
 import java.util.TreeMap;
 
 /**
- * // TODO: Document this
+ *
+ * This class helps implementing the VersionedCacheAtomicTreeMaImpl,
+ * that is, when all the versions of a key are stored inside a TreeMap.
  *
  * @author Pierre Sutra
  * @since 6.0

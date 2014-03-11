@@ -1,4 +1,4 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.impl;
 
 import java.util.Set;
 import java.util.SortedMap;
@@ -16,7 +16,7 @@ import org.infinispan.container.versioning.VersionGenerator;
  * @param <K> the type of the key
  * @param <V> the type of the value
  */
-public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheImpl<K,V> {
+public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
 	
 	public VersionedCacheNaiveImpl(Cache<K, ?> delegate,

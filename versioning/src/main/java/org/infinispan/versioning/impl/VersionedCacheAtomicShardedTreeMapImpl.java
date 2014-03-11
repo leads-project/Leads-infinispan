@@ -1,20 +1,24 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.versioning.utils.version.EntryVersionShardedTreeMap;
+import org.infinispan.versioning.utils.version.EntryVersionTreeMap;
 
 import java.util.Set;
 import java.util.SortedMap;
 
 /**
- * // TODO: Document this
  *
- * @author otrack
- * @since 4.0
+ * This class implements a sharded tree to store the versions.
+ * More precisely, the map is a tree of trees, where the
+ *
+ * @author Pierre Sutra
+ * @since 6.0
  */
-public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheImpl<K,V> {
+public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
     AtomicObjectFactory factory;
     private EntryVersionShardedTreeMap delegate;
