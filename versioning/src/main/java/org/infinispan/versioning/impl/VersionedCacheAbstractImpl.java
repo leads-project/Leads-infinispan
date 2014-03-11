@@ -1,26 +1,31 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.versioning.VersionedCache;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * // TODO: Document this
+ *
+ * A basic implementation for a versioned cache.
+ * This implementation is abstract.
+ * A concrete implementation needs only to write two methods to be functional.
+ * It is however advised to overload more methods to be efficient, as the algorithmic structure is quite basic.
  *
  * @author Pierre Sutra
  * @since 6.0
  */
-public abstract class VersionedCacheImpl <K,V> implements VersionedCache<K,V> {
+public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<K,V> {
 
     protected Cache<K,?> delegate;
     protected VersionGenerator generator;
     protected String name;
 
-    public VersionedCacheImpl(Cache<K,?> delegate, VersionGenerator generator, String name) {
+    public VersionedCacheAbstractImpl(Cache<K, ?> delegate, VersionGenerator generator, String name) {
         this.delegate = delegate;
         this.generator = generator;
         this.name = name;

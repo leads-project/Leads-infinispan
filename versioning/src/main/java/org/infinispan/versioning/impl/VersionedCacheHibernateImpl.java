@@ -1,4 +1,4 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.impl;
 
 import org.apache.lucene.search.Query;
 import org.hibernate.search.query.dsl.QueryBuilder;
@@ -7,6 +7,8 @@ import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.SearchManager;
+import org.infinispan.versioning.utils.version.IncrementableEntryVersionComparator;
+import org.infinispan.versioning.utils.hibernate.HibernateProxy;
 
 import java.util.*;
 
@@ -15,7 +17,7 @@ import java.util.*;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class VersionedCacheHibernateImpl<K,V> extends VersionedCacheImpl<K,V> {
+public class VersionedCacheHibernateImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
     private SearchManager searchManager;
 

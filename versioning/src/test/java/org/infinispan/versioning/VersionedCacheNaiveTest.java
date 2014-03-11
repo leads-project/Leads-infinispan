@@ -8,6 +8,7 @@ import org.infinispan.container.versioning.NumericVersionGenerator;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.fwk.TransportFlags;
+import org.infinispan.versioning.impl.VersionedCacheNaiveImpl;
 import org.testng.annotations.Test;
 
 @Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")

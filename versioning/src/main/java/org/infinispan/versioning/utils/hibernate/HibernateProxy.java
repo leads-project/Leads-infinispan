@@ -1,4 +1,4 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.utils.hibernate;
 
 import org.hibernate.search.annotations.*;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
@@ -19,15 +19,15 @@ public class HibernateProxy<K,V> implements Serializable{
     @DocumentId
     @Field(index= Index.YES, analyze= Analyze.NO, store= Store.NO)
     @FieldBridge(impl = DummyFieldBridge.class)
-    K k;
+    public K k;
 
 //    @Field(index= Index.NO, analyze= Analyze.NO, store= Store.YES)
 //    @FieldBridge(impl = DummyFieldBridge.class)
-    V v;
+    public V v;
 
     @Field(index= Index.YES, analyze= Analyze.NO, store= Store.NO)
     @FieldBridge(impl = EntryVersionFieldBridge.class)
-    IncrementableEntryVersion version;
+    public IncrementableEntryVersion version;
 
     public HibernateProxy(K k, V v, IncrementableEntryVersion version){
         this.k = k;

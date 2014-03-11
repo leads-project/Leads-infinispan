@@ -11,9 +11,8 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
-import org.infinispan.versioning.HibernateProxy;
-import org.infinispan.versioning.VersionedCache;
-import org.infinispan.versioning.VersionedCacheHibernateImpl;
+import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
+import org.infinispan.versioning.utils.hibernate.HibernateProxy;
 import org.testng.annotations.Test;
 
 import java.lang.annotation.ElementType;

@@ -1,4 +1,4 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.utils.hibernate;
 
 import org.apache.lucene.document.Document;
 import org.hibernate.search.bridge.LuceneOptions;

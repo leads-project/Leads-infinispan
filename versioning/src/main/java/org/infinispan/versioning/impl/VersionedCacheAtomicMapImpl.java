@@ -1,36 +1,36 @@
-package org.infinispan.versioning;
+package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
-import org.infinispan.atomic.AtomicObjectFactory;
+import org.infinispan.atomic.AtomicMapLookup;
 import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.VersionGenerator;
+import org.infinispan.versioning.utils.version.IncrementableEntryVersionComparator;
 
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
- * // TODO: Document this
  *
- * @author Pierre Sutra
- * @since 6.0
+ * @author Fábio André Coelho, Pierre Sutra
+ * @since 4.0
  */
-public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheImpl<K,V> {
+public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
-    AtomicObjectFactory factory;
-
-    public VersionedCacheAtomicTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
+    public VersionedCacheAtomicMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
-        factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
     }
 
     @Override
     protected SortedMap<IncrementableEntryVersion, V> versionMapGet(K key) {
-        return factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+        TreeMap map =  new TreeMap<IncrementableEntryVersion, V>(new IncrementableEntryVersionComparator());
+        map.putAll(AtomicMapLookup.getAtomicMap(delegate, key));
+        return map;
     }
 
     @Override
     protected void versionMapPut(K key, V value, IncrementableEntryVersion version) {
-        factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false).put(version, value);
+        AtomicMapLookup.getAtomicMap(delegate, key).put(version,value);
     }
 
     @Override
@@ -46,7 +46,7 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheImpl<K,V
     @Override
     public boolean containsValue(Object o) {
         for(K k: delegate.keySet()){
-            if(factory.getInstanceOf(EntryVersionTreeMap.class,k,true,null,false).containsValue(o))
+            if(AtomicMapLookup.getAtomicMap(delegate,k).containsValue(o))
                 return true;
         }
         return false;
