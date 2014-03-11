@@ -21,7 +21,7 @@ import java.util.*;
 public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V>
         implements Serializable, SortedMap<IncrementableEntryVersion, V> {
 
-    private final static int THRESHOLD = 100; // this threshold indicates on many entries are storing before creating a new subtree
+    private final static int THRESHOLD = 100; // this threshold indicates on many entries are stored before creating a new subtree
     private transient static AtomicObjectFactory factory = new AtomicObjectFactory((new DefaultCacheManager()).getCache());
 
     private Set<IncrementableEntryVersion> entries;
