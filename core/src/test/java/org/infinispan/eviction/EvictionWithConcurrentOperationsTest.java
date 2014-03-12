@@ -9,7 +9,12 @@ import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.InvocationContext;
+import org.infinispan.interceptors.ActivationInterceptor;
+import org.infinispan.interceptors.CacheLoaderInterceptor;
+import org.infinispan.interceptors.ClusteredActivationInterceptor;
+import org.infinispan.interceptors.ClusteredCacheLoaderInterceptor;
 import org.infinispan.interceptors.EntryWrappingInterceptor;
+import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.interceptors.base.BaseCustomInterceptor;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.marshall.core.MarshalledEntry;
@@ -30,6 +35,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.testng.AssertJUnit.*;
 
@@ -42,6 +48,7 @@ import static org.testng.AssertJUnit.*;
 @Test(groups = "functional", testName = "eviction.EvictionWithConcurrentOperationsTest")
 public class EvictionWithConcurrentOperationsTest extends SingleCacheManagerTest {
 
+   protected final AtomicInteger storeNamePrefix = new AtomicInteger(0);
    public final String storeName = getClass().getSimpleName();
 
    public EvictionWithConcurrentOperationsTest() {
@@ -57,14 +64,8 @@ public class EvictionWithConcurrentOperationsTest extends SingleCacheManagerTest
       initializeKeyAndCheckData(key1, "v1");
 
       final Object key2 = new SameHashCodeKey("key2");
-      final ControlledPassivationManager controlledPassivationManager = replacePassivationManager();
       final Latch latch = new Latch();
-      controlledPassivationManager.beforePassivate = new Runnable() {
-         @Override
-         public void run() {
-            latch.blockIfNeeded();
-         }
-      };
+      final ControlledPassivationManager controlledPassivationManager = replacePassivationManager(latch);
 
       //this will trigger the eviction of key1. key1 eviction will be blocked in the latch
       latch.enable();
@@ -92,14 +93,8 @@ public class EvictionWithConcurrentOperationsTest extends SingleCacheManagerTest
       initializeKeyAndCheckData(key1, "v1");
 
       final Object key2 = new SameHashCodeKey("key2");
-      final ControlledPassivationManager controlledPassivationManager = replacePassivationManager();
       final Latch latch = new Latch();
-      controlledPassivationManager.afterPassivate = new Runnable() {
-         @Override
-         public void run() {
-            latch.blockIfNeeded();
-         }
-      };
+      final ControlledPassivationManager controlledPassivationManager = replacePassivationManager(latch);
 
       //this will trigger the eviction of key1. key1 eviction will be blocked in the latch
       latch.enable();
@@ -353,6 +348,45 @@ public class EvictionWithConcurrentOperationsTest extends SingleCacheManagerTest
       assertNotInMemory(key2, "v2");
    }
 
+   /**
+    * ISPN-3854: an entry is evicted. a get operation is performed and loads the entry from the persistence. However,
+    * before continue the processing, a put succeeds and updates the key. Check in the end if the key is correctly
+    * stored or not.
+    */
+   public void testScenario7() throws Exception {
+      final Object key1 = new SameHashCodeKey("key1");
+      initializeKeyAndCheckData(key1, "v1");
+
+      final Latch readLatch = new Latch();
+      final AfterActivationOrCacheLoader commandController = new AfterActivationOrCacheLoader()
+            .injectThis(cache);
+      commandController.afterGet = new Runnable() {
+         @Override
+         public void run() {
+            readLatch.blockIfNeeded();
+
+         }
+      };
+
+      cache.evict(key1);
+
+      assertNotInMemory(key1, "v1");
+
+      //perform the get. it will load the entry from cache loader.
+      readLatch.enable();
+      Future<Object> get = cache.getAsync(key1);
+      readLatch.waitToBlock(30, TimeUnit.SECONDS);
+
+      //now, we perform a put.
+      assertEquals("Wrong value for key " + key1 + " in put operation.", "v1", cache.put(key1, "v2"));
+
+      //we let the get go...
+      readLatch.disable();
+      assertPossibleValues(key1, get.get(), "v1");
+
+      assertInMemory(key1, "v2");
+   }
+
    @SuppressWarnings("unchecked")
    protected void initializeKeyAndCheckData(Object key, Object value) {
       assertTrue("A cache store should be configured!", cache.getCacheConfiguration().persistence().usingStores());
@@ -406,12 +440,18 @@ public class EvictionWithConcurrentOperationsTest extends SingleCacheManagerTest
 
    protected void configurePersistence(ConfigurationBuilder builder) {
       builder.persistence().passivation(false).addStore(DummyInMemoryStoreConfigurationBuilder.class)
-            .storeName(storeName);
+            .storeName(storeName + storeNamePrefix.getAndIncrement());
    }
 
-   protected final ControlledPassivationManager replacePassivationManager() {
+   protected final ControlledPassivationManager replacePassivationManager(final Latch latch) {
       PassivationManager current = TestingUtil.extractComponent(cache, PassivationManager.class);
       ControlledPassivationManager controlledPassivationManager = new ControlledPassivationManager(current);
+      controlledPassivationManager.beforePassivate = new Runnable() {
+         @Override
+         public void run() {
+            latch.blockIfNeeded();
+         }
+      };
       TestingUtil.replaceComponent(cache, PassivationManager.class, controlledPassivationManager, true);
       return controlledPassivationManager;
    }
@@ -538,6 +578,26 @@ public class EvictionWithConcurrentOperationsTest extends SingleCacheManagerTest
 
       public AfterEntryWrappingInterceptor injectThis(Cache<Object, Object> injectInCache) {
          injectInCache.getAdvancedCache().addInterceptorAfter(this, EntryWrappingInterceptor.class);
+         return this;
+      }
+
+   }
+
+   private class AfterActivationOrCacheLoader extends ControlledCommandInterceptor {
+
+      public AfterActivationOrCacheLoader injectThis(Cache<Object, Object> injectInCache) {
+         InterceptorChain chain = TestingUtil.extractComponent(injectInCache, InterceptorChain.class);
+         if (chain.containsInterceptorType(CacheLoaderInterceptor.class)) {
+            injectInCache.getAdvancedCache().addInterceptorAfter(this, CacheLoaderInterceptor.class);
+         } else if (chain.containsInterceptorType(ClusteredCacheLoaderInterceptor.class)) {
+            injectInCache.getAdvancedCache().addInterceptorAfter(this, ClusteredCacheLoaderInterceptor.class);
+         } else if (chain.containsInterceptorType(ActivationInterceptor.class)) {
+            injectInCache.getAdvancedCache().addInterceptorAfter(this, ActivationInterceptor.class);
+         } else if (chain.containsInterceptorType(ClusteredActivationInterceptor.class)) {
+            injectInCache.getAdvancedCache().addInterceptorAfter(this, ClusteredActivationInterceptor.class);
+         } else {
+            throw new IllegalStateException("Should not happen!");
+         }
          return this;
       }
 

@@ -42,7 +42,7 @@ public class MultiHotRodServerQueryTest extends MultiHotRodServersTest {
 
       //initialize server-side serialization context
       for (EmbeddedCacheManager cm : cacheManagers) {
-         cm.getGlobalComponentRegistry().getComponent(ProtobufMetadataManager.class).registerProtofile("/bank.protobin");
+         cm.getGlobalComponentRegistry().getComponent(ProtobufMetadataManager.class).registerProtofile("/sample_bank_account/bank.protobin");
       }
 
       //initialize client-side serialization context
@@ -147,6 +147,7 @@ public class MultiHotRodServerQueryTest extends MultiHotRodServersTest {
    }
 
    private void assertUser(User user) {
+      assertNotNull(user);
       assertEquals(1, user.getId());
       assertEquals("Tom", user.getName());
       assertEquals("Cat", user.getSurname());

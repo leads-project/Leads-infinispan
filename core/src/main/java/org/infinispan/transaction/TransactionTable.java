@@ -111,7 +111,7 @@ public class TransactionTable {
 
    @Start(priority = 9) // Start before cache loader manager
    @SuppressWarnings("unused")
-   private void start() {
+   public void start() {
       final int concurrencyLevel = configuration.locking().concurrencyLevel();
       localTransactions = CollectionFactory.makeConcurrentMap(concurrencyLevel, 0.75f, concurrencyLevel);
       globalToLocalTransactions = CollectionFactory.makeConcurrentMap(concurrencyLevel, 0.75f, concurrencyLevel);
@@ -312,16 +312,16 @@ public class TransactionTable {
     * Returns the {@link org.infinispan.transaction.xa.TransactionXaAdapter} corresponding to the supplied transaction.
     * If none exists, will be created first.
     */
-   public LocalTransaction getOrCreateLocalTransaction(Transaction transaction, TxInvocationContext ctx) {
+   public LocalTransaction getOrCreateLocalTransaction(Transaction transaction, boolean implicitTransaction) {
       LocalTransaction current = localTransactions.get(transaction);
       if (current == null) {
          Address localAddress = rpcManager != null ? rpcManager.getTransport().getAddress() : null;
          GlobalTransaction tx = txFactory.newGlobalTransaction(localAddress, false);
-         current = txFactory.newLocalTransaction(transaction, tx, ctx.isImplicitTransaction(), currentTopologyId);
+         current = txFactory.newLocalTransaction(transaction, tx, implicitTransaction, currentTopologyId);
          log.tracef("Created a new local transaction: %s", current);
          localTransactions.put(transaction, current);
          globalToLocalTransactions.put(current.getGlobalTransaction(), current);
-         notifier.notifyTransactionRegistered(tx, ctx);
+         notifier.notifyTransactionRegistered(tx, true);
       }
       return current;
    }

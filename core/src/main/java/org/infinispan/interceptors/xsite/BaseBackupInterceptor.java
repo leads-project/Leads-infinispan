@@ -1,5 +1,7 @@
 package org.infinispan.interceptors.xsite;
 
+import org.infinispan.commands.FlagAffectedCommand;
+import org.infinispan.context.Flag;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.base.CommandInterceptor;
@@ -34,9 +36,14 @@ public class BaseBackupInterceptor extends CommandInterceptor {
 
    protected boolean shouldInvokeRemoteTxCommand(TxInvocationContext ctx) {
       // ISPN-2362: For backups, we should only replicate to the remote site if there are modifications to replay.
-      boolean shouldBackupRemotely = ctx.isOriginLocal() && ctx.hasModifications();
+      boolean shouldBackupRemotely = ctx.isOriginLocal() && ctx.hasModifications() &&
+            !ctx.getCacheTransaction().isFromStateTransfer();
       getLog().tracef("Should backup remotely? %s", shouldBackupRemotely);
       return shouldBackupRemotely;
+   }
+
+   protected final boolean skipXSiteBackup(FlagAffectedCommand command) {
+      return command.hasFlag(Flag.SKIP_XSITE_BACKUP);
    }
    
    @Override

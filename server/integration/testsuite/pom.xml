@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.infinispan.server</groupId>
         <artifactId>infinispan-server-versions</artifactId>
-        <version>6.0.1-SNAPSHOT</version>
+        <version>7.0.0-SNAPSHOT</version>
         <relativePath>../versions/pom.xml</relativePath>
     </parent>
 
@@ -66,6 +66,10 @@
                     <artifactId>jboss-logmanager</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.infinispan</groupId>
+            <artifactId>infinispan-commons</artifactId>
         </dependency>
         <dependency>
             <groupId>net.jcip</groupId>
@@ -157,6 +161,32 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- TODO: Make it possible to use a different version of Karaf -->
+        <dependency>
+            <groupId>org.apache.karaf</groupId>
+            <artifactId>apache-karaf</artifactId>
+            <type>zip</type>
+        </dependency>
+        <dependency>
+            <groupId>org.ops4j.pax.exam</groupId>
+            <artifactId>pax-exam-container-karaf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.ops4j.pax.exam</groupId>
+            <artifactId>pax-exam-junit4</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.ops4j.pax.exam</groupId>
+            <artifactId>pax-exam</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.ops4j.pax.exam</groupId>
+            <artifactId>pax-exam-inject</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
     </dependencies>
 
     <properties>
@@ -170,17 +200,21 @@
         <server.jvm>${env.JAVA_HOME}</server.jvm>
         <resources.dir>${basedir}/src/test/resources</resources.dir>
         <jvm.memory.args>-Xmx512m -XX:MaxPermSize=128m</jvm.memory.args>
+        <jvm.x64.args></jvm.x64.args>
+        <default.transport.stack>udp</default.transport.stack>
+        <transport.stack>-Djboss.default.jgroups.stack=${default.transport.stack}</transport.stack>
         
         <jvm.ip.stack>-Djava.net.preferIPv4Stack=true</jvm.ip.stack>
-        <server.jvm.args>${jvm.ip.stack} ${jvm.memory.args}</server.jvm.args>
+        <server.jvm.args>${jvm.ip.stack} ${jvm.memory.args} ${transport.stack} ${jvm.x64.args}</server.jvm.args>
         <log4j.configuration>log4j.xml</log4j.configuration>
+        <suite.manual.unstable.phase>none</suite.manual.unstable.phase>
         <suite.manual.phase>test</suite.manual.phase>
         <suite.rollups.manual.phase>none</suite.rollups.manual.phase>
         <suite.client.local.phase>test</suite.client.local.phase>
         <suite.client.dist.phase>test</suite.client.dist.phase>
         <suite.client.repl.phase>test</suite.client.repl.phase>
         <suite.manual.include>**/*.java</suite.manual.include>
-        <suite.manual.exclude.groups>org.infinispan.server.test.category.ClientLocal,org.infinispan.server.test.category.ClientClustered,org.infinispan.server.test.category.CacheStore,org.infinispan.server.test.category.RollingUpgrades</suite.manual.exclude.groups>
+        <suite.manual.exclude.groups>org.infinispan.server.test.category.ClientLocal,org.infinispan.server.test.category.ClientClustered,org.infinispan.server.test.category.RollingUpgrades,org.infinispan.server.test.category.UnstableTest,org.infinispan.server.test.category.Osgi</suite.manual.exclude.groups>
         <suite.client.local.config>testsuite/standalone-default-local.xml</suite.client.local.config>
         <suite.client.dist.config>testsuite/clustered-default-dist.xml</suite.client.dist.config>
         <suite.client.repl.config>testsuite/clustered-default-repl.xml</suite.client.repl.config>
@@ -189,6 +223,15 @@
     </properties>
 
     <build>
+        <testResources>
+         <testResource>
+            <directory>${project.basedir}/src/test/resources</directory>
+            <filtering>true</filtering>
+            <includes>
+               <include>**/*</include>
+            </includes>
+         </testResource>
+        </testResources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -197,6 +240,19 @@
                     <execution>
                         <goals>
                             <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- IMPORTANT: generates META-INF/maven/dependencies.properties required by PAX-EXAM framework -->
+            <plugin>
+                <groupId>org.apache.servicemix.tooling</groupId>
+                <artifactId>depends-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>generate-depends-file</id>
+                        <goals>
+                            <goal>generate-depends-file</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -226,6 +282,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <forkMode>once</forkMode>
+                    <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
                     <systemPropertyVariables>
                         <server1.dist>${server1.dist}</server1.dist>
                         <server2.dist>${server2.dist}</server2.dist>
@@ -238,6 +295,8 @@
                         <suite.client.local.config>${suite.client.local.config}</suite.client.local.config>
                         <suite.client.dist.config>${suite.client.dist.config}</suite.client.dist.config>
                         <suite.client.repl.config>${suite.client.repl.config}</suite.client.repl.config>
+                        <resources.dir>${project.build.directory}/test-classes</resources.dir>
+                        <version.karaf>${version.karaf}</version.karaf>
                     </systemPropertyVariables>
                     <properties>
                         <property>
@@ -280,6 +339,7 @@
                         </goals>
                         <configuration>
                             <groups>org.infinispan.server.test.category.RollingUpgrades</groups>
+                            <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
                             <systemPropertyVariables>
                                 <arquillian.launch>suite-rollups-manual</arquillian.launch>
                             </systemPropertyVariables>
@@ -292,8 +352,9 @@
                             <goal>test</goal>
                         </goals>
                         <configuration>
-                            <reportNameSuffix>localmode</reportNameSuffix>
+                            <reportNameSuffix>localmode-${default.transport.stack}</reportNameSuffix>
                             <groups>${groups.client.local}</groups>
+                            <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
                             <systemPropertyVariables>
                                 <clustering.mode>local</clustering.mode>
                                 <arquillian.launch>suite-client-local</arquillian.launch>
@@ -307,8 +368,9 @@
                             <goal>test</goal>
                         </goals>
                         <configuration>
-                            <reportNameSuffix>distmode</reportNameSuffix>
+                            <reportNameSuffix>distmode-${default.transport.stack}</reportNameSuffix>
                             <groups>${groups.client.clustered}</groups>
+                            <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
                             <systemPropertyVariables>
                                 <clustering.mode>dist</clustering.mode>
                                 <arquillian.launch>suite-client-dist</arquillian.launch>
@@ -322,11 +384,26 @@
                             <goal>test</goal>
                         </goals>
                         <configuration>
-                            <reportNameSuffix>replmode</reportNameSuffix>
+                            <reportNameSuffix>replmode-${default.transport.stack}</reportNameSuffix>
                             <groups>${groups.client.clustered}</groups>
+                            <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
                             <systemPropertyVariables>
                                 <clustering.mode>repl</clustering.mode>
                                 <arquillian.launch>suite-client-repl</arquillian.launch>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>suite-manual-unstable</id>
+                        <phase>${suite.manual.unstable.phase}</phase>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <groups combine.self="override">org.infinispan.server.test.category.UnstableTest</groups>
+                            <excludedGroups combine.self="override"></excludedGroups>
+                            <systemPropertyVariables>
+                                <arquillian.launch>suite-manual</arquillian.launch>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
@@ -406,7 +483,6 @@
             <id>suite.cachestore</id>
             <properties>
                 <suite.manual.phase>test</suite.manual.phase>
-                <suite.manual.exclude.groups>org.infinispan.server.test.category.ClientLocal,org.infinispan.server.test.category.ClientClustered,org.infinispan.server.test.category.RollingUpgrades</suite.manual.exclude.groups>
                 <suite.manual.include.groups>org.infinispan.server.test.category.CacheStore</suite.manual.include.groups>
                 <suite.client.local.phase>none</suite.client.local.phase>
                 <suite.client.dist.phase>none</suite.client.dist.phase>
@@ -457,6 +533,53 @@
             </properties>
         </profile>
         <profile>
+            <id>client.hotrod.osgi</id>
+            <properties>
+                <suite.manual.phase>test</suite.manual.phase>
+                <suite.client.local.phase>none</suite.client.local.phase>
+                <suite.client.dist.phase>none</suite.client.dist.phase>
+                <suite.client.repl.phase>none</suite.client.repl.phase>
+                <suite.manual.exclude.groups></suite.manual.exclude.groups>
+                <suite.manual.include.groups>org.infinispan.server.test.category.Osgi</suite.manual.include.groups>
+                <suite.manual.include>org/infinispan/server/test/client/hotrod/osgi/RemoteCacheOsgiTest.java</suite.manual.include>
+            </properties>
+            <build>
+                <plugins>
+                    <!-- Register Protofile on the server before the test starts.
+                         TODO: Do it directly from the test. The remoting-jmx implementation for
+                         JMX is normally loaded via ServiceLoader and this is not working out-of-box in OSGi. -->
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>register-protofile-with-server</id>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <phase>test</phase>
+                                <configuration>
+                                    <target>
+                                        <property name="test_classpath" refid="maven.test.classpath"/>
+                                        <java classname="org.infinispan.server.test.util.ProtofileRegistrar"
+                                              fork="false"
+                                              failonerror="true" >
+                                            <arg value="/sample_bank_account/bank.protobin"/>
+                                            <arg value="localhost"/>
+                                            <arg value="9999"/>
+                                            <classpath>
+                                                <pathelement path="${project.build.directory}/test-classes"/>
+                                                <pathelement path="${test_classpath}"/>
+                                            </classpath>
+                                        </java>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <id>testsuite-jdk6</id>
             <properties>
                 <server.jvm>${env.JAVA_HOME_16}</server.jvm>
@@ -472,6 +595,16 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>test-unstable</id>
+            <properties>
+                <suite.manual.phase>none</suite.manual.phase>
+                <suite.client.local.phase>none</suite.client.local.phase>
+                <suite.client.dist.phase>none</suite.client.dist.phase>
+                <suite.client.repl.phase>none</suite.client.repl.phase>
+                <suite.manual.unstable.phase>test</suite.manual.unstable.phase>
+            </properties>
         </profile>
     </profiles>
 </project>

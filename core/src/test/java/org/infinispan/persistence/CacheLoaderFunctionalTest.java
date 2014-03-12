@@ -23,12 +23,15 @@ import org.infinispan.test.AbstractInfinispanTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.infinispan.transaction.TransactionMode;
+import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import javax.transaction.NotSupportedException;
+import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 
@@ -39,6 +42,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.infinispan.api.mvcc.LockAssert.assertNoLocks;
 import static org.infinispan.test.TestingUtil.k;
 import static org.infinispan.test.TestingUtil.v;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.fail;
 import static org.testng.AssertJUnit.assertEquals;
 import static org.testng.AssertJUnit.assertTrue;
 
@@ -62,13 +67,14 @@ public class CacheLoaderFunctionalTest extends AbstractInfinispanTest {
 
    long lifespan = 60000000; // very large lifespan so nothing actually expires
 
-   @BeforeMethod
+   @BeforeMethod(alwaysRun = true)
    public void setUp() {
       cfg = new ConfigurationBuilder();
       cfg.persistence()
             .addStore(DummyInMemoryStoreConfigurationBuilder.class)
                .storeName(this.getClass().getName()) // in order to use the same store
             .transaction().transactionMode(TransactionMode.TRANSACTIONAL);
+      configure(cfg);
       cm = TestCacheManagerFactory.createCacheManager(cfg);
       cache = cm.getCache();
       store = (AdvancedLoadWriteStore) TestingUtil.getFirstLoader(cache);
@@ -77,7 +83,9 @@ public class CacheLoaderFunctionalTest extends AbstractInfinispanTest {
       sm = cache.getAdvancedCache().getComponentRegistry().getCacheMarshaller();
    }
 
-   @AfterMethod
+   protected void configure(ConfigurationBuilder cb) { }
+
+   @AfterMethod(alwaysRun = true)
    public void tearDown() throws PersistenceException {
       writer.clear();
       TestingUtil.killCacheManagers(cm);
@@ -283,14 +291,14 @@ public class CacheLoaderFunctionalTest extends AbstractInfinispanTest {
    public void testPreloading() throws Exception {
       ConfigurationBuilder preloadingCfg = new ConfigurationBuilder();
       preloadingCfg.read(cfg.build());
-      preloadingCfg.persistence().clearStores().addStore(DummyInMemoryStoreConfigurationBuilder.class).preload(true).storeName("preloadingCache");
+      preloadingCfg.persistence().clearStores().addStore(DummyInMemoryStoreConfigurationBuilder.class).preload(true).storeName(this.getClass().getName() + "preloadingCache");
       doPreloadingTest(preloadingCfg.build(), "preloadingCache");
    }
 
    public void testPreloadingWithoutAutoCommit() throws Exception {
       ConfigurationBuilder preloadingCfg = new ConfigurationBuilder();
       preloadingCfg.read(cfg.build());
-      preloadingCfg.persistence().clearStores().addStore(DummyInMemoryStoreConfigurationBuilder.class).preload(true).storeName("preloadingCache_2");
+      preloadingCfg.persistence().clearStores().addStore(DummyInMemoryStoreConfigurationBuilder.class).preload(true).storeName(this.getClass().getName() + "preloadingCache_2");
       preloadingCfg.transaction().autoCommit(false);
       doPreloadingTest(preloadingCfg.build(), "preloadingCache_2");
    }
@@ -298,7 +306,7 @@ public class CacheLoaderFunctionalTest extends AbstractInfinispanTest {
    public void testPreloadingWithEvictionAndOneMaxEntry() throws Exception {
       ConfigurationBuilder preloadingCfg = new ConfigurationBuilder();
       preloadingCfg.read(cfg.build());
-      preloadingCfg.persistence().clearStores().addStore(DummyInMemoryStoreConfigurationBuilder.class).preload(true).storeName("preloadingCache_3");
+      preloadingCfg.persistence().clearStores().addStore(DummyInMemoryStoreConfigurationBuilder.class).preload(true).storeName(this.getClass().getName() + "preloadingCache_3");
       preloadingCfg.eviction().strategy(EvictionStrategy.LIRS).maxEntries(1);
       doPreloadingTestWithEviction(preloadingCfg.build(), "preloadingCache_3");
    }
@@ -306,11 +314,12 @@ public class CacheLoaderFunctionalTest extends AbstractInfinispanTest {
    public void testPreloadingWithEviction() throws Exception {
       ConfigurationBuilder preloadingCfg = new ConfigurationBuilder();
       preloadingCfg.read(cfg.build());
-      preloadingCfg.persistence().clearStores().addStore(DummyInMemoryStoreConfigurationBuilder.class).preload(true).storeName("preloadingCache_4");
+      preloadingCfg.persistence().clearStores().addStore(DummyInMemoryStoreConfigurationBuilder.class).preload(true).storeName(this.getClass().getName() + "preloadingCache_4");
       preloadingCfg.eviction().strategy(EvictionStrategy.LIRS).maxEntries(3);
       doPreloadingTestWithEviction(preloadingCfg.build(), "preloadingCache_4");
    }
 
+   @Test(groups = "unstable")
    public void testPurgeOnStartup() throws PersistenceException {
       ConfigurationBuilder purgingCfg = new ConfigurationBuilder();
       purgingCfg.read(cfg.build());
@@ -480,6 +489,30 @@ public class CacheLoaderFunctionalTest extends AbstractInfinispanTest {
       cache.put(key, value);
       tm.commit();
       assert value.equals(cache.get(key));
+   }
+
+   public void testNullFoundButLoaderReceivedValueLaterInTransaction() throws SystemException, NotSupportedException {
+      assertNotInCacheAndStore("k1");
+      tm.begin();
+      try {
+         assertNull(cache.get("k1"));
+
+         // Now simulate that someone else wrote to the store while during our tx
+         store.write(new MarshalledEntryImpl("k1", "v1", null, sm));
+         IsolationLevel level = cache.getCacheConfiguration().locking().isolationLevel();
+         switch(level) {
+            case READ_COMMITTED:
+               assertEquals("v1", cache.get("k1"));
+               break;
+            case REPEATABLE_READ:
+               assertNull(cache.get("k1"));
+               break;
+            default:
+               fail("Unsupported isolation " + level + " - please change test to add desired outcome for isolation level");
+         }
+      } finally {
+         tm.rollback();
+      }
    }
 
    protected void doPreloadingTest(Configuration preloadingCfg, String cacheName) throws Exception {

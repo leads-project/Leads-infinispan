@@ -1,13 +1,24 @@
 package org.infinispan.remoting.rpc;
 
+import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
+
+import java.text.NumberFormat;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.infinispan.Cache;
-import org.infinispan.commons.CacheException;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.TopologyAffectedCommand;
 import org.infinispan.commands.remote.CacheRpcCommand;
+import org.infinispan.commons.CacheException;
+import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
@@ -19,30 +30,17 @@ import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.jmx.annotations.MeasurementType;
 import org.infinispan.jmx.annotations.Parameter;
 import org.infinispan.jmx.annotations.Units;
-import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.remoting.ReplicationQueue;
 import org.infinispan.remoting.RpcException;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
+import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.topology.CacheTopology;
 import org.infinispan.topology.LocalTopologyManager;
 import org.infinispan.util.TimeService;
-import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-
-import java.text.NumberFormat;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
-import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
 
 /**
  * This component really is just a wrapper around a {@link org.infinispan.remoting.transport.Transport} implementation,
@@ -206,31 +204,26 @@ public class RpcManagerImpl implements RpcManager {
 
    @Override
    public void invokeRemotelyInFuture(final Collection<Address> recipients, final ReplicableCommand rpc,
-                                      final boolean usePriorityQueue, final NotifyingNotifiableFuture<Object> l,
+                                      final boolean usePriorityQueue, final NotifyingNotifiableFuture<Object> future,
                                       final long timeout, final boolean ignoreLeavers) {
       if (trace) log.tracef("%s invoking in future call %s to recipient list %s", t.getAddress(), rpc, recipients);
       final ResponseMode responseMode = ignoreLeavers ? ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS : ResponseMode.SYNCHRONOUS;
-      final CountDownLatch futureSet = new CountDownLatch(1);
       Callable<Object> c = new Callable<Object>() {
          @Override
          public Object call() throws Exception {
             Object result = null;
             try {
                result = invokeRemotely(recipients, rpc, true, usePriorityQueue, timeout, responseMode);
-            } finally {
-               try {
-                  futureSet.await();
-               } catch (InterruptedException e) {
-                  Thread.currentThread().interrupt();
-               } finally {
-                  l.notifyDone();
-               }
+               future.notifyDone(result);
+               return result;
+            } catch (RuntimeException e) {
+               future.notifyException(e);
+               throw e;
             }
-            return result;
          }
       };
-      l.setNetworkFuture(asyncExecutor.submit(c));
-      futureSet.countDown();
+      // NotifyingNotifiableFuture must be internally synchronized
+      future.setFuture(asyncExecutor.submit(c));
    }
 
    @Override
@@ -248,9 +241,21 @@ public class RpcManagerImpl implements RpcManager {
       }
       if (!configuration.clustering().cacheMode().isClustered())
          throw new IllegalStateException("Trying to invoke a remote command but the cache is not clustered");
+
+      // Set the topology id of the command, in case we don't have it yet
+      if (rpc instanceof TopologyAffectedCommand) {
+         TopologyAffectedCommand topologyAffectedCommand = (TopologyAffectedCommand) rpc;
+         if (topologyAffectedCommand.getTopologyId() == -1) {
+            int currentTopologyId = stateTransferManager.getCacheTopology().getTopologyId();
+            if (trace) log.tracef("Topology id missing on command %s, setting it to %d", rpc, currentTopologyId);
+            topologyAffectedCommand.setTopologyId(currentTopologyId);
+         }
+      }
+
       if (!(rpc instanceof CacheRpcCommand)) {
          rpc = cf.buildSingleRpcCommand(rpc);
       }
+
       long startTimeNanos = 0;
       if (statisticsEnabled) startTimeNanos = timeService.time();
       try {
@@ -272,12 +277,6 @@ public class RpcManagerImpl implements RpcManager {
 //                  responseFilter = new IgnoreExtraResponsesValidityFilter(cacheMembers, getAddress());
 //               }
 //            }
-         if (rpc instanceof TopologyAffectedCommand) {
-            TopologyAffectedCommand topologyAffectedCommand = (TopologyAffectedCommand) rpc;
-            if (topologyAffectedCommand.getTopologyId() == -1) {
-               topologyAffectedCommand.setTopologyId(stateTransferManager.getCacheTopology().getTopologyId());
-            }
-         }
          Map<Address, Response> result = t.invokeRemotely(recipients, rpc, options.responseMode(), options.timeUnit().toMillis(options.timeout()),
                                                           !options.fifoOrder(), options.responseFilter(), options.totalOrder(),
                                                           configuration.clustering().cacheMode().isDistributed());
@@ -303,30 +302,23 @@ public class RpcManagerImpl implements RpcManager {
    @Override
    public void invokeRemotelyInFuture(final Collection<Address> recipients, final ReplicableCommand rpc,
                                       final RpcOptions options, final NotifyingNotifiableFuture<Object> future) {
-      if (trace) log.tracef("%s invoking in future call %s to recipient list %s with options &s", t.getAddress(),
+      if (trace) log.tracef("%s invoking in future call %s to recipient list %s with options %s", t.getAddress(),
                             rpc, recipients, options);
-
-      final CountDownLatch futureSet = new CountDownLatch(1);
       Callable<Object> c = new Callable<Object>() {
          @Override
          public Object call() throws Exception {
             Object result = null;
             try {
                result = invokeRemotely(recipients, rpc, options);
-            } finally {
-               try {
-                  futureSet.await();
-               } catch (InterruptedException e) {
-                  Thread.currentThread().interrupt();
-               } finally {
-                  future.notifyDone();
-               }
+               future.notifyDone(result);
+               return result;
+            } catch (RuntimeException e) {
+               future.notifyException(e);
+               throw e;
             }
-            return result;
          }
       };
-      future.setNetworkFuture(asyncExecutor.submit(c));
-      futureSet.countDown();
+      future.setFuture(asyncExecutor.submit(c));
    }
 
    @Override
@@ -363,7 +355,7 @@ public class RpcManagerImpl implements RpcManager {
       return replicationFailures.get();
    }
 
-   @ManagedAttribute(description = "Statistics enabled", displayName = "Statistics enabled", dataType = DataType.TRAIT, writable = true)
+   @ManagedAttribute(description = "Enables or disables the gathering of statistics by this component", displayName = "Statistics enabled", dataType = DataType.TRAIT, writable = true)
    public boolean isStatisticsEnabled() {
       return statisticsEnabled;
    }

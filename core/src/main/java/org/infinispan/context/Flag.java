@@ -36,8 +36,10 @@ public enum Flag {
    ZERO_LOCK_ACQUISITION_TIMEOUT,
    /**
     * Forces LOCAL mode operation, even if the cache is configured to use a clustered mode like replication,
-    * invalidation or distribution.  Applying this flag will suppress any RPC messages otherwise associated with this
-    * invocation.
+    * invalidation or distribution. Applying this flag will suppress any RPC messages otherwise associated with this
+    * invocation. Write operations mat not acquire the entry locks. In distributed mode, the modifications performed
+    * during an operation in a non-owner node are going to L1, if it is enabled, otherwise the operation is a no-op in
+    * that node.
     */
    CACHE_MODE_LOCAL,
    /**
@@ -122,6 +124,12 @@ public enum Flag {
     * used by clients calling into Infinispan.
     */
    PUT_FOR_STATE_TRANSFER,
+
+   /**
+    * Flags the invocation as a put operation done internally by the cross-site state transfer. This flag was created
+    * purely for internal Infinispan usage, and should not be used by clients calling into Infinispan.
+    */
+   PUT_FOR_X_SITE_STATE_TRANSFER,
 
    /**
     * If this flag is enabled, if a cache store is shared, then storage to the store is skipped.
@@ -230,6 +238,23 @@ public enum Flag {
     * Flag to identify cache operations coming from the Memcached server.
     */
    OPERATION_MEMCACHED,
+
+   /**
+    * Any time a new indexed entry is inserted, a delete statement is issued on the indexes
+    * to remove previous values. This delete statement is executed even if there is no known
+    * entry having the same key. Enable this flag when you know for sure there is no existing
+    * entry in the index for improved performance.
+    * For example, this is useful for speeding up import of new data in an empty cache
+    * having an empty index.
+    */
+   SKIP_INDEX_CLEANUP,
+
+   /**
+    * If a write operation encounters a retry due to a topology change this flag should be used to tell the new owner
+    * that such a thing happened.  This flag was created purely for internal Infinispan usage, and should not be
+    * used by clients calling into Infinispan.
+    */
+   COMMAND_RETRY
 
    ;
 

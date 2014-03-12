@@ -29,6 +29,7 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.infinispan.xsite.BackupReceiverRepository;
 import org.infinispan.xsite.XSiteBackup;
+import org.infinispan.xsite.XSiteReplicateCommand;
 import org.jgroups.Channel;
 import org.jgroups.Event;
 import org.jgroups.JChannel;
@@ -556,7 +557,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
    }
 
    @Override
-   public BackupResponse backupRemotely(Collection<XSiteBackup> backups, ReplicableCommand rpcCommand) throws Exception {
+   public BackupResponse backupRemotely(Collection<XSiteBackup> backups, XSiteReplicateCommand rpcCommand) throws Exception {
       log.tracef("About to send to backups %s, command %s", backups, rpcCommand);
       Buffer buf = CommandAwareRpcDispatcher.marshallCall(dispatcher.getMarshaller(), rpcCommand);
       Map<XSiteBackup, Future<Object>> syncBackupCalls = new HashMap<XSiteBackup, Future<Object>>(backups.size());
@@ -637,6 +638,15 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
       List<Address> oldMembers = members;
       // we need a defensive copy anyway
       members = fromJGroupsAddressList(newMembers);
+
+      // Delta view debug log for large cluster
+      if (log.isDebugEnabled() && oldMembers != null) {
+         List<Address> joined = new ArrayList(members);
+         joined.removeAll(oldMembers);
+         List<Address> left = new ArrayList(oldMembers);
+         left.removeAll(members);
+         log.debugf("Joined: %s, Left: %s", joined, left);
+      }
 
       // Now that we have a view, figure out if we are the isCoordinator
       coordinator = fromJGroupsAddress(newView.getCreator());
