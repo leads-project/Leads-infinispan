@@ -61,6 +61,12 @@ import org.infinispan.marshall.exts.SetExternalizer;
 import org.infinispan.marshall.exts.SingletonListExternalizer;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.metadata.InternalMetadataImpl;
+import org.infinispan.notifications.cachelistener.cluster.ClusterEvent;
+import org.infinispan.notifications.cachelistener.cluster.ClusterEventCallable;
+import org.infinispan.notifications.cachelistener.cluster.ClusterListenerRemoveCallable;
+import org.infinispan.notifications.cachelistener.cluster.ClusterListenerReplicateCallable;
+import org.infinispan.notifications.cachelistener.filter.KeyFilterAsKeyValueFilter;
+import org.infinispan.notifications.cachelistener.filter.SimpleCollectionKeyFilter;
 import org.infinispan.registry.ScopedKey;
 import org.infinispan.remoting.responses.CacheNotFoundResponse;
 import org.infinispan.remoting.responses.ExceptionResponse;
@@ -82,6 +88,7 @@ import org.infinispan.transaction.xa.recovery.SerializableXid;
 import org.infinispan.util.KeyValuePair;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+import org.infinispan.xsite.statetransfer.XSiteState;
 import org.jboss.marshalling.Marshaller;
 import org.jboss.marshalling.ObjectTable;
 import org.jboss.marshalling.Unmarshaller;
@@ -300,6 +307,14 @@ public class ExternalizerTable implements ObjectTable {
       addInternalExternalizer(new KeyValuePair.Externalizer());
       addInternalExternalizer(new InternalMetadataImpl.Externalizer());
       addInternalExternalizer(new MarshalledEntryImpl.Externalizer(globalMarshaller));
+
+      addInternalExternalizer(new SimpleCollectionKeyFilter.Externalizer());
+      addInternalExternalizer(new KeyFilterAsKeyValueFilter.Externalizer());
+      addInternalExternalizer(new ClusterEvent.Externalizer());
+      addInternalExternalizer(new ClusterEventCallable.Externalizer());
+      addInternalExternalizer(new ClusterListenerRemoveCallable.Externalizer());
+      addInternalExternalizer(new ClusterListenerReplicateCallable.Externalizer());
+      addInternalExternalizer(new XSiteState.XSiteStateExternalizer());
    }
 
    void addInternalExternalizer(AdvancedExternalizer<?> ext) {

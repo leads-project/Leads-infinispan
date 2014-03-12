@@ -4,10 +4,10 @@ import org.infinispan.client.hotrod.exceptions.HotRodClientException;
 import org.infinispan.client.hotrod.impl.transport.tcp.TcpTransport;
 import org.infinispan.commons.CacheConfigurationException;
 import org.jboss.logging.BasicLogger;
-import org.jboss.logging.Cause;
-import org.jboss.logging.LogMessage;
-import org.jboss.logging.Message;
-import org.jboss.logging.MessageLogger;
+import org.jboss.logging.annotations.Cause;
+import org.jboss.logging.annotations.LogMessage;
+import org.jboss.logging.annotations.Message;
+import org.jboss.logging.annotations.MessageLogger;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -128,4 +128,7 @@ public interface Log extends BasicLogger {
 
    @Message(value = "Unable to parse server IP address %s", id = 4028)
    CacheConfigurationException parseErrorServerAddress(String server);
+
+   @Message(value = "Invalid max_retries (value=%s). Value should be greater or equal than zero.", id = 4029)
+   CacheConfigurationException invalidMaxRetries(int retriesPerServer);
 }

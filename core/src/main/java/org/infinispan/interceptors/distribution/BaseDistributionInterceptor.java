@@ -23,9 +23,11 @@ import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.rpc.ResponseFilter;
 import org.infinispan.remoting.rpc.ResponseMode;
+import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.rpc.RpcOptions;
 import org.infinispan.remoting.rpc.RpcOptionsBuilder;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.remoting.transport.jgroups.SuspectException;
 import org.infinispan.statetransfer.OutdatedTopologyException;
 import org.infinispan.topology.CacheTopology;
 import org.infinispan.transaction.xa.GlobalTransaction;
@@ -149,6 +151,9 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
             }
          }
       }
+      if (rvrl != null) {
+         rvrl.remoteValueNotFound(key);
+      }
       return null;
    }
 
@@ -160,7 +165,9 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
       RecipientGenerator recipientGenerator = new SingleKeyRecipientGenerator(command.getKey());
 
       // see if we need to load values from remote sources first
-      remoteGetBeforeWrite(ctx, command, recipientGenerator);
+      if (needValuesFromPreviousOwners(ctx, command)) {
+         remoteGetBeforeWrite(ctx, command, recipientGenerator);
+      }
 
       // invoke the command locally, we need to know if it's successful or not
       Object localResult = invokeNextInterceptor(ctx, command);
@@ -192,10 +199,12 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
                log.tracef("Skipping the replication of the conditional command as it did not succeed on primary owner (%s).", command);
                return localResult;
             }
+            List<Address> recipients = recipientGenerator.generateRecipients();
             // Ignore the previous value on the backup owners
             command.setValueMatcher(ValueMatcher.MATCH_ALWAYS);
             try {
-               rpcManager.invokeRemotely(recipientGenerator.generateRecipients(), command, rpcManager.getDefaultRpcOptions(isSync));
+               rpcManager.invokeRemotely(recipients, command, determineRpcOptionsForBackupReplication(rpcManager,
+                                                                                                      isSync, recipients));
             } finally {
                // Switch to the retry policy, in case the primary owner changed and the write already succeeded on the new primary
                command.setValueMatcher(valueMatcher.matcherForRetry());
@@ -217,7 +226,8 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
                // Ignore the previous value on the backup owners
                command.setValueMatcher(ValueMatcher.MATCH_ALWAYS);
                try {
-                  rpcManager.invokeRemotely(recipients, command, rpcManager.getDefaultRpcOptions(isSync));
+                  rpcManager.invokeRemotely(recipients, command, determineRpcOptionsForBackupReplication(rpcManager,
+                                                                                                         isSync, recipients));
                } finally {
                   // Switch to the retry policy, in case the primary owner changed and the write already succeeded on the new primary
                   command.setValueMatcher(valueMatcher.matcherForRetry());
@@ -244,6 +254,15 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
                   command.setValueMatcher(valueMatcher.matcherForRetry());
                }
                throw e;
+            } catch (SuspectException e) {
+               // If the primary owner became suspected, we don't know if it was able to replicate it's data properly
+               // to all backup owners and notify all listeners, thus we need to retry with new matcher in case if
+               // it had updated the backup owners
+               if (trace) log.tracef("Primary owner suspected - Changing the value matching policy from %s to %s " +
+                                           "(original value was %s)", command.getValueMatcher(),
+                                     valueMatcher.matcherForRetry(), valueMatcher);
+               command.setValueMatcher(valueMatcher.matcherForRetry());
+               throw e;
             }
             if (!isSyncForwarding) return localResult;
 
@@ -252,6 +271,21 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
             return primaryResult;
          }
       }
+   }
+
+   private RpcOptions determineRpcOptionsForBackupReplication(RpcManager rpc, boolean isSync, List<Address> recipients) {
+      RpcOptions options;
+      if (isSync) {
+         // If no recipients, means a broadcast, so we can ignore leavers
+         if (recipients == null) {
+            options = rpc.getRpcOptionsBuilder(ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS).build();
+         } else {
+            options = rpc.getDefaultRpcOptions(true);
+         }
+      } else {
+         options = rpc.getDefaultRpcOptions(false);
+      }
+      return options;
    }
 
    private Object getResponseFromPrimaryOwner(Address primaryOwner, Map<Address, Response> addressResponseMap) {
@@ -274,6 +308,11 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
       Throwable cause = fromPrimaryOwner instanceof ExceptionResponse ? ((ExceptionResponse)fromPrimaryOwner).getException() : null;
       throw new CacheException("Got unsuccessful response from primary owner: " + fromPrimaryOwner, cause);
    }
+
+   /**
+    * @return Whether a remote get is needed to obtain the previous values of the affected entries.
+    */
+   protected abstract boolean needValuesFromPreviousOwners(InvocationContext ctx, WriteCommand command);
 
    protected abstract void remoteGetBeforeWrite(InvocationContext ctx, WriteCommand command, RecipientGenerator keygen) throws Throwable;
 

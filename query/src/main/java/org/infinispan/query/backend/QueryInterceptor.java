@@ -23,6 +23,7 @@ import org.hibernate.search.engine.spi.SearchFactoryImplementor;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
 import org.infinispan.Cache;
 import org.infinispan.commands.FlagAffectedCommand;
+import org.infinispan.commands.LocalFlagAffectedCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commands.write.ClearCommand;
 import org.infinispan.commands.write.PutKeyValueCommand;
@@ -75,8 +76,7 @@ public class QueryInterceptor extends CommandInterceptor {
    private final KeyTransformationHandler keyTransformationHandler = new KeyTransformationHandler();
    private final KnownClassesRegistryListener registryListener = new KnownClassesRegistryListener();
 
-   private ClusterRegistry<String, Class<?>, Boolean> clusterRegistry;
-   private String knownClassesScope;
+   private ReadIntensiveClusterRegistryWrapper<String, Class<?>, Boolean> clusterRegistry;
 
    private SearchWorkCreator<Object> searchWorkCreator = new DefaultSearchWorkCreator<Object>();
 
@@ -109,16 +109,13 @@ public class QueryInterceptor extends CommandInterceptor {
       this.transactionSynchronizationRegistry = transactionSynchronizationRegistry;
       this.asyncExecutor = e;
       this.dataContainer = dataContainer;
-      this.clusterRegistry = clusterRegistry;
-
-      knownClassesScope = "QueryKnownClasses#" + cache.getName();
+      this.clusterRegistry = new ReadIntensiveClusterRegistryWrapper(clusterRegistry, "QueryKnownClasses#" + cache.getName());
    }
 
    @Start
    protected void start() {
-      clusterRegistry.addListener(knownClassesScope, registryListener);
-
-      for (Class<?> c : clusterRegistry.keys(knownClassesScope)) {
+      clusterRegistry.addListener(registryListener);
+      for (Class<?> c : clusterRegistry.keys()) {
          enableClass(c);
       }
    }
@@ -204,7 +201,7 @@ public class QueryInterceptor extends CommandInterceptor {
 
    private void purgeAllIndexes(TransactionContext transactionContext) {
       transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
-      for (Class c : clusterRegistry.keys(knownClassesScope)) {
+      for (Class c : clusterRegistry.keys()) {
          if (isIndexed(c)) {
             //noinspection unchecked
             performSearchWorks(searchWorkCreator.createPerEntityTypeWorks(c, WorkType.PURGE_ALL), transactionContext);
@@ -217,8 +214,10 @@ public class QueryInterceptor extends CommandInterceptor {
       performSearchWork(value, keyToString(key), WorkType.DELETE, transactionContext);
    }
 
-   protected void updateIndexes(Object value, Object key, TransactionContext transactionContext) {
-      performSearchWork(value, keyToString(key), WorkType.UPDATE, transactionContext);
+   protected void updateIndexes(final boolean usingSkipIndexCleanupFlag, final Object value, final Object key, final TransactionContext transactionContext) {
+      // Note: it's generally unsafe to assume there is no previous entry to cleanup: always use UPDATE
+      // unless the specific flag is allowing this.
+      performSearchWork(value, keyToString(key), usingSkipIndexCleanupFlag ? WorkType.ADD : WorkType.UPDATE, transactionContext);
    }
 
    private void performSearchWork(Object value, Serializable id, WorkType workType, TransactionContext transactionContext) {
@@ -256,7 +255,7 @@ public class QueryInterceptor extends CommandInterceptor {
    private void enableClassesIncrementally(Class<?>[] classes, boolean locked) {
       ArrayList<Class<?>> toAdd = null;
       for (Class<?> type : classes) {
-         if (!clusterRegistry.containsKey(knownClassesScope, type)) {
+         if (!clusterRegistry.containsKey(type)) {
             if (toAdd==null)
                toAdd = new ArrayList<Class<?>>(classes.length);
             toAdd.add(type);
@@ -276,7 +275,7 @@ public class QueryInterceptor extends CommandInterceptor {
             resume(transaction);
          }
          for (Class<?> type : toAdd) {
-            clusterRegistry.put(knownClassesScope, type, isIndexed(type));
+            clusterRegistry.put(type, isIndexed(type));
          }
       } else {
          mutating.lock();
@@ -308,7 +307,7 @@ public class QueryInterceptor extends CommandInterceptor {
    public boolean updateKnownTypesIfNeeded(Object value) {
       if ( value != null ) {
          Class<?> potentialNewType = value.getClass();
-         if (!clusterRegistry.containsKey(knownClassesScope, potentialNewType)) {
+         if (!clusterRegistry.containsKey(potentialNewType)) {
             mutating.lock();
             try {
                enableClassesIncrementally( new Class[]{potentialNewType}, true);
@@ -317,7 +316,7 @@ public class QueryInterceptor extends CommandInterceptor {
                mutating.unlock();
             }
          }
-         return clusterRegistry.get(knownClassesScope, potentialNewType);
+         return clusterRegistry.get(potentialNewType);
       }
       else {
          return false;
@@ -430,20 +429,23 @@ public class QueryInterceptor extends CommandInterceptor {
     */
    private void processReplaceCommand(final ReplaceCommand command, final InvocationContext ctx, final Object valueReplaced, TransactionContext transactionContext) {
       if (valueReplaced != null && command.isSuccessful() && shouldModifyIndexes(command, ctx)) {
+         final boolean usingSkipIndexCleanupFlag = usingSkipIndexCleanup(command);
          Object[] parameters = command.getParameters();
-         Object p1 = extractValue(parameters[1]);
          Object p2 = extractValue(parameters[2]);
-         boolean originalIsIndexed = updateKnownTypesIfNeeded( p1 );
-         boolean newValueIsIndexed = updateKnownTypesIfNeeded( p2 );
+         final boolean newValueIsIndexed = updateKnownTypesIfNeeded( p2 );
          Object key = extractValue(command.getKey());
 
-         if (p1 != null && originalIsIndexed) {
-            transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
-            removeFromIndexes(p1, key, transactionContext);
+         if (! usingSkipIndexCleanupFlag) {
+            final Object p1 = extractValue(parameters[1]);
+            final boolean originalIsIndexed = updateKnownTypesIfNeeded( p1 );
+            if (p1 != null && originalIsIndexed) {
+               transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
+               removeFromIndexes(p1, key, transactionContext);
+            }
          }
          if (newValueIsIndexed) {
             transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
-            updateIndexes(p2, key, transactionContext);
+            updateIndexes(usingSkipIndexCleanupFlag, p2, key, transactionContext);
          }
       }
    }
@@ -477,18 +479,19 @@ public class QueryInterceptor extends CommandInterceptor {
    private void processPutMapCommand(final PutMapCommand command, final InvocationContext ctx, final Map<Object, Object> previousValues, TransactionContext transactionContext) {
       if (shouldModifyIndexes(command, ctx)) {
          Map<Object, Object> dataMap = command.getMap();
+         final boolean usingSkipIndexCleanupFlag = usingSkipIndexCleanup(command);
          // Loop through all the keys and put those key-value pairings into lucene.
          for (Map.Entry<Object, Object> entry : dataMap.entrySet()) {
             final Object key = extractValue(entry.getKey());
             final Object value = extractValue(entry.getValue());
             final Object previousValue = previousValues.get(key);
-            if (updateKnownTypesIfNeeded(previousValue)) {
+            if (!usingSkipIndexCleanupFlag && updateKnownTypesIfNeeded(previousValue)) {
                transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
                removeFromIndexes(previousValue, key, transactionContext);
             }
             if (updateKnownTypesIfNeeded(value)) {
                transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
-               updateIndexes(value, key, transactionContext);
+               updateIndexes(usingSkipIndexCleanupFlag, value, key, transactionContext);
             }
          }
       }
@@ -503,8 +506,9 @@ public class QueryInterceptor extends CommandInterceptor {
     * @param transactionContext Optional for lazy initialization, or reuse an existing context.
     */
    private void processPutKeyValueCommand(final PutKeyValueCommand command, final InvocationContext ctx, final Object previousValue, TransactionContext transactionContext) {
+      final boolean usingSkipIndexCleanupFlag = usingSkipIndexCleanup(command);
       //whatever the new type, we might still need to cleanup for the previous value (and schedule removal first!)
-      if (updateKnownTypesIfNeeded(previousValue)) {
+      if (!usingSkipIndexCleanupFlag && updateKnownTypesIfNeeded(previousValue)) {
          if (shouldModifyIndexes(command, ctx)) {
             transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
             removeFromIndexes(previousValue, extractValue(command.getKey()), transactionContext);
@@ -515,7 +519,7 @@ public class QueryInterceptor extends CommandInterceptor {
          if (shouldModifyIndexes(command, ctx)) {
             // This means that the entry is just modified so we need to update the indexes and not add to them.
             transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
-            updateIndexes(value, extractValue(command.getKey()), transactionContext);
+            updateIndexes(usingSkipIndexCleanupFlag, value, extractValue(command.getKey()), transactionContext);
          }
       }
    }
@@ -559,5 +563,10 @@ public class QueryInterceptor extends CommandInterceptor {
          //ignored;
       }
    }
+
+   private boolean usingSkipIndexCleanup(final LocalFlagAffectedCommand command) {
+      return command != null && command.hasFlag(Flag.SKIP_INDEX_CLEANUP);
+   }
+
 
 }

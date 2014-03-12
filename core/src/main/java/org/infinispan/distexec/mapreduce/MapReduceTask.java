@@ -1,47 +1,9 @@
 package org.infinispan.distexec.mapreduce;
 
-import org.infinispan.AdvancedCache;
-import org.infinispan.Cache;
-import org.infinispan.commands.CancelCommand;
-import org.infinispan.commands.CancellationService;
-import org.infinispan.commands.CommandsFactory;
-import org.infinispan.commands.CreateCacheCommand;
-import org.infinispan.commands.read.MapCombineCommand;
-import org.infinispan.commands.read.ReduceCommand;
-import org.infinispan.context.Flag;
-import org.infinispan.distexec.mapreduce.spi.MapReduceTaskLifecycleService;
-import org.infinispan.distribution.DistributionManager;
-import org.infinispan.factories.ComponentRegistry;
-import org.infinispan.interceptors.locking.ClusteringDependentLogic;
-import org.infinispan.lifecycle.ComponentStatus;
-import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.commons.CacheException;
-import org.infinispan.commons.marshall.Marshaller;
-import org.infinispan.commons.marshall.StreamingMarshaller;
-import org.infinispan.commons.util.Util;
-import org.infinispan.remoting.responses.Response;
-import org.infinispan.remoting.responses.SuccessfulResponse;
-import org.infinispan.remoting.rpc.RpcManager;
-import org.infinispan.remoting.rpc.RpcOptionsBuilder;
-import org.infinispan.remoting.transport.Address;
-import org.infinispan.commons.util.concurrent.AbstractInProcessFuture;
-import org.infinispan.commons.util.concurrent.FutureListener;
-import org.infinispan.commons.util.concurrent.NotifyingFuture;
-import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
-import org.infinispan.util.logging.Log;
-import org.infinispan.util.logging.LogFactory;
+import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -50,7 +12,36 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
+import org.infinispan.AdvancedCache;
+import org.infinispan.Cache;
+import org.infinispan.commands.CancelCommand;
+import org.infinispan.commands.CancellationService;
+import org.infinispan.commands.CommandsFactory;
+import org.infinispan.commands.CreateCacheCommand;
+import org.infinispan.commands.read.MapCombineCommand;
+import org.infinispan.commands.read.ReduceCommand;
+import org.infinispan.commons.CacheException;
+import org.infinispan.commons.marshall.Marshaller;
+import org.infinispan.commons.marshall.StreamingMarshaller;
+import org.infinispan.commons.util.Util;
+import org.infinispan.commons.util.concurrent.AbstractInProcessFuture;
+import org.infinispan.commons.util.concurrent.FutureListener;
+import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
+import org.infinispan.distexec.mapreduce.spi.MapReduceTaskLifecycleService;
+import org.infinispan.distribution.DistributionManager;
+import org.infinispan.factories.ComponentRegistry;
+import org.infinispan.interceptors.locking.ClusteringDependentLogic;
+import org.infinispan.lifecycle.ComponentStatus;
+import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.remoting.responses.Response;
+import org.infinispan.remoting.responses.SuccessfulResponse;
+import org.infinispan.remoting.rpc.RpcManager;
+import org.infinispan.remoting.rpc.RpcOptionsBuilder;
+import org.infinispan.remoting.transport.Address;
+import org.infinispan.security.AuthorizationPermission;
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
 
 /**
  * MapReduceTask is a distributed task allowing a large scale computation to be transparently
@@ -206,7 +197,7 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
    public MapReduceTask(Cache<KIn, VIn> masterCacheNode, boolean distributeReducePhase, boolean useIntermediateSharedCache) {
       if (masterCacheNode == null)
          throw new IllegalArgumentException("Can not use null cache for MapReduceTask");
-
+      ensureAccessPermissions(masterCacheNode.getAdvancedCache());
       ensureProperCacheState(masterCacheNode.getAdvancedCache());
       this.cache = masterCacheNode.getAdvancedCache();
       this.keys = new LinkedList<KIn>();
@@ -320,6 +311,7 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
     * @return a Map where each key is an output key and value is reduced value for that output key
     */
    public Map<KOut, VOut> execute() throws CacheException {
+      ensureAccessPermissions(cache);
       if (mapper == null)
          throw new NullPointerException("A valid reference of Mapper is not set " + mapper);
 
@@ -375,7 +367,7 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
    }
 
 
-   protected void executeTaskInit(String tmpCacheName) {
+   protected void executeTaskInit(String tmpCacheName) throws Exception{
       RpcManager rpc = cache.getRpcManager();
       CommandsFactory factory = cache.getComponentRegistry().getComponent(CommandsFactory.class);
 
@@ -383,7 +375,7 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
       final CreateCacheCommand ccc = factory.buildCreateCacheCommand(tmpCacheName, DEFAULT_TMP_CACHE_CONFIGURATION_NAME, true, rpc.getMembers().size());
 
       log.debugf("Invoking %s across members %s ", ccc, cache.getRpcManager().getMembers());
-      mapReduceManager.getExecutorService().submit(new Callable<Object>() {
+      Future<Object> future = mapReduceManager.getExecutorService().submit(new Callable<Object>() {
          @Override
          public Object call() throws Exception {
             //locally
@@ -395,7 +387,15 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
             }
          }
       });
+      future.get();
       rpc.invokeRemotely(cache.getRpcManager().getMembers(), ccc, rpcOptionsBuilder.build());
+      Map<Address, Response> map = rpc.invokeRemotely(cache.getRpcManager().getMembers(), ccc, rpcOptionsBuilder.build());
+      for (Entry<Address, Response> e : map.entrySet()) {
+         if (!e.getValue().isSuccessful()) {
+            throw new IllegalStateException("Could not initialize tmp cache " + tmpCacheName + " at " + e.getKey()
+                  + " for  " + this);
+         }
+      }
    }
 
    protected Set<KOut> executeMapPhase(boolean useCompositeKeys) throws InterruptedException,
@@ -436,7 +436,20 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
       }
       try {
          for (MapTaskPart<Set<KOut>> mapTaskPart : futures) {
-            mapPhasesResult.addAll(mapTaskPart.get());
+            Set<KOut> result = null;
+            try {
+               result = mapTaskPart.get();
+            } catch (ExecutionException ee) {
+               Throwable cause = ee.getCause();
+               if (cause instanceof org.infinispan.util.concurrent.TimeoutException) {
+                  throw new ExecutionException("Map phase executing at " + mapTaskPart.getAddress()
+                        + " did not complete within " + rpcOptionsBuilder.timeout(TimeUnit.SECONDS) + " sec timeout",
+                        cause);
+               } else {
+                  throw ee;
+               }
+            }
+            mapPhasesResult.addAll(result);
          }
       } finally {
          cancellableTasks.clear();
@@ -488,8 +501,20 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
       Map<KOut, VOut> reducedResult = new HashMap<KOut, VOut>();
       try {
          for (MapTaskPart<Map<KOut, List<VOut>>> mapTaskPart : futures) {
-            // TODO in parallel with futures
-            mergeResponse(mapPhasesResult, mapTaskPart.get());
+            Map<KOut, List<VOut>> result = null;
+            try {
+               result = mapTaskPart.get();
+            } catch (ExecutionException ee) {
+               Throwable cause = ee.getCause();
+               if (cause instanceof org.infinispan.util.concurrent.TimeoutException) {
+                  throw new ExecutionException("Map phase executing at " + mapTaskPart.getAddress()
+                        + " did not complete within " + rpcOptionsBuilder.timeout(TimeUnit.SECONDS) + " sec timeout",
+                        cause);
+               } else {
+                  throw ee;
+               }               
+            }
+            mergeResponse(mapPhasesResult, result);
          }
       } finally {
          cancellableTasks.clear();
@@ -549,7 +574,20 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
       }
       try {
          for (ReduceTaskPart<Map<KOut, VOut>> reduceTaskPart : reduceTasks) {
-            reduceResult.putAll(reduceTaskPart.get());
+            Map<KOut, VOut> result = null;
+            try {
+               result = reduceTaskPart.get();
+            } catch (ExecutionException ee) {
+               Throwable cause = ee.getCause();
+               if (cause instanceof org.infinispan.util.concurrent.TimeoutException) {
+                  throw new ExecutionException("Reduce phase executing at " + reduceTaskPart.getAddress()
+                        + " did not complete within " + rpcOptionsBuilder.timeout(TimeUnit.SECONDS) + " sec timeout",
+                        cause);
+               } else {
+                  throw ee;
+               }
+            }
+            reduceResult.putAll(result);
          }
       } finally {
          cancellableTasks.clear();
@@ -691,6 +729,12 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
       return Util.cloneWithMarshaller(marshaller, reducer);
    }
 
+   private void ensureAccessPermissions(AdvancedCache<?, ?> cache) {
+      if (cache.getCacheConfiguration().security().enabled()) {
+         cache.getAuthorizationManager().checkPermission(AuthorizationPermission.EXEC);
+      }
+   }
+
    private void ensureProperCacheState(AdvancedCache<KIn, VIn> cache) throws NullPointerException,
             IllegalStateException {
       if (cache.getStatus() != ComponentStatus.RUNNING)
@@ -822,7 +866,7 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
 
       @Override
       public NotifyingFuture<V> attachListener(FutureListener<V> listener) {
-         return this;
+         throw new UnsupportedOperationException();
       }
 
       @Override
@@ -882,11 +926,15 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
       }
 
       @Override
-      public void notifyDone() {
+      public void notifyDone(V result) {
       }
 
       @Override
-      public void setNetworkFuture(Future<V> future) {
+      public void notifyException(Throwable exception) {
+      }
+
+      @Override
+      public void setFuture(Future<V> future) {
          this.f = future;
       }
    }
@@ -930,7 +978,7 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
                };
             }
             FutureTask<V> futureTask = new FutureTask<V>((Callable<V>) callable);
-            setNetworkFuture(futureTask);
+            setFuture(futureTask);
             mapReduceManager.getExecutorService().submit(futureTask);
          } else {
             RpcManager rpc = cache.getRpcManager();
@@ -1003,7 +1051,7 @@ public class MapReduceTask<KIn, VIn, KOut, VOut> {
                }
             };
             FutureTask<V> futureTask = new FutureTask<V>((Callable<V>) callable);
-            setNetworkFuture(futureTask);
+            setFuture(futureTask);
             mapReduceManager.getExecutorService().submit(futureTask);
          } else {
             RpcManager rpc = cache.getRpcManager();

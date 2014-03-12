@@ -2,6 +2,7 @@ package org.infinispan.interceptors;
 
 import org.infinispan.commands.AbstractVisitor;
 import org.infinispan.commands.CommandsFactory;
+import org.infinispan.commands.DataCommand;
 import org.infinispan.commands.FlagAffectedCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.tx.CommitCommand;
@@ -33,9 +34,9 @@ import org.infinispan.metadata.Metadata;
 import org.infinispan.statetransfer.OutdatedTopologyException;
 import org.infinispan.statetransfer.StateConsumer;
 import org.infinispan.statetransfer.StateTransferLock;
-import org.infinispan.transaction.LocalTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+import org.infinispan.xsite.statetransfer.XSiteStateConsumer;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -62,6 +63,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    private boolean isInvalidation;
    private StateConsumer stateConsumer;       // optional
    private StateTransferLock stateTransferLock;
+   private XSiteStateConsumer xSiteStateConsumer;
 
    private static final Log log = LogFactory.getLog(EntryWrappingInterceptor.class);
    private static final boolean trace = log.isTraceEnabled();
@@ -73,13 +75,15 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
 
    @Inject
    public void init(EntryFactory entryFactory, DataContainer dataContainer, ClusteringDependentLogic cdl,
-                    CommandsFactory commandFactory, StateConsumer stateConsumer, StateTransferLock stateTransferLock) {
+                    CommandsFactory commandFactory, StateConsumer stateConsumer, StateTransferLock stateTransferLock,
+                    XSiteStateConsumer xSiteStateConsumer) {
       this.entryFactory = entryFactory;
       this.dataContainer = dataContainer;
       this.cdl = cdl;
       this.commandFactory = commandFactory;
       this.stateConsumer = stateConsumer;
       this.stateTransferLock = stateTransferLock;
+      this.xSiteStateConsumer = xSiteStateConsumer;
    }
 
    @Start
@@ -121,7 +125,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          else {
             CacheEntry entry = ctx.lookupEntry(command.getKey());
             if (entry != null) {
-               entry.setSkipRemoteGet(true);
+               entry.setSkipLookup(true);
             }
          }
       }
@@ -176,6 +180,11 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          if (trace)
             log.tracef("Skipping ownership check and wrapping key %s", toStr(key));
 
+         return true;
+      } else if (command.hasFlag(Flag.CACHE_MODE_LOCAL)) {
+         if (trace) {
+            log.tracef("CACHE_MODE_LOCAL is set. Wrapping key %s", toStr(key));
+         }
          return true;
       }
       boolean result;
@@ -262,37 +271,40 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
       return visitRemoveCommand(ctx, command);
    }
 
-   protected boolean isFromStateTransfer(InvocationContext ctx) {
-      if (ctx.isInTxScope() && ctx.isOriginLocal()) {
-         LocalTransaction localTx = (LocalTransaction) ((TxInvocationContext) ctx).getCacheTransaction();
-         if (localTx.isFromStateTransfer()) {
-            return true;
+   private Flag extractStateTransferFlag(InvocationContext ctx, FlagAffectedCommand command) {
+      if (command == null) {
+         //commit command
+         return ctx instanceof TxInvocationContext ?
+               ((TxInvocationContext) ctx).getCacheTransaction().getStateTransferFlag() :
+               null;
+      } else {
+         if (command.hasFlag(Flag.PUT_FOR_STATE_TRANSFER)) {
+            return Flag.PUT_FOR_STATE_TRANSFER;
+         } else if (command.hasFlag(Flag.PUT_FOR_X_SITE_STATE_TRANSFER)) {
+            return Flag.PUT_FOR_X_SITE_STATE_TRANSFER;
          }
       }
-      return false;
+      return null;
    }
 
-   protected boolean isFromStateTransfer(FlagAffectedCommand command) {
-      return stateConsumer != null && command.hasFlag(Flag.PUT_FOR_STATE_TRANSFER);
+   private boolean hasClearCommand(InvocationContext ctx, FlagAffectedCommand command) {
+      return ctx instanceof TxInvocationContext ?
+            ((TxInvocationContext) ctx).getCacheTransaction().hasModification(ClearCommand.class) :
+            command instanceof ClearCommand;
    }
 
    protected final void commitContextEntries(InvocationContext ctx, FlagAffectedCommand command, Metadata metadata) {
-      boolean isPutForStateTransfer = command == null
-            ? isFromStateTransfer(ctx)
-            : isFromStateTransfer(command);
+      final Flag stateTransferFlag = extractStateTransferFlag(ctx, command);
 
-      if (!isPutForStateTransfer && stateConsumer != null
-            && ctx instanceof TxInvocationContext
-            && ((TxInvocationContext) ctx).getCacheTransaction().hasModification(ClearCommand.class)) {
-         // If we are committing a ClearCommand now then no keys should be written by state transfer from
-         // now on until current rebalance ends.
-         stateConsumer.stopApplyingState();
+      if (stateTransferFlag == null) {
+         //it is a normal operation
+         stopStateTransferIfNeeded(ctx, command);
       }
 
       if (ctx instanceof SingleKeyNonTxInvocationContext) {
          SingleKeyNonTxInvocationContext singleKeyCtx = (SingleKeyNonTxInvocationContext) ctx;
-         commitEntryIfNeeded(ctx, command, singleKeyCtx.getKey(),
-               singleKeyCtx.getCacheEntry(), isPutForStateTransfer, metadata);
+         commitEntryIfNeeded(ctx, command,
+                             singleKeyCtx.getCacheEntry(), stateTransferFlag, metadata);
       } else {
          Set<Map.Entry<Object, CacheEntry>> entries = ctx.getLookedUpEntries().entrySet();
          Iterator<Map.Entry<Object, CacheEntry>> it = entries.iterator();
@@ -300,7 +312,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          while (it.hasNext()) {
             Map.Entry<Object, CacheEntry> e = it.next();
             CacheEntry entry = e.getValue();
-            if (!commitEntryIfNeeded(ctx, command, e.getKey(), entry, isPutForStateTransfer, metadata)) {
+            if (!commitEntryIfNeeded(ctx, command, entry, stateTransferFlag, metadata)) {
                if (trace) {
                   if (entry == null)
                      log.tracef("Entry for key %s is null : not calling commitUpdate", e.getKey());
@@ -312,9 +324,22 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
       }
    }
 
-   protected void commitContextEntry(CacheEntry entry, InvocationContext ctx,
-            FlagAffectedCommand command, Metadata metadata) {
-      cdl.commitEntry(entry, metadata, command, ctx);
+   protected void commitContextEntry(CacheEntry entry, InvocationContext ctx, FlagAffectedCommand command,
+                                     Metadata metadata, Flag stateTransferFlag, boolean l1Invalidation) {
+      cdl.commitEntry(entry, metadata, command, ctx, stateTransferFlag, l1Invalidation);
+   }
+
+   private void stopStateTransferIfNeeded(InvocationContext context, FlagAffectedCommand command) {
+      if (hasClearCommand(context, command)) {
+         // If we are committing a ClearCommand now then no keys should be written by state transfer from
+         // now on until current rebalance ends.
+         if (stateConsumer != null) {
+            stateConsumer.stopApplyingState();
+         }
+         if (xSiteStateConsumer != null) {
+            xSiteStateConsumer.endStateTransfer();
+         }
+      }
    }
 
    private Object invokeNextAndApplyChanges(InvocationContext ctx, FlagAffectedCommand command, Metadata metadata) throws Throwable {
@@ -335,12 +360,19 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
                   int currentTopologyId = stateConsumer.getCacheTopology().getTopologyId();
                   // TotalOrderStateTransferInterceptor doesn't set the topology id for PFERs.
                   if (isSync && currentTopologyId != commandTopologyId && commandTopologyId != -1) {
-                     if (trace) log.tracef("Cache topology changed while the command was executing: expected %d, got %d",
-                           commandTopologyId, currentTopologyId);
-                     // This shouldn't be necessary, as we'll have a fresh command instance when retrying
-                     writeCommand.setValueMatcher(writeCommand.getValueMatcher().matcherForRetry());
-                     throw new OutdatedTopologyException("Cache topology changed while the command was executing: expected " +
-                           commandTopologyId + ", got " + currentTopologyId);
+                     // If we were the originator of a data command which we didn't own the key at the time means it
+                     // was already committed, so there is no need to throw the OutdatedTopologyException
+                     // This will happen if we submit a command to the primary owner and it responds and then a topology
+                     // change happens before we get here
+                     if (!ctx.isOriginLocal() || !(command instanceof DataCommand) ||
+                               ctx.hasLockedKey(((DataCommand)command).getKey())) {
+                        if (trace) log.tracef("Cache topology changed while the command was executing: expected %d, got %d",
+                              commandTopologyId, currentTopologyId);
+                        // This shouldn't be necessary, as we'll have a fresh command instance when retrying
+                        writeCommand.setValueMatcher(writeCommand.getValueMatcher().matcherForRetry());
+                        throw new OutdatedTopologyException("Cache topology changed while the command was executing: expected " +
+                              commandTopologyId + ", got " + currentTopologyId);
+                     }
                   }
                }
             }
@@ -363,7 +395,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
       if (txScope) {
          for (CacheEntry entry : context.getLookedUpEntries().values()) {
             if (entry != null) {
-               entry.setSkipRemoteGet(true);
+               entry.setSkipLookup(true);
             }
          }
       }
@@ -371,7 +403,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
       if (txScope) {
          for (CacheEntry entry : context.getLookedUpEntries().values()) {
             if (entry != null) {
-               entry.setSkipRemoteGet(true);
+               entry.setSkipLookup(true);
             }
          }
       }
@@ -387,7 +419,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
          for (Object key : command.getAffectedKeys()) {
             CacheEntry entry = context.lookupEntry(key);
             if (entry != null) {
-               entry.setSkipRemoteGet(true);
+               entry.setSkipLookup(true);
             }
          }
       }
@@ -403,7 +435,7 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
       if (context.isInTxScope()) {
          CacheEntry entry = context.lookupEntry(command.getKey());
          if (entry != null) {
-            entry.setSkipRemoteGet(true);
+            entry.setSkipLookup(true);
          }
       }
       return retVal;
@@ -504,42 +536,15 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
    }
 
    private boolean commitEntryIfNeeded(final InvocationContext ctx, final FlagAffectedCommand command,
-         Object key, final CacheEntry entry, boolean isPutForStateTransfer, final Metadata metadata) {
+                                       final CacheEntry entry, final Flag stateTransferFlag, final Metadata metadata) {
       if (entry == null) {
-         if (key != null && !isPutForStateTransfer && stateConsumer != null &&
-               // L1 invalidations should not block state transfer puts
-               !(command instanceof InvalidateL1Command)) {
-            // this key is not yet stored locally
-            stateConsumer.addUpdatedKey(key);
-         }
          return false;
       }
-
-      if (isPutForStateTransfer && (entry.isChanged() || entry.isLoaded())) {
-         boolean updated = stateConsumer.executeIfKeyIsNotUpdated(key, new Runnable() {
-            @Override
-            public void run() {
-               log.tracef("About to commit entry %s", entry);
-               commitContextEntry(entry, ctx, command, metadata);
-            }
-         });
-         if (!updated) {
-            // This is a state transfer put command on a key that was already modified by other user commands. We need to back off.
-            log.tracef("State transfer will not write key/value %s/%s because it was already updated by somebody else", key, entry.getValue());
-            entry.rollback();
-         }
-         return updated;
-      }
+      final boolean l1Invalidation = command instanceof InvalidateL1Command;
 
       if (entry.isChanged() || entry.isLoaded()) {
-         if (stateConsumer != null &&
-               // L1 invalidations should not block state transfer puts
-               !(command instanceof InvalidateL1Command)) {
-            stateConsumer.addUpdatedKey(key);
-         }
-
          log.tracef("About to commit entry %s", entry);
-         commitContextEntry(entry, ctx, command, metadata);
+         commitContextEntry(entry, ctx, command, metadata, stateTransferFlag, l1Invalidation);
 
          return true;
       }
@@ -561,7 +566,12 @@ public class EntryWrappingInterceptor extends CommandInterceptor {
 
    protected final void wrapEntriesForPrepare(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
       if (!ctx.isOriginLocal() || command.isReplayEntryWrapping()) {
-         for (WriteCommand c : command.getModifications()) c.acceptVisitor(ctx, entryWrappingVisitor);
+         for (WriteCommand c : command.getModifications()) {
+            c.acceptVisitor(ctx, entryWrappingVisitor);
+            if (c.hasFlag(Flag.PUT_FOR_X_SITE_STATE_TRANSFER)) {
+               ctx.getCacheTransaction().setStateTransferFlag(Flag.PUT_FOR_X_SITE_STATE_TRANSFER);
+            }
+         }
       }
    }
 }

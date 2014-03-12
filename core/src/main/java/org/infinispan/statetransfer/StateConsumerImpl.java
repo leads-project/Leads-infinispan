@@ -7,7 +7,6 @@ import org.infinispan.commands.write.InvalidateCommand;
 import org.infinispan.commands.write.PutKeyValueCommand;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.InfinispanCollections;
-import org.infinispan.commons.util.concurrent.jdk8backported.EquivalentConcurrentHashMapV8;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
@@ -15,6 +14,7 @@ import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextFactory;
 import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.distexec.DistributedCallable;
 import org.infinispan.distribution.L1Manager;
 import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.factories.KnownComponentNames;
@@ -23,11 +23,11 @@ import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
 import org.infinispan.interceptors.InterceptorChain;
+import org.infinispan.marshall.core.MarshalledEntry;
+import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.persistence.CollectionKeyFilter;
 import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.persistence.spi.AdvancedCacheLoader;
-import org.infinispan.marshall.core.MarshalledEntry;
-import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.rpc.ResponseMode;
@@ -47,23 +47,13 @@ import org.infinispan.util.concurrent.ConcurrentHashSet;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import javax.transaction.TransactionManager;
+import java.util.*;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.transaction.Transaction;
-import javax.transaction.TransactionManager;
 
 import static org.infinispan.context.Flag.*;
 import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
@@ -78,8 +68,8 @@ public class StateConsumerImpl implements StateConsumer {
 
    private static final Log log = LogFactory.getLog(StateConsumerImpl.class);
    private static final boolean trace = log.isTraceEnabled();
-   private static final Object UPDATED_KEY_MARKER = new Object();
 
+   private Cache cache;
    private ExecutorService executorService;
    private StateTransferManager stateTransferManager;
    private String cacheName;
@@ -104,15 +94,9 @@ public class StateConsumerImpl implements StateConsumer {
    private boolean isTotalOrder;
    private boolean isL1OnRehash;
    private volatile KeyInvalidationListener keyInvalidationListener; //for test purpose only!
+   private CommitManager commitManager;
 
    private volatile CacheTopology cacheTopology;
-
-   /**
-    * Keeps track of all keys updated by user code during state transfer. If this is null no keys are being recorded and
-    * state transfer is not allowed to update anything. This can be null if there is not state transfer in progress at
-    * the moment of there is one but a ClearCommand was encountered.
-    */
-   private volatile EquivalentConcurrentHashMapV8<Object, Object> updatedKeys;
 
    /**
     * Indicates if there is a rebalance in progress. It is set to true when onTopologyUpdate with isRebalance==true is called.
@@ -166,54 +150,7 @@ public class StateConsumerImpl implements StateConsumer {
    @Override
    public void stopApplyingState() {
       if (trace) log.tracef("Stop keeping track of changed keys for state transfer");
-      updatedKeys = null;
-   }
-
-   /**
-    * Receive notification of updated keys right before they are committed in DataContainer.
-    *
-    * @param key the key that is being modified
-    */
-   @Override
-   public void addUpdatedKey(Object key) {
-      // grab a copy of the reference to prevent issues if another thread calls stopApplyingState() between null check and actual usage
-      final EquivalentConcurrentHashMapV8<Object, Object> localUpdatedKeys = updatedKeys;
-      if (localUpdatedKeys != null) {
-         if (cacheTopology.getWriteConsistentHash().isKeyLocalToNode(rpcManager.getAddress(), key)) {
-            if (trace) log.tracef("Key %s modified by a regular tx, state transfer will ignore it", key);
-            localUpdatedKeys.put(key, UPDATED_KEY_MARKER);
-         }
-      }
-   }
-
-   /**
-    * Checks if a given key was updated by user code during state transfer (and consequently it is untouchable by state transfer).
-    *
-    * @param key the key to check
-    * @return true if the key is known to be modified, false otherwise
-    */
-   @Override
-   public boolean isKeyUpdated(Object key) {
-      // grab a copy of the reference to prevent issues if another thread calls stopApplyingState() between null check and actual usage
-      final EquivalentConcurrentHashMapV8<Object, Object> localUpdatedKeys = updatedKeys;
-      return localUpdatedKeys == null || localUpdatedKeys.contains(key);
-   }
-
-   @Override
-   public boolean executeIfKeyIsNotUpdated(Object key, final Runnable callback) {
-      // grab a copy of the reference to prevent issues if another thread calls stopApplyingState() between null check and actual usage
-      final EquivalentConcurrentHashMapV8<Object, Object> localUpdatedKeys = updatedKeys;
-      if (localUpdatedKeys != null) {
-         Object value = localUpdatedKeys.computeIfAbsent(key, new EquivalentConcurrentHashMapV8.Fun<Object, Object>() {
-            @Override
-            public Object apply(Object o) {
-               callback.run();
-               return null;
-            }
-         });
-         return value == null;
-      }
-      return false;
+      commitManager.stopTrack(PUT_FOR_STATE_TRANSFER);
    }
 
    @Inject
@@ -233,7 +170,8 @@ public class StateConsumerImpl implements StateConsumer {
                     CacheNotifier cacheNotifier,
                     TotalOrderManager totalOrderManager,
                     @ComponentName(KnownComponentNames.REMOTE_COMMAND_EXECUTOR) BlockingTaskAwareExecutorService remoteCommandsExecutor,
-                    L1Manager l1Manager) {
+                    L1Manager l1Manager, CommitManager commitManager) {
+      this.cache = cache;
       this.cacheName = cache.getName();
       this.executorService = executorService;
       this.stateTransferManager = stateTransferManager;
@@ -251,6 +189,7 @@ public class StateConsumerImpl implements StateConsumer {
       this.totalOrderManager = totalOrderManager;
       this.remoteCommandsExecutor = remoteCommandsExecutor;
       this.l1Manager = l1Manager;
+      this.commitManager = commitManager;
 
       isInvalidationMode = configuration.clustering().cacheMode().isInvalidation();
 
@@ -350,9 +289,7 @@ public class StateConsumerImpl implements StateConsumer {
       this.cacheTopology = cacheTopology;
       if (isRebalance) {
          if (trace) log.tracef("Start keeping track of keys for rebalance");
-         updatedKeys = new EquivalentConcurrentHashMapV8<Object, Object>(
-               configuration.dataContainer().keyEquivalence(),
-               configuration.dataContainer().valueEquivalence());
+         commitManager.startTrack(PUT_FOR_STATE_TRANSFER);
       }
       stateTransferLock.releaseExclusiveTopologyLock();
       stateTransferLock.notifyTopologyInstalled(cacheTopology.getTopologyId());
@@ -365,6 +302,17 @@ public class StateConsumerImpl implements StateConsumer {
                // we start fresh, without any data, so we need to pull everything we own according to writeCh
 
                addedSegments = getOwnedSegments(cacheTopology.getWriteConsistentHash());
+
+               Collection<DistributedCallable> callables = getClusterListeners(cacheTopology);
+
+               for (DistributedCallable callable : callables) {
+                  callable.setEnvironment(cache, null);
+                  try {
+                     callable.call();
+                  } catch (Exception e) {
+                     log.clusterListenerInstallationFailure(e);
+                  }
+               }
 
                if (trace) {
                   log.tracef("On cache %s we have: added segments: %s", cacheName, addedSegments);
@@ -527,9 +475,8 @@ public class StateConsumerImpl implements StateConsumer {
             if (transactionManager != null) {
                // cache is transactional
                transactionManager.begin();
-               Transaction transaction = transactionManager.getTransaction();
-               ctx = icf.createInvocationContext(transaction);
-               ((TxInvocationContext) ctx).setImplicitTransaction(true);
+               ctx = icf.createInvocationContext(transactionManager.getTransaction(), true);
+               ((TxInvocationContext) ctx).getCacheTransaction().setStateTransferFlag(PUT_FOR_STATE_TRANSFER);
             } else {
                // non-tx cache
                ctx = icf.createSingleKeyNonTxInvocationContext();
@@ -718,6 +665,33 @@ public class StateConsumerImpl implements StateConsumer {
          // start fresh when next step starts (fetching segments)
          sources.clear();
       }
+   }
+
+   private Collection<DistributedCallable> getClusterListeners(CacheTopology topology) {
+      for (Address source : topology.getMembers()) {
+         // Don't send to ourselves
+         if (!source.equals(rpcManager.getAddress())) {
+            if (trace) {
+               log.tracef("Requesting cluster listeners of cache %s from node %s", cacheName, source);
+            }
+            // get cluster listeners
+            try {
+               StateRequestCommand cmd = commandsFactory.buildStateRequestCommand(StateRequestCommand.Type.GET_CACHE_LISTENERS,
+                                                                                  rpcManager.getAddress(), 0, null);
+               Map<Address, Response> responses = rpcManager.invokeRemotely(Collections.singleton(source), cmd, rpcOptions);
+               Response response = responses.get(source);
+               if (response instanceof SuccessfulResponse) {
+                  return (Collection<DistributedCallable>) ((SuccessfulResponse) response).getResponseValue();
+               } else {
+                  log.unsuccessfulResponseForClusterListeners(source, response);
+               }
+            } catch (CacheException e) {
+               log.exceptionDuringClusterListenerRetrieval(source, e);
+            }
+         }
+      }
+      log.trace("Unable to acquire cluster listeners from other members, assuming none are present");
+      return Collections.emptySet();
    }
 
    private List<TransactionInfo> getTransactions(Address source, Set<Integer> segments, int topologyId) {

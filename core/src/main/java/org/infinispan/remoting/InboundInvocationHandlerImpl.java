@@ -107,7 +107,7 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
    }
 
    private void handleWithWaitForBlocks(final CacheRpcCommand cmd, final ComponentRegistry cr, final org.jgroups.blocks.Response response, boolean preserveOrder) throws Throwable {
-      StateTransferManager stm = cr.getStateTransferManager();
+      final StateTransferManager stm = cr.getStateTransferManager();
       // We must have completed the join before handling commands
       // (even if we didn't complete the initial state transfer)
       if (cmd instanceof TotalOrderPrepareCommand && !stm.ownsData()) {
@@ -156,7 +156,8 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
          });
       } else {
          final StateTransferLock stateTransferLock = cr.getStateTransferLock();
-         final int commandTopologyId = extractCommandTopologyId(cmd);
+         // Always wait for the first topology (i.e. for the join to finish)
+         final int commandTopologyId = Math.max(extractCommandTopologyId(cmd), 0);
 
          if (!preserveOrder && cmd.canBlock()) {
             remoteCommandsExecutor.execute(new BlockingRunnable() {
@@ -167,6 +168,11 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
 
                @Override
                public void run() {
+                  if (0 < commandTopologyId && commandTopologyId < stm.getFirstTopologyAsMember()) {
+                     if (trace) log.tracef("Ignoring command sent before the local node was a member " +
+                           "(command topology id is %d)", commandTopologyId);
+                     reply(response, null);
+                  }
                   Response resp;
                   try {
                      resp = handleInternal(cmd, cr);
@@ -182,6 +188,12 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
             // Non-OOB commands. We still have to wait for transaction data, but we should "never" time out
             // In non-transactional caches, this just waits for the topology to be installed
             stateTransferLock.waitForTransactionData(commandTopologyId, 1, TimeUnit.DAYS);
+
+            if (0 < commandTopologyId && commandTopologyId < stm.getFirstTopologyAsMember()) {
+               if (trace) log.tracef("Ignoring command sent before the local node was a member " +
+                     "(command topology id is %d)", commandTopologyId);
+               reply(response, null);
+            }
 
             Response resp = handleInternal(cmd, cr);
 

@@ -36,7 +36,7 @@ import javax.ws.rs.core.CacheControl
  * @author Michal Linhard
  * @since 4.0
  */
-@Test(groups = Array("functional"), testName = "rest.IntegrationTest")
+@Test(groups = Array("unstable"), testName = "rest.IntegrationTest", description = "See ISPN-3994, original group: functional")
 class IntegrationTest extends RestServerTestBase {
 
    private lazy val log: JavaLog = LogFactory.getLog(getClass, classOf[JavaLog])
@@ -48,7 +48,7 @@ class IntegrationTest extends RestServerTestBase {
 
    //val HOST = "http://localhost:8080/infinispan/"
 
-   @BeforeClass
+   @BeforeClass(alwaysRun = true)
    def setUp() {
       addServer("single", 8888, TestCacheManagerFactory.fromXml("test-config.xml"))
       startServers()
@@ -544,6 +544,7 @@ class IntegrationTest extends RestServerTestBase {
       assertEquals(HttpServletResponse.SC_NOT_FOUND, call(new HeadMethod(fullPathKey)).getStatusCode)
    }
 
+   @Test(groups = Array("unstable"))
    def testAsyncAddRemove(m: Method) {
       val fullPathKey = fullPath + "/" + m.getName
       val put = new PostMethod(fullPathKey)
