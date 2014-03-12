@@ -42,7 +42,7 @@
                         <fileset dir="${server1.dist}-tmp" includes="**/jboss-modules.jar" />
                     </path>
                     <sequential>
-                        <propertyregex override="yes" property="dir.in.zip" input="@{file}" regexp=".*/([^/]*)/jboss-modules\.jar" replace="\1" />
+                        <propertyregex override="yes" property="dir.in.zip" input="@{file}" regexp=".*[/\\]([^/\\]*)[/\\]jboss-modules\.jar" replace="\1" />
                     </sequential>
                 </for>
                 <move file="${server1.dist}-tmp/${dir.in.zip}" tofile="${server1.dist}" />
@@ -96,7 +96,7 @@
                         <fileset dir="${server.old.dist}-tmp" includes="**/jboss-modules.jar" />
                     </path>
                     <sequential>
-                        <propertyregex override="yes" property="dir.in.zip" input="@{file}" regexp=".*/([^/]*)/jboss-modules\.jar" replace="\1" />
+                        <propertyregex override="yes" property="dir.in.zip" input="@{file}" regexp=".*[/\\]([^/\\]*)[/\\]jboss-modules\.jar" replace="\1" />
                     </sequential>
                 </for>
                 <move file="${server.old.dist}-tmp/${dir.in.zip}" tofile="${server.old.dist}" />
@@ -133,6 +133,9 @@
                    modifyInfinispan="${infinispan.parts}/default-repl.xml"/>
         <transform in="standalone.xml" out="testsuite/standalone-with-indexing.xml"
                    modifyInfinispan="${infinispan.parts}/indexing.xml"/>
+        <transform in="clustered.xml" out="testsuite/clustered-with-indexing.xml"
+                   modifyInfinispan="${infinispan.parts}/indexing-clustered.xml"
+                   filtering="true"/>
         <transform in="standalone.xml" out="testsuite/standalone-leveldb-local.xml"
                    modifyInfinispan="${infinispan.parts}/leveldb-local.xml"
                    filtering="true"/>
@@ -157,7 +160,10 @@
                    modifyInfinispan="${infinispan.parts}/suppress-state-transfer.xml"
                    infinispanServerEndpoint="${other.parts}/suppress-server-endpoint.xml"
                    filtering="true"/>
-        <!--generate basic rest security for read only entries-->
+        <transform in="clustered.xml" out="testsuite/clustered-transport-stack.xml"
+                   modifyStack="${other.parts}/jgroups-stack.xml"/>
+        <transform in="clustered.xml" out="testsuite/clustered-with-l1.xml"
+                   modifyInfinispan="${infinispan.parts}/l1.xml"/>
         <transform in="standalone.xml" out="testsuite/rest-sec-basic-wr.xml"
                    modifyInfinispan="${infinispan.parts}/rest-security.xml"
                    filtering="true">
@@ -165,7 +171,6 @@
                 <transform-rest-sec securityMode="WRITE" cacheContainer="security" in="@{in}" />
             </rest-sec>
         </transform>
-        <!--generate basic rest security for read and write entries-->
         <transform in="standalone.xml" out="testsuite/rest-sec-basic-rw.xml"
                    modifyInfinispan="${infinispan.parts}/rest-security.xml"
                    filtering="true">
@@ -173,7 +178,6 @@
                 <transform-rest-sec securityMode="READ_WRITE" cacheContainer="security" in="@{in}"/>
             </rest-sec>
         </transform>
-        <!--generate cert rest security for write entries-->
         <transform in="standalone.xml" out="testsuite/rest-sec-cert-wr.xml"
                    modifyInfinispan="${infinispan.parts}/rest-security.xml"
                    filtering="true">
@@ -181,7 +185,6 @@
                 <transform-rest-sec securityMode="WRITE" authMethod="CLIENT-CERT" cacheContainer="security" securityDomain="client_cert_auth" modifyCertSecDomain="true" in="@{in}"/>
             </rest-sec>
         </transform>
-        <!--generate cert rest security for read and write entries-->
         <transform in="standalone.xml" out="testsuite/rest-sec-cert-rw.xml"
                    modifyInfinispan="${infinispan.parts}/rest-security.xml"
                    filtering="true">
@@ -190,7 +193,6 @@
             </rest-sec>
         </transform>
 
-        <!--generate digest rest security for write entries-->
         <transform in="standalone.xml" out="testsuite/rest-sec-digest-wr.xml"
                    modifyInfinispan="${infinispan.parts}/rest-security.xml"
                    filtering="true">
@@ -198,7 +200,6 @@
                 <transform-rest-sec securityMode="WRITE" authMethod="DIGEST" cacheContainer="security" securityDomain="digest_auth" modifyDigestSecDomain="true" in="@{in}"/>
             </rest-sec>
         </transform>
-        <!--generate digest rest security for read and write entries-->
         <transform in="standalone.xml" out="testsuite/rest-sec-digest-rw.xml"
                    modifyInfinispan="${infinispan.parts}/rest-security.xml"
                    filtering="true">
@@ -219,6 +220,22 @@
                    modifyInfinispan="${infinispan.parts}/default-repl.xml"
                    addAuth="${other.parts}/jgroups-auth-malicious.xml"
                    filtering="true"/>
+        <transform in="standalone.xml" out="testsuite/standalone-filecs.xml"
+                   modifyInfinispan="${infinispan.parts}/filecachestore.xml"/>
+        <transform in="standalone.xml" out="testsuite/standalone-eviction.xml"
+                   modifyInfinispan="${infinispan.parts}/eviction.xml"/>
+        <transform in="standalone.xml" out="testsuite/standalone-customcs.xml"
+                   modifyInfinispan="${infinispan.parts}/customcs.xml"
+                   filtering="true"/>
+        <transform in="clustered.xml" out="testsuite/clustered-expiration.xml"
+                   modifyInfinispan="${infinispan.parts}/expiration.xml"/>
+        <transform in="standalone.xml" out="testsuite/standalone-cachecontainer.xml"
+                   modifyInfinispan="${infinispan.parts}/cachecontainer.xml"
+                   modifyThreads="${other.parts}/cachecontainer-thread-pools.xml"
+                   infinispanServerEndpoint="${other.parts}/cachecontainer-endpoints.xml"
+                   addHotrodSocketBinding="${other.parts}/cachecontainer-hotrod-binding.xml"/>
+        <transform in="clustered.xml" out="testsuite/clustered-clusteredcache.xml"
+                   modifyInfinispan="${infinispan.parts}/clusteredcache.xml" />
     </target>
 
     <macrodef name="transform">
@@ -227,10 +244,13 @@
         <attribute name="in"/>
         <attribute name="out"/>
         <attribute name="modifyInfinispan" default="false"/>
+        <attribute name="modifyThreads" default="false"/>
+        <attribute name="modifyStack" default="false"/>
         <attribute name="modifyRelay" default="false"/>
         <attribute name="modifyMulticastAddress" default="false"/>
         <attribute name="modifyRemoteDestination" default="false"/>
         <attribute name="modifyOutboundSocketBindingHotRod" default="false"/>
+        <attribute name="addHotrodSocketBinding" default="false"/>
         <attribute name="removeRestSecurity" default="true"/>
         <attribute name="infinispanServerEndpoint" default="false"/>
         <attribute name="infinispanFile" default="false"/>
@@ -242,12 +262,15 @@
         <sequential>
             <xslt in="@{transformDir}/@{in}" out="@{transformDir}/@{in}-transformed" style="@{templateFile}">
                 <param name="modifyInfinispan" expression="@{modifyInfinispan}"/>
+                <param name="modifyThreads" expression="@{modifyThreads}"/>
+                <param name="modifyStack" expression="@{modifyStack}"/>
                 <param name="modifyRelay" expression="@{modifyRelay}"/>
                 <param name="addAuth" expression="@{addAuth}"/>
                 <param name="addEncrypt" expression="@{addEncrypt}"/>
                 <param name="modifyMulticastAddress" expression="@{modifyMulticastAddress}"/>
                 <param name="modifyRemoteDestination" expression="@{modifyRemoteDestination}"/>
                 <param name="modifyOutboundSocketBindingHotRod" expression="@{modifyOutboundSocketBindingHotRod}"/>
+                <param name="addHotrodSocketBinding" expression="@{addHotrodSocketBinding}"/>
                 <param name="removeRestSecurity" expression="@{removeRestSecurity}"/>
                 <param name="infinispanServerEndpoint" expression="@{infinispanServerEndpoint}"/>
                 <param name="infinispanFile" expression="@{infinispanFile}"/>

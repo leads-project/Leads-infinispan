@@ -20,10 +20,6 @@ import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.rpc.RpcOptions;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.util.TimeService;
-import org.infinispan.commons.util.concurrent.AggregatingNotifyingFutureImpl;
-import org.infinispan.commons.util.concurrent.NoOpFuture;
-import org.infinispan.commons.util.concurrent.NotifyingFutureImpl;
-import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -60,7 +56,6 @@ public class L1ManagerImpl implements L1Manager, RemoteValueRetrievedListener {
    private ScheduledFuture<?> scheduledRequestorsCleanupTask;
    private TimeService timeService;
 
-   private RpcOptions syncRpcOptions;
    private RpcOptions syncIgnoreLeaversRpcOptions;
 
    public L1ManagerImpl() {
@@ -96,7 +91,8 @@ public class L1ManagerImpl implements L1Manager, RemoteValueRetrievedListener {
       } else {
          log.warnL1NotHavingReaperThread();
       }
-      syncRpcOptions = rpcManager.getRpcOptionsBuilder(ResponseMode.SYNCHRONOUS, false).build();
+      // L1 invalidations can ignore a member leaving while sending invalidation, since their value is no longer
+      // cached any longer
       syncIgnoreLeaversRpcOptions = rpcManager.getRpcOptionsBuilder(ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS, false)
             .build();
    }
@@ -143,11 +139,6 @@ public class L1ManagerImpl implements L1Manager, RemoteValueRetrievedListener {
    }
 
    @Override
-   public Future<Object> flushCacheWithSimpleFuture(Collection<Object> keys, Object retval, Address origin, boolean assumeOriginKeptEntryInL1) {
-      return flushCache(keys, retval, origin, assumeOriginKeptEntryInL1, false);
-   }
-
-   @Override
    public Future<Object> flushCache(Collection<Object> keys, Address origin, boolean assumeOriginKeptEntryInL1) {
       final Collection<Address> invalidationAddresses = buildInvalidationAddressList(keys, origin, assumeOriginKeptEntryInL1);
 
@@ -166,14 +157,14 @@ public class L1ManagerImpl implements L1Manager, RemoteValueRetrievedListener {
             toExecute = new Runnable() {
                @Override
                public void run() {
-                  rpcManager.invokeRemotely(null, rpcCommand, rpcManager.getDefaultRpcOptions(true));
+                  rpcManager.invokeRemotely(null, rpcCommand, syncIgnoreLeaversRpcOptions);
                }
             };
          } else {
             toExecute = new Runnable() {
                @Override
                public void run() {
-                  rpcManager.invokeRemotely(invalidationAddresses, rpcCommand, syncRpcOptions);
+                  rpcManager.invokeRemotely(invalidationAddresses, rpcCommand, syncIgnoreLeaversRpcOptions);
                }
             };
          }
@@ -181,63 +172,6 @@ public class L1ManagerImpl implements L1Manager, RemoteValueRetrievedListener {
       } else {
          if (trace) log.tracef("No L1 caches to invalidate for keys %s", keys);
          return null;
-      }
-   }
-
-   private Future<Object> flushCache(Collection<Object> keys, final Object retval, Address origin, boolean assumeOriginKeptEntryInL1, boolean useNotifyingFuture) {
-      if (trace) log.tracef("Invalidating L1 caches for keys %s", keys);
-
-      final Collection<Address> invalidationAddresses = buildInvalidationAddressList(keys, origin, assumeOriginKeptEntryInL1);
-
-      int nodes = invalidationAddresses.size();
-
-      if (nodes > 0) {
-         // No need to invalidate at all if there is no one to invalidate!
-         boolean multicast = isUseMulticast(nodes);
-
-         if (trace)
-            log.tracef("There are %s nodes involved in invalidation. Threshold is: %s; using multicast: %s", nodes, threshold, multicast);
-
-         if (multicast) {
-            if (trace) log.tracef("Invalidating keys %s via multicast", keys);
-            final InvalidateCommand ic = commandsFactory.buildInvalidateFromL1Command(
-                  origin, false, InfinispanCollections.<Flag>emptySet(), keys);
-            if (useNotifyingFuture) {
-               NotifyingNotifiableFuture<Object> future = new AggregatingNotifyingFutureImpl(retval, 2);
-               rpcManager.invokeRemotelyInFuture(null, ic, rpcManager.getDefaultRpcOptions(true), future);
-               return future;
-            } else {
-               return asyncTransportExecutor.submit(new Callable<Object>() {
-                  @Override
-                  public Object call() throws Exception {
-                     rpcManager.invokeRemotely(null, ic, rpcManager.getDefaultRpcOptions(true));
-                     return retval;
-                  }
-               });
-            }
-         } else {
-            final CacheRpcCommand rpc = commandsFactory.buildSingleRpcCommand(
-                  commandsFactory.buildInvalidateFromL1Command(origin, false,
-                        InfinispanCollections.<Flag>emptySet(), keys));
-            // Ask the caches who have requested from us to remove
-            if (trace) log.tracef("Keys %s needs invalidation on %s", keys, invalidationAddresses);
-            if (useNotifyingFuture) {
-               NotifyingNotifiableFuture<Object> future = new AggregatingNotifyingFutureImpl(retval, 2);
-               rpcManager.invokeRemotelyInFuture(invalidationAddresses, rpc, syncIgnoreLeaversRpcOptions, future);
-               return future;
-            } else {
-               return asyncTransportExecutor.submit(new Callable<Object>() {
-                  @Override
-                  public Object call() throws Exception {
-                     rpcManager.invokeRemotely(invalidationAddresses, rpc, syncRpcOptions);
-                     return retval;
-                  }
-               });
-            }
-         }
-      } else {
-         if (trace) log.trace("No L1 caches to invalidate");
-         return useNotifyingFuture ? new NotifyingFutureImpl(retval) : new NoOpFuture<Object>(retval);
       }
    }
 
@@ -292,6 +226,15 @@ public class L1ManagerImpl implements L1Manager, RemoteValueRetrievedListener {
       L1WriteSynchronizer synchronizer = synchronizers.get(ice.getKey());
       if (synchronizer != null) {
          synchronizer.runL1UpdateIfPossible(ice);
+      }
+   }
+
+   @Override
+   public void remoteValueNotFound(Object key) {
+      L1WriteSynchronizer synchronizer = synchronizers.get(key);
+      if (synchronizer != null) {
+         // we assume synchronizer supports null value properly
+         synchronizer.runL1UpdateIfPossible(null);
       }
    }
 }

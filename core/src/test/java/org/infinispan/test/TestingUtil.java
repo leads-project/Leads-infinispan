@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -31,6 +32,7 @@ import javax.management.MBeanOperationInfo;
 import javax.management.MBeanParameterInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
+import javax.security.auth.Subject;
 import javax.transaction.Status;
 import javax.transaction.TransactionManager;
 
@@ -45,6 +47,7 @@ import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
+import org.infinispan.context.InvocationContextFactory;
 import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.factories.KnownComponentNames;
@@ -65,6 +68,7 @@ import org.infinispan.manager.CacheContainer;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.commons.marshall.AbstractDelegatingMarshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
+import org.infinispan.commons.util.InfinispanCollections;
 import org.infinispan.marshall.core.ExternalizerTable;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.metadata.InternalMetadataImpl;
@@ -89,7 +93,6 @@ import org.jgroups.protocols.TP;
 import org.jgroups.stack.ProtocolStack;
 
 public class TestingUtil {
-
    private static final Log log = LogFactory.getLog(TestingUtil.class);
    private static final Random random = new Random();
    public static final String TEST_PATH = "infinispanTempFiles";
@@ -171,8 +174,8 @@ public class TestingUtil {
    }
 
    public static void waitForRehashToComplete(Cache... caches) {
-      int gracetime = 90000; // 90 seconds
-      long giveup = System.currentTimeMillis() + gracetime;
+      final int REHASH_TIMEOUT_SECONDS = 180; //Needs to be rather large to prevent sporadic failures on CI
+      final long giveup = System.nanoTime() + TimeUnit.SECONDS.toNanos(REHASH_TIMEOUT_SECONDS);
       for (Cache c : caches) {
          StateTransferManager stateTransferManager = extractComponent(c, StateTransferManager.class);
          DefaultRebalancePolicy rebalancePolicy = (DefaultRebalancePolicy) TestingUtil.extractGlobalComponent(c.getCacheManager(), RebalancePolicy.class);
@@ -185,7 +188,7 @@ public class TestingUtil {
             if (chIsBalanced && chContainsAllMembers)
                break;
 
-            if (System.currentTimeMillis() > giveup) {
+            if (System.nanoTime() > giveup) {
                String message;
                if (!chContainsAllMembers) {
                   Address[] addresses = new Address[caches.length];
@@ -712,7 +715,7 @@ public class TestingUtil {
       for (Cache c : caches) {
          try {
             if (c != null && c.getStatus() == ComponentStatus.RUNNING) {
-               TransactionManager tm = getTransactionManager(c);
+               TransactionManager tm = c.getAdvancedCache().getTransactionManager();
                if (tm != null) {
                   try {
                      tm.rollback();
@@ -893,8 +896,8 @@ public class TestingUtil {
    public static void replicateCommand(Cache cache, VisitableCommand command) throws Throwable {
       ComponentRegistry cr = extractComponentRegistry(cache);
       InterceptorChain ic = cr.getComponent(InterceptorChain.class);
-      InvocationContextContainer icc = cr.getComponent(InvocationContextContainer.class);
-      InvocationContext ctxt = icc.createInvocationContext(true, -1);
+      InvocationContextFactory icf = cr.getComponent(InvocationContextFactory.class);
+      InvocationContext ctxt = icf.createInvocationContext(true, -1);
       ic.invoke(ctxt, command);
    }
 
@@ -944,7 +947,7 @@ public class TestingUtil {
     * Extracts a component of a given type from the cache's internal component registry
     */
    public static <T> T extractComponent(Cache cache, Class<T> componentType) {
-      ComponentRegistry cr = extractComponentRegistry(cache);
+      ComponentRegistry cr = extractComponentRegistry(cache.getAdvancedCache());
       return cr.getComponent(componentType);
    }
 
@@ -1365,6 +1368,57 @@ public class TestingUtil {
       AdvancedCache<K, V> advCache = cache.getAdvancedCache();
       PersistenceManager pm = advCache.getComponentRegistry().getComponent(PersistenceManager.class);
       return pm.deleteFromAllStores(key, false);
+   }
+
+   public static Subject makeSubject(String... principals) {
+      Set<Principal> set = new HashSet<Principal>();
+      for (String principal : principals) {
+         set.add(new TestingUtil.TestPrincipal(principal));
+      }
+      return new Subject(true, set, InfinispanCollections.emptySet(), InfinispanCollections.emptySet());
+   }
+
+   public static class TestPrincipal implements Principal {
+      String name;
+
+      public TestPrincipal(String name) {
+         this.name = name;
+      }
+
+      @Override
+      public String getName() {
+         return name;
+      }
+
+      @Override
+      public String toString() {
+         return "TestPrincipal [name=" + name + "]";
+      }
+
+      @Override
+      public int hashCode() {
+         final int prime = 31;
+         int result = 1;
+         result = prime * result + ((name == null) ? 0 : name.hashCode());
+         return result;
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+         if (this == obj)
+            return true;
+         if (obj == null)
+            return false;
+         if (getClass() != obj.getClass())
+            return false;
+         TestPrincipal other = (TestPrincipal) obj;
+         if (name == null) {
+            if (other.name != null)
+               return false;
+         } else if (!name.equals(other.name))
+            return false;
+         return true;
+      }
    }
 
 }

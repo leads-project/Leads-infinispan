@@ -20,10 +20,10 @@ import org.infinispan.transaction.xa.recovery.RecoveryAwareRemoteTransaction;
 import org.infinispan.transaction.xa.recovery.RecoveryAwareTransaction;
 import org.infinispan.util.concurrent.TimeoutException;
 import org.jboss.logging.BasicLogger;
-import org.jboss.logging.Cause;
-import org.jboss.logging.LogMessage;
-import org.jboss.logging.Message;
-import org.jboss.logging.MessageLogger;
+import org.jboss.logging.annotations.Cause;
+import org.jboss.logging.annotations.LogMessage;
+import org.jboss.logging.annotations.Message;
+import org.jboss.logging.annotations.MessageLogger;
 import org.jgroups.View;
 
 import javax.management.InstanceAlreadyExistsException;
@@ -34,6 +34,7 @@ import javax.transaction.Synchronization;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAException;
 import javax.xml.namespace.QName;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -162,7 +163,7 @@ public interface Log extends BasicLogger {
    @Message(value = "Passivated %d entries in %s", id = 30)
    void passivatedEntries(int numEntries, String duration);
 
-   @LogMessage(level = INFO)
+   @LogMessage(level = TRACE)
    @Message(value = "MBeans were successfully registered to the platform MBean server.", id = 31)
    void mbeansSuccessfullyRegistered();
 
@@ -788,7 +789,7 @@ public interface Log extends BasicLogger {
 
    @LogMessage(level = WARN)
    @Message(value = "Failed to request segments %s of cache %s from node %s (node will not be retried)", id=210)
-   void failedToRequestSegments(Collection<Integer> segments, String cacheName, Address source, @Cause Exception e);
+   void failedToRequestSegments(Collection<Integer> segments, String cacheName, Address source, @Cause Throwable e);
 
    @LogMessage(level = WARN)
    @Message(value = "Transactions were requested by node %s with topology %d, older than the local topology (%d)", id=211)
@@ -1041,4 +1042,39 @@ public interface Log extends BasicLogger {
    @Message(value = "%s reported that a third node was suspected, see cause for info on the node that was suspected", id = 281)
    SuspectException thirdPartySuspected(Address sender, @Cause SuspectException e);
 
+   @Message(value = "Cannot enable Invocation Batching when the Transaction Mode is NON_TRANSACTIONAL, set the transaction mode to TRANSACTIONAL", id = 282)
+   CacheConfigurationException invocationBatchingNeedsTransactionalCache();
+
+   @Message(value = "A cache configured with invocation batching can't have recovery enabled", id = 283)
+   CacheConfigurationException invocationBatchingCannotBeRecoverable();
+
+   @LogMessage(level = WARN)
+   @Message(value = "Problem encountered while installing cluster listener", id = 284)
+   void clusterListenerInstallationFailure(@Cause Throwable cause);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Issue when retrieving cluster listeners from %s response was %s", id = 285)
+   void unsuccessfulResponseForClusterListeners(Address address, Response response);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Issue when retrieving cluster listeners from %s", id = 286)
+   void exceptionDuringClusterListenerRetrieval(Address address, @Cause Throwable cause);
+
+   @Message(value = "Unauthorized access: subject '%s' lacks '%s' permission", id = 287)
+   SecurityException unauthorizedAccess(String subject, String permission);
+
+   @Message(value = "A principal-to-role mapper has not been specified", id = 288)
+   CacheConfigurationException invalidPrincipalRoleMapper();
+
+   @LogMessage(level = WARN)
+   @Message(value = "Unable to send X-Site state chunk to '%s'.", id = 289)
+   void unableToSendXSiteState(String site, @Cause Throwable cause);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Unable to wait for X-Site state chunk ACKs from '%s'.", id = 290)
+   void unableToWaitForXSiteStateAcks(String site, @Cause Throwable cause);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Unable to apply X-Site state chunk.", id = 291)
+   void unableToApplyXSiteState(@Cause Throwable cause);
 }

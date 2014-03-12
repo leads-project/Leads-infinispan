@@ -41,7 +41,7 @@ public class TcpTransportFactory implements TransportFactory {
 
    /**
     * We need synchronization as the thread that calls {@link org.infinispan.client.hotrod.impl.transport.TransportFactory#start(org.infinispan.client.hotrod.impl.protocol.Codec, org.infinispan.client.hotrod.impl.ConfigurationProperties, java.util.Collection, java.util.concurrent.atomic.AtomicInteger, ClassLoader)}
-    * might(and likely will) be different from the thread(s) that calls {@link #getTransport()} or other methods
+    * might(and likely will) be different from the thread(s) that calls {@link org.infinispan.client.hotrod.impl.transport.TransportFactory#getTransport(java.util.Set} or other methods
     */
    private final Object lock = new Object();
    // The connection pool implementation is assumed to be thread-safe, so we need to synchronize just the access to this field and not the method calls
@@ -55,7 +55,7 @@ public class TcpTransportFactory implements TransportFactory {
    private volatile boolean tcpNoDelay;
    private volatile int soTimeout;
    private volatile int connectTimeout;
-   private volatile int transportCount;
+   private volatile int maxRetries;
    private volatile SSLContext sslContext;
 
    @Override
@@ -72,6 +72,7 @@ public class TcpTransportFactory implements TransportFactory {
          tcpNoDelay = configuration.tcpNoDelay();
          soTimeout = configuration.socketTimeout();
          connectTimeout = configuration.connectionTimeout();
+         maxRetries = configuration.maxRetries();
 
          if (configuration.ssl().enabled()) {
             SslConfiguration ssl = configuration.ssl();
@@ -94,7 +95,6 @@ public class TcpTransportFactory implements TransportFactory {
                      configuration.connectionPool());
          createAndPreparePool(poolFactory);
          balancer.setServers(servers);
-         updateTransportCount();
       }
 
       if (configuration.pingOnStartup())
@@ -157,16 +157,16 @@ public class TcpTransportFactory implements TransportFactory {
    }
 
    @Override
-   public Transport getTransport() {
+   public Transport getTransport(Set<SocketAddress> failedServers) {
       SocketAddress server;
       synchronized (lock) {
-         server = balancer.nextServer();
+         server = balancer.nextServer(failedServers);
       }
       return borrowTransportFromPool(server);
    }
 
    @Override
-   public Transport getTransport(byte[] key) {
+   public Transport getTransport(byte[] key, Set<SocketAddress> failedServers) {
       SocketAddress server;
       synchronized (lock) {
          if (consistentHash != null) {
@@ -175,7 +175,7 @@ public class TcpTransportFactory implements TransportFactory {
                log.tracef("Using consistent hash for determining the server: " + server);
             }
          } else {
-            server = balancer.nextServer();
+            server = balancer.nextServer(failedServers);
             if (log.isTraceEnabled()) {
                log.tracef("Using the balancer for determining the server: %s", server);
             }
@@ -262,7 +262,6 @@ public class TcpTransportFactory implements TransportFactory {
          }
 
          servers = Collections.unmodifiableList(new ArrayList(newServers));
-         updateTransportCount();
       }
    }
 
@@ -314,11 +313,11 @@ public class TcpTransportFactory implements TransportFactory {
    }
 
    @Override
-   public int getTransportCount() {
+   public int getMaxRetries() {
       if (Thread.currentThread().isInterrupted()) {
          return -1;
       }
-      return transportCount;
+      return maxRetries;
    }
 
    @Override
@@ -348,17 +347,6 @@ public class TcpTransportFactory implements TransportFactory {
    public GenericKeyedObjectPool<SocketAddress, TcpTransport> getConnectionPool() {
       synchronized (lock) {
          return connectionPool;
-      }
-   }
-
-   private void updateTransportCount() {
-      synchronized (lock) {
-         int maxActive = connectionPool.getMaxActive();
-         if (maxActive > 0) {
-            transportCount = Math.max(maxActive * servers.size(), maxActive); //to avoid int overflow when maxActive is very high!
-         } else {
-            transportCount = 10 * servers.size();
-         }
       }
    }
 }

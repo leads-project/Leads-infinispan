@@ -7,6 +7,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
+import static org.junit.Assert.assertTrue;
+
 /**
  * Tests the functionality of the queries in case when the NRT index manager is used in combination with FileStore.
  *
@@ -15,11 +17,12 @@ import java.io.File;
 @Test(groups = "functional", testName = "query.blackbox.LocalCachePerformantConfTest")
 public class LocalCachePerformantConfTest extends LocalCacheTest {
 
-   private final String indexDirectory = System.getProperty("java.io.tmpdir") + File.separator + "tunedConfDir";
+   /** the file constant needs to match what's defined in the configuration file **/
+   private final String indexDirectory = System.getProperty("java.io.tmpdir") + File.separator + "LocalCachePerformantConfTest";
 
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
-      cacheManager = TestCacheManagerFactory.fromXml("nrt-performance-writer.xml");
+      cacheManager = TestCacheManagerFactory.fromXml("testconfig-LocalCachePerformantConfTest.xml");
       cache = cacheManager.getCache("Indexed");
 
       return cacheManager;
@@ -27,7 +30,9 @@ public class LocalCachePerformantConfTest extends LocalCacheTest {
 
    @Override
    protected void setup() throws Exception {
-      new File(indexDirectory).mkdirs();
+      TestingUtil.recursiveFileRemove(indexDirectory);
+      boolean created = new File(indexDirectory).mkdirs();
+      assertTrue(created);
       super.setup();
    }
 

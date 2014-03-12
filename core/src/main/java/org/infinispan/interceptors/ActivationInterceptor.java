@@ -10,7 +10,6 @@ import org.infinispan.eviction.ActivationManager;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
-import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -23,7 +22,6 @@ public class ActivationInterceptor extends CacheLoaderInterceptor {
    private Configuration cfg;
    private boolean isManualEviction;
    private ActivationManager activationManager;
-   private ClusteringDependentLogic cdl;
 
    @Override
    protected Log getLog() {
@@ -31,10 +29,9 @@ public class ActivationInterceptor extends CacheLoaderInterceptor {
    }
 
    @Inject
-   public void inject(Configuration cfg, ActivationManager activationManager, ClusteringDependentLogic cdl) {
+   public void inject(Configuration cfg, ActivationManager activationManager) {
       this.cfg = cfg;
       this.activationManager = activationManager;
-      this.cdl = cdl;
    }
 
    @Start(priority = 15)
@@ -55,26 +52,13 @@ public class ActivationInterceptor extends CacheLoaderInterceptor {
       for (Object key : command.getAffectedKeys()) {
          loadIfNeeded(ctx, key, false, command);
       }
-      Object retval = super.visitPutMapCommand(ctx, command);
-      return retval;
+      return super.visitPutMapCommand(ctx, command);
    }
 
    @Override
-   protected Boolean loadIfNeeded(InvocationContext ctx, Object key, boolean isRetrieval, FlagAffectedCommand cmd) throws Throwable {
-      Boolean loaded = super.loadIfNeeded(ctx, key, isRetrieval, cmd);
-      if (loaded == Boolean.TRUE) {
-         if (enabled && isManualEviction) {
-            // check if value was loaded
-            CacheEntry e = ctx.lookupEntry(key);
-            // We have to commit this before we remove from the store so there isn't a gap where the entry isn't visible
-            // This should always be true given that loaded was true, but just sanity check
-            if (e != null && e.isLoaded()) {
-               cdl.commitEntry(e, null, cmd, ctx);
-               removeFromStoreIfNeeded(key);
-            }
-         }
-      }
-      return loaded;
+   protected void afterSuccessfullyLoaded(CacheEntry wrappedEntry) {
+      //the method already checks for enable and isManualEviction.
+      removeFromStoreIfNeeded(wrappedEntry.getKey());
    }
 
    @Override

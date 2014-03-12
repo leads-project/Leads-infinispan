@@ -33,7 +33,7 @@ import org.testng.annotations.Test;
  * @since 4.1
  */
 @SuppressWarnings("unchecked")
-@Test(groups = "functional", testName = "lucene.DatabaseStoredIndexTest")
+@Test(groups = "unstable", testName = "lucene.DatabaseStoredIndexTest", description = "original group: functional")
 public class DatabaseStoredIndexTest extends SingleCacheManagerTest {
 
    private static final String DB_URL = "jdbc:h2:mem:infinispan;DB_CLOSE_DELAY=0";
@@ -131,4 +131,5 @@ public class DatabaseStoredIndexTest extends SingleCacheManagerTest {
       assertTextIsFoundInIds(dir, "index", 1);
       dir.close();
    }
+
 }

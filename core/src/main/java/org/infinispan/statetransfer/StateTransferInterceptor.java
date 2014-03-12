@@ -10,19 +10,25 @@ import org.infinispan.commands.write.*;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.InfinispanCollections;
 import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.container.versioning.EntryVersionsMap;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.remoting.RemoteException;
+import org.infinispan.remoting.responses.Response;
+import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.remoting.transport.jgroups.SuspectException;
 import org.infinispan.topology.CacheTopology;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.transaction.RemoteTransaction;
+import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -163,8 +169,7 @@ public class StateTransferInterceptor extends CommandInterceptor {
 
    @Override
    public Object visitInvalidateCommand(InvocationContext ctx, InvalidateCommand command) throws Throwable {
-      // there is not state transfer in invalidation mode so there is not need to forward this command to new owners
-      return invokeNextInterceptor(ctx, command);
+      return handleNonTxWriteCommand(ctx, command);
    }
 
    @Override
@@ -218,7 +223,7 @@ public class StateTransferInterceptor extends CommandInterceptor {
          while (ce instanceof RemoteException) {
             ce = ce.getCause();
          }
-         if (!(ce instanceof OutdatedTopologyException))
+         if (!(ce instanceof OutdatedTopologyException) && !(ce instanceof SuspectException))
             throw e;
 
          log.tracef("Retrying command because of topology change: %s", command);
@@ -226,6 +231,7 @@ public class StateTransferInterceptor extends CommandInterceptor {
          // Without this, we could retry the command too fast and we could get the OutdatedTopologyException again.
          int newTopologyId = Math.max(stateTransferManager.getCacheTopology().getTopologyId(), commandTopologyId + 1);
          command.setTopologyId(newTopologyId);
+         command.setFlags(Flag.COMMAND_RETRY);
          stateTransferLock.waitForTransactionData(newTopologyId, transactionDataTimeout, TimeUnit.MILLISECONDS);
          localResult = handleNonTxWriteCommand(ctx, command);
       }
@@ -264,10 +270,50 @@ public class StateTransferInterceptor extends CommandInterceptor {
       }
 
       if (isNonTransactionalWrite || isTransactionalAndNotRolledBack) {
-         stateTransferManager.forwardCommandIfNeeded(((TopologyAffectedCommand)command), getAffectedKeys(ctx, command), origin, sync);
+         Map<Address, Response> responseMap =  stateTransferManager
+               .forwardCommandIfNeeded(((TopologyAffectedCommand) command), getAffectedKeys(ctx, command), origin, sync);
+         localResult = mergeResponses(responseMap, localResult, ctx, command);
       }
 
       return localResult;
+   }
+
+   private Object mergeResponses(Map<Address, Response> responseMap, Object localResult, InvocationContext context,
+                                 VisitableCommand command) {
+      if (command instanceof VersionedPrepareCommand) {
+         return mergeVersionedPrepareCommand(responseMap, (TxInvocationContext) context, localResult);
+      }
+      return localResult;
+   }
+
+   private Object mergeVersionedPrepareCommand(Map<Address, Response> responseMap,
+                                               TxInvocationContext txInvocationContext, Object localResult) {
+      if (txInvocationContext.isOriginLocal()) {
+         final CacheTransaction cacheTransaction = txInvocationContext.getCacheTransaction();
+         for (Response response : responseMap.values()) {
+            if (response != null && response.isSuccessful()) {
+               SuccessfulResponse sr = (SuccessfulResponse) response;
+               EntryVersionsMap uv = (EntryVersionsMap) sr.getResponseValue();
+               if (uv != null) {
+                  cacheTransaction.setUpdatedEntryVersions(uv.merge(cacheTransaction.getUpdatedEntryVersions()));
+               }
+            }
+         }
+         return localResult;
+      } else {
+         EntryVersionsMap mergeResult = localResult instanceof EntryVersionsMap ? (EntryVersionsMap) localResult :
+               new EntryVersionsMap();
+         for (Response response : responseMap.values()) {
+            if (response != null && response.isSuccessful()) {
+               SuccessfulResponse sr = (SuccessfulResponse) response;
+               EntryVersionsMap uv = (EntryVersionsMap) sr.getResponseValue();
+               if (uv != null) {
+                  mergeResult = mergeResult.merge(uv);
+               }
+            }
+         }
+         return mergeResult;
+      }
    }
 
    private void updateTopologyId(TopologyAffectedCommand command) throws InterruptedException {

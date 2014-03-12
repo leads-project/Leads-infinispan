@@ -114,4 +114,15 @@ public interface Ids extends org.infinispan.commons.marshall.Ids {
 
    /* 106 -120 reserved in org.infinispan.commons.marshall.Ids */
 
+   int ENUM_SET_ID = 121;
+   int LIST_ARRAY = 122;
+
+   int SIMPLE_COLLECTION_KEY_FILTER = 123;
+   int KEY_FILTER_AS_KEY_VALUE_FILTER = 124;
+   int CLUSTER_EVENT = 125;
+   int CLUSTER_LISTENER_REMOVE_CALLABLE = 126;
+   int CLUSTER_LISTENER_REPLICATE_CALLABLE = 127;
+   int CLUSTER_EVENT_CALLABLE = 128;
+   int X_SITE_STATE = 129;
+
 }

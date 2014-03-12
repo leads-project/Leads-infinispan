@@ -66,7 +66,9 @@ public abstract class AbstractRemoteCacheTest {
 
     @AfterClass
     public static void release() {
-        remoteCacheManager.stop();
+        if (remoteCacheManager != null) {
+            remoteCacheManager.stop();
+        }
     }
 
     private Configuration createRemoteCacheManagerConfiguration() {
@@ -746,7 +748,7 @@ public abstract class AbstractRemoteCacheTest {
 
     @Test
     public void testGetProtocolVersion() throws Exception {
-        assertEquals("HotRod client, protocol version :1.2", remoteCache.getProtocolVersion());
+        assertEquals("HotRod client, protocol version :1.3", remoteCache.getProtocolVersion());
     }
 
     protected <T extends Map<String, String>> void fill(T map, int entryCount) {

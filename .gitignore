@@ -30,8 +30,6 @@ PutObjectStoreDirHere
 /query/person
 ObjectStore
 .cache
-# generated rhq plugin xml
-rhq-plugin.xml
 # Compiled python files
 *.pyc
 # Jandex generated indexes
@@ -44,3 +42,5 @@ IspnCliQLParser.java
 IspnCliQL.tokens
 # OS X generated file
 .DS_Store
+# Checkstlye in Eclipse
+.checkstyle

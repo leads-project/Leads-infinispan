@@ -17,6 +17,8 @@ import org.infinispan.Cache;
 import org.infinispan.lucene.directory.DirectoryBuilder;
 import org.infinispan.lucene.impl.DirectoryBuilderImpl;
 import org.infinispan.lucene.impl.DirectoryExtensions;
+import org.infinispan.lucene.readlocks.DistributedSegmentReadLocker;
+import org.infinispan.lucene.readlocks.SegmentReadLocker;
 import org.infinispan.lucene.testutils.RepeatableLongByteSequence;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.test.TestingUtil;
@@ -41,19 +43,21 @@ public class InfinispanDirectoryIOTest {
    private CacheContainer cacheManager;
    private File indexDir = new File(TestingUtil.tmpDirectory(this.getClass()), INDEXNAME);
 
-   @BeforeTest
+   @BeforeTest(alwaysRun = true)
    public void prepareCacheManager() {
       cacheManager = CacheTestSupport.createTestCacheManager();
    }
 
-   @AfterTest
+   @AfterTest(alwaysRun = true)
    public void killCacheManager() {
       TestingUtil.killCacheManagers(cacheManager);
    }
 
-   @AfterMethod
+   @AfterMethod(alwaysRun = true)
    public void clearCache() {
-      cacheManager.getCache().clear();
+      if (cacheManager != null) {
+         cacheManager.getCache().clear();
+      }
       TestingUtil.recursiveFileRemove(indexDir);
    }
 
@@ -121,12 +125,15 @@ public class InfinispanDirectoryIOTest {
       DirectoryIntegrityCheck.verifyDirectoryStructure(cache, INDEXNAME);
    }
 
-   @Test (enabled = false, description = "https://issues.jboss.org/browse/ISPN-2895")
+   @Test
    public void testReadWholeFile() throws IOException {
       final int BUFFER_SIZE = 64;
 
       Cache cache = cacheManager.getCache();
-      Directory dir = DirectoryBuilder.newDirectoryInstance(cache, cache, cache, INDEXNAME).chunkSize(BUFFER_SIZE).create();
+      Directory dir = DirectoryBuilder.newDirectoryInstance(cache, cache, cache, INDEXNAME)
+         .chunkSize(BUFFER_SIZE)
+         .overrideSegmentReadLocker(makeTestableReadLocker(cache, INDEXNAME))
+         .create();
 
       verifyOnBuffer("SingleChunk.txt", 61, BUFFER_SIZE, cache, dir, 15);
 
@@ -147,6 +154,10 @@ public class InfinispanDirectoryIOTest {
 
       dir.close();
       DirectoryIntegrityCheck.verifyDirectoryStructure(cache, INDEXNAME);
+   }
+
+   private SegmentReadLocker makeTestableReadLocker(Cache cache, String indexName) {
+      return new DistributedSegmentReadLocker(cache, cache, cache, indexName, true);
    }
 
    /**
@@ -306,7 +317,7 @@ public class InfinispanDirectoryIOTest {
    }
 
 
-   @Test(enabled = false)
+   @Test(groups = "unstable")
    public void testReadChunks() throws Exception {
       final int BUFFER_SIZE = 64;
 
@@ -350,7 +361,7 @@ public class InfinispanDirectoryIOTest {
       Set<String> s = new HashSet<String>();
       s.add("Hello.txt");
       s.add("World.txt");
-      Set other = new HashSet(Arrays.asList(new String[0]));
+      Set other = new HashSet(Arrays.asList(dir.listAll()));
 
       // ok, file listing works.
       AssertJUnit.assertEquals(s, other);

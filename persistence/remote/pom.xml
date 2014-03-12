@@ -4,13 +4,13 @@
    <parent>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-persistence-parent</artifactId>
-      <version>6.0.1-SNAPSHOT</version>
+      <version>7.0.0-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
    </parent>
    <artifactId>infinispan-cachestore-remote</artifactId>
    <packaging>bundle</packaging>
-   <name>Infinispan remote CacheStore</name>
-   <description>Infinispan remote CacheStore based on Hotrod protocol</description>
+   <name>Infinispan Remote CacheStore</name>
+   <description>Infinispan remote CacheStore based on Hot Rod protocol</description>
 
    <dependencies>
       <dependency>

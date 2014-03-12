@@ -61,12 +61,7 @@ public class HotRodQueryTest extends SingleCacheManagerTest {
             .jmxDomain(JMX_DOMAIN)
             .mBeanServerLookup(new PerThreadMBeanServerLookup());
 
-      ConfigurationBuilder builder = new ConfigurationBuilder();
-      builder.dataContainer()
-            .keyEquivalence(ByteArrayEquivalence.INSTANCE)
-            .indexing().enable()
-            .addProperty("default.directory_provider", getLuceneDirectoryProvider())
-            .addProperty("lucene_version", "LUCENE_CURRENT");
+      ConfigurationBuilder builder = getConfigurationBuilder();
 
       cacheManager = TestCacheManagerFactory.createCacheManager(gcb, new ConfigurationBuilder(), true);
       cacheManager.defineConfiguration(TEST_CACHE_NAME, builder.build());
@@ -86,7 +81,7 @@ public class HotRodQueryTest extends SingleCacheManagerTest {
                                                 + ",component=" + ProtobufMetadataManager.OBJECT_NAME);
 
       //initialize server-side serialization context via JMX
-      byte[] descriptor = readClasspathResource("/bank.protobin");
+      byte[] descriptor = readClasspathResource("/sample_bank_account/bank.protobin");
       MBeanServer mBeanServer = PerThreadMBeanServerLookup.getThreadMBeanServer();
       mBeanServer.invoke(objName, "registerProtofile", new Object[]{descriptor}, new String[]{byte[].class.getName()});
 
@@ -96,13 +91,29 @@ public class HotRodQueryTest extends SingleCacheManagerTest {
       return cacheManager;
    }
 
-   private byte[] readClasspathResource(String classPathResource) throws IOException {
-      InputStream is = getClass().getResourceAsStream(classPathResource);
-      return Util.readStream(is);
+   protected ConfigurationBuilder getConfigurationBuilder() {
+      ConfigurationBuilder builder = new ConfigurationBuilder();
+      builder.dataContainer()
+            .keyEquivalence(ByteArrayEquivalence.INSTANCE)
+            .indexing().enable()
+            .addProperty("default.directory_provider", getLuceneDirectoryProvider())
+            .addProperty("lucene_version", "LUCENE_CURRENT");
+      return builder;
    }
 
    protected String getLuceneDirectoryProvider() {
       return "ram";
+   }
+
+   private byte[] readClasspathResource(String classPathResource) throws IOException {
+      InputStream is = getClass().getResourceAsStream(classPathResource);
+      try {
+         return Util.readStream(is);
+      } finally {
+         if (is != null) {
+            is.close();
+         }
+      }
    }
 
    @AfterTest
@@ -197,6 +208,7 @@ public class HotRodQueryTest extends SingleCacheManagerTest {
    }
 
    private void assertUser(User user) {
+      assertNotNull(user);
       assertEquals(1, user.getId());
       assertEquals("Tom", user.getName());
       assertEquals("Cat", user.getSurname());

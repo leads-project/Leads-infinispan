@@ -18,7 +18,7 @@ Currently these subsets are predefined:
   -P suite.others                    (Tests that do not belong to any of the suites above. Useful when running a single test that's outside
                                       of any pre-defined group)
 
-Runnins with specific server zip distribution
+Running with specific server zip distribution
 ---------------------------------------------
 
 If you specify -Dzip.dist=path/to/distro.zip the test server directories target/server/node* will be based on the contents of this zip file.
@@ -44,6 +44,27 @@ This is controlled by following profiles
   -P client.rest      (REST client)
   -P client.memcached (Memcached client)
   -P client.hotrod    (Hot Rod client)
+  -P client.hotrod.osgi    These tests require an Infinispan server to be started manually with the following
+  cache added to its configuration:
+
+  <local-cache name="indexed" start="EAGER">
+      <locking isolation="none" acquire-timeout="30000" concurrency-level="1000" striping="false"/>
+      <transaction mode="none"/>
+      <indexing index="all">
+          <property name="default.directory_provider">ram</property>
+          <property name="lucene_version">LUCENE_36</property>
+      </indexing>
+  </local-cache>
+
+  Tests for OSGi run by default in Karaf 2.3.3. A different version of Karaf may be specified via the command line:
+  -Dversion.karaf=<version>
+
+
+
+Running client tests with TCP stack (UDP by default)
+----------------------------------------------------
+Controlled by property default.transport.stack:
+  mvn clean verify -Psuite.client -Ddefault.transport.stack=tcp
 
 Client side logging
 -------------------
@@ -84,7 +105,7 @@ properties:
   leveldb.impl        - sets implementation type, allowed values: AUTO, JAVA, JNI
   leveldb.patch       - used with -Dzip.dist. Patches the zip distribution with dependencies of leveldb cache store taken from upstream build.
 
-Runnig test in JDK 6
+Running test in JDK 6
 --------------------
 
 When want to run testsuite on JDK 6, you have to set following profile
@@ -92,4 +113,23 @@ When want to run testsuite on JDK 6, you have to set following profile
   -P testsuite-jdk6
 
 This profile assumes that environment JAVA_HOME_16 is set properly.
-  
+
+Note about generating a keystore with keytool
+---------------------------------------------
+
+1) The following command (and its variants) was used to generate the keystore and truststore for HotRod SSL tests:
+
+    keytool -keystore keystore_server.jks -genkey -alias memcached -validity 10000
+
+2) Examine the keystore/truststore with:
+
+    keytool -list -v -keystore keystore_server.jks
+
+3) Generate a certificate out of the jks file:
+
+    keytool -export -alias memcached -file server.cer -storepass secret -keystore keystore_server.jks
+
+4) Import the certificate and generate a truststore:
+
+    keytool -import -alias memcached -v -trustcacerts -file server.cer -keypass secret -storepass secret -keystore truststore_client.jks
+

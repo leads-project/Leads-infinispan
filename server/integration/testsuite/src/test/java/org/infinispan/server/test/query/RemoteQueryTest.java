@@ -1,6 +1,5 @@
 package org.infinispan.server.test.query;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
@@ -15,12 +14,14 @@ import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.Search;
 import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
 import org.infinispan.client.hotrod.marshall.ProtoStreamMarshaller;
+import org.infinispan.commons.util.Util;
 import org.infinispan.protostream.sampledomain.Address;
 import org.infinispan.protostream.sampledomain.User;
 import org.infinispan.protostream.sampledomain.marshallers.MarshallerRegistration;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryFactory;
 import org.infinispan.server.test.util.RemoteCacheManagerFactory;
+import static org.infinispan.server.test.util.TestUtil.invokeOperation;
 import org.jboss.arquillian.junit.Arquillian;
 import org.junit.After;
 import org.junit.Before;
@@ -31,46 +32,50 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 /**
- * Tests for remote queries over HotRod.
+ * Tests for remote queries over HotRod on a local cache using RAM directory.
  *
  * @author Adrian Nistor
  * @author Martin Gencur
- *
  */
 @RunWith(Arquillian.class)
 @WithRunningServer("remote-query")
 public class RemoteQueryTest {
 
-   protected static final String DEFAULT_CACHE = "testcache";
+    protected String cacheContainerName = "local";
+    protected String cacheName = "testcache";
 
     @InfinispanResource("remote-query")
-    protected RemoteInfinispanServer server;
+    private RemoteInfinispanServer server;
 
     protected RemoteCacheManager remoteCacheManager;
     protected RemoteCache<Integer, User> remoteCache;
-    protected MBeanServerConnectionProvider provider;
+    protected MBeanServerConnectionProvider jmxConnectionProvider;
 
     protected RemoteCacheManagerFactory rcmFactory;
 
+    protected RemoteInfinispanServer getServer() {
+        return server;
+    }
+
     @Before
     public void setUp() throws Exception {
-        provider = new MBeanServerConnectionProvider(server.getHotrodEndpoint().getInetAddress().getHostName(), 9999);
+        jmxConnectionProvider = new MBeanServerConnectionProvider(getServer().getHotrodEndpoint().getInetAddress().getHostName(), 9999);
         rcmFactory = new RemoteCacheManagerFactory();
         ConfigurationBuilder clientBuilder = new ConfigurationBuilder();
         clientBuilder.addServer()
-                        .host(server.getHotrodEndpoint().getInetAddress().getHostName())
-                        .port(server.getHotrodEndpoint().getPort())
+                        .host(getServer().getHotrodEndpoint().getInetAddress().getHostName())
+                        .port(getServer().getHotrodEndpoint().getPort())
                      .marshaller(new ProtoStreamMarshaller());
         remoteCacheManager = rcmFactory.createManager(clientBuilder);
-        remoteCache = remoteCacheManager.getCache(DEFAULT_CACHE);
+        remoteCache = remoteCacheManager.getCache(cacheName);
 
         String mbean = "jboss.infinispan:type=RemoteQuery,name="
-                + ObjectName.quote("local")
+                + ObjectName.quote(cacheContainerName)
                 + ",component=ProtobufMetadataManager";
 
         //initialize server-side serialization context via JMX
-        byte[] descriptor = readClasspathResource("/bank.protobin");
-        invokeOperation(provider, mbean, "registerProtofile", new Object[]{descriptor}, new String[]{byte[].class.getName()});
+        byte[] descriptor = readClasspathResource("/sample_bank_account/bank.protobin");
+        invokeOperation(jmxConnectionProvider, mbean, "registerProtofile", new Object[]{descriptor}, new String[]{byte[].class.getName()});
 
         //initialize client-side serialization context
         MarshallerRegistration.registerMarshallers(ProtoStreamMarshaller.getSerializationContext(remoteCacheManager));
@@ -176,6 +181,7 @@ public class RemoteQueryTest {
     }
 
     private void assertUser(User user) {
+        assertNotNull(user);
         assertEquals(1, user.getId());
         assertEquals("Tom", user.getName());
         assertEquals("Cat", user.getSurname());
@@ -190,23 +196,14 @@ public class RemoteQueryTest {
     }
 
     private byte[] readClasspathResource(String c) throws IOException {
-        InputStream is = getClass().getResourceAsStream(c);
-        try {
-            ByteArrayOutputStream os = new ByteArrayOutputStream();
-            byte[] buf = new byte[1024];
-            int len;
-            while ((len = is.read(buf)) != -1) {
-                os.write(buf, 0, len);
-            }
-            return os.toByteArray();
-        } finally {
-            is.close();
-        }
-    }
-
-    private Object invokeOperation(MBeanServerConnectionProvider provider, String mbean, String operationName, Object[] params,
-                                   String[] signature) throws Exception {
-        return provider.getConnection().invoke(new ObjectName(mbean), operationName, params, signature);
+       InputStream is = getClass().getResourceAsStream(c);
+       try {
+          return Util.readStream(is);
+       } finally {
+          if (is != null) {
+             is.close();
+          }
+       }
     }
 
 }

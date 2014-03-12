@@ -10,17 +10,22 @@
 
 package org.infinispan.util.concurrent;
 import org.infinispan.commons.equivalence.Equivalence;
+import org.infinispan.commons.equivalence.EquivalentLinkedHashMap;
 import org.infinispan.commons.util.InfinispanCollections;
-import org.infinispan.commons.util.Util;
+import org.infinispan.commons.util.concurrent.ParallelIterableMap;
+import org.infinispan.commons.util.concurrent.jdk8backported.ForkJoinPool;
 import org.infinispan.container.entries.CacheEntry;
+import org.infinispan.executors.ExecutorAllCompletionService;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -91,7 +96,7 @@ import static java.util.Collections.unmodifiableMap;
  * @param <V> the type of mapped values
  */
 public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
-        implements ConcurrentMap<K, V>, Serializable {
+        implements ConcurrentMap<K, V>, ParallelIterableMap<K, V>, Serializable {
 
    private static final Log log = LogFactory.getLog(BoundedConcurrentHashMap.class);
    private static final boolean trace = log.isTraceEnabled();
@@ -144,6 +149,9 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
     * which would make it impossible to obtain an accurate result.
     */
    static final int RETRIES_BEFORE_LOCK = 2;
+   
+   
+   private static final int CANCELLATION_CHECK_FREQUENCY = 64;
 
    /* ---------------- Fields -------------- */
 
@@ -171,6 +179,8 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
    private transient final Equivalence<V> valueEquivalence;
    private transient final EvictionListener<K, V> evictionListener;
    private final int evictCap;
+   
+   private final ExecutorService executor;
 
    /* ---------------- Small Utilities -------------- */
 
@@ -269,12 +279,7 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       LRU {
          @Override
          public <K, V> EvictionPolicy<K, V> make(Segment<K, V> s, int capacity, float lf) {
-            boolean isIBMJavaVendor = Util.isIBMJavaVendor();
-            if (isIBMJavaVendor) {
-               return new IBMLRU<K, V>(s,capacity,lf,capacity*10,lf);
-            } else {
-               return new LRU<K, V>(s,capacity,lf,capacity*10,lf);
-            }
+            return new LRU<K, V>(s,capacity,lf,capacity*10,lf);
          }
       },
       LIRS {
@@ -433,7 +438,7 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       }
    }
 
-   static final class LRU<K, V> extends LinkedHashMap<HashEntry<K,V>, V> implements EvictionPolicy<K, V> {
+   static final class LRU<K, V> extends EquivalentLinkedHashMap<HashEntry<K,V>, V> implements EvictionPolicy<K, V> {
 
       /** The serialVersionUID */
       private static final long serialVersionUID = -7645068174197717838L;
@@ -446,8 +451,42 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       private final Set<HashEntry<K, V>> evicted;
       private final AtomicInteger accessQueueSize = new AtomicInteger(0);
 
-      public LRU(Segment<K,V> s, int capacity, float lf, int maxBatchSize, float batchThresholdFactor) {
-         super(capacity, lf, true);
+      public LRU(final Segment<K,V> s, int capacity, float lf, int maxBatchSize, float batchThresholdFactor) {
+         super(capacity, lf, IterationOrder.ACCESS_ORDER, new Equivalence<HashEntry<K, V>>() {
+            @Override
+            public int hashCode(Object obj) {
+               if (obj instanceof HashEntry<?, ?>) {
+                  return s.map.keyEquivalence.hashCode(((HashEntry<?, ?>)obj).key);
+               }
+               return 0;
+            }
+
+            @Override
+            public boolean equals(HashEntry<K, V> obj, Object otherObj) {
+               if (otherObj instanceof HashEntry<?, ?>) {
+                  return s.map.keyEquivalence.equals(obj.key, ((HashEntry<?, ?>)otherObj).key);
+               }
+               return false;
+            }
+
+            @Override
+            public String toString(Object obj) {
+               HashEntry<K, V> entry = (HashEntry<K, V>)obj;
+               return "HashEntry [Key=" + entry.key + ", Value=" + entry.value + ", Hash=" + entry.hash + "]";
+            }
+
+            @Override
+            public boolean isComparable(Object obj) {
+               // We don't care about comparable
+               return false;
+            }
+
+            @Override
+            public int compare(HashEntry<K, V> obj, HashEntry<K, V> otherObj) {
+               // We don't care about comparable
+               return 0;
+            }
+         }, s.map.valueEquivalence);
          this.segment = s;
          this.trimDownSize = capacity;
          this.maxBatchQueueSize = maxBatchSize > MAX_BATCH_SIZE ? MAX_BATCH_SIZE : maxBatchSize;
@@ -526,7 +565,7 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       }
 
       @Override
-      protected boolean removeEldestEntry(Map.Entry<HashEntry<K,V>,V> eldest){
+      protected boolean removeEldestEntry(Map.Entry<HashEntry<K,V>,V> eldest) {
          boolean aboveThreshold = isAboveThreshold();
          if(aboveThreshold){
             HashEntry<K, V> evictedEntry = eldest.getKey();
@@ -539,165 +578,6 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       @Override
       public HashEntry<K, V> createNewEntry(K key, int hash, HashEntry<K, V> next, V value) {
          return new HashEntry<K, V>(key, hash, next, value);
-      }
-   }
-
-   /**
-    * A special version of LRU eviction strategy dedicated for use with IBM JDK. This class extends
-    * HashMap instead of LinkedHashMap whose implementation on IBM JDK contains a bug resulting in
-    * wrong cache entries being evicted from memory.
-    */
-   static final class IBMLRU<K, V> extends HashMap<HashEntry<K,V>, V> implements EvictionPolicy<K, V> {
-
-      private static final long serialVersionUID = -6475176618082216057L;
-
-      private final ConcurrentLinkedQueue<LRUHashEntry<K, V>> accessQueue;
-      private final Segment<K,V> segment;
-      private final int maxBatchQueueSize;
-      private final int trimDownSize;
-      private final float batchQueueSizeThreshold;
-      private final Set<HashEntry<K, V>> evicted;
-      private LRUHashEntry<K, V> head;
-      private final AtomicInteger accessQueueSize = new AtomicInteger(0);
-
-      public IBMLRU(Segment<K,V> s, int capacity, float lf, int maxBatchSize, float batchThresholdFactor) {
-         super(capacity, lf);
-         this.segment = s;
-         this.trimDownSize = capacity;
-         this.maxBatchQueueSize = maxBatchSize > MAX_BATCH_SIZE ? MAX_BATCH_SIZE : maxBatchSize;
-         this.batchQueueSizeThreshold = batchThresholdFactor * this.maxBatchQueueSize;
-         this.accessQueue = new ConcurrentLinkedQueue<LRUHashEntry<K, V>>();
-         this.evicted = new HashSet<HashEntry<K, V>>();
-         this.head = (LRUHashEntry<K, V>) createNewEntry(null,-1, null, null);
-         this.head.previousEntry = this.head.nextEntry = this.head;
-      }
-
-      @Override
-      public Set<HashEntry<K, V>> execute() {
-         Set<HashEntry<K, V>> evictedCopy = new HashSet<HashEntry<K, V>>();
-         for (HashEntry<K, V> e : accessQueue) {
-            put(e, e.value);
-            addAndRemoveEldest(e);
-         }
-         evictedCopy.addAll(evicted);
-         accessQueue.clear();
-         accessQueueSize.set(0);
-         evicted.clear();
-         return evictedCopy;
-      }
-
-      @Override
-      public Set<HashEntry<K, V>> onEntryMiss(HashEntry<K, V> e) {
-         put(e, e.value);
-         addAndRemoveEldest(e);
-         if (!evicted.isEmpty()) {
-            Set<HashEntry<K, V>> evictedCopy = new HashSet<HashEntry<K, V>>();
-            evictedCopy.addAll(evicted);
-            evicted.clear();
-            return evictedCopy;
-         } else {
-            return InfinispanCollections.emptySet();
-         }
-      }
-
-      public void addAndRemoveEldest(HashEntry<K, V> entry) {
-         ((LRUHashEntry<K, V>)entry).addBefore(head);
-         if (isAboveThreshold()) {
-            remove(head.nextEntry);
-            LRUHashEntry<K, V> evictedEntry = head.nextEntry;
-            //remove eldest entry from doubly-linked list
-            head.nextEntry.remove();
-            segment.remove(evictedEntry.key, evictedEntry.hash, null, true);
-            evicted.add(evictedEntry);
-         }
-      }
-
-      /*
-       * Invoked without holding a lock on Segment
-       */
-      @Override
-      public boolean onEntryHit(HashEntry<K, V> e) {
-         accessQueue.add((LRUHashEntry<K, V>) e);
-         int sz = accessQueueSize.incrementAndGet();
-         return sz >= batchQueueSizeThreshold;
-      }
-
-      /*
-       * Invoked without holding a lock on Segment
-       */
-      @Override
-      public boolean thresholdExpired() {
-         return accessQueueSize.get() >= maxBatchQueueSize;
-      }
-
-      @Override
-      public void onEntryRemove(HashEntry<K, V> e) {
-         remove(e);
-         //remove entry from doubly-linked list
-         ((LRUHashEntry<K, V>)e).remove();
-         // we could have multiple instances of e in accessQueue; remove them all
-         while (accessQueue.remove(e)) {
-            accessQueueSize.decrementAndGet();            
-         }
-      }
-
-      @Override
-      public void clear() {
-         super.clear();
-         head.previousEntry = head.nextEntry = head;
-         accessQueue.clear();
-         accessQueueSize.set(0);
-      }
-
-      @Override
-      public Eviction strategy() {
-         return Eviction.LRU;
-      }
-
-      protected boolean isAboveThreshold(){
-         return size() > trimDownSize;
-      }
-
-      public HashEntry<K, V> createNewEntry(K key, int hash, HashEntry<K, V> next, V value) {
-         return new LRUHashEntry<K, V>(key, hash, next, value);
-      }
-   }
-
-   /**
-    * Provides IBMLRU class with the capability of linking individual cache entries and thus
-    * creating a doubly-linked list.
-    */
-   private static class LRUHashEntry<K,V> extends HashEntry<K,V> {
-
-      //variables for creating a doubly-linked list
-      LRUHashEntry<K,V> previousEntry, nextEntry;
-
-      LRUHashEntry(K key, int hash, HashEntry<K,V> next, V value) {
-         super(key, hash, next, value);
-      }
-
-      private void remove() {
-         previousEntry.nextEntry = nextEntry;
-         nextEntry.previousEntry = previousEntry;
-      }
-
-      private void addBefore(LRUHashEntry<K,V> entry) {
-         nextEntry = entry;
-         previousEntry = entry.previousEntry;
-         previousEntry.nextEntry = this;
-         nextEntry.previousEntry = this;
-      }
-
-      @Override
-      public boolean equals(Object o) {
-         if (this == o) {
-            return true;
-         }
-         if (o == null) {
-            return false;
-         }
-         HashEntry<?, ?> other = (HashEntry<?, ?>) o;
-         return hash == other.hash && key.equals(other.key);
       }
    }
 
@@ -1850,6 +1730,8 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
       if (evictionStrategy == null || evictionListener == null) {
          throw new IllegalArgumentException();
       }
+      
+      executor = ForkJoinPool.commonPool();
 
       this.evictionListener = evictionListener;
 
@@ -2744,6 +2626,103 @@ public class BoundedConcurrentHashMap<K, V> extends AbstractMap<K, V>
             break;
          }
          put(key, value);
+      }
+   }
+   
+   public void forEach(long parallelismThreshold,  final org.infinispan.commons.util.concurrent.ParallelIterableMap.KeyValueAction<? super K,? super V> action) throws InterruptedException{
+      if (size() > parallelismThreshold){
+         execute(executor, action);
+      } else {
+         execute(new WithinThreadExecutor(), action);
+      }
+   }
+
+   /**
+    * Executes ParallelIterator.KeyValueAction in parallel by splitting this map's entry set into a List
+    * of Lists. Each list is in turn submitted for parallel execution by invoking KeyValueAction's apply
+    * method on each key/value pair in the list.
+    *
+    * @param executorService
+    *           the executor service used for processing each key/value pair
+    * @param action
+    *           the KeyValueAction interface to be invoked on each key/value pair
+    * @throws InterruptedException
+    */
+   private void execute(ExecutorService executorService,
+         final org.infinispan.commons.util.concurrent.ParallelIterableMap.KeyValueAction<? super K,? super V> action)
+         throws InterruptedException {
+      List<Map.Entry<K, V>> list = new ArrayList<Map.Entry<K, V>>(entrySet());
+      int numCores = Runtime.getRuntime().availableProcessors();
+      int splittingSize = Math.max(list.size() / (numCores << 2), 128);
+      List<List<Map.Entry<K, V>>> partition = splitIntoLists(list, splittingSize);
+      ExecutorAllCompletionService eacs = new ExecutorAllCompletionService(executor);
+      for (final List<java.util.Map.Entry<K, V>> inputPartition : partition) {
+         eacs.submit(new Runnable() {
+
+            @Override
+            public void run() {
+               int interruptCounter = 0;
+               for (Map.Entry<K, V> e : inputPartition) {
+                  if (checkInterrupt(interruptCounter++) && Thread.currentThread().isInterrupted()) {
+                     break;
+                  }
+                  action.apply(e.getKey(), e.getValue());
+               }
+            }
+         }, null);
+      }
+      eacs.waitUntilAllCompleted();
+   }
+
+
+   static boolean checkInterrupt(int counter) {
+      return counter % CANCELLATION_CHECK_FREQUENCY == 0;
+   }
+
+   protected <T> List<List<T>> splitIntoLists(List<T> list, int size) {
+
+      if (list == null)
+         throw new NullPointerException("Invalid list " + list);
+
+      if (size < 1)
+         throw new IllegalArgumentException("Invalid size " + size);
+
+      return new Partition<T>(list, size);
+   }
+
+   private static final class Partition<T> extends AbstractList<List<T>> {
+
+      final List<T> list;
+      final int size;
+
+      Partition(List<T> list, int size) {
+         this.list = list;
+         this.size = size;
+      }
+
+      @Override
+      public List<T> get(int index) {
+         int listSize = size();
+         if (listSize < 0)
+            throw new IllegalArgumentException("negative size: " + listSize);
+         if (index < 0)
+            throw new IndexOutOfBoundsException("index " + index + " must not be negative");
+         if (index >= listSize)
+            throw new IndexOutOfBoundsException("index " + index + " must be less than size " + listSize);
+         int start = index * size;
+         int end = Math.min(start + size, list.size());
+         return list.subList(start, end);
+      }
+
+      @Override
+      public int size() {
+         BigDecimal d = new BigDecimal(list.size()).divide(new BigDecimal(size), BigDecimal.ROUND_CEILING);
+         return d.intValue();
+      }
+
+      @Override
+      public boolean isEmpty() {
+         return list.isEmpty();
       }
    }
 }

@@ -1,5 +1,6 @@
 package org.infinispan.container.entries;
 
+import org.infinispan.atomic.CopyableDeltaAware;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.atomic.AtomicHashMap;
 import org.infinispan.atomic.Delta;
@@ -76,7 +77,7 @@ public class DeltaAwareCacheEntry implements CacheEntry, StateChangingEntry {
       VALID(1 << 3),
       EVICTED(1 << 4),
       LOADED(1 << 5),
-      SKIP_REMOTE_GET(1 << 6);
+      SKIP_LOOKUP(1 << 6);
 
       final byte mask;
 
@@ -127,8 +128,8 @@ public class DeltaAwareCacheEntry implements CacheEntry, StateChangingEntry {
    }
 
    @Override
-   public boolean skipRemoteGet() {
-      return isFlagSet(SKIP_REMOTE_GET);
+   public boolean skipLookup() {
+      return isFlagSet(SKIP_LOOKUP);
    }
 
    @Override
@@ -155,13 +156,28 @@ public class DeltaAwareCacheEntry implements CacheEntry, StateChangingEntry {
 
    @Override
    public final void commit(DataContainer container, Metadata metadata) {
+      //If possible, we now ensure copy-on-write semantics. This way, it can ensure the correct transaction isolation.
+      //note: this method is invoked under the ClusteringDependentLogic.lock(key)
+      //note2: we want to merge/copy to/from the data container value.
+      CacheEntry entry = container.get(key);
+      DeltaAware containerValue = entry == null ? null : (DeltaAware) entry.getValue();
+      if (containerValue != null && containerValue != value) {
+         value = containerValue;
+      }
       if (value != null && !deltas.isEmpty()) {
+         final boolean makeCopy = value instanceof CopyableDeltaAware;
+         if (makeCopy) {
+            value = ((CopyableDeltaAware) value).copy();
+         }
          for (Delta delta : deltas) {
             delta.merge(value);
          }
+         if (makeCopy) {
+            container.put(key, value, extractMetadata(entry, metadata));
+         }
          value.commit();
          if (wrappedEntry != null) {
-            wrappedEntry.setChanged(true);
+            wrappedEntry.setChanged(!makeCopy);
          }
       }
       reset();
@@ -169,6 +185,15 @@ public class DeltaAwareCacheEntry implements CacheEntry, StateChangingEntry {
       if (wrappedEntry != null) {
          wrappedEntry.commit(container, metadata);
       }
+   }
+
+   private Metadata extractMetadata(CacheEntry entry, Metadata provided) {
+      if (provided != null) {
+         return provided;
+      } else if (wrappedEntry != null) {
+         return wrappedEntry.getMetadata();
+      }
+      return entry == null ? null : entry.getMetadata();
    }
 
    private void reset() {
@@ -267,8 +292,8 @@ public class DeltaAwareCacheEntry implements CacheEntry, StateChangingEntry {
    }
 
    @Override
-   public void setSkipRemoteGet(boolean skipRemoteGet) {
-      setFlag(skipRemoteGet, SKIP_REMOTE_GET);
+   public void setSkipLookup(boolean skipLookup) {
+      setFlag(skipLookup, SKIP_LOOKUP);
    }
 
    private void setFlag(boolean enable, Flags flag) {

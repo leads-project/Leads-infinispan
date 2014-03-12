@@ -7,53 +7,47 @@ import org.infinispan.client.hotrod.marshall.ProtoStreamMarshaller;
 import org.infinispan.protostream.sampledomain.marshallers.MarshallerRegistration;
 import org.infinispan.server.test.util.RemoteCacheManagerFactory;
 import org.jboss.arquillian.junit.Arquillian;
-import org.jboss.as.clustering.infinispan.subsystem.CacheContainerResource;
 import org.jboss.as.clustering.infinispan.subsystem.InfinispanExtension;
-import org.jboss.as.clustering.infinispan.subsystem.ModelKeys;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.operations.common.Util;
 import org.jboss.dmr.ModelNode;
-import org.jboss.logging.Logger;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 
-import javax.management.ObjectName;
 import java.net.URL;
 
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OUTCOME;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RESULT;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUCCESS;
 
 /**
- * Tests for remote queries over HotRod but registering the proto file via JON/RHQ pluginw
+ * Tests for remote queries over HotRod but registering the proto file via JON/RHQ plugin.
  *
  * @author William Burns
- *
  */
 @RunWith(Arquillian.class)
 @WithRunningServer("remote-query")
 public class RemoteQueryJONRegisterTest extends RemoteQueryTest {
+
    @Before
    public void setUp() throws Exception {
-      provider = new MBeanServerConnectionProvider(server.getHotrodEndpoint().getInetAddress().getHostName(), 9999);
+      jmxConnectionProvider = new MBeanServerConnectionProvider(getServer().getHotrodEndpoint().getInetAddress().getHostName(), 9999);
       rcmFactory = new RemoteCacheManagerFactory();
       ConfigurationBuilder clientBuilder = new ConfigurationBuilder();
       clientBuilder.addServer()
-            .host(server.getHotrodEndpoint().getInetAddress().getHostName())
-            .port(server.getHotrodEndpoint().getPort())
+            .host(getServer().getHotrodEndpoint().getInetAddress().getHostName())
+            .port(getServer().getHotrodEndpoint().getPort())
             .marshaller(new ProtoStreamMarshaller());
       remoteCacheManager = rcmFactory.createManager(clientBuilder);
-      remoteCache = remoteCacheManager.getCache(DEFAULT_CACHE);
+      remoteCache = remoteCacheManager.getCache(cacheName);
 
-      //initialize server-side serialization context via JMX
-      URL resource = getClass().getResource("/bank.protobin");
+      //initialize server-side serialization context via JON/RHQ
+      URL resource = getClass().getResource("/sample_bank_account/bank.protobin");
       ModelControllerClient client = ModelControllerClient.Factory.create(
-            server.getHotrodEndpoint().getInetAddress().getHostName(), 9999);
+            getServer().getHotrodEndpoint().getInetAddress().getHostName(), 9999);
 
       ModelNode addProtobufFileOp = getOperation("local", "upload-proto-file", new ModelNode().add().set(
             "proto-url", resource.toString()));

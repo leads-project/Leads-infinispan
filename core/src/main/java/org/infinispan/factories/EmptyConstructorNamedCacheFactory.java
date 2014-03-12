@@ -9,8 +9,10 @@ import org.infinispan.commons.io.ByteBufferFactory;
 import org.infinispan.commons.io.ByteBufferFactoryImpl;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.context.InvocationContextContainer;
-import org.infinispan.context.NonTransactionalInvocationContextContainer;
-import org.infinispan.context.TransactionalInvocationContextContainer;
+import org.infinispan.context.InvocationContextContainerImpl;
+import org.infinispan.context.InvocationContextFactory;
+import org.infinispan.context.NonTransactionalInvocationContextFactory;
+import org.infinispan.context.TransactionalInvocationContextFactory;
 import org.infinispan.distribution.L1Manager;
 import org.infinispan.distribution.L1ManagerImpl;
 import org.infinispan.distribution.RemoteValueRetrievedListener;
@@ -24,10 +26,12 @@ import org.infinispan.factories.annotations.DefaultFactoryFor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.marshall.core.MarshalledEntryFactory;
 import org.infinispan.marshall.core.MarshalledEntryFactoryImpl;
+import org.infinispan.notifications.cachelistener.cluster.ClusterCacheNotifier;
 import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.persistence.manager.PersistenceManagerImpl;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.notifications.cachelistener.CacheNotifierImpl;
+import org.infinispan.statetransfer.CommitManager;
 import org.infinispan.statetransfer.StateTransferLock;
 import org.infinispan.statetransfer.StateTransferLockImpl;
 import org.infinispan.transaction.TransactionCoordinator;
@@ -41,6 +45,12 @@ import org.infinispan.util.concurrent.locks.containers.ReentrantPerEntryLockCont
 import org.infinispan.util.concurrent.locks.containers.ReentrantStripedLockContainer;
 import org.infinispan.xsite.BackupSender;
 import org.infinispan.xsite.BackupSenderImpl;
+import org.infinispan.xsite.statetransfer.XSiteStateConsumer;
+import org.infinispan.xsite.statetransfer.XSiteStateConsumerImpl;
+import org.infinispan.xsite.statetransfer.XSiteStateProvider;
+import org.infinispan.xsite.statetransfer.XSiteStateProviderImpl;
+import org.infinispan.xsite.statetransfer.XSiteStateTransferManager;
+import org.infinispan.xsite.statetransfer.XSiteStateTransferManagerImpl;
 
 import static org.infinispan.commons.util.Util.getInstance;
 
@@ -51,7 +61,7 @@ import static org.infinispan.commons.util.Util.getInstance;
  * @author Pedro Ruivo
  * @since 4.0
  */
-@DefaultFactoryFor(classes = {CacheNotifier.class, CommandsFactory.class,
+@DefaultFactoryFor(classes = {CacheNotifier.class, ClusterCacheNotifier.class, CommandsFactory.class,
                               PersistenceManager.class, InvocationContextContainer.class,
                               PassivationManager.class, ActivationManager.class,
                               BatchContainer.class, EvictionManager.class,
@@ -59,7 +69,8 @@ import static org.infinispan.commons.util.Util.getInstance;
                               ClusteringDependentLogic.class, LockContainer.class,
                               L1Manager.class, TransactionFactory.class, BackupSender.class,
                               TotalOrderManager.class, ByteBufferFactory.class, MarshalledEntryFactory.class,
-                              RemoteValueRetrievedListener.class})
+                              RemoteValueRetrievedListener.class, InvocationContextFactory.class, CommitManager.class,
+                              XSiteStateTransferManager.class, XSiteStateConsumer.class, XSiteStateProvider.class})
 public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheComponentFactory implements AutoInstantiableFactory {
 
    @Override
@@ -79,10 +90,12 @@ public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheCompone
          }
       } else {
          boolean isTransactional = configuration.transaction().transactionMode().isTransactional();
-         if (componentType.equals(InvocationContextContainer.class)) {
-            componentImpl = isTransactional ? TransactionalInvocationContextContainer.class
-                  : NonTransactionalInvocationContextContainer.class;
+         if (componentType.equals(InvocationContextFactory.class)) {
+            componentImpl = isTransactional ? TransactionalInvocationContextFactory.class
+                  : NonTransactionalInvocationContextFactory.class;
             return componentType.cast(getInstance(componentImpl));
+         } else if (componentType.equals(InvocationContextContainer.class)) {
+            return (T) new InvocationContextContainerImpl();
          } else if (componentType.equals(CacheNotifier.class)) {
             return (T) new CacheNotifierImpl();
          } else if (componentType.equals(CommandsFactory.class)) {
@@ -126,6 +139,16 @@ public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheCompone
          } else if (componentType.equals(RemoteValueRetrievedListener.class)) {
             // L1Manager is currently only listener for remotely retrieved values
             return (T) componentRegistry.getComponent(L1Manager.class);
+         } else if (componentType.equals(ClusterCacheNotifier.class)) {
+            return (T) componentRegistry.getComponent(CacheNotifier.class);
+         } else if (componentType.equals(CommitManager.class)) {
+            return (T) new CommitManager(configuration.dataContainer().keyEquivalence());
+         } else if (componentType.equals(XSiteStateTransferManager.class)) {
+            return (T) new XSiteStateTransferManagerImpl();
+         } else if (componentType.equals(XSiteStateConsumer.class)) {
+            return (T) new XSiteStateConsumerImpl();
+         } else if (componentType.equals(XSiteStateProvider.class)) {
+            return (T) new XSiteStateProviderImpl();
          }
       }
 

@@ -1,9 +1,13 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
    <modelVersion>4.0.0</modelVersion>
-   <groupId>org.infinispan</groupId>
+   <parent>
+      <groupId>org.infinispan</groupId>
+      <artifactId>infinispan-bom</artifactId>
+      <version>7.0.0-SNAPSHOT</version>
+      <relativePath>../bom/pom.xml</relativePath>
+   </parent>
    <artifactId>infinispan-parent</artifactId>
-      <version>6.0.1-SNAPSHOT</version>
    <packaging>pom</packaging>
    <name>Infinispan Common Parent</name>
    <description>Infinispan common parent POM module</description>
@@ -77,6 +81,8 @@
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
       <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
       <defaultTestGroup>functional,unit,arquillian</defaultTestGroup>
+      <!-- unstable and stress because we can have them inside a functional class, for example -->
+      <defaultExcludedTestGroup>unstable,stress,unstable_xsite</defaultExcludedTestGroup>
       <testNGListener>org.infinispan.test.fwk.UnitTestTestNGListener</testNGListener>
       <infinispan.test.parallel.threads>15</infinispan.test.parallel.threads>
       <infinispan.test.jgroups.protocol>tcp</infinispan.test.jgroups.protocol>
@@ -85,7 +91,7 @@
       <packaging>jar</packaging>
       <module.skipComponentMetaDataProcessing>true</module.skipComponentMetaDataProcessing>
       <module.metadata.isCoreModule>false</module.metadata.isCoreModule>
-      
+      <!-- Versions for dependencies -->
       <version.antlr>3.4</version.antlr>
       <version.arquillian>1.0.3.Final</version.arquillian>
       <version.arquillian.container.managed>8.0.0.Beta1</version.arquillian.container.managed>
@@ -98,7 +104,6 @@
       <version.commons.codec>1.4</version.commons.codec>
       <version.commons.collections>3.2.1</version.commons.collections>
       <version.commons.dbcp>1.4</version.commons.dbcp>
-      <version.commons.pool>1.6</version.commons.pool>
       <version.commons.httpclient>3.1</version.commons.httpclient>
       <version.commons.io>1.3.2</version.commons.io>
       <version.commons.logging>1.1</version.commons.logging>
@@ -106,7 +111,7 @@
       <version.guava>11.0.2</version.guava>
       <version.h2.driver>1.3.166</version.h2.driver>
       <version.hibernate.annotations>3.5.6-Final</version.hibernate.annotations>
-      <version.hibernate.hql.parser>1.0.0.Alpha5</version.hibernate.hql.parser>
+      <version.hibernate.hql.parser>1.0.0.Alpha6</version.hibernate.hql.parser>
       <version.hibernate.javax.persistence>1.0.1.Final</version.hibernate.javax.persistence>
       <version.httpclient>4.2.4</version.httpclient>
       <version.jackson>1.9.2</version.jackson>
@@ -128,7 +133,7 @@
       <version.leveldbjni>1.7</version.leveldbjni>
       <version.log4j>1.2.16</version.log4j>
       <version.lucene.v3>3.6.2</version.lucene.v3>
-      <version.lucene.v4>4.6.0</version.lucene.v4>
+      <version.lucene.v4>4.6.1</version.lucene.v4>
       <version.mc4j>1.2.6</version.mc4j>
       <version.milyn.smooks>1.2.2</version.milyn.smooks>
       <version.mockito>1.9.5</version.mockito>
@@ -145,7 +150,7 @@
       <version.webdav.servlet>2.0.1</version.webdav.servlet>
       <version.weld>1.1.13.Final</version.weld>
       <version.wildfly>8.0.0.Beta1</version.wildfly>
-      <version.javassist>3.15.0-GA</version.javassist>
+      <version.javassist>3.18.0-GA</version.javassist>
       <version.maven.animal.sniffer>1.9</version.maven.animal.sniffer>
       <version.maven.buildhelper>1.8</version.maven.buildhelper>
       <version.maven.bundle>2.4.0</version.maven.bundle>
@@ -163,13 +168,6 @@
    
    <dependencyManagement>
       <dependencies>
-         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>infinispan-bom</artifactId>
-            <version>${project.version}</version>
-            <type>pom</type>
-            <scope>import</scope>
-         </dependency>
          <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>infinispan-cachestore-jdbc</artifactId>
@@ -356,11 +354,6 @@
             <artifactId>commons-logging</artifactId>
             <version>${version.commons.logging}</version>
             <scope>runtime</scope>
-         </dependency>
-         <dependency>
-            <groupId>commons-pool</groupId>
-            <artifactId>commons-pool</artifactId>
-            <version>${version.commons.pool}</version>
          </dependency>
          <dependency>
             <groupId>org.javassist</groupId>
@@ -653,7 +646,7 @@
       </dependencies>
    </dependencyManagement>
    <dependencies>
-      
+      <!-- used to serialize non-serializable objects for a dummy marshaller -->
       <dependency>
          <groupId>com.thoughtworks.xstream</groupId>
          <artifactId>xstream</artifactId>
@@ -948,7 +941,7 @@
             <plugin>
                <groupId>org.apache.maven.plugins</groupId>
                <artifactId>maven-pmd-plugin</artifactId>
-               
+               <!-- See also reporting plugins -->
                <version>2.7.1</version>
                <configuration>
                   <minimumTokens>100</minimumTokens>
@@ -989,7 +982,7 @@
                <artifactId>ideauidesigner-maven-plugin</artifactId>
                <version>1.0-beta-1</version>
             </plugin>
-            
+            <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
             <plugin>
                <groupId>org.eclipse.m2e</groupId>
                <artifactId>lifecycle-mapping</artifactId>
@@ -1101,6 +1094,35 @@
                   </includes>
                </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>2.10</version>
+                <dependencies>
+                   <dependency>
+                      <groupId>org.infinispan</groupId>
+                      <artifactId>infinispan-checkstyle</artifactId>
+                      <version>${project.version}</version>
+                   </dependency>
+                </dependencies>
+                <configuration>
+                   
+                   <configLocation>checkstyle.xml</configLocation>
+                   <consoleOutput>true</consoleOutput>
+                   <failsOnError>true</failsOnError>
+                   <violationSeverity>error</violationSeverity>
+                   <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                </configuration>
+                <executions>
+                   <execution>
+                      <id>check-style</id>
+                      <phase>verify</phase>
+                      <goals>
+                         <goal>checkstyle</goal>
+                      </goals>
+                   </execution>
+                </executions>
+             </plugin>
          </plugins>
       </pluginManagement>
       <plugins>
@@ -1125,30 +1147,6 @@
                      </rules>
                   </configuration>
                </execution>
-            </executions>
-         </plugin>
-         <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>animal-sniffer-maven-plugin</artifactId>
-            <version>${version.maven.animal.sniffer}</version>
-            <configuration>
-               <signature>
-                  <groupId>org.codehaus.mojo.signature</groupId>
-                  <artifactId>java16</artifactId>
-                  <version>1.0</version>
-               </signature>
-               <ignores>
-                  <ignore>sun.misc.Unsafe</ignore>
-                  <ignore>org.apache.lucene.store.IOContext</ignore>
-               </ignores>
-            </configuration>
-            <executions>
-              <execution>
-                <phase>process-classes</phase>
-                <goals>
-                  <goal>check</goal>
-                </goals>
-              </execution>
             </executions>
          </plugin>
          <plugin>
@@ -1180,7 +1178,7 @@
                </instructions>
             </configuration>
          </plugin>
-         
+         <!-- Copy the resulting persisted metadata into the build directory for packaging into the jar -->
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-antrun-plugin</artifactId>
@@ -1201,7 +1199,7 @@
                </execution>
             </executions>
          </plugin>
-         
+         <!-- by default, compile to JDK 1.6 compatibility (individual modules and/or user can override) -->
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
@@ -1213,7 +1211,7 @@
                <compilerArgument>-AtranslationFilesPath=${project.basedir}/target/generated-translation-files</compilerArgument>
             </configuration>
          </plugin>
-         
+         <!-- eclipse project file generation -->
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-eclipse-plugin</artifactId>
@@ -1223,7 +1221,7 @@
                <buildOutputDirectory>${basedir}/eclipse-output</buildOutputDirectory>
             </configuration>
          </plugin>
-         
+         <!-- IntelliJ project file generation -->
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-idea-plugin</artifactId>
@@ -1284,7 +1282,7 @@
                <encoding>UTF-8</encoding>
             </configuration>
          </plugin>
-         
+         <!-- ensure parallel test execution -->
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
@@ -1294,6 +1292,7 @@
                <forkCount>1</forkCount>
                <reuseForks>true</reuseForks>
                <groups>${defaultTestGroup}</groups>
+               <excludedGroups>${defaultExcludedTestGroup}</excludedGroups>
                <systemPropertyVariables>
                   <infinispan.test.jgroups.protocol>${infinispan.test.jgroups.protocol}</infinispan.test.jgroups.protocol>
                   <jgroups.bind_addr>127.0.0.1</jgroups.bind_addr>
@@ -1309,11 +1308,11 @@
                      <value>${testNGListener}</value>
                   </property>
                </properties>
-               
+               <!-- -Dsun.nio.ch.bugLevel needed because of http://bugs.sun.com/view_bug.do?bug_id=6427854 -->
                <argLine>-Xmx1024m -XX:MaxPermSize=256m -Dsun.nio.ch.bugLevel</argLine>
             </configuration>
          </plugin>
-         
+         <!-- Scan module for components and persist these into a data file, for use at runtime -->
          <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
@@ -1345,11 +1344,11 @@
    </build>
    <reporting>
       <plugins>
-         
+         <!-- PMD report -->
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-pmd-plugin</artifactId>
-            
+            <!-- Needs to be re-defined and configured in pluginManagement section -->
             <version>2.7.1</version>
          </plugin>
          <plugin>
@@ -1357,7 +1356,7 @@
             <artifactId>maven-surefire-report-plugin</artifactId>
             <version>2.12.2</version>
          </plugin>
-         
+         <!-- Findbugs report -->
          <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>findbugs-maven-plugin</artifactId>
@@ -1379,7 +1378,7 @@
 
          <build>
             <plugins>
-               
+               <!-- generate target/runtime-classpath.txt, to be included in bundle -->
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-dependency-plugin</artifactId>
@@ -1410,7 +1409,7 @@
          </activation>
          <build>
             <plugins>
-               
+               <!-- Make sure we generate src jars too -->
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-source-plugin</artifactId>
@@ -1429,7 +1428,7 @@
             </plugins>
          </build>
          <properties>
-            
+            <!-- By default create OSGI bundles -->
             <packaging>bundle</packaging>
          </properties>
       </profile>
@@ -1449,7 +1448,7 @@
                   <artifactId>maven-surefire-plugin</artifactId>
                   <configuration>
                      <systemPropertyVariables>
-                           
+                           <!-- this is picked up in the log4j xml which prepends it to each module's log file-->
                            <infinispan.module-name>${project.artifactId}</infinispan.module-name>
                      </systemPropertyVariables>
                   </configuration>
@@ -1482,6 +1481,15 @@
             </plugins>
          </build>
       </profile>
+      <profile>
+         <id>test-unstable</id>
+         <properties>
+            <defaultTestGroup>unstable</defaultTestGroup>
+             <!-- empty since we are not going to exclude any group -->
+            <defaultExcludedTestGroup></defaultExcludedTestGroup>
+            <infinispan.test.jgroups.protocol>tcp</infinispan.test.jgroups.protocol>
+         </properties>
+       </profile>
       <profile>
          <id>test-unit</id>
          <properties>
@@ -1524,7 +1532,8 @@
          </activation>
          <build>
             <plugins>
-               
+               <!-- Redefine surefire plugin to avoid external log4j settings
+               not being discovered when passed as command line arguments -->
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-surefire-plugin</artifactId>
@@ -1550,7 +1559,7 @@
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-dependency-plugin</artifactId>
                   <executions>
-                     
+                     <!-- Copy the ant tasks jar. Needed for ts.jacoco.report-ant . -->
                      <execution>
                         <id>jacoco-dependency-ant</id>
                         <goals>
@@ -1588,7 +1597,7 @@
                   </executions>
                </plugin>
 
-               
+               <!-- Starting jacoco agent for recording code coverage. -->
                <plugin>
                   <groupId>org.jacoco</groupId>
                   <artifactId>jacoco-maven-plugin</artifactId>
@@ -1604,7 +1613,7 @@
                   </configuration>
                </plugin>
 
-               
+               <!-- Overriding surefire configuration, for attaching jacoco agent to command line. -->
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
                   <artifactId>maven-surefire-plugin</artifactId>
@@ -1649,7 +1658,7 @@
                         </goals>
                         <configuration combine.self="override">
                            <target>
-                              
+                              <!-- Execute an ant task within maven -->
                               <taskdef classname="org.jacoco.ant.ReportTask" name="report">
                                  <classpath path="${basedir}/target/jacoco-jars/org.jacoco.ant.jar" />
                                  <classpath path="target/jacoco-jars/org.jacoco.core.jar" />
@@ -1665,12 +1674,12 @@
 
                               <echo message="Generating JaCoCo Reports" />
                               <report>
-                                 
+                                 <!-- Specifying the execution data files locations. -->
                                  <executiondata>
                                     <fileset dir="${dir.ispn}" includes="**/target/jacoco.exec" />
                                  </executiondata>
 
-                                 
+                                 <!-- Defining the report structure with class and source files. -->
                                  <structure name="${reportTitle}">
                                     <classfiles>
                                        <fileset dir="${dir.ispn}">
@@ -1686,7 +1695,7 @@
 
                                  </structure>
 
-                                 
+                                 <!-- Only HTML report is generated with specified path. -->
                                  <html destdir="${dir.report}" />
                               </report>
                            </target>
@@ -1846,6 +1855,7 @@
                      <forkCount>1</forkCount>
                      <reuseForks>true</reuseForks>
                      <groups>${defaultTestGroup}</groups>
+                     <excludedGroups>${defaultExcludedTestGroup}</excludedGroups>
                      <systemPropertyVariables>
                         <infinispan.test.jgroups.protocol>${infinispan.test.jgroups.protocol}</infinispan.test.jgroups.protocol>
                         <jgroups.bind_addr>127.0.0.1</jgroups.bind_addr>
@@ -1860,13 +1870,45 @@
                            <value>${testNGListener}</value>
                         </property>
                      </properties>
-                     
+                     <!-- -Dsun.nio.ch.bugLevel needed because of http://bugs.sun.com/view_bug.do?bug_id=6427854 -->
                      <argLine>-Xmx1024m -XX:MaxPermSize=256m -Dsun.nio.ch.bugLevel</argLine>
                   </configuration>
                </plugin>
             </plugins>
          </build>
       </profile>
-
+      <profile>
+         <activation>
+            <jdk>1.7</jdk>
+         </activation>
+         <build>
+            <plugins>
+               <plugin>
+                  <groupId>org.codehaus.mojo</groupId>
+                  <artifactId>animal-sniffer-maven-plugin</artifactId>
+                  <version>${version.maven.animal.sniffer}</version>
+                  <configuration>
+                     <signature>
+                        <groupId>org.codehaus.mojo.signature</groupId>
+                        <artifactId>java16</artifactId>
+                        <version>1.0</version>
+                     </signature>
+                     <ignores>
+                        <ignore>sun.misc.Unsafe</ignore>
+                        <ignore>org.apache.lucene.store.IOContext</ignore>
+                     </ignores>
+                  </configuration>
+                  <executions>
+                     <execution>
+                        <phase>process-classes</phase>
+                        <goals>
+                        <goal>check</goal>
+                        </goals>
+                     </execution>
+                  </executions>
+               </plugin>
+            </plugins>
+         </build>
+      </profile>
    </profiles>
 </project>

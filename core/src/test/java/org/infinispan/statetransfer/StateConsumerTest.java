@@ -2,6 +2,7 @@ package org.infinispan.statetransfer;
 
 import org.infinispan.Cache;
 import org.infinispan.commands.CommandsFactory;
+import org.infinispan.commons.equivalence.AnyEquivalence;
 import org.infinispan.commons.hash.MurmurHash3;
 import org.infinispan.commons.util.CollectionFactory;
 import org.infinispan.commons.util.InfinispanCollections;
@@ -14,7 +15,7 @@ import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.ImmortalCacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
-import org.infinispan.context.InvocationContextContainer;
+import org.infinispan.context.InvocationContextFactory;
 import org.infinispan.distribution.L1Manager;
 import org.infinispan.distribution.TestAddress;
 import org.infinispan.distribution.ch.DefaultConsistentHash;
@@ -146,7 +147,7 @@ public class StateConsumerTest extends AbstractInfinispanTest {
       TransactionTable transactionTable = mock(TransactionTable.class);
       StateTransferLock stateTransferLock = mock(StateTransferLock.class);
       InterceptorChain interceptorChain = mock(InterceptorChain.class);
-      InvocationContextContainer icc = mock(InvocationContextContainer.class);
+      InvocationContextFactory icf = mock(InvocationContextFactory.class);
       TotalOrderManager totalOrderManager = mock(TotalOrderManager.class);
       BlockingTaskAwareExecutorService remoteCommandsExecutor = mock(BlockingTaskAwareExecutorService.class);
       L1Manager l1Manager = mock(L1Manager.class);
@@ -195,9 +196,9 @@ public class StateConsumerTest extends AbstractInfinispanTest {
 
       // create state provider
       final StateConsumerImpl stateConsumer = new StateConsumerImpl();
-      stateConsumer.init(cache, pooledExecutorService, stateTransferManager, interceptorChain, icc, configuration, rpcManager, null,
+      stateConsumer.init(cache, pooledExecutorService, stateTransferManager, interceptorChain, icf, configuration, rpcManager, null,
             commandsFactory, persistenceManager, dataContainer, transactionTable, stateTransferLock, cacheNotifier,
-            totalOrderManager, remoteCommandsExecutor, l1Manager);
+            totalOrderManager, remoteCommandsExecutor, l1Manager, new CommitManager(AnyEquivalence.getInstance()));
       stateConsumer.start();
 
       final List<InternalCacheEntry> cacheEntries = new ArrayList<InternalCacheEntry>();

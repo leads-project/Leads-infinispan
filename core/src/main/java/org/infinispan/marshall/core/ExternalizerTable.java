@@ -51,15 +51,22 @@ import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
 import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
-import org.infinispan.marshall.exts.ArrayListExternalizer;
+import org.infinispan.marshall.exts.ArrayExternalizers;
+import org.infinispan.marshall.exts.EnumSetExternalizer;
+import org.infinispan.marshall.exts.ListExternalizer;
 import org.infinispan.marshall.exts.CacheRpcCommandExternalizer;
-import org.infinispan.marshall.exts.LinkedListExternalizer;
 import org.infinispan.marshall.exts.MapExternalizer;
 import org.infinispan.marshall.exts.ReplicableCommandExternalizer;
 import org.infinispan.marshall.exts.SetExternalizer;
 import org.infinispan.marshall.exts.SingletonListExternalizer;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.metadata.InternalMetadataImpl;
+import org.infinispan.notifications.cachelistener.cluster.ClusterEvent;
+import org.infinispan.notifications.cachelistener.cluster.ClusterEventCallable;
+import org.infinispan.notifications.cachelistener.cluster.ClusterListenerRemoveCallable;
+import org.infinispan.notifications.cachelistener.cluster.ClusterListenerReplicateCallable;
+import org.infinispan.notifications.cachelistener.filter.KeyFilterAsKeyValueFilter;
+import org.infinispan.notifications.cachelistener.filter.SimpleCollectionKeyFilter;
 import org.infinispan.registry.ScopedKey;
 import org.infinispan.remoting.responses.CacheNotFoundResponse;
 import org.infinispan.remoting.responses.ExceptionResponse;
@@ -81,6 +88,7 @@ import org.infinispan.transaction.xa.recovery.SerializableXid;
 import org.infinispan.util.KeyValuePair;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+import org.infinispan.xsite.statetransfer.XSiteState;
 import org.jboss.marshalling.Marshaller;
 import org.jboss.marshalling.ObjectTable;
 import org.jboss.marshalling.Unmarshaller;
@@ -95,8 +103,8 @@ import static org.infinispan.factories.KnownComponentNames.GLOBAL_MARSHALLER;
 
 /**
  * The externalizer table maintains information necessary to be able to map a particular type with the corresponding
- * {@link org.infinispan.marshall.AdvancedExternalizer} implementation that it marshall, and it also keeps information of which {@link org.infinispan.marshall.AdvancedExternalizer}
- * should be used to read data from a buffer given a particular {@link org.infinispan.marshall.AdvancedExternalizer} identifier.
+ * {@link org.infinispan.commons.marshall.AdvancedExternalizer} implementation that it marshall, and it also keeps information of which {@link org.infinispan.commons.marshall.AdvancedExternalizer}
+ * should be used to read data from a buffer given a particular {@link org.infinispan.commons.marshall.AdvancedExternalizer} identifier.
  *
  * These tables govern how either internal Infinispan classes, or user defined classes, are marshalled to a given
  * output, or how these are unmarshalled from a given input.
@@ -213,10 +221,11 @@ public class ExternalizerTable implements ObjectTable {
    }
 
    private void loadInternalMarshallables() {
-      addInternalExternalizer(new ArrayListExternalizer());
-      addInternalExternalizer(new LinkedListExternalizer());
+      addInternalExternalizer(new ListExternalizer());
       addInternalExternalizer(new MapExternalizer());
       addInternalExternalizer(new SetExternalizer());
+      addInternalExternalizer(new EnumSetExternalizer());
+      addInternalExternalizer(new ArrayExternalizers.ListArray());
       addInternalExternalizer(new SingletonListExternalizer());
 
       addInternalExternalizer(new GlobalTransaction.Externalizer());
@@ -298,6 +307,14 @@ public class ExternalizerTable implements ObjectTable {
       addInternalExternalizer(new KeyValuePair.Externalizer());
       addInternalExternalizer(new InternalMetadataImpl.Externalizer());
       addInternalExternalizer(new MarshalledEntryImpl.Externalizer(globalMarshaller));
+
+      addInternalExternalizer(new SimpleCollectionKeyFilter.Externalizer());
+      addInternalExternalizer(new KeyFilterAsKeyValueFilter.Externalizer());
+      addInternalExternalizer(new ClusterEvent.Externalizer());
+      addInternalExternalizer(new ClusterEventCallable.Externalizer());
+      addInternalExternalizer(new ClusterListenerRemoveCallable.Externalizer());
+      addInternalExternalizer(new ClusterListenerReplicateCallable.Externalizer());
+      addInternalExternalizer(new XSiteState.XSiteStateExternalizer());
    }
 
    void addInternalExternalizer(AdvancedExternalizer<?> ext) {

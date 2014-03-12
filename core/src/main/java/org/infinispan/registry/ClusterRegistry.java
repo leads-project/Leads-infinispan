@@ -5,6 +5,7 @@ import org.infinispan.factories.scopes.Scopes;
 import org.infinispan.notifications.KeyFilter;
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A registry of scoped key-values available to all the nodes in the cluster.
@@ -35,9 +36,11 @@ import java.util.Set;
 @Scope(Scopes.GLOBAL)
 public interface ClusterRegistry<S, K, V> {
 
-   V put(S scope, K key, V value);
+   void put(S scope, K key, V value);
 
-   V remove(S scope, K key);
+   void put(S scope, K key, V value, long lifespan, TimeUnit unit);
+
+   void remove(S scope, K key);
 
    V get(S scope, K key);
 

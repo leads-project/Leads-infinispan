@@ -31,7 +31,7 @@ public class LockPerEntryTest extends SingleCacheManagerTest {
       assertNoLocks();
    }
 
-   @Test (enabled = false)
+   @Test (groups = "unstable")
    public void testLocksConcurrency() throws Exception {
       cache = cacheManager.getCache();
       final int NUM_THREADS = 10;
@@ -78,9 +78,7 @@ public class LockPerEntryTest extends SingleCacheManagerTest {
 
    private void assertNoLocks() {
       LockManager lm = TestingUtil.extractLockManager(cache);
-      LockAssert.assertNoLocks(
-            lm, TestingUtil.extractComponentRegistry(cache).getComponent(InvocationContextContainer.class)
-      );
+      LockAssert.assertNoLocks(lm);
 
       LockContainer lc = (LockContainer) TestingUtil.extractField(lm, "lockContainer");
       assert lc.size() == 0;

@@ -43,7 +43,7 @@ public class RemoteQueryDslConditionsIspnDirTest extends RemoteQueryDslCondition
       remoteCache = remoteCacheManager.getCache();
 
       //initialize server-side serialization context
-      cacheManager.getGlobalComponentRegistry().getComponent(ProtobufMetadataManager.class).registerProtofile("/bank.protobin");
+      cacheManager.getGlobalComponentRegistry().getComponent(ProtobufMetadataManager.class).registerProtofile("/sample_bank_account/bank.protobin");
 
       //initialize client-side serialization context
       MarshallerRegistration.registerMarshallers(ProtoStreamMarshaller.getSerializationContext(remoteCacheManager));
@@ -51,8 +51,8 @@ public class RemoteQueryDslConditionsIspnDirTest extends RemoteQueryDslCondition
       return cacheManager;
    }
 
-   public String getDirectoryProvider() {
+   @Override
+   public String getLuceneDirectoryProvider() {
       return "infinispan";
    }
-
 }

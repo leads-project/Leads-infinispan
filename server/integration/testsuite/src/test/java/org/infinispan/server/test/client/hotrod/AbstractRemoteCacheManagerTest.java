@@ -213,17 +213,17 @@ public abstract class AbstractRemoteCacheManagerTest {
         TcpTransportFactory ttf = (TcpTransportFactory) getTransportFactoryField(of);
 
         // perform first simulated operation
-        tt = (TcpTransport) ttf.getTransport();
+        tt = (TcpTransport) ttf.getTransport(null);
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         serverAddrSequence.append(sock_addr.getAddress().getHostAddress() + ":" + sock_addr.getPort()).append(" ");
 
-        tt = (TcpTransport) ttf.getTransport();
+        tt = (TcpTransport) ttf.getTransport(null);
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         serverAddrSequence.append(sock_addr.getAddress().getHostAddress() + ":" + sock_addr.getPort()).append(" ");
 
-        tt = (TcpTransport) ttf.getTransport();
+        tt = (TcpTransport) ttf.getTransport(null);
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         serverAddrSequence.append(sock_addr.getAddress().getHostAddress() + ":" + sock_addr.getPort());
@@ -281,13 +281,13 @@ public abstract class AbstractRemoteCacheManagerTest {
         OperationsFactory of = getOperationsFactoryField(rci);
         TcpTransportFactory ttf = (TcpTransportFactory) getTransportFactoryField(of);
         // perform first simulated operation
-        tt = (TcpTransport) ttf.getTransport();
+        tt = (TcpTransport) ttf.getTransport(null);
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         assertEquals("load balancing first request: server address expected " + hostport0 + ", actual server address "
                 + sock_addr, sock_addr, hostport0);
 
-        tt = (TcpTransport) ttf.getTransport();
+        tt = (TcpTransport) ttf.getTransport(null);
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         assertEquals("load balancing second request: server address expected " + hostport0 + ", actual server address"
@@ -324,6 +324,7 @@ public abstract class AbstractRemoteCacheManagerTest {
 
         assertEquals(config.forceReturnValues(), Boolean.parseBoolean(getForceReturnValueProperty(rc)));
         assertEquals(config.tcpNoDelay(), Boolean.parseBoolean(getTcpNoDelayProperty(rc)));
+        assertEquals(config.maxRetries(), Integer.parseInt(getMaxRetries(rc)));
 
         // pingOnStartup and asyncExecutorFactory compared only with the configuration itself
         assertEquals(config.pingOnStartup(), rc.getRemoteCacheManager().getConfiguration().pingOnStartup());
@@ -401,11 +402,18 @@ public abstract class AbstractRemoteCacheManagerTest {
         return Boolean.toString(tcpNoDelay);
     }
 
+    private String getMaxRetries(RemoteCache rc) throws Exception {
+        RemoteCacheImpl rci = (RemoteCacheImpl) rc;
+        OperationsFactory of = getOperationsFactoryField(rci);
+        TransportFactory ttf = getTransportFactoryField(of);
+        return Integer.toString(ttf.getMaxRetries());
+    }
+
     private String getTransportFactoryProperty(RemoteCache rc) throws Exception {
 
         RemoteCacheImpl rci = (RemoteCacheImpl) rc;
         OperationsFactory of = getOperationsFactoryField(rci);
-        TransportFactory tf = (TransportFactory) getTransportFactoryField(of);
+        TransportFactory tf = getTransportFactoryField(of);
         // need to check instance type
         return tf.getClass().getName();
     }

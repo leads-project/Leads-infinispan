@@ -4,10 +4,13 @@ import org.infinispan.commands.TopologyAffectedCommand;
 import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
 import org.infinispan.jmx.annotations.DataType;
+import org.infinispan.jmx.annotations.MBean;
 import org.infinispan.jmx.annotations.ManagedAttribute;
+import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.topology.CacheTopology;
 
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -19,6 +22,7 @@ import java.util.Set;
  * @since 5.1
  */
 @Scope(Scopes.NAMED_CACHE)
+@MBean(objectName = "StateTransferManager", description = "Component that handles state transfer")
 public interface StateTransferManager {
 
    //todo [anistor] this is inaccurate. this node does not hold state yet in current implementation
@@ -49,7 +53,7 @@ public interface StateTransferManager {
     * If there is an state transfer happening at the moment, this method forwards the supplied
     * command to the nodes that are new owners of the data, in order to assure consistency.
     */
-   void forwardCommandIfNeeded(TopologyAffectedCommand command, Set<Object> affectedKeys, Address origin, boolean sync);
+   Map<Address, Response> forwardCommandIfNeeded(TopologyAffectedCommand command, Set<Object> affectedKeys, Address origin, boolean sync);
 
    void notifyEndOfRebalance(int topologyId);
 
@@ -57,4 +61,10 @@ public interface StateTransferManager {
     * @return  true if this node has already received the first rebalance start
     */
    boolean ownsData();
+
+   /**
+    * @return The id of the first cache topology in which the local node was a member
+    *    (even if it didn't own any data).
+    */
+   int getFirstTopologyAsMember();
 }
