@@ -11,6 +11,7 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
+import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
 import org.infinispan.versioning.utils.hibernate.HibernateProxy;
 import org.testng.annotations.Test;
@@ -39,6 +40,7 @@ public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
     private static int NCACHES = 1;
     private static int NCALLS = 10000;
     private static int NKEYS = 10;
+
     private List<Cache> delegates = new ArrayList<Cache>(NCACHES);
     private List<VersionedCache> vcaches = new ArrayList<VersionedCache>(NCACHES);
     private Random rand = new Random(System.nanoTime());
@@ -88,13 +90,11 @@ public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
             NumericVersionGenerator  generator = new NumericVersionGenerator();
             generator.init(delegate);
             generator.start();
-            // generator.setTopologyID(i);
-            vcaches.add(new VersionedCacheHibernateImpl(delegate,generator,"test"));
+            // generator).setTopologyID(i);
+            vcaches.add(new VersionedCacheAtomicTreeMapImpl(delegate,generator,"test"));
         }
 
-        // simple test to create the topology.
         initAndTest();
-
 
         for(VersionedCache  vcache : vcaches){
             if(vcache.equals(vcaches.get(0)))
