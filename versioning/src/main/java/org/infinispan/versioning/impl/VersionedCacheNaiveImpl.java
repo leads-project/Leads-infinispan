@@ -25,8 +25,8 @@ public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheAbstractImpl<K,V
 	}
 
 	@Override
-	public boolean containsKey(Object arg0) {
-		throw new UnsupportedOperationException("to be implemented");
+	public boolean containsKey(Object key) {
+		return delegate.containsKey(key);
 	}
 
 	@Override
@@ -40,8 +40,8 @@ public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheAbstractImpl<K,V
 	}
 
 	@Override
-	public Set keySet() {
-		throw new UnsupportedOperationException("to be implemented");
+	public Set<K> keySet() {
+		return delegate.keySet();
 	}
 
 	@Override
@@ -52,7 +52,8 @@ public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheAbstractImpl<K,V
 
 	@Override
 	protected void versionMapPut(Object key, Object value,
-			IncrementableEntryVersion verrsion) {
+			IncrementableEntryVersion version) {
+		
 		throw new UnsupportedOperationException("to be implemented");
 
 	}
