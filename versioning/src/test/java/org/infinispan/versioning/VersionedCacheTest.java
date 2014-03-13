@@ -11,8 +11,8 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
+import org.infinispan.versioning.impl.VersionedCacheAtomicShardedTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
-import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
 import org.infinispan.versioning.utils.hibernate.HibernateProxy;
 import org.testng.annotations.Test;
 
@@ -28,14 +28,12 @@ import java.util.concurrent.Future;
 
 
 /**
- * // TODO: Document this
- *
  * @author Pierre Sutra
  * @since 6.0
  */
 
 @Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
-public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
+public class VersionedCacheTest extends MultipleCacheManagersTest {
 
     private static int NCACHES = 1;
     private static int NCALLS = 10000;
@@ -57,52 +55,52 @@ public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
 
         Properties properties = new Properties();
         properties.put(org.hibernate.search.Environment.MODEL_MAPPING, mapping);
-        properties.put("default.directory_provider","ram");
+        properties.put("default.directory_provider", "ram");
         builder.indexing()
-               .enable()
-               .indexLocalOnly(true)
-               .withProperties(properties);
+                .enable()
+                .indexLocalOnly(true)
+                .withProperties(properties);
         TransportFlags flags = new TransportFlags();
         createClusteredCaches(NCACHES, builder, flags);
     }
 
 
-    public void basicUsageTest() throws  Exception{
+    public void basicUsageTest() throws Exception {
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
         Cache cache = cacheManager.getCache();
         NumericVersionGenerator generator = new NumericVersionGenerator();
-        VersionedCache<String,String> vcache = new VersionedCacheHibernateImpl<String, String>(cache,generator,"test");
-        vcache.put("k","a");
-        vcache.put("k","b");
-        assert vcache.size()==2;
+        VersionedCache<String, String> vcache = new VersionedCacheAtomicShardedTreeMapImpl<String, String>(cache, generator, "test");
+        vcache.put("k", "a");
+        vcache.put("k", "b");
+        assert vcache.size() == 2;
         vcache.getLatestVersion("k").compareTo(vcache.getEarliestVersion("k")).equals(InequalVersionComparisonResult.AFTER);
-        assert vcache.get("k",vcache.getEarliestVersion("k"),vcache.getEarliestVersion("k")).size()==0;
-        assert vcache.get("k",generator.generateNew(),generator.generateNew()).size()==1;
+        assert vcache.get("k", vcache.getEarliestVersion("k"), vcache.getEarliestVersion("k")).size() == 0;
+        assert vcache.get("k", generator.generateNew(), generator.generateNew()).size() == 1;
     }
 
-    public void basicDistributedUsage() throws Exception{
+    public void basicDistributedUsage() throws Exception {
         ExecutorService service = Executors.newCachedThreadPool();
         List<Future<Integer>> futures = new ArrayList<Future<Integer>>();
 
-        for(int i=0; i<NCACHES; i++){
+        for (int i = 0; i < NCACHES; i++) {
             Cache delegate = cacheManagers.get(i).getCache();
             delegates.add(delegate);
-            NumericVersionGenerator  generator = new NumericVersionGenerator();
+            NumericVersionGenerator generator = new NumericVersionGenerator();
             generator.init(delegate);
             generator.start();
             // generator).setTopologyID(i);
-            vcaches.add(new VersionedCacheAtomicTreeMapImpl(delegate,generator,"test"));
+            vcaches.add(new VersionedCacheAtomicTreeMapImpl(delegate, generator, "test"));
         }
 
         initAndTest();
 
-        for(VersionedCache  vcache : vcaches){
-            if(vcache.equals(vcaches.get(0)))
-                futures.add(service.submit(new ExerciceVersionedCache(vcache,NCALLS)));
+        for (VersionedCache vcache : vcaches) {
+            if (vcache.equals(vcaches.get(0)))
+                futures.add(service.submit(new ExerciceVersionedCache(vcache, NCALLS)));
         }
 
         Integer total = 0;
-        for(Future<Integer> future : futures){
+        for (Future<Integer> future : futures) {
             total += future.get();
         }
 
@@ -112,23 +110,23 @@ public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
     }
 
 
-    public void computeBaseLine(){
+    public void computeBaseLine() {
         Cache cache = cacheManagers.get(0).getCache("baseline");
         float avrg = 0;
-        for(int i=0;i<NCALLS;i++){
+        for (int i = 0; i < NCALLS; i++) {
             long start = System.nanoTime();
             String k = Integer.toString(rand.nextInt(NKEYS));
-            cache.put(k,"a");
-            avrg += System.nanoTime()-start;
+            cache.put(k, "a");
+            avrg += System.nanoTime() - start;
         }
-        System.out.println("baseline put(): "+(avrg/NCALLS)/1000000+" ms");
+        System.out.println("baseline put(): " + (avrg / NCALLS) / 1000000 + " ms");
         avrg = 0;
-        for(int i=0;i<NCALLS;i++){
+        for (int i = 0; i < NCALLS; i++) {
             long start = System.nanoTime();
             cache.get("a");
-            avrg += System.nanoTime()-start;
+            avrg += System.nanoTime() - start;
         }
-        System.out.println("baseline get(): "+(avrg/NCALLS)/1000000+" ms");
+        System.out.println("baseline get(): " + (avrg / NCALLS) / 1000000 + " ms");
     }
 
     //
@@ -145,9 +143,9 @@ public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
         for (Cache<Object, String> c : delegates) {
             Object realVal = c.get(key);
             if (value == null) {
-                assert realVal == null : "Expecting [" + key + "] to equal [" + value + "] on cache "+ c.toString();
+                assert realVal == null : "Expecting [" + key + "] to equal [" + value + "] on cache " + c.toString();
             } else {
-                assert value.equals(realVal) : "Expecting [" + key + "] to equal [" + value + "] on cache "+c.toString();
+                assert value.equals(realVal) : "Expecting [" + key + "] to equal [" + value + "] on cache " + c.toString();
             }
         }
         // Allow some time for all ClusteredGetCommands to finish executing
@@ -163,7 +161,7 @@ public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
         private int ncalls;
         private VersionedCache versionedCache;
 
-        public ExerciceVersionedCache(VersionedCache<String,String> vcache, int n){
+        public ExerciceVersionedCache(VersionedCache<String, String> vcache, int n) {
             versionedCache = vcache;
             ncalls = n;
         }
@@ -173,37 +171,37 @@ public class VersionedCacheHibernateTest extends MultipleCacheManagersTest {
             int ret = 0;
             float avrg = 0;
             IncrementableEntryVersion version = null;
-            for(int i=0; i<ncalls;i++){
+            for (int i = 0; i < ncalls; i++) {
                 long start = System.nanoTime();
                 String k = Integer.toString(rand.nextInt(NKEYS));
                 versionedCache.put(k, Integer.toString(i));
                 avrg += System.nanoTime() - start;
-                if(i==ncalls/2)
+                if (i == ncalls / 2)
                     version = versionedCache.getLatestVersion(k);
 
             }
-            System.out.println("avrg put() time: "+(avrg/NCALLS)/1000000+" ms");
+            System.out.println("avrg put() time: " + (avrg / NCALLS) / 1000000 + " ms");
 
-            avrg=0;
-            for(int i=0; i<ncalls;i++){
+            avrg = 0;
+            for (int i = 0; i < ncalls; i++) {
                 String k = Integer.toString(rand.nextInt(NKEYS));
                 long start = System.nanoTime();
                 versionedCache.get(k);
                 avrg += System.nanoTime() - start;
             }
-            System.out.println("avrg get() time: "+(avrg/NCALLS)/1000000+" ms");
+            System.out.println("avrg get() time: " + (avrg / NCALLS) / 1000000 + " ms");
 
-            avrg=0;
-            for(int i=0; i<ncalls;i++){
+            avrg = 0;
+            for (int i = 0; i < ncalls; i++) {
                 String k = Integer.toString(rand.nextInt(NKEYS));
                 long start = System.nanoTime();
-                versionedCache.get(k,versionedCache.getEarliestVersion(k),version );
+                versionedCache.get(k, versionedCache.getEarliestVersion(k), version);
                 avrg += System.nanoTime() - start;
             }
-            System.out.println("avrg get(v1,v2) time: "+(avrg/NCALLS)/1000000+" ms");
+            System.out.println("avrg get(v1,v2) time: " + (avrg / NCALLS) / 1000000 + " ms");
             System.out.println();
 
-            return  new Integer(ncalls);
+            return new Integer(ncalls);
         }
     }
 

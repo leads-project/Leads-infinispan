@@ -10,9 +10,12 @@
 
 
     <artifactId>infinispan-atomic-factory</artifactId>
-    <packaging>bundle</packaging>
     <name>Infinispan Atomic Fatory</name>
     <description>Infinispan atomic object factory module</description>
+
+   <properties>
+      <module.skipComponentMetaDataProcessing>true</module.skipComponentMetaDataProcessing>
+   </properties>
 
     <dependencies>
 
@@ -50,7 +53,7 @@
                 <configuration>
                     <instructions>
                         <Export-Package>
-                            !${project.groupId}.ensemble.*,${project.groupId}.*;version=${project.version}
+                            !${project.groupId}.atomic-factory.*,${project.groupId}.*;version=${project.version}
                         </Export-Package>
                     </instructions>
                 </configuration>
