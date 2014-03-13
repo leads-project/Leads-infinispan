@@ -70,11 +70,8 @@
       <module>compatibility52x/custom52x-store</module>
       <module>compatibility52x/cli-migrator52x</module>
       <module>server/integration</module>
-<<<<<<< HEAD
       <module>versioning</module>
-=======
-       <module>atomic-factory</module>
->>>>>>> master
+      <module>atomic-factory</module>
    </modules>
 
    <profiles>
