@@ -2,6 +2,7 @@ package org.infinispan.atomic;
 
 import org.infinispan.Cache;
 import org.infinispan.InvalidCacheUsageException;
+import org.infinispan.transaction.TransactionMode;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -37,7 +38,7 @@ public class AtomicObjectFactory {
      */
 	public AtomicObjectFactory(Cache<Object, Object> c) throws InvalidCacheUsageException{
         if( ! c.getCacheConfiguration().clustering().cacheMode().isSynchronous()
-            || c.getAdvancedCache().getTransactionManager() == null )
+            || c.getCacheConfiguration().transaction().transactionMode() != TransactionMode.TRANSACTIONAL )
             throw new InvalidCacheUsageException("The cache must be synchronous and transactional.");
 		cache = c;
         registeredContainers= new HashMap<Object,AtomicObjectContainer>();

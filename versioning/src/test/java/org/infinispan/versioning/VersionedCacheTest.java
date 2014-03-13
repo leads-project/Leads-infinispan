@@ -4,14 +4,12 @@ import org.hibernate.search.cfg.SearchMapping;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.container.versioning.IncrementableEntryVersion;
 import org.infinispan.container.versioning.InequalVersionComparisonResult;
 import org.infinispan.container.versioning.NumericVersionGenerator;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
-import org.infinispan.versioning.impl.VersionedCacheAtomicShardedTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
 import org.infinispan.versioning.utils.hibernate.HibernateProxy;
 import org.testng.annotations.Test;
@@ -35,9 +33,9 @@ import java.util.concurrent.Future;
 @Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
 public class VersionedCacheTest extends MultipleCacheManagersTest {
 
-    private static int NCACHES = 1;
-    private static int NCALLS = 10000;
-    private static int NKEYS = 10;
+    private static int NCACHES = 3;
+    private static int NCALLS = 100;
+    private static int NKEYS = 1000;
 
     private List<Cache> delegates = new ArrayList<Cache>(NCACHES);
     private List<VersionedCache> vcaches = new ArrayList<VersionedCache>(NCACHES);
@@ -45,7 +43,7 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
 
     @Override
     protected void createCacheManagers() throws Throwable {
-        ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
+        ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, true);
         builder.persistence().passivation(true);
         SearchMapping mapping = new SearchMapping();
         mapping.entity(HibernateProxy.class).indexed().providedId()
@@ -68,8 +66,9 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
     public void basicUsageTest() throws Exception {
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
         Cache cache = cacheManager.getCache();
+        System.out.println(cache.getCacheConfiguration().transaction().toString());
         NumericVersionGenerator generator = new NumericVersionGenerator();
-        VersionedCache<String, String> vcache = new VersionedCacheAtomicShardedTreeMapImpl<String, String>(cache, generator, "test");
+        VersionedCache<String, String> vcache = new VersionedCacheAtomicTreeMapImpl<String, String>(cache, generator, "test");
         vcache.put("k", "a");
         vcache.put("k", "b");
         assert vcache.size() == 2;
@@ -170,15 +169,11 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
         public Integer call() throws Exception {
             int ret = 0;
             float avrg = 0;
-            IncrementableEntryVersion version = null;
             for (int i = 0; i < ncalls; i++) {
                 long start = System.nanoTime();
                 String k = Integer.toString(rand.nextInt(NKEYS));
                 versionedCache.put(k, Integer.toString(i));
                 avrg += System.nanoTime() - start;
-                if (i == ncalls / 2)
-                    version = versionedCache.getLatestVersion(k);
-
             }
             System.out.println("avrg put() time: " + (avrg / NCALLS) / 1000000 + " ms");
 
@@ -195,10 +190,16 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
             for (int i = 0; i < ncalls; i++) {
                 String k = Integer.toString(rand.nextInt(NKEYS));
                 long start = System.nanoTime();
-                versionedCache.get(k, versionedCache.getEarliestVersion(k), version);
+                versionedCache.get(k, versionedCache.getEarliestVersion(k), versionedCache.getLatestVersion(k));
                 avrg += System.nanoTime() - start;
             }
-            System.out.println("avrg get(v1,v2) time: " + (avrg / NCALLS) / 1000000 + " ms");
+            System.out.println("avrg get(earliestVersion,latestVersion) time: " + (avrg / NCALLS) / 1000000 + " ms");
+
+
+            for(Cache cache: caches()){
+                System.out.println("Cache "+cache.getName()+" size : "+cache.size());
+            }
+
             System.out.println();
 
             return new Integer(ncalls);

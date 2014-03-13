@@ -15,6 +15,7 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -213,8 +214,29 @@ public class AtomicObjectContainer {
             }
         }
 
-        log.info("Object "+key+" is created.");
-        object = clazz.getConstructor().newInstance(initArgs);
+        boolean found=false;
+        Constructor[] allConstructors = clazz.getDeclaredConstructors();
+        for (Constructor ctor : allConstructors) {
+            Class<?>[] pType  = ctor.getParameterTypes();
+            if(pType.length==initArgs.length){
+                found=true;
+                for (int i = 0; i < pType.length; i++) {
+                    if(!pType[i].equals(initArgs[i].getClass())){
+                        found=false;
+                        break;
+                    }
+                }
+                if(found){
+                    object = ctor.newInstance(initArgs);
+                    break;
+                }
+            }
+        }
+
+        if(found)
+            log.info("Object "+key+" is created.");
+        else
+            throw new IllegalArgumentException("Unable to find constructor for "+clazz.toString()+" with "+initArgs);
 
     }
 
