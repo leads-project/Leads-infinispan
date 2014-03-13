@@ -26,7 +26,7 @@ import java.util.concurrent.Future;
 @Test(groups = "functional", testName = "distexec.AtomicObjectFactoryTest")
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
-    private static int NCALLS= 10;
+    private static int NCALLS= 100;
     private static int NCACHES = 4;
     private static List<Cache> caches = new ArrayList<Cache>();
 
@@ -62,7 +62,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
         Cache cache = cacheManager.getCache();
         AtomicObjectFactory factory = new AtomicObjectFactory(cache);
 
-        Map map = (Map) factory.getInstanceOf(HashMap.class, "set", true);
+        Map map = (Map) factory.getInstanceOf(HashMap.class, "map", true);
 
         for(int i=0; i<NCALLS*10;i++){
             map.containsKey("1");
@@ -90,7 +90,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
             caches.add(cache);
             factory = new AtomicObjectFactory(cache);
             factories.add(factory);
-            set = (HashSet) factory.getInstanceOf(HashSet.class, "set");
+            set = (HashSet) factory.getInstanceOf(HashSet.class, "aset");
             sets.add(set);
         }
 
@@ -125,13 +125,13 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
         cache1 = manager1.getCache();
         factory1 = new AtomicObjectFactory(cache1);
-        set1 = (HashSet) factory1.getInstanceOf(HashSet.class, "set");
+        set1 = (HashSet) factory1.getInstanceOf(HashSet.class, "hashset");
         set1.add("smthing");
 
 
         cache2 = manager2.getCache();
         factory2 = new AtomicObjectFactory(cache2);
-        set2 = (HashSet) factory2.getInstanceOf(HashSet.class, "set", true, null, false);
+        set2 = (HashSet) factory2.getInstanceOf(HashSet.class, "hashset", true, null, false);
         assert set2.contains("smthing");
 
     }
