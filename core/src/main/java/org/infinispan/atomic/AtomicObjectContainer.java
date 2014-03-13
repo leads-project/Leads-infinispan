@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * @author Pierre Sutra
+  * @author Pierre Sutra
  *  @since 6.0
  *
  */
@@ -37,12 +37,12 @@ public class AtomicObjectContainer {
             return true;
         }
     };
-    private static Random callUID = new Random(System.currentTimeMillis());
     private static Log log = LogFactory.getLog(AtomicObjectContainer.class);
     private static final int N_RETRIEVE_HELPERS= 2;
     private static final int CALL_TTIMEOUT_TIME = 3000;
     private static final int RETRIEVE_TTIMEOUT_TIME = 30000;
     private static ExecutorService service = Executors.newCachedThreadPool();
+    private static Random random = new Random(System.currentTimeMillis());
 
     //
     // OBJECT FIELDS
@@ -55,7 +55,7 @@ public class AtomicObjectContainer {
 
     private Boolean withReadOptimization;
     private Set<String> readOptimizationFailedMethods;
-    private Set<String> readOptimizationSucceedMethods;
+    private Set<String> readOptimizationSuceedMethods;
     private Method equalsMethod;
 
     private Object key;
@@ -69,15 +69,15 @@ public class AtomicObjectContainer {
     private ArrayList<AtomicObjectCallInvoke> retrieve_calls;
     private AtomicObjectCallRetrieve retrieve_call;
 
-    public AtomicObjectContainer(Cache c, Class cl, Object k, boolean readOptimization, Method m, boolean forceNew)
-            throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, InterruptedException, ExecutionException {
+    public AtomicObjectContainer(Cache c, Class cl, Object k, boolean readOptimization, Method m, boolean forceNew, Object ... initArgs)
+            throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException {
 
         cache = c;
         clazz = cl;
         key = k;
 
         readOptimizationFailedMethods = new HashSet<String>();
-        readOptimizationSucceedMethods = new HashSet<String>();
+        readOptimizationSuceedMethods = new HashSet<String>();
         withReadOptimization = readOptimization;
 
         equalsMethod = m;
@@ -93,13 +93,13 @@ public class AtomicObjectContainer {
 
                 synchronized(withReadOptimization){
                     if (withReadOptimization){
-                        if(readOptimizationSucceedMethods.contains(m.getName())){
+                        if(readOptimizationSuceedMethods.contains(m.getName())){
                             return doCall(object,m.getName(),args);
                         }else if(!readOptimizationFailedMethods.contains(m.getName())){
                             Object copy = marshaller.objectFromByteBuffer(marshaller.objectToByteBuffer(object));
                             Object ret = doCall(copy,m.getName(),args);
                             if( equalsMethod == null ? copy.equals(object) : equalsMethod.invoke(copy, object).equals(Boolean.TRUE) ){
-                                readOptimizationSucceedMethods.add(m.getName());
+                                readOptimizationSuceedMethods.add(m.getName());
                                 return ret;
                             }else{
                                 readOptimizationFailedMethods.add(m.getName());
@@ -114,7 +114,7 @@ public class AtomicObjectContainer {
                 AtomicObjectCallFuture future = new AtomicObjectCallFuture();
                 registeredCalls.put(callID, future);
                 cache.put(key, bb);
-                log.debug("Called "+invoke+" on object "+key);
+                log.debug("Called " + invoke + " on object " + key);
 
                 Object ret = future.get(CALL_TTIMEOUT_TIME,TimeUnit.MILLISECONDS);
                 registeredCalls.remove(callID);
@@ -139,7 +139,7 @@ public class AtomicObjectContainer {
         cache.addListener(this);
 
         // Build the object
-        initObject(forceNew);
+        initObject(forceNew,initArgs);
 
     }
 
@@ -156,6 +156,8 @@ public class AtomicObjectContainer {
         if( !event.getKey().equals(key) )
             return;
 
+        // System.out.println("receive "+event.getValue()+" with "+event.isPre());
+
         if(event.isPre())
             return;
 
@@ -164,7 +166,7 @@ public class AtomicObjectContainer {
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
             byte[] bb = (byte[]) event.getValue();
             AtomicObjectCall call = (AtomicObjectCall) marshaller.objectFromByteBuffer(bb);
-            log.debug("Received " + call+ " from " + event.getCache().toString());
+            log.debug("Received " + call + " from " + event.getCache().toString());
             calls.add(call);
 
         } catch (Exception e) {
@@ -183,9 +185,10 @@ public class AtomicObjectContainer {
             cache.put(key,marshaller.objectToByteBuffer(persist));
         }
         callHandlerFuture.cancel(true);
+        cache.removeListener(this);
     }
 
-    private void initObject(boolean forceNew) throws IllegalAccessException, InstantiationException {
+    private void initObject(boolean forceNew, Object ... initArgs) throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
 
         if( !forceNew){
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
@@ -209,7 +212,7 @@ public class AtomicObjectContainer {
         }
 
         log.info("Object "+key+" is created.");
-        object = clazz.newInstance();
+        object = clazz.getConstructor().newInstance(initArgs);
 
     }
 
@@ -254,8 +257,9 @@ public class AtomicObjectContainer {
     // HELPERS
     //
 
-    private static int nextCallID(Cache c){
-        return callUID.nextInt()+c.hashCode();
+    private synchronized static int nextCallID(Cache c){
+        int rand = random.nextInt();
+        return rand+c.hashCode();
     }
 
     private static Object doCall(Object obj, String method, Object[] args) throws InvocationTargetException, IllegalAccessException {
@@ -272,6 +276,8 @@ public class AtomicObjectContainer {
                             break;
                         }
                     }
+                }else{
+                    isAssignable = false;
                 }
                 if(!isAssignable)
                     continue;
@@ -334,7 +340,7 @@ public class AtomicObjectContainer {
 
                             AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
                             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
-                            cache.put(key,marshaller.objectToByteBuffer(persist));
+                            cache.put(key, marshaller.objectToByteBuffer(persist));
 
                         }else if (retrieve_call != null && retrieve_call.callID == ((AtomicObjectCallRetrieve)call).callID) {
 
