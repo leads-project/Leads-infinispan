@@ -7,8 +7,9 @@ import javassist.util.proxy.ProxyObject;
 import org.infinispan.Cache;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.notifications.Listener;
+import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
-import org.infinispan.notifications.cachelistener.event.CacheEntryModifiedEvent;
+import org.infinispan.notifications.cachelistener.event.CacheEntryEvent;
 import org.infinispan.util.concurrent.TimeoutException;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -24,7 +25,7 @@ import java.util.concurrent.*;
  *  @since 6.0
  *
  */
-@Listener
+@Listener(sync = true,clustered = true)
 public class AtomicObjectContainer {
 
     //
@@ -150,8 +151,9 @@ public class AtomicObjectContainer {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @CacheEntryModified
+    @CacheEntryCreated
     @Deprecated
-    public synchronized void onCacheModification(CacheEntryModifiedEvent<Object,Object> event){
+    public synchronized void onCacheModification(CacheEntryEvent event){
 
         if( !event.getKey().equals(key) )
             return;
