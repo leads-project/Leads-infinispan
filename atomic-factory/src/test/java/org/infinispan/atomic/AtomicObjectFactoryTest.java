@@ -4,6 +4,7 @@ import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.test.AbstractCacheTest;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
@@ -12,7 +13,10 @@ import org.infinispan.util.logging.LogFactory;
 import org.testng.annotations.Test;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 
 /**
@@ -23,7 +27,7 @@ import java.util.concurrent.*;
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
     private static int NCALLS= 1000;
-    private static int NCACHES = 4;
+    private static int NCACHES = 1;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
@@ -134,7 +138,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
     @Override
     protected void createCacheManagers() throws Throwable {
-        ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
+        ConfigurationBuilder builder = AbstractCacheTest.getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
         TransportFlags flags = new TransportFlags();
         createClusteredCaches(NCACHES, builder, flags);
     }
