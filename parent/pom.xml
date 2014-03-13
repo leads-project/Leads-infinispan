@@ -301,6 +301,16 @@
          </dependency>
          <dependency>
             <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-versioning</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-atomic-factory</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>infinispan-jcache</artifactId>
             <version>${project.version}</version>
          </dependency>
