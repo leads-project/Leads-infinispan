@@ -18,7 +18,12 @@ import org.infinispan.container.versioning.VersionGenerator;
  */
 public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
-	
+	/**
+	 * 
+	 * @param delegate the super class
+	 * @param generator the version generator
+	 * @param name the name of the cache
+	 */
 	public VersionedCacheNaiveImpl(Cache<K, ?> delegate,
 			VersionGenerator generator, String name) {
 		super(delegate, generator, name);
