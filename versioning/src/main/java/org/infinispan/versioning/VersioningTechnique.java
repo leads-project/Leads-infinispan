@@ -1,5 +1,5 @@
 package org.infinispan.versioning;
 
-public enum CacheType {
+public enum VersioningTechnique {
 	NAIVE,ATOMICMAP,SHARDED_TREE,HIBERNATE;
 }
