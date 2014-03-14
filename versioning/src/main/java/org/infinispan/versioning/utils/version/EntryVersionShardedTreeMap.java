@@ -1,7 +1,6 @@
 package org.infinispan.versioning.utils.version;
 
 import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.manager.DefaultCacheManager;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
@@ -22,21 +21,24 @@ public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V>
         implements Serializable, SortedMap<IncrementableEntryVersion, V> {
 
     private final static int DEFAULT_THRESHOLD = 100;
-    private transient static AtomicObjectFactory factory = new AtomicObjectFactory((new DefaultCacheManager()).getCache());
 
     private Set<IncrementableEntryVersion> entries;
     private transient SortedMap<IncrementableEntryVersion,EntryVersionTreeMap<IncrementableEntryVersion,V>> delegate;
+    private transient AtomicObjectFactory factory;
     private int threshhold; // this threshold indicates on many entries are storing before creating a new subtree
 
     public EntryVersionShardedTreeMap(){
         entries = new HashSet<IncrementableEntryVersion>();
-        delegate = new TreeMap<IncrementableEntryVersion, EntryVersionTreeMap<IncrementableEntryVersion,V>>();
+        delegate = new TreeMap<IncrementableEntryVersion, EntryVersionTreeMap<IncrementableEntryVersion,V>>(
+                (Comparator<? super IncrementableEntryVersion>) new IncrementableEntryVersionComparator());
         threshhold = DEFAULT_THRESHOLD;
     }
 
-    public EntryVersionShardedTreeMap(int threshhold){
+    public EntryVersionShardedTreeMap(AtomicObjectFactory factory, Integer threshhold){
         entries = new HashSet<IncrementableEntryVersion>();
-        delegate = new TreeMap<IncrementableEntryVersion, EntryVersionTreeMap<IncrementableEntryVersion,V>>();
+        delegate = new TreeMap<IncrementableEntryVersion, EntryVersionTreeMap<IncrementableEntryVersion,V>>(
+                (Comparator<? super IncrementableEntryVersion>) new IncrementableEntryVersionComparator());
+        this.factory = factory;
         this.threshhold = threshhold;
     }
 
@@ -110,7 +112,7 @@ public class EntryVersionShardedTreeMap<IncrementableEntryVersion,V>
     public V put(IncrementableEntryVersion incrementableEntryVersion, V v) {
         V ret = get(incrementableEntryVersion);
         if(delegate.get(delegate.lastKey()).size()==threshhold)
-            delegate.put(incrementableEntryVersion,factory.getInstanceOf(EntryVersionTreeMap.class,incrementableEntryVersion,true));
+            delegate.put(incrementableEntryVersion, factory.getInstanceOf(EntryVersionTreeMap.class, incrementableEntryVersion, true));
         delegate.get(delegate.lastKey()).put(incrementableEntryVersion,v);
         return v;
     }

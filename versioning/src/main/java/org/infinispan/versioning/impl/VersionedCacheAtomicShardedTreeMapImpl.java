@@ -20,23 +20,22 @@ import java.util.SortedMap;
  */
 public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
-    AtomicObjectFactory factory;
-    private EntryVersionShardedTreeMap delegate;
-
+    private AtomicObjectFactory factory;
 
     public VersionedCacheAtomicShardedTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
+
     }
 
     @Override
     protected SortedMap<IncrementableEntryVersion, V> versionMapGet(K key) {
-        return factory.getInstanceOf(EntryVersionShardedTreeMap.class,key,true,null,false);
+        return factory.getInstanceOf(EntryVersionShardedTreeMap.class,key,true,null,false,factory,100);
     }
 
     @Override
     protected void versionMapPut(K key, V value, IncrementableEntryVersion version) {
-        factory.getInstanceOf(EntryVersionShardedTreeMap.class,key,true,null,false).put(version, value);
+        factory.getInstanceOf(EntryVersionShardedTreeMap.class,key,true,null,false,factory,100).put(version, value);
     }
 
     @Override
