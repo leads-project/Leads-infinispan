@@ -5,13 +5,13 @@ import static java.lang.System.getProperties;
 import java.io.IOException;
 import java.util.Properties;
 
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.log4j.Logger;
-import org.infinispan.container.versioning.NumericVersionGenerator;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.versioning.impl.VersionedCacheAtomicMapImpl;
+import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
+import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
 import org.infinispan.versioning.impl.VersionedCacheNaiveImpl;
 
 /**
@@ -36,20 +36,18 @@ public class VersionedCacheFactory {
 		case NAIVE: {
 			return new VersionedCacheNaiveImpl<>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
-		case NAIVEPP: {
-			return null;
-		}
 		case ATOMICMAP: {
 		       return new VersionedCacheAtomicMapImpl<>(cacheManager.getCache(cacheName),generator,cacheName);
 		}
 		case HIBERNATE: {
-			return null;
+			 return new VersionedCacheHibernateImpl<>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
 		case SHARDED_TREE:{
-			return null;
+			 return new VersionedCacheAtomicTreeMapImpl(cacheManager.getCache(cacheName), generator, cacheName);
+		       
 		}
 		default:
-			logger.info("Returning default versioned cache of type "+VersionedCacheNaiveImpl.class.getCanonicalName());
+			logger.info("Creating default versioned cache of type "+VersionedCacheNaiveImpl.class.getCanonicalName());
 			return new VersionedCacheNaiveImpl<>(cacheManager.getCache(cacheName), generator, cacheName);			
 		}		
 	}
