@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
+import org.infinispan.container.versioning.NumericVersionGenerator;
 import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.DefaultCacheManager;
@@ -35,12 +36,12 @@ public class VersionedCacheFactory {
 	/**
 	 * Instantiate a {@link VersionedCache} of the specified type.
 	 * 
-	 * @param cacheType one among the available {@link VersioningTechnique} types.
+	 * @param versioningTechnique one among the available {@link VersioningTechnique} types.
 	 * @param generator the {@link VersionGenerator} to use
 	 * @param cacheName the name of the cache
 	 * @return an instance of {@link VersionedCache}
 	 */
-	public VersionedCache newVersionedCache(VersioningTechnique cacheType, VersionGenerator generator ,String cacheName) {
+	public VersionedCache newVersionedCache(VersioningTechnique versioningTechnique, VersionGenerator generator ,String cacheName) {
 		
 		if( generator == null){
 			throw new IllegalArchivePathException("Invalid generator");
@@ -48,7 +49,7 @@ public class VersionedCacheFactory {
 			throw new IllegalArchivePathException("Cache");				
 		}
 		
-		switch (cacheType) {
+		switch (versioningTechnique) {
 		case NAIVE: {
 			return new VersionedCacheNaiveImpl<>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
@@ -66,6 +67,30 @@ public class VersionedCacheFactory {
 			logger.info("Creating default versioned cache of type "+VersionedCacheNaiveImpl.class.getCanonicalName());
 			return new VersionedCacheNaiveImpl<>(cacheManager.getCache(cacheName), generator, cacheName);			
 		}		
+	}
+	
+	/**
+	 * Use the {@link NumericVersionGenerator} with the given {@link VersioningTechnique} versioned cache.
+	 * Forward the call to {@link VersionedCacheFactory#newVersionedCache(VersioningTechnique, VersionGenerator, String)}.
+	 * 
+	 * @param versioningTechnique one among the available {@link VersioningTechnique} types.
+	 * @param cacheName
+	 * @return an instance of {@link VersionedCache}.
+	 */
+	public VersionedCache newVersionedCache(VersioningTechnique versioningTechnique, String cacheName){
+		return newVersionedCache(versioningTechnique, new NumericVersionGenerator(), cacheName);
+	}
+	
+	/**
+	 * Use the {@link NumericVersionGenerator} with the given {@link VersioningTechnique} versioned cache.
+	 * Use the {@link VersioningTechnique#NAIVE} versioning technique.
+	 * Forward the call to {@link VersionedCacheFactory#newVersionedCache(VersioningTechnique, VersionGenerator, String)}.
+	 * 
+	 * @param cacheName
+	 * @return an instance of {@link VersionedCache}.
+	 */
+	public VersionedCache newVersionedCache( String cacheName){
+		return newVersionedCache(VersioningTechnique.NAIVE, new NumericVersionGenerator(), cacheName);
 	}
 	
 	public  void startManager(){  
