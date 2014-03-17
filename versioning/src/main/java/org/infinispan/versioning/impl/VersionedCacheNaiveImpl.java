@@ -6,27 +6,43 @@ import org.infinispan.versioning.utils.version.VersionGenerator;
 
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
- * Implement the Naive multi-versioning technique.
- * In this implementation, all the versions are stored under the same key.
+ * Implement the Naive multi-versioning technique. In this implementation, all
+ * the versions are stored under the same key. This implies there is one cache
+ * per key.
  * 
  * @author valerio.schiavoni@gmail.com
- *
- * @param <K> the type of the key
- * @param <V> the type of the value
+ * 
+ * @param <K>
+ *            the type of the key
+ * @param <V>
+ *            the type of the value
  */
-public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
+public class VersionedCacheNaiveImpl<K, V> extends
+		VersionedCacheAbstractImpl<K, V> {
 
-	
+	/**
+	 * 
+	 * @param delegate
+	 *            the super class
+	 * @param generator
+	 *            the version generator
+	 * @param name
+	 *            the name of the cache
+	 */
 	public VersionedCacheNaiveImpl(Cache<K, ?> delegate,
 			VersionGenerator generator, String name) {
 		super(delegate, generator, name);
 	}
 
+	/**
+	 * Check if a cache with the given name exists.
+	 */
 	@Override
 	public boolean containsKey(Object key) {
-		return delegate.containsKey(key);
+		return delegate.getCacheManager().cacheExists((String) key);
 	}
 
 	@Override
@@ -44,16 +60,20 @@ public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheAbstractImpl<K,V
 		return delegate.keySet();
 	}
 
+	/**
+	 * Get the cache associated with the given key. This returns all the
+	 * versions of this object. This operation is potentially very expensive.
+	 */
 	@Override
 	protected SortedMap versionMapGet(Object key) {
-		throw new UnsupportedOperationException("to be implemented");
-
+		TreeMap map = new TreeMap<Version, V>();
+		map.putAll(delegate);
+		return map;
 	}
 
 	@Override
 	protected void versionMapPut(Object key, Object value,
 			Version version) {
-		
 		throw new UnsupportedOperationException("to be implemented");
 
 	}
