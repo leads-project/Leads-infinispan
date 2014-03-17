@@ -4,14 +4,13 @@ import org.hibernate.search.cfg.SearchMapping;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.container.versioning.InequalVersionComparisonResult;
-import org.infinispan.container.versioning.NumericVersionGenerator;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
 import org.infinispan.versioning.utils.hibernate.HibernateProxy;
+import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 import org.testng.annotations.Test;
 
 import java.lang.annotation.ElementType;
@@ -67,12 +66,12 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
         Cache cache = cacheManager.getCache();
         System.out.println(cache.getCacheConfiguration().transaction().toString());
-        NumericVersionGenerator generator = new NumericVersionGenerator();
+        VersionScalarGenerator generator = new VersionScalarGenerator();
         VersionedCache<String, String> vcache = new VersionedCacheAtomicTreeMapImpl<String, String>(cache, generator, "test");
         vcache.put("k", "a");
         vcache.put("k", "b");
         assert vcache.size() == 2;
-        vcache.getLatestVersion("k").compareTo(vcache.getEarliestVersion("k")).equals(InequalVersionComparisonResult.AFTER);
+        assert vcache.getLatestVersion("k").compareTo(vcache.getEarliestVersion("k"))>0;
         assert vcache.get("k", vcache.getEarliestVersion("k"), vcache.getEarliestVersion("k")).size() == 0;
         assert vcache.get("k", generator.generateNew(), generator.generateNew()).size() == 1;
     }
@@ -84,10 +83,7 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
         for (int i = 0; i < NCACHES; i++) {
             Cache delegate = cacheManagers.get(i).getCache();
             delegates.add(delegate);
-            NumericVersionGenerator generator = new NumericVersionGenerator();
-            generator.init(delegate);
-            generator.start();
-            // generator).setTopologyID(i);
+            VersionScalarGenerator generator = new VersionScalarGenerator();
             vcaches.add(new VersionedCacheAtomicTreeMapImpl(delegate, generator, "test"));
         }
 

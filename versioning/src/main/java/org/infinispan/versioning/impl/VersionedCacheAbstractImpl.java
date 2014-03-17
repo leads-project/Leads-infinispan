@@ -2,9 +2,9 @@ package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
-import org.infinispan.container.versioning.IncrementableEntryVersion;
-import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.versioning.VersionedCache;
+import org.infinispan.versioning.utils.version.Version;
+import org.infinispan.versioning.utils.version.VersionGenerator;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -32,7 +32,7 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     }
 
     @Override
-    public void put(K key, V value, IncrementableEntryVersion version) {
+    public void put(K key, V value, Version version) {
         versionMapPut(key, value, version);
     }
 
@@ -46,64 +46,64 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
      * @return
      */
     @Override
-    public Collection<V> get(K key, IncrementableEntryVersion first, IncrementableEntryVersion last) {
-        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+    public Collection<V> get(K key, Version first, Version last) {
+        SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.subMap(first, last).values();
     }
 
     @Override
-    public V get(K key, IncrementableEntryVersion version) {
-        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+    public V get(K key, Version version) {
+        SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.get(version);
     }
 
     @Override
-    public V getLatest(K key, IncrementableEntryVersion upperBound) {
-        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+    public V getLatest(K key, Version upperBound) {
+        SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.get(map.headMap(upperBound).lastKey());
     }
 
     @Override
-    public V getEarliest(K key, IncrementableEntryVersion lowerBound) {
-        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+    public V getEarliest(K key, Version lowerBound) {
+        SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.get(map.tailMap(lowerBound).firstKey());
     }
 
     @Override
-    public IncrementableEntryVersion getLatestVersion(K key) {
-        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+    public Version getLatestVersion(K key) {
+        SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.lastKey();
     }
 
     @Override
-    public IncrementableEntryVersion getLatestVersion(K key, IncrementableEntryVersion upperBound) {
-        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+    public Version getLatestVersion(K key, Version upperBound) {
+        SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.tailMap(upperBound).firstKey();
     }
 
     @Override
-    public IncrementableEntryVersion getEarliestVersion(K key) {
-        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+    public Version getEarliestVersion(K key) {
+        SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.firstKey();
     }
 
     @Override
-    public IncrementableEntryVersion getEarliestVersion(K key, IncrementableEntryVersion lowerBound) {
-        SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+    public Version getEarliestVersion(K key, Version lowerBound) {
+        SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return null;
         return map.headMap(lowerBound).firstKey();
@@ -113,7 +113,7 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     public int size() {
         int result=0;
         for(K key: keySet()){
-            SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+            SortedMap<Version,V> map = versionMapGet(key);
             result += map.size();
         }
         return result;
@@ -128,7 +128,7 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     public Collection<V> values() {
         Collection<V> result = new ArrayList<V>();
         for(K key: keySet()){
-            SortedMap<IncrementableEntryVersion,V> map = versionMapGet(key);
+            SortedMap<Version,V> map = versionMapGet(key);
             result.addAll(map.values());
         }
         return result;
@@ -136,8 +136,8 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
     @Override
     public V put(K key, V value) {
-        IncrementableEntryVersion lversion = getLatestVersion(key);
-        IncrementableEntryVersion nversion = null;
+        Version lversion = getLatestVersion(key);
+        Version nversion = null;
         V lval=null;
         if(lversion==null){
             nversion = generator.generateNew();
@@ -153,9 +153,9 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     // OBJECT METHODS
     //
 
-    protected abstract SortedMap<IncrementableEntryVersion,V> versionMapGet(K key);
+    protected abstract SortedMap<Version,V> versionMapGet(K key);
 
-    protected abstract void versionMapPut(K key, V value, IncrementableEntryVersion version);
+    protected abstract void versionMapPut(K key, V value, Version version);
 
 
     //

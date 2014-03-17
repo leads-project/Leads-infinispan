@@ -1,11 +1,11 @@
 package org.infinispan.versioning.impl;
 
+import org.infinispan.Cache;
+import org.infinispan.versioning.utils.version.Version;
+import org.infinispan.versioning.utils.version.VersionGenerator;
+
 import java.util.Set;
 import java.util.SortedMap;
-
-import org.infinispan.Cache;
-import org.infinispan.container.versioning.IncrementableEntryVersion;
-import org.infinispan.container.versioning.VersionGenerator;
 
 /**
  * Implement the Naive multi-versioning technique.
@@ -52,7 +52,7 @@ public class VersionedCacheNaiveImpl<K,V> extends VersionedCacheAbstractImpl<K,V
 
 	@Override
 	protected void versionMapPut(Object key, Object value,
-			IncrementableEntryVersion version) {
+			Version version) {
 		
 		throw new UnsupportedOperationException("to be implemented");
 

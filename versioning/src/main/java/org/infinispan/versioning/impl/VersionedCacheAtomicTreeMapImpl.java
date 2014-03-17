@@ -2,12 +2,12 @@ package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.container.versioning.IncrementableEntryVersion;
-import org.infinispan.container.versioning.VersionGenerator;
-import org.infinispan.versioning.utils.version.EntryVersionTreeMap;
+import org.infinispan.versioning.utils.version.Version;
+import org.infinispan.versioning.utils.version.VersionGenerator;
 
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * // TODO: Document this
@@ -25,13 +25,13 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstract
     }
 
     @Override
-    protected SortedMap<IncrementableEntryVersion, V> versionMapGet(K key) {
-        return factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false);
+    protected SortedMap<Version, V> versionMapGet(K key) {
+        return factory.getInstanceOf(TreeMap.class,key,true,null,false);
     }
 
     @Override
-    protected void versionMapPut(K key, V value, IncrementableEntryVersion version) {
-        factory.getInstanceOf(EntryVersionTreeMap.class,key,true,null,false).put(version, value);
+    protected void versionMapPut(K key, V value, Version version) {
+        factory.getInstanceOf(TreeMap.class,key,true,null,false).put(version, value);
     }
 
     @Override
@@ -47,7 +47,7 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstract
     @Override
     public boolean containsValue(Object o) {
         for(K k: delegate.keySet()){
-            if(factory.getInstanceOf(EntryVersionTreeMap.class,k,true,null,false).containsValue(o))
+            if(factory.getInstanceOf(TreeMap.class,k,true,null,false).containsValue(o))
                 return true;
         }
         return false;

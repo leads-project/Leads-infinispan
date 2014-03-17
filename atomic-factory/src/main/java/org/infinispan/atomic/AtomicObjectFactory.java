@@ -23,6 +23,12 @@ public class AtomicObjectFactory {
     // CLASS FIELDS
     //
     private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
+    private static Map<Cache,AtomicObjectFactory> factories = new HashMap<Cache,AtomicObjectFactory>();
+    public synchronized static AtomicObjectFactory forCache(Cache cache){
+        if(!factories.containsKey(cache))
+            factories.put(cache, new AtomicObjectFactory(cache));
+        return factories.get(cache);
+    }
 
     //
     // OBJECT FIELDS
