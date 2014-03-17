@@ -66,7 +66,7 @@ public class VersionedCacheNaiveImpl<K, V> extends
 	 * versions of this object. This operation is potentially very expensive.
 	 */
 	@Override
-	protected SortedMap versionMapGet(Object key) {
+	protected SortedMap versionMapGet(K key) {
 		
 		TreeMap map = new TreeMap<IncrementableEntryVersion, V>(
 				new IncrementableEntryVersionComparator());
@@ -75,10 +75,10 @@ public class VersionedCacheNaiveImpl<K, V> extends
 	}
 
 	@Override
-	protected void versionMapPut(Object key, Object value,
+	protected void versionMapPut(K key, V value,
 			IncrementableEntryVersion version) {
 
-		throw new UnsupportedOperationException("to be implemented");
+		delegate.getCacheManager().getCache((String)key).put(key, version);
 
 	}
 
