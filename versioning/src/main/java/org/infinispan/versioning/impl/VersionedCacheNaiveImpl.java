@@ -70,7 +70,7 @@ public class VersionedCacheNaiveImpl<K, V> extends
 		
 		TreeMap map = new TreeMap<IncrementableEntryVersion, V>(
 				new IncrementableEntryVersionComparator());
-		map.putAll(delegate);
+		map.putAll(delegate.getCacheManager().getCache((String)key));
 		return map;
 	}
 
