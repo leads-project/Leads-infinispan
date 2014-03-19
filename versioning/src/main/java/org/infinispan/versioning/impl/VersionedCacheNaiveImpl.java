@@ -5,12 +5,11 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import org.infinispan.Cache;
-import org.infinispan.container.versioning.IncrementableEntryVersion;
-import org.infinispan.container.versioning.VersionGenerator;
-import org.infinispan.versioning.utils.version.IncrementableEntryVersionComparator;
+import org.infinispan.versioning.utils.version.Version;
+import org.infinispan.versioning.utils.version.VersionGenerator;
 
 /**
- * Implement the Naive multi-versioning technique. In this implementation, all
+ * Implement the Naive multiversioning technique. In this implementation, all
  * the versions are stored under the same key. This implies there is one cache
  * per key.
  * 
@@ -33,8 +32,7 @@ public class VersionedCacheNaiveImpl<K, V> extends
 	 * @param name
 	 *            the name of the cache
 	 */
-	public VersionedCacheNaiveImpl(Cache<K, ?> delegate,
-			VersionGenerator generator, String name) {
+	public VersionedCacheNaiveImpl(Cache delegate,VersionGenerator generator, String name) {
 		super(delegate, generator, name);
 	}
 
@@ -68,18 +66,16 @@ public class VersionedCacheNaiveImpl<K, V> extends
 	@Override
 	protected SortedMap versionMapGet(K key) {
 		
-		TreeMap map = new TreeMap<IncrementableEntryVersion, V>(
-				new IncrementableEntryVersionComparator());
-		map.putAll(delegate.getCacheManager().getCache((String)key));
+		TreeMap map = new TreeMap<Version, V>();
+		map.putAll(delegate);
 		return map;
 	}
-
+	
 	@Override
-	protected void versionMapPut(K key, V value,
-			IncrementableEntryVersion version) {
-
+	protected void versionMapPut(K key, V value, Version version) {
 		delegate.getCacheManager().getCache((String)key).put(key, version);
 
 	}
+	
 
 }
