@@ -6,8 +6,6 @@ import java.io.IOException;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
-import org.infinispan.container.versioning.NumericVersionGenerator;
-import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
@@ -15,6 +13,8 @@ import org.infinispan.versioning.impl.VersionedCacheAtomicMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
 import org.infinispan.versioning.impl.VersionedCacheNaiveImpl;
+import org.infinispan.versioning.utils.version.VersionGenerator;
+import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 import org.jboss.shrinkwrap.api.IllegalArchivePathException;
 
 /**
@@ -41,7 +41,7 @@ public class VersionedCacheFactory {
 	 * @param cacheName the name of the cache
 	 * @return an instance of {@link VersionedCache}
 	 */
-	public VersionedCache newVersionedCache(VersioningTechnique versioningTechnique, VersionGenerator generator ,String cacheName) {
+	public <K,V> VersionedCache<K,V> newVersionedCache(VersioningTechnique versioningTechnique, VersionGenerator generator ,String cacheName) {
 		
 		if( generator == null){
 			throw new IllegalArchivePathException("Invalid generator");
@@ -51,21 +51,21 @@ public class VersionedCacheFactory {
 		
 		switch (versioningTechnique) {
 		case NAIVE: {
-			return new VersionedCacheNaiveImpl<>(cacheManager.getCache(cacheName), generator, cacheName);
+			return new VersionedCacheNaiveImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
 		case ATOMICMAP: {
-		       return new VersionedCacheAtomicMapImpl<>(cacheManager.getCache(cacheName),generator,cacheName);
+		       return new VersionedCacheAtomicMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
 		}
 		case HIBERNATE: {
-			 return new VersionedCacheHibernateImpl<>(cacheManager.getCache(cacheName), generator, cacheName);
+			 return new VersionedCacheHibernateImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
 		case SHARDED_TREE:{
-			 return new VersionedCacheAtomicTreeMapImpl<>(cacheManager.getCache(cacheName), generator, cacheName);
+			 return new VersionedCacheAtomicTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		       
 		}
 		default:
 			logger.info("Creating default versioned cache of type "+VersionedCacheNaiveImpl.class.getCanonicalName());
-			return new VersionedCacheNaiveImpl<>(cacheManager.getCache(cacheName), generator, cacheName);			
+			return new VersionedCacheNaiveImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);			
 		}		
 	}
 	
@@ -77,8 +77,8 @@ public class VersionedCacheFactory {
 	 * @param cacheName
 	 * @return an instance of {@link VersionedCache}.
 	 */
-	public VersionedCache newVersionedCache(VersioningTechnique versioningTechnique, String cacheName){
-		return newVersionedCache(versioningTechnique, new NumericVersionGenerator(), cacheName);
+	public <K,V> VersionedCache<K,V> newVersionedCache(VersioningTechnique versioningTechnique, String cacheName){
+		return newVersionedCache(versioningTechnique, new  VersionScalarGenerator(), cacheName);
 	}
 	
 	/**
@@ -89,8 +89,8 @@ public class VersionedCacheFactory {
 	 * @param cacheName
 	 * @return an instance of {@link VersionedCache}.
 	 */
-	public VersionedCache newVersionedCache( String cacheName){
-		return newVersionedCache(VersioningTechnique.NAIVE, new NumericVersionGenerator(), cacheName);
+	public <K,V> VersionedCache<K,V> newVersionedCache( String cacheName){
+		return newVersionedCache(VersioningTechnique.NAIVE, new VersionScalarGenerator(), cacheName);
 	}
 	
 	public  void startManager(){  
