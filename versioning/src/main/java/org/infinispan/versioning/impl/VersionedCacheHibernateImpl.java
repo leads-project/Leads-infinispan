@@ -3,12 +3,11 @@ package org.infinispan.versioning.impl;
 import org.apache.lucene.search.Query;
 import org.hibernate.search.query.dsl.QueryBuilder;
 import org.infinispan.Cache;
-import org.infinispan.container.versioning.IncrementableEntryVersion;
-import org.infinispan.container.versioning.VersionGenerator;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.SearchManager;
-import org.infinispan.versioning.utils.version.IncrementableEntryVersionComparator;
 import org.infinispan.versioning.utils.hibernate.HibernateProxy;
+import org.infinispan.versioning.utils.version.Version;
+import org.infinispan.versioning.utils.version.VersionGenerator;
 
 import java.util.*;
 
@@ -27,19 +26,18 @@ public class VersionedCacheHibernateImpl<K,V> extends VersionedCacheAbstractImpl
         searchManager = org.infinispan.query.Search.getSearchManager(delegate);
     }
 
-    protected SortedMap<IncrementableEntryVersion,V> versionMapGet(K key){
+    protected SortedMap<Version,V> versionMapGet(K key){
         QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
         Query q = qb.keyword().onField("k").matching(key).createQuery();
         CacheQuery cq = searchManager.getQuery(q, HibernateProxy.class);
-        TreeMap<IncrementableEntryVersion,V> map = new TreeMap<IncrementableEntryVersion, V>(
-                new IncrementableEntryVersionComparator());
+        TreeMap<Version,V> map = new TreeMap<Version, V>();
         for(Object proxy : cq.list())
             map.put(((HibernateProxy<K,V>)proxy).version,((HibernateProxy<K,V>)proxy).v);
         return map;
     }
 
     @Override
-    public V get(K key, IncrementableEntryVersion version) {
+    public V get(K key, Version version) {
         QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
         Query q = qb.bool()
                 .must(qb.keyword().onField("k").matching(key).createQuery())
@@ -54,7 +52,7 @@ public class VersionedCacheHibernateImpl<K,V> extends VersionedCacheAbstractImpl
     }
 
 //    @Override
-//    public Collection<V> get(K key, IncrementableEntryVersion first, IncrementableEntryVersion last) {
+//    public Collection<V> get(K key, Version first, Version last) {
 //        Set<V> result = new HashSet<V>();
 //        QueryBuilder qb = searchManager.buildQueryBuilderForClass(HibernateProxy.class).get();
 //        Query q = qb.bool()
@@ -70,7 +68,7 @@ public class VersionedCacheHibernateImpl<K,V> extends VersionedCacheAbstractImpl
 
 
     @Override
-    protected void versionMapPut(K key, V value, IncrementableEntryVersion version) {
+    protected void versionMapPut(K key, V value, Version version) {
         HibernateProxy<K,V> proxy = new HibernateProxy<K, V>(key,value,version);
         ((Cache<String,HibernateProxy<K,V>>)delegate).put(proxy.getId(), proxy);
     }

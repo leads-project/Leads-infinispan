@@ -1,8 +1,7 @@
 package org.infinispan.versioning.utils.hibernate;
 
 import org.hibernate.search.annotations.*;
-import org.infinispan.container.versioning.IncrementableEntryVersion;
-import org.infinispan.container.versioning.NumericVersion;
+import org.infinispan.versioning.utils.version.Version;
 
 import java.io.Serializable;
 
@@ -27,16 +26,16 @@ public class HibernateProxy<K,V> implements Serializable{
 
     @Field(index= Index.YES, analyze= Analyze.NO, store= Store.NO)
     @FieldBridge(impl = EntryVersionFieldBridge.class)
-    public IncrementableEntryVersion version;
+    public Version version;
 
-    public HibernateProxy(K k, V v, IncrementableEntryVersion version){
+    public HibernateProxy(K k, V v, Version version){
         this.k = k;
         this.v = v;
         this.version = version;
     }
 
     public String getId(){
-        return k.toString()+Long.toString( ((NumericVersion)version).getVersion() );
+        return k.toString()+version.hashCode();
     }
 
     public String toString(){
