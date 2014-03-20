@@ -32,12 +32,7 @@ public class VersionedCacheNaiveImpl<K, V> extends
 	 * @param name
 	 *            the name of the cache
 	 */
-<<<<<<< HEAD
-	public VersionedCacheNaiveImpl(Cache delegate,
-			VersionGenerator generator, String name) {
-=======
 	public VersionedCacheNaiveImpl(Cache delegate,VersionGenerator generator, String name) {
->>>>>>> 1860fd0d670925f76799e46d91d803b392a5aa66
 		super(delegate, generator, name);
 	}
 
