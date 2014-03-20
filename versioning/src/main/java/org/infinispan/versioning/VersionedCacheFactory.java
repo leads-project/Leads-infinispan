@@ -72,7 +72,7 @@ public class VersionedCacheFactory {
 		default:
 			logger.info("Creating default versioned cache of type "+VersionedCacheNaiveImpl.class.getCanonicalName());
 			return new VersionedCacheNaiveImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
-		}		
+		}
 	}
 	
 	/**
@@ -83,8 +83,8 @@ public class VersionedCacheFactory {
 	 * @param cacheName
 	 * @return an instance of {@link VersionedCache}.
 	 */
-	public VersionedCache newVersionedCache(VersioningTechnique versioningTechnique, String cacheName){
-		return newVersionedCache(versioningTechnique, new VersionScalarGenerator(), cacheName);
+	public <K,V> VersionedCache<K,V> newVersionedCache(VersioningTechnique versioningTechnique, String cacheName){
+		return newVersionedCache(versioningTechnique, new  VersionScalarGenerator(), cacheName);
 	}
 	
 	/**
@@ -95,7 +95,7 @@ public class VersionedCacheFactory {
 	 * @param cacheName
 	 * @return an instance of {@link VersionedCache}.
 	 */
-	public VersionedCache newVersionedCache( String cacheName){
+	public <K,V> VersionedCache<K,V> newVersionedCache( String cacheName){
 		return newVersionedCache(VersioningTechnique.NAIVE, new VersionScalarGenerator(), cacheName);
 	}
 	
