@@ -221,7 +221,7 @@ public class AtomicObjectContainer {
             if(pType.length==initArgs.length){
                 found=true;
                 for (int i = 0; i < pType.length; i++) {
-                    if(!pType[i].equals(initArgs[i].getClass())){
+                    if(!pType[i].isAssignableFrom(initArgs[i].getClass())){
                         found=false;
                         break;
                     }

@@ -1,7 +1,6 @@
 package org.infinispan.atomic.map;
 
 import org.infinispan.Cache;
-import org.infinispan.atomic.AtomicObjectFactory;
 import org.infinispan.atomic.AtomicShardedObject;
 
 import java.io.ObjectStreamException;
@@ -28,8 +27,12 @@ public class ShardedTreeMap<K,V>
 
     private Set<K> entries;
     private transient SortedMap<K,TreeMap<K,V>> delegate;
-    private transient AtomicObjectFactory factory;
     private int threshhold; // how many entries are stored before creating a new subtree.
+
+    @Deprecated
+    public ShardedTreeMap(){
+        super();
+    }
 
     public ShardedTreeMap(Cache cache){
         super(cache);
@@ -109,8 +112,10 @@ public class ShardedTreeMap<K,V>
     @Override
     public V put(K K, V v) {
         V ret = get(K);
-        if(delegate.get(delegate.lastKey()).size()==threshhold)
+        if( delegate.isEmpty()
+            || delegate.get(delegate.lastKey()).size()==threshhold ){
             delegate.put(K, factory.getInstanceOf(TreeMap.class, K, true));
+        }
         delegate.get(delegate.lastKey()).put(K,v);
         return v;
     }

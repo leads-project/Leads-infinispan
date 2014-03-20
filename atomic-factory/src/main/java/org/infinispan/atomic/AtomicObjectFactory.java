@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 
@@ -35,20 +36,51 @@ public class AtomicObjectFactory {
     //
 	private Cache cache;
 	private Map<Object,AtomicObjectContainer> registeredContainers;
+    private int maxSize;
+
 
     /**
      *
-     * Return an AtomicObjectFactory.
+     * Returns an object factory built on top of cache <i>c</i> with a bounded amount <i>m</i> of
+     * containers in it. Upon the removal of a container, the object is stored persistently in the cache.
+     *
+     * @param c it must be synchronous.and transactional (with autoCommit set to true, its default value).
+     * @param m max amount of containers kept by this factory.
+     * @throws InvalidCacheUsageException
+     */
+    public AtomicObjectFactory(Cache<Object, Object> c, int m) throws InvalidCacheUsageException{
+        if( ! c.getCacheConfiguration().clustering().cacheMode().isSynchronous()
+                || c.getCacheConfiguration().transaction().transactionMode() != TransactionMode.TRANSACTIONAL )
+            throw new InvalidCacheUsageException("The cache must be synchronous and transactional.");
+        cache = c;
+        maxSize = m;
+        registeredContainers= new LinkedHashMap<Object,AtomicObjectContainer>(){
+            @Override
+            protected boolean removeEldestEntry(java.util.Map.Entry<Object,AtomicObjectContainer> eldest) {
+                if(maxSize!=0 && this.size() == maxSize){
+                    try {
+                        eldest.getValue().dispose(true);
+                    } catch (IOException e) {
+                        e.printStackTrace();  // TODO: Customise this generated block
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();  // TODO: Customise this generated block
+                    }
+                    return true;
+                }
+                return false;
+            }
+        };
+        log = LogFactory.getLog(this.getClass());
+    }
+
+    /**
+     *
+     * Return an AtomicObjectFactory built on top of cache <i>c</i>.
      *
      * @param c a cache,  it must be synchronous.and transactional (with autoCommit set to true, its default value).
      */
 	public AtomicObjectFactory(Cache<Object, Object> c) throws InvalidCacheUsageException{
-        if( ! c.getCacheConfiguration().clustering().cacheMode().isSynchronous()
-            || c.getCacheConfiguration().transaction().transactionMode() != TransactionMode.TRANSACTIONAL )
-            throw new InvalidCacheUsageException("The cache must be synchronous and transactional.");
-		cache = c;
-        registeredContainers= new HashMap<Object,AtomicObjectContainer>();
-        log = LogFactory.getLog(this.getClass());
+        this(c,0);
 	}
 
 

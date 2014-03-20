@@ -8,6 +8,7 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
+import org.infinispan.versioning.impl.VersionedCacheAtomicShardedTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
 import org.infinispan.versioning.utils.hibernate.HibernateProxy;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
@@ -67,7 +68,7 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
         Cache cache = cacheManager.getCache();
         System.out.println(cache.getCacheConfiguration().transaction().toString());
         VersionScalarGenerator generator = new VersionScalarGenerator();
-        VersionedCache<String, String> vcache = new VersionedCacheAtomicTreeMapImpl<String, String>(cache, generator, "test");
+        VersionedCache<String, String> vcache = new VersionedCacheAtomicShardedTreeMapImpl<String, String>(cache,generator,"cache");
         vcache.put("k", "a");
         vcache.put("k", "b");
         assert vcache.size() == 2;

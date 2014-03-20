@@ -30,12 +30,12 @@ public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheA
 
     @Override
     protected SortedMap<Version, V> versionMapGet(K key) {
-        return factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false,factory,100);
+        return factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false,delegate);
     }
 
     @Override
     protected void versionMapPut(K key, V value, Version version) {
-        factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false,factory,100).put(version, value);
+        factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false,delegate).put(version, value);
     }
 
     @Override

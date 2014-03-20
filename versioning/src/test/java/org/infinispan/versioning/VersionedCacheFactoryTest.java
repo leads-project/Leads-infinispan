@@ -4,7 +4,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-import org.testng.asserts.*;
 
 public class VersionedCacheFactoryTest {
 	
@@ -18,7 +17,7 @@ public class VersionedCacheFactoryTest {
 	@Test
 	public void newInstanceNaive() {
 		//TODO how do I instantiate here a fake cacheManager ? 
-		VersionedCache c = factory.newVersionedCache(VersioningTechnique.NAIVE, null, "test");
+		VersionedCache c = factory.newVersionedCache(VersionedCacheFactory.VersioningTechnique.NAIVE, null, "test");
 		Assert.assertNotNull(c);
 	}
 	
