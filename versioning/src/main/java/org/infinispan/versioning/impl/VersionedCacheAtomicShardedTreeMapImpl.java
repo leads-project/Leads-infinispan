@@ -2,13 +2,12 @@ package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.atomic.map.ShardedTreeMap;
+import org.infinispan.versioning.utils.collections.ShardedTreeMap;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.TreeMap;
 
 /**
  *
@@ -25,17 +24,16 @@ public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheA
     public VersionedCacheAtomicShardedTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
-
     }
 
     @Override
     protected SortedMap<Version, V> versionMapGet(K key) {
-        return factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false,delegate);
+        return factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
     }
 
     @Override
     protected void versionMapPut(K key, V value, Version version) {
-        factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false,delegate).put(version, value);
+        factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false).put(version, value);
     }
 
     @Override
@@ -50,8 +48,8 @@ public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheA
 
     @Override
     public boolean containsValue(Object o) {
-        for(Object k: delegate.keySet()){
-            if(factory.getInstanceOf(TreeMap.class, k, true, null, false).containsValue(o))
+        for(Object k: keySet()){
+            if(factory.getInstanceOf(ShardedTreeMap.class, k, true, null, false).containsValue(o))
                 return true;
         }
         return false;

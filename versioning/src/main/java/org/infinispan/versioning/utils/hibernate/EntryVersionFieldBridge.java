@@ -4,7 +4,7 @@ import org.apache.lucene.document.Document;
 import org.hibernate.search.bridge.LuceneOptions;
 import org.hibernate.search.bridge.TwoWayFieldBridge;
 import org.hibernate.search.bridge.builtin.LongNumericFieldBridge;
-import org.infinispan.container.versioning.NumericVersion;
+import org.infinispan.versioning.utils.version.VersionScalar;
 
 /**
  * // TODO: Document this
@@ -24,9 +24,10 @@ public class EntryVersionFieldBridge implements TwoWayFieldBridge{
 
     @Override
     public String objectToString(final Object object) {
-        if(object instanceof NumericVersion){
-            NumericVersion version = (NumericVersion) object;
-            return bridge.objectToString(version.getVersion());
+        assert object!=null;
+        if(object instanceof VersionScalar){
+            VersionScalar version = (VersionScalar) object;
+            return bridge.objectToString(version.version());
         }
         throw new IllegalArgumentException("not a numeric version  "+object.getClass().toString());
     }

@@ -53,6 +53,7 @@ public class AtomicObjectContainer {
     private Cache cache;
     private Object object;
     private Class clazz;
+    private Object key;
     private Object proxy;
 
     private Boolean withReadOptimization;
@@ -60,9 +61,7 @@ public class AtomicObjectContainer {
     private Set<String> readOptimizationSuceedMethods;
     private Method equalsMethod;
 
-    private Object key;
     private Map<Integer,AtomicObjectCallFuture> registeredCalls;
-    private int hash;
 
     private BlockingQueue<AtomicObjectCall> calls;
     private Future<Integer> callHandlerFuture;
@@ -84,7 +83,6 @@ public class AtomicObjectContainer {
 
         equalsMethod = m;
 
-        hash = 0;
         registeredCalls = new ConcurrentHashMap<Integer, AtomicObjectCallFuture>();
 
         // build the proxy
@@ -121,7 +119,7 @@ public class AtomicObjectContainer {
                 Object ret = future.get(CALL_TTIMEOUT_TIME,TimeUnit.MILLISECONDS);
                 registeredCalls.remove(callID);
                 if(!future.isDone()){
-                    throw new TimeoutException("Unable to execute "+invoke+" on "+key);
+                    throw new TimeoutException("Unable to execute "+invoke+" on "+clazz+ " @ "+key);
                 }
                 return ret;
             }
@@ -253,7 +251,12 @@ public class AtomicObjectContainer {
      */
     @Override
     public int hashCode(){
-        return hash;
+        return containerSignature(this.clazz,this.key);
+    }
+
+
+    private static int containerSignature(Class clazz, Object key){
+        return clazz.hashCode()+key.hashCode();
     }
 
     /**
@@ -344,7 +347,6 @@ public class AtomicObjectContainer {
                         if(object != null){
 
                             AtomicObjectCallInvoke invocation = (AtomicObjectCallInvoke) call;
-                            hash+=invocation.callID;
                             if(handleInvocation(invocation))
                                 retrieveRank = N_RETRIEVE_HELPERS;
                             else if (retrieveRank > 0)
@@ -395,6 +397,33 @@ public class AtomicObjectContainer {
             return 1;
 
         }
+    }
+
+
+    public static class AtomicObjectContainertSignature{
+
+        int hash;
+
+        public AtomicObjectContainertSignature(Class clazz, Object key){
+            hash = clazz.hashCode() + key.hashCode();
+        }
+
+        public AtomicObjectContainertSignature(AtomicObjectContainer container){
+            hash = container.clazz.hashCode() + container.key.hashCode();
+        }
+
+        @Override
+        public int hashCode(){
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object o){
+            if (!(o instanceof AtomicObjectContainertSignature))
+                return false;
+            return ((AtomicObjectContainertSignature)o).hash == this.hash;
+        }
+
     }
 
 }

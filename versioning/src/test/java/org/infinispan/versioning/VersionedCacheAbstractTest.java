@@ -1,37 +1,29 @@
 package org.infinispan.versioning;
 
-import org.hibernate.search.cfg.SearchMapping;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
-import org.infinispan.versioning.impl.VersionedCacheAtomicShardedTreeMapImpl;
-import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
-import org.infinispan.versioning.utils.hibernate.HibernateProxy;
+import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 import org.testng.annotations.Test;
 
-import java.lang.annotation.ElementType;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-
 /**
- * @author Pierre Sutra
- * @since 6.0
+ * @author marcelo pasin, pierre sutra
+ * @since 7.0
  */
 
-@Test(testName = "container.versioning.AbstractClusteredWriteSkewTest", groups = "functional")
-public class VersionedCacheTest extends MultipleCacheManagersTest {
+public abstract class VersionedCacheAbstractTest extends MultipleCacheManagersTest {
 
     private static int NCACHES = 3;
     private static int NCALLS = 100;
@@ -43,69 +35,31 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
 
     @Override
     protected void createCacheManagers() throws Throwable {
-        ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, true);
-        builder.persistence().passivation(true);
-        SearchMapping mapping = new SearchMapping();
-        mapping.entity(HibernateProxy.class).indexed().providedId()
-                .property("k", ElementType.METHOD).field()
-                .property("v", ElementType.METHOD).field()
-                .property("version", ElementType.METHOD).field();
-
-        Properties properties = new Properties();
-        properties.put(org.hibernate.search.Environment.MODEL_MAPPING, mapping);
-        properties.put("default.directory_provider", "ram");
-        builder.indexing()
-                .enable()
-                .indexLocalOnly(true)
-                .withProperties(properties);
+        ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
         TransportFlags flags = new TransportFlags();
+        setBuilder(builder);
         createClusteredCaches(NCACHES, builder, flags);
     }
 
+    protected abstract void setBuilder(ConfigurationBuilder builder);
 
+    protected abstract <K,V> VersionedCache<K, V> getCache(
+            Cache cache,
+            VersionGenerator generator,
+            String name);
+
+    @Test
     public void basicUsageTest() throws Exception {
-        EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
-        Cache cache = cacheManager.getCache();
-        System.out.println(cache.getCacheConfiguration().transaction().toString());
-        VersionScalarGenerator generator = new VersionScalarGenerator();
-        VersionedCache<String, String> vcache = new VersionedCacheAtomicShardedTreeMapImpl<String, String>(cache,generator,"cache");
-        vcache.put("k", "a");
-        vcache.put("k", "b");
-        assert vcache.size() == 2;
-        assert vcache.getLatestVersion("k").compareTo(vcache.getEarliestVersion("k"))>0;
-        assert vcache.get("k", vcache.getEarliestVersion("k"), vcache.getEarliestVersion("k")).size() == 0;
-        assert vcache.get("k", generator.generateNew(), generator.generateNew()).size() == 1;
+        VersionGenerator generator = new VersionScalarGenerator();
+        VersionedCache<String, String> cache = getCache(caches().iterator().next(),generator,"basictest");
+
+        cache.put("k", "a");
+        cache.put("k", "b");
+        assert 0 == cache.get("k", cache.getEarliestVersion("k"), cache.getEarliestVersion("k")).size();
+        assert 1 == cache.get("k", generator.generateNew(), generator.generateNew()).size();
     }
 
-    public void basicDistributedUsage() throws Exception {
-        ExecutorService service = Executors.newCachedThreadPool();
-        List<Future<Integer>> futures = new ArrayList<Future<Integer>>();
-
-        for (int i = 0; i < NCACHES; i++) {
-            Cache delegate = cacheManagers.get(i).getCache();
-            delegates.add(delegate);
-            VersionScalarGenerator generator = new VersionScalarGenerator();
-            vcaches.add(new VersionedCacheAtomicTreeMapImpl(delegate, generator, "test"));
-        }
-
-        initAndTest();
-
-        for (VersionedCache vcache : vcaches) {
-            if (vcache.equals(vcaches.get(0)))
-                futures.add(service.submit(new ExerciceVersionedCache(vcache, NCALLS)));
-        }
-
-        Integer total = 0;
-        for (Future<Integer> future : futures) {
-            total += future.get();
-        }
-
-        // assert total == NCACHES*NCALLS;
-        Thread.sleep(3000);
-
-    }
-
-
+    @Test
     public void computeBaseLine() {
         Cache cache = cacheManagers.get(0).getCache("baseline");
         float avrg = 0;
@@ -125,14 +79,43 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
         System.out.println("baseline get(): " + (avrg / NCALLS) / 1000000 + " ms");
     }
 
+    @Test
+    public void basicDistributedUsage() throws Exception {
+        ExecutorService service = Executors.newCachedThreadPool();
+        List<Future<Integer>> futures = new ArrayList<Future<Integer>>();
+
+        for (int i = 0; i < NCACHES; i++) {
+            Cache delegate = cacheManagers.get(i).getCache();
+            delegates.add(delegate);
+            VersionScalarGenerator generator = new VersionScalarGenerator();
+            vcaches.add(getCache(delegate, generator, "test"));
+        }
+
+        initAndTest();
+
+        for (VersionedCache vcache : vcaches) {
+            if (vcache.equals(vcaches.get(0)))
+                futures.add(service.submit(new ExerciceVersionedCache(vcache, NCALLS)));
+        }
+
+        Integer total = 0;
+        for (Future<Integer> future : futures) {
+            total += future.get();
+        }
+
+        // assert total == NCACHES*NCALLS;
+        Thread.sleep(3000);
+
+    }
+
     //
     // OBJECT METHODS
     //
 
     protected void initAndTest() {
         for (Cache<Object, String> c : delegates) assert c.isEmpty();
-        delegates.iterator().next().put("k1", "value");
-        assertOnAllCaches("k1", "value");
+        delegates.iterator().next().put("k1", "version");
+        assertOnAllCaches("k1", "version");
     }
 
     protected void assertOnAllCaches(Object key, String value) {
@@ -202,5 +185,7 @@ public class VersionedCacheTest extends MultipleCacheManagersTest {
             return new Integer(ncalls);
         }
     }
+
+
 
 }

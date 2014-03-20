@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
  */
 public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<K,V> {
 
-    protected Cache<K,?> delegate;
+    protected Cache delegate;
     protected VersionGenerator generator;
     protected String name;
 
@@ -110,16 +110,6 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     }
 
     @Override
-    public int size() {
-        int result=0;
-        for(K key: keySet()){
-            SortedMap<Version,V> map = versionMapGet(key);
-            result += map.size();
-        }
-        return result;
-    }
-
-    @Override
     public V get(Object o) {
         return get((K) o, getLatestVersion((K) o));
     }
@@ -149,6 +139,15 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
         return lval;
     }
 
+    @Override
+    public void start() {
+    }
+
+    @Override
+    public void stop() {
+    }
+
+
     //
     // OBJECT METHODS
     //
@@ -163,118 +162,123 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     //
 
     @Override
+    public int size() {
+        throw new RuntimeException("NYI");
+    }
+
+    @Override
     public NotifyingFuture<V> putAsync(K key, V value) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<Void> clearAsync() {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> removeAsync(Object key) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<Boolean> removeAsync(Object key, Object value) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> getAsync(K key) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public String getName() {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public String getVersion() {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public V put(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public V putIfAbsent(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
@@ -284,7 +288,7 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
     @Override
     public V replace(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
@@ -294,77 +298,67 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
     @Override
     public V put(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public V putIfAbsent(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public V replace(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return false;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public V remove(Object key) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
-        // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public void clear() {
-        // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public V putIfAbsent(K k, V v) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public boolean remove(Object o, Object o2) {
-        return false;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public boolean replace(K k, V v, V v2) {
-        return false;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public V replace(K k, V v) {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
     @Override
     public Set<Entry<K, V>> entrySet() {
-        return null;  // TODO: Customise this generated block
+        throw new RuntimeException("NYI");
     }
 
-
-    @Override
-    public void start() {
-        // TODO: Customise this generated block
-    }
-
-    @Override
-    public void stop() {
-        // TODO: Customise this generated block
-    }
 }

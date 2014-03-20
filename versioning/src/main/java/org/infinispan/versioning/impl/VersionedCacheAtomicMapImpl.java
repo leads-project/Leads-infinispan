@@ -44,7 +44,7 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
 
     @Override
     public boolean containsValue(Object o) {
-        for(K k: delegate.keySet()){
+        for(Object k: delegate.keySet()){
             if(AtomicMapLookup.getAtomicMap(delegate,k).containsValue(o))
                 return true;
         }

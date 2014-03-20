@@ -46,7 +46,7 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstract
 
     @Override
     public boolean containsValue(Object o) {
-        for(K k: delegate.keySet()){
+        for(Object k: delegate.keySet()){
             if(factory.getInstanceOf(TreeMap.class,k,true,null,false).containsValue(o))
                 return true;
         }

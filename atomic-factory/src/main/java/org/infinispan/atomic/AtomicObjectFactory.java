@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static org.infinispan.atomic.AtomicObjectContainer.AtomicObjectContainertSignature;
+
 
 /**
  * @author Pierre Sutra
@@ -29,13 +31,14 @@ public class AtomicObjectFactory {
         if(!factories.containsKey(cache))
             factories.put(cache, new AtomicObjectFactory(cache));
         return factories.get(cache);
+
     }
 
     //
     // OBJECT FIELDS
     //
 	private Cache cache;
-	private Map<Object,AtomicObjectContainer> registeredContainers;
+	private Map<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer> registeredContainers;
     private int maxSize;
 
 
@@ -54,9 +57,9 @@ public class AtomicObjectFactory {
             throw new InvalidCacheUsageException("The cache must be synchronous and transactional.");
         cache = c;
         maxSize = m;
-        registeredContainers= new LinkedHashMap<Object,AtomicObjectContainer>(){
+        registeredContainers= new LinkedHashMap<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer>(){
             @Override
-            protected boolean removeEldestEntry(java.util.Map.Entry<Object,AtomicObjectContainer> eldest) {
+            protected boolean removeEldestEntry(java.util.Map.Entry<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer> eldest) {
                 if(maxSize!=0 && this.size() == maxSize){
                     try {
                         eldest.getValue().dispose(true);
@@ -148,16 +151,19 @@ public class AtomicObjectFactory {
             throw new InvalidCacheUsageException("The object must be serializable.");
         }
 
+        AtomicObjectContainertSignature signature = new AtomicObjectContainertSignature(clazz,key);
+
         try{
-            if(!registeredContainers.containsKey(key)){
-                registeredContainers.put(key,new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs));
+            if(!registeredContainers.containsKey(signature)){
+                AtomicObjectContainer container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs);
+                registeredContainers.put(signature, container);
             }
         } catch (Exception e){
             e.printStackTrace();
             throw new InvalidCacheUsageException(e.getCause());
         }
 
-        return (T) registeredContainers.get(key).getProxy();
+        return (T) registeredContainers.get(signature).getProxy();
 
     }
 

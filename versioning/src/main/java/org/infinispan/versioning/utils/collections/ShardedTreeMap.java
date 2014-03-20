@@ -1,7 +1,4 @@
-package org.infinispan.atomic.map;
-
-import org.infinispan.Cache;
-import org.infinispan.atomic.AtomicShardedObject;
+package org.infinispan.versioning.utils.collections;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
@@ -13,14 +10,11 @@ import java.util.*;
  * It consists in a tree of subtrees, the first level is called entries, and it contains
  * the keys of the second level, named delegate.
  *
- * TODO in the current implementation, everything is stored in the default cache.
  *
  * @author Pierre Sutra
  * @since 6.0
  */
-public class ShardedTreeMap<K,V>
-        extends AtomicShardedObject
-        implements Serializable, SortedMap<K, V>
+public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
 {
 
     private final static int DEFAULT_THRESHOLD = 100;
@@ -29,20 +23,13 @@ public class ShardedTreeMap<K,V>
     private transient SortedMap<K,TreeMap<K,V>> delegate;
     private int threshhold; // how many entries are stored before creating a new subtree.
 
-    @Deprecated
     public ShardedTreeMap(){
-        super();
-    }
-
-    public ShardedTreeMap(Cache cache){
-        super(cache);
         entries = new HashSet<K>();
         delegate = new TreeMap<K, TreeMap<K,V>>();
         threshhold = DEFAULT_THRESHOLD;
     }
 
-    public ShardedTreeMap(Cache cache, Integer threshhold){
-        super(cache);
+    public ShardedTreeMap(Integer threshhold){
         entries = new HashSet<K>();
         delegate = new TreeMap<K, TreeMap<K,V>>();
         this.threshhold = threshhold;
@@ -110,13 +97,15 @@ public class ShardedTreeMap<K,V>
     }
 
     @Override
-    public V put(K K, V v) {
-        V ret = get(K);
+    public V put(K k, V v) {
+        V ret = get(k);
         if( delegate.isEmpty()
             || delegate.get(delegate.lastKey()).size()==threshhold ){
-            delegate.put(K, factory.getInstanceOf(TreeMap.class, K, true));
+            delegate.put(k, new TreeMap());
         }
-        delegate.get(delegate.lastKey()).put(K,v);
+        K k1 = delegate.lastKey(); // FIXME
+        TreeMap<K,V> inner = delegate.get(k1);
+        inner.put(k, v);
         return v;
     }
 
@@ -133,9 +122,9 @@ public class ShardedTreeMap<K,V>
     // When the object is unserialized, we reconstruct all the subtrees.
     public Object readResolve() throws ObjectStreamException {
         delegate = new TreeMap<K, TreeMap<K,V>>();
-        for(K version : entries){
-            TreeMap map = factory.getInstanceOf(TreeMap.class,version.toString(),true,null,false);
-            delegate.put(version,map);
+        for(K k: entries){
+            TreeMap map = new TreeMap();
+            delegate.put(k,map);
         }
         return this;
     }

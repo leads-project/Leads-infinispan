@@ -31,7 +31,7 @@ public class VersionScalar extends Version implements Serializable{
         scalar++;
     }
 
-    public int value(){
+    public int version(){
         return scalar;
     }
 
