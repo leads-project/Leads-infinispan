@@ -178,8 +178,10 @@ public class AtomicObjectFactory {
      */
     public synchronized void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
             throws IOException, InvalidCacheUsageException {
-    	log.debug("Disposing instance from key:"+key);
-        AtomicObjectContainer container = registeredContainers.get(key);
+    	
+        AtomicObjectContainertSignature signature = new AtomicObjectContainertSignature(clazz,key);
+    	log.debug("Disposing instance from key:"+signature);
+        AtomicObjectContainer container = registeredContainers.get(signature);
 
         if( container == null )
             throw new InvalidCacheUsageException("The object does not exist.");
@@ -193,7 +195,7 @@ public class AtomicObjectFactory {
             throw new InvalidCacheUsageException(e.getCause());
         }
 
-        registeredContainers.remove(key);
+        registeredContainers.remove(signature);
 
     }
 
