@@ -30,8 +30,9 @@ public class VersionedCacheFactory {
     public static enum VersioningTechnique {
         NAIVE,
         ATOMICMAP,
-        SHARDED_TREE,
-        HIBERNATE
+        TREEMAP,
+        HIBERNATE,
+        SHARDED_TREE
     }
 
 
@@ -65,9 +66,12 @@ public class VersionedCacheFactory {
 		case HIBERNATE: {
 			 return new VersionedCacheHibernateImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
-		case SHARDED_TREE:{
+		case TREEMAP:{
 			 return new VersionedCacheAtomicTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		       
+		}
+		case SHARDED_TREE:{
+			 throw new UnsupportedOperationException("not implemented yet");  
 		}
 		default:
 			logger.info("Creating default versioned cache of type "+VersionedCacheNaiveImpl.class.getCanonicalName());
