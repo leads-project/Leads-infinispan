@@ -68,7 +68,6 @@ public class VersionedCacheFactory {
 		}
 		case TREEMAP:{
 			 return new VersionedCacheAtomicTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
-		       
 		}
 		case SHARDED_TREE:{
 			 throw new UnsupportedOperationException("not implemented yet");  
