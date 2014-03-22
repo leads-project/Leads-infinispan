@@ -1,23 +1,19 @@
 package org.infinispan.versioning.rmi;
 
 
-import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
 import org.infinispan.versioning.VersionedCache;
 import org.infinispan.versioning.VersionedCacheFactory;
+import org.infinispan.versioning.utils.IncredibleLoggerFactory;
+import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetAddress;
-import java.net.URL;
-import java.net.URLStreamHandler;
 import java.rmi.Naming;
 import java.rmi.registry.LocateRegistry;
 import java.util.Properties;
 
-import static java.lang.System.getProperties;
 
 /**
  * @author Marcelo Pasin (pasin)
@@ -28,6 +24,7 @@ public class RemoteVersionedCacheServer {
 
     private Logger logger;
 
+/* MP: This doesn't seem to work
     class UnbindServiceHook extends Thread {
         String name;
         UnbindServiceHook(String name) {
@@ -43,41 +40,24 @@ public class RemoteVersionedCacheServer {
             }
         }
     }
-
-    // TODO: generalise getProperty() and configLog() in separate class
-
-    private String getProperty(String s) {
-        Properties properties = getProperties();
-        String configProperties="src/main/resources/config.properties"; // TODO: fix this path
-        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(configProperties);
-
-        if (is != null) {
-            try{
-                properties.load(is);
-                logger.info("Found correct " + configProperties + " file.");
-            } catch (IOException e) {
-                e.printStackTrace();
-                logger.error("File " + configProperties + " is corrupted.");
-            }
-        }
-
-        return getProperties().getProperty(s);
-    }
-
-    void configLog() {
-        String log4jConfigFile = getProperty("log4jConfigFile");
-        if (log4jConfigFile == null)
-            BasicConfigurator.configure();
-        logger = Logger.getLogger(this.getClass());
-    }
+*/
 
     private void run() {
-        configLog();
+        Properties props = System.getProperties();
+        IncrediblePropertyLoader.load(props, "config.properties");
+        logger = IncredibleLoggerFactory.getLogger(this.getClass().toString());
+
         try {
             LocateRegistry.createRegistry(1099);
-            VersionedCacheFactory fac = new VersionedCacheFactory();
             VersionGenerator generator = new VersionScalarGenerator();
-            VersionedCache<String,String> vCache = fac.newVersionedCache(VersionedCacheFactory.VersioningTechnique.TREEMAP, generator, "default");
+            String versioningTechnique = props.getProperty("versioningTechnique");
+            VersionedCacheFactory.VersioningTechnique tech = (versioningTechnique != null) ?
+                    VersionedCacheFactory.VersioningTechnique.valueOf(versioningTechnique) :
+                    VersionedCacheFactory.VersioningTechnique.TREEMAP;
+            logger.info("RemoteVersionedCacheServer using " + tech.toString());
+
+            VersionedCacheFactory fac = new VersionedCacheFactory();
+            VersionedCache<String,String> vCache = fac.newVersionedCache(tech, generator, "default");
             RemoteVersionedCache<String,String> service = new RemoteVersionedCacheImpl<String, String>(vCache);
 
             Naming.rebind(RemoteVersionedCacheImpl.SERVICE_NAME, service);
@@ -85,12 +65,12 @@ public class RemoteVersionedCacheServer {
                     InetAddress.getLocalHost().getHostAddress().toString() +
                     "/" + RemoteVersionedCacheImpl.SERVICE_NAME);
 
-            Runtime.getRuntime().addShutdownHook(new UnbindServiceHook("TestRemoteCache"));
+//            Runtime.getRuntime().addShutdownHook(new UnbindServiceHook("RemoteVersionedCacheServer"));
         } catch (Exception e) {
             logger.error("RemoteVersionedCacheServer error: " + e.getMessage());
             e.printStackTrace();
         }
-        logger.info("RemoteVersionedCacheServer running forever. Send interrupt the stop it properly.");
+        logger.info("RemoteVersionedCacheServer running forever. Send interrupt to stop it properly.");
     }
 
     public static void main(String args[]) {

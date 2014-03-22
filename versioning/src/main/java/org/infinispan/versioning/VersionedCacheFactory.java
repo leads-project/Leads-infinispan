@@ -1,6 +1,5 @@
 package org.infinispan.versioning;
 
-import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
@@ -15,14 +14,12 @@ import org.infinispan.versioning.impl.VersionedCacheAtomicMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
 import org.infinispan.versioning.impl.VersionedCacheNaiveImpl;
+import org.infinispan.versioning.utils.IncredibleLoggerFactory;
+import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
-
-import static java.lang.System.getProperties;
 
 /**
  * A factory of {@link VersionedCache} instances.
@@ -44,8 +41,9 @@ public class VersionedCacheFactory {
     }
 
     public VersionedCacheFactory(){
-        configLog();
-		startManager();
+        IncrediblePropertyLoader.load(System.getProperties(), "config.properties");
+        logger = IncredibleLoggerFactory.getLogger(this.getClass().toString());
+        startManager();
 	}
 	
 	/**
@@ -110,14 +108,14 @@ public class VersionedCacheFactory {
 		return newVersionedCache(VersioningTechnique.NAIVE, new VersionScalarGenerator(), cacheName);
 	}
 	
-	public  void startManager(){  
-		
-		if (cacheManager!=null && cacheManager.getStatus() == ComponentStatus.RUNNING) {
+	public  void startManager() {
+
+		if (cacheManager != null && cacheManager.getStatus() == ComponentStatus.RUNNING) {
 			logger.info("CacheManager already started, nothing to do here");
 			return;
 		}
 
-        String infinispanConfig = getProperty("infinispanConfigFile");
+        String infinispanConfig = System.getProperties().getProperty("infinispanConfigFile");
         if (infinispanConfig != null) {
             try {
             	this.cacheManager= new DefaultCacheManager(infinispanConfig);
@@ -128,7 +126,6 @@ public class VersionedCacheFactory {
         }
 
         if (this.cacheManager == null) {
-        	
         	GlobalConfiguration globalConfig = new GlobalConfigurationBuilder()
         	  .transport().defaultTransport()
         	  .build();        	
@@ -143,31 +140,6 @@ public class VersionedCacheFactory {
 
         cacheManager.start();
         logger.info("Cache manager started.");
-    }
-
-    void configLog() {
-        String log4jConfigFile = getProperty("log4jConfigFile");
-        if (log4jConfigFile == null)
-            BasicConfigurator.configure();
-        logger = Logger.getLogger(this.getClass());
-    }
-
-    private String getProperty(String s) {
-        Properties properties = System.getProperties();
-        String configProperties="src/main/resources/config.properties";
-        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(configProperties);
-      
-        if (is != null) {
-            try{            	
-                properties.load(is);
-                logger.info("Found correct " + configProperties + " file.");
-            } catch (IOException e) {
-                e.printStackTrace();
-                logger.error("File " + configProperties + " is corrupted.");
-            }
-        }
-
-        return getProperties().getProperty(s);
     }
 
     public void stopManager(){

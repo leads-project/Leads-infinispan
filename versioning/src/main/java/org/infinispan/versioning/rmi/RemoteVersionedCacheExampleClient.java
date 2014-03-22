@@ -9,7 +9,7 @@ import java.rmi.Naming;
  * @since 7.0
  */
 
-public class RemoteVersionedCacheClient {
+public class RemoteVersionedCacheExampleClient {
 
 
     void run(String serviceURL) {
@@ -33,13 +33,13 @@ public class RemoteVersionedCacheClient {
             assert cache.get(key, v1) == value;
             System.out.println("First version still exists.");
         } catch (Exception e) {
-            System.out.println("RemoteVersionedCacheClient exception: " + e.getMessage());
+            System.out.println("RemoteVersionedCacheExampleClient exception: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     public static void main(String args[]) {
         String serviceURL = "//localhost/" + RemoteVersionedCacheImpl.SERVICE_NAME;
-        new RemoteVersionedCacheClient().run(serviceURL);
+        new RemoteVersionedCacheExampleClient().run(serviceURL);
     }
 }
