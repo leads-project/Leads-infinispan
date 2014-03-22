@@ -12,8 +12,11 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Created by pasin on 21/03/14.
+ * @author Marcelo Pasin (pasin)
+ * @since 7.0
  */
+
+
 public class RemoteVersionedCacheImpl<K,V> extends UnicastRemoteObject implements RemoteVersionedCache<K,V> {
     VersionedCache<K,V> delegate;
 

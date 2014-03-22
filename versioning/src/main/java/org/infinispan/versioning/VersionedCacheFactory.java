@@ -20,7 +20,6 @@ import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Iterator;
 import java.util.Properties;
 
 import static java.lang.System.getProperties;
@@ -42,13 +41,6 @@ public class VersionedCacheFactory {
         TREEMAP,
         HIBERNATE,
         SHARDED_TREE
-    }
-
-    void configLog() {
-        String log4jConfigFile = getConfig("log4jConfigFile");
-        if (log4jConfigFile == null)
-            BasicConfigurator.configure();
-        logger = Logger.getLogger(VersionedCacheFactory.class.getClass());
     }
 
     public VersionedCacheFactory(){
@@ -125,7 +117,7 @@ public class VersionedCacheFactory {
 			return;
 		}
 
-        String infinispanConfig = getConfig("infinispanConfigFile");
+        String infinispanConfig = getProperty("infinispanConfigFile");
         if (infinispanConfig != null) {
             try {
             	this.cacheManager= new DefaultCacheManager(infinispanConfig);
@@ -153,8 +145,15 @@ public class VersionedCacheFactory {
         logger.info("Cache manager started.");
     }
 
-    private String getConfig(String s) {
-        Properties properties = getProperties();
+    void configLog() {
+        String log4jConfigFile = getProperty("log4jConfigFile");
+        if (log4jConfigFile == null)
+            BasicConfigurator.configure();
+        logger = Logger.getLogger(this.getClass());
+    }
+
+    private String getProperty(String s) {
+        Properties properties = System.getProperties();
         String configProperties="src/main/resources/config.properties";
         InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(configProperties);
       

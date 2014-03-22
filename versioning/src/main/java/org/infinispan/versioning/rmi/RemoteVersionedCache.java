@@ -12,8 +12,10 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Created by pasin on 21/03/14.
+ * @author Marcelo Pasin (pasin)
+ * @since 7.0
  */
+
 public interface RemoteVersionedCache<K,V> extends Remote {
     public String getName() throws RemoteException;
     public String getVersion() throws RemoteException;

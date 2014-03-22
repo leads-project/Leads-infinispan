@@ -5,8 +5,10 @@ import org.infinispan.versioning.utils.version.Version;
 import java.rmi.Naming;
 
 /**
- * Created by pasin on 21/03/14.
+ * @author Marcelo Pasin (pasin)
+ * @since 7.0
  */
+
 public class RemoteVersionedCacheClient {
 
     public static void main(String args[]) {
