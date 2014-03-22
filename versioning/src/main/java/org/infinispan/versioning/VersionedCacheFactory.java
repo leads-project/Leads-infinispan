@@ -1,5 +1,6 @@
 package org.infinispan.versioning;
 
+import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.DefaultCacheManager;
@@ -24,7 +25,7 @@ import static java.lang.System.getProperties;
  */
 public class VersionedCacheFactory {
 	
-	private static Logger logger = Logger.getLogger(VersionedCacheFactory.class.getClass());
+	private Logger logger;
 	private EmbeddedCacheManager cacheManager;
 
     public static enum VersioningTechnique {
@@ -34,8 +35,15 @@ public class VersionedCacheFactory {
         HIBERNATE
     }
 
+    void configLog() {
+        String log4jConfigFile = getConfig("log4jConfigFile");
+        if (log4jConfigFile == null)
+            BasicConfigurator.configure();
+        logger = Logger.getLogger(VersionedCacheFactory.class.getClass());
+    }
 
     public VersionedCacheFactory(){
+        configLog();
 		startManager();
 	}
 	
@@ -102,32 +110,48 @@ public class VersionedCacheFactory {
 	public  void startManager(){  
 		
 		if (cacheManager!=null && cacheManager.getStatus() == ComponentStatus.RUNNING) {
-			logger.info("CacheMAnager already started, nothing to do here");
+			logger.info("CacheManager already started, nothing to do here");
 			return;
 		}
-		
-        try{
-            Properties properties = getProperties();
-            properties.load(VersionedCacheFactory.class.getClassLoader().getResourceAsStream("config.properties"));
-            logger.info("Found properties file.");
-        } catch (IOException e) {
-            logger.info("Found no config.properties file; defaulting.");
-        }
-        String infinispanConfig = getProperties().getProperty("infinispanConfigFile");
-        
-        if(infinispanConfig != null){
+
+        String infinispanConfig = getConfig("infinispanConfigFile");
+        if (infinispanConfig != null) {
             try {
             	this.cacheManager= new DefaultCacheManager(infinispanConfig);
             } catch (IOException e) {
                 e.printStackTrace();
-                throw new RuntimeException("Incorrect Infinispan configuration file");
+                logger.error("File " + infinispanConfig + " is corrupted.");
             }
         }
+
+        if (this.cacheManager == null) {
+            this.cacheManager = new DefaultCacheManager();
+            logger.info("Using DefaultCacheManager with no configuration.");
+        }
+
         cacheManager.start();
         logger.info("Cache manager started.");
     }
-	
-	public void stopManager(){
+
+    private String getConfig(String s) {
+        Properties properties = getProperties();
+        ClassLoader cl = VersionedCacheFactory.class.getClassLoader();
+        String configProperties = "config.properties";
+
+        if (cl.getResource(configProperties) != null) {
+            try{
+                properties.load(cl.getResourceAsStream(configProperties));
+                logger.info("Found correct " + configProperties + " file.");
+            } catch (IOException e) {
+                e.printStackTrace();
+                logger.error("File " + configProperties + " is corrupted.");
+            }
+        }
+
+        return getProperties().getProperty(s);
+    }
+
+    public void stopManager(){
 		cacheManager.stop();
 	    logger.info("Cache manager stopped.");	    	
 	}

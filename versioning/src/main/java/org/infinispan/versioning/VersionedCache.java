@@ -3,6 +3,7 @@ package org.infinispan.versioning;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.versioning.utils.version.Version;
 
+import java.rmi.RemoteException;
 import java.util.Collection;
 
 /**
