@@ -11,9 +11,9 @@ import java.rmi.Naming;
 
 public class RemoteVersionedCacheClient {
 
-    public static void main(String args[]) {
+
+    void run(String serviceURL) {
         RemoteVersionedCache<String,String> cache;
-        String serviceURL = "//localhost/RemoteVersionedCacheServer";
 
         try {
             cache = (RemoteVersionedCache<String,String>) Naming.lookup(serviceURL);
@@ -36,5 +36,10 @@ public class RemoteVersionedCacheClient {
             System.out.println("RemoteVersionedCacheClient exception: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    public static void main(String args[]) {
+        String serviceURL = "//localhost/" + RemoteVersionedCacheImpl.SERVICE_NAME;
+        new RemoteVersionedCacheClient().run(serviceURL);
     }
 }

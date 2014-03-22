@@ -10,6 +10,9 @@ import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.URL;
+import java.net.URLStreamHandler;
 import java.rmi.Naming;
 import java.rmi.registry.LocateRegistry;
 import java.util.Properties;
@@ -77,8 +80,11 @@ public class RemoteVersionedCacheServer {
             VersionedCache<String,String> vCache = fac.newVersionedCache(VersionedCacheFactory.VersioningTechnique.TREEMAP, generator, "default");
             RemoteVersionedCache<String,String> service = new RemoteVersionedCacheImpl<String, String>(vCache);
 
-            Naming.rebind("RemoteVersionedCacheServer", service);
-            logger.info("RemoteVersionedCacheServer bound in registry.");
+            Naming.rebind(RemoteVersionedCacheImpl.SERVICE_NAME, service);
+            logger.info("RemoteVersionedCacheServer bound in registry: //"+
+                    InetAddress.getLocalHost().getHostAddress().toString() +
+                    "/" + RemoteVersionedCacheImpl.SERVICE_NAME);
+
             Runtime.getRuntime().addShutdownHook(new UnbindServiceHook("TestRemoteCache"));
         } catch (Exception e) {
             logger.error("RemoteVersionedCacheServer error: " + e.getMessage());

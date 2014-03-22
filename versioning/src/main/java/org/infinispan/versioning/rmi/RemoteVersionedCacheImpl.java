@@ -20,6 +20,8 @@ import java.util.concurrent.TimeUnit;
 public class RemoteVersionedCacheImpl<K,V> extends UnicastRemoteObject implements RemoteVersionedCache<K,V> {
     VersionedCache<K,V> delegate;
 
+    public static final String SERVICE_NAME = "RemoteVersionedCacheService";
+
     RemoteVersionedCacheImpl(VersionedCache<K,V> delegate) throws RemoteException {
         super();
         this.delegate = delegate;
