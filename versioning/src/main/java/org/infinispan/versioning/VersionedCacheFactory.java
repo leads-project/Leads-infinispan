@@ -2,8 +2,11 @@ package org.infinispan.versioning;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
+import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.global.GlobalConfiguration;
+import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
@@ -133,9 +136,16 @@ public class VersionedCacheFactory {
         }
 
         if (this.cacheManager == null) {
+        	
+        	GlobalConfiguration globalConfig = new GlobalConfigurationBuilder()
+        	  .transport().defaultTransport()
+        	  .build();        	
         	ConfigurationBuilder cb = new ConfigurationBuilder();
-        	Configuration c = cb.transaction().transactionMode(TransactionMode.TRANSACTIONAL).build();
-            this.cacheManager = new DefaultCacheManager(c);
+        	Configuration c = cb.        						
+        						transaction().transactionMode(TransactionMode.TRANSACTIONAL).
+        						clustering().cacheMode(CacheMode.REPL_SYNC).
+        						build();
+            this.cacheManager = new DefaultCacheManager(globalConfig, c);
             logger.warn("Using DefaultCacheManager with no configuration.");            
         }
 
