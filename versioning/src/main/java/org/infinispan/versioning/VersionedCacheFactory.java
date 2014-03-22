@@ -2,9 +2,12 @@ package org.infinispan.versioning;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
+import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.transaction.TransactionMode;
 import org.infinispan.versioning.impl.VersionedCacheAtomicMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
@@ -13,6 +16,8 @@ import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Iterator;
 import java.util.Properties;
 
 import static java.lang.System.getProperties;
@@ -128,8 +133,10 @@ public class VersionedCacheFactory {
         }
 
         if (this.cacheManager == null) {
-            this.cacheManager = new DefaultCacheManager();
-            logger.info("Using DefaultCacheManager with no configuration.");
+        	ConfigurationBuilder cb = new ConfigurationBuilder();
+        	Configuration c = cb.transaction().transactionMode(TransactionMode.TRANSACTIONAL).build();
+            this.cacheManager = new DefaultCacheManager(c);
+            logger.warn("Using DefaultCacheManager with no configuration.");            
         }
 
         cacheManager.start();
@@ -138,12 +145,12 @@ public class VersionedCacheFactory {
 
     private String getConfig(String s) {
         Properties properties = getProperties();
-        ClassLoader cl = VersionedCacheFactory.class.getClassLoader();
-        String configProperties = "config.properties";
-
-        if (cl.getResource(configProperties) != null) {
-            try{
-                properties.load(cl.getResourceAsStream(configProperties));
+        String configProperties="src/main/resources/config.properties";
+        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(configProperties);
+      
+        if (is != null) {
+            try{            	
+                properties.load(is);
                 logger.info("Found correct " + configProperties + " file.");
             } catch (IOException e) {
                 e.printStackTrace();

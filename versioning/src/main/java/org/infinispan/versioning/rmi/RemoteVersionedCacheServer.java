@@ -35,7 +35,7 @@ public class RemoteVersionedCacheServer {
             LocateRegistry.createRegistry(1099);
             VersionedCacheFactory fac = new VersionedCacheFactory();
             VersionGenerator generator = new VersionScalarGenerator();
-            VersionedCache<String,String> vCache = fac.newVersionedCache(VersionedCacheFactory.VersioningTechnique.NAIVE, generator, "gisele");
+            VersionedCache<String,String> vCache = fac.newVersionedCache(VersionedCacheFactory.VersioningTechnique.TREEMAP, generator, "default");
             RemoteVersionedCache<String,String> service = new RemoteVersionedCacheImpl<String, String>(vCache);
 
             Naming.rebind("RemoteVersionedCacheServer", service);
