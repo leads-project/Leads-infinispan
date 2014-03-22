@@ -157,6 +157,7 @@ public class AtomicObjectFactory {
             if(!registeredContainers.containsKey(signature)){
                 AtomicObjectContainer container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs);
                 registeredContainers.put(signature, container);
+                log.debug("Registering cache "+signature);
             }
         } catch (Exception e){
             e.printStackTrace();
@@ -177,8 +178,10 @@ public class AtomicObjectFactory {
      */
     public synchronized void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
             throws IOException, InvalidCacheUsageException {
-
-        AtomicObjectContainer container = registeredContainers.get(key);
+    	
+        AtomicObjectContainertSignature signature = new AtomicObjectContainertSignature(clazz,key);
+    	log.debug("Disposing instance from key:"+signature);
+        AtomicObjectContainer container = registeredContainers.get(signature);
 
         if( container == null )
             throw new InvalidCacheUsageException("The object does not exist.");
@@ -192,7 +195,7 @@ public class AtomicObjectFactory {
             throw new InvalidCacheUsageException(e.getCause());
         }
 
-        registeredContainers.remove(key);
+        registeredContainers.remove(signature);
 
     }
 
