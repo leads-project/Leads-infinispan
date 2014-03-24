@@ -1,19 +1,17 @@
 package org.infinispan.versioning.rmi;
 
 
-import org.apache.log4j.Logger;
 import org.infinispan.versioning.VersionedCache;
 import org.infinispan.versioning.VersionedCacheFactory;
-import org.infinispan.versioning.utils.IncredibleLoggerFactory;
 import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
+import org.jboss.logging.Logger;
 
 import java.net.InetAddress;
 import java.rmi.Naming;
 import java.rmi.registry.LocateRegistry;
 import java.util.Properties;
-
 
 /**
  * @author Marcelo Pasin (pasin)
@@ -45,7 +43,7 @@ public class RemoteVersionedCacheServer {
     private void run() {
         Properties props = System.getProperties();
         IncrediblePropertyLoader.load(props, "config.properties");
-        logger = IncredibleLoggerFactory.getLogger(this.getClass().toString());
+        logger = Logger.getLogger(this.getClass());
 
         try {
             LocateRegistry.createRegistry(1099);

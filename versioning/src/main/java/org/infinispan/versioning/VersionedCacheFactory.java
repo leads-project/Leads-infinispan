@@ -1,6 +1,5 @@
 package org.infinispan.versioning;
 
-import org.apache.log4j.Logger;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
@@ -14,10 +13,10 @@ import org.infinispan.versioning.impl.VersionedCacheAtomicMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
 import org.infinispan.versioning.impl.VersionedCacheNaiveImpl;
-import org.infinispan.versioning.utils.IncredibleLoggerFactory;
 import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
+import org.jboss.logging.Logger;
 
 import java.io.IOException;
 
@@ -42,7 +41,7 @@ public class VersionedCacheFactory {
 
     public VersionedCacheFactory(){
         IncrediblePropertyLoader.load(System.getProperties(), "config.properties");
-        logger = IncredibleLoggerFactory.getLogger(this.getClass().toString());
+        logger = Logger.getLogger(this.getClass());
         startManager();
 	}
 	
