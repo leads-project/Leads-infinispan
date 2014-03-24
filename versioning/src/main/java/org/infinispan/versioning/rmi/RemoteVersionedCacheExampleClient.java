@@ -1,13 +1,10 @@
 package org.infinispan.versioning.rmi;
 
+import java.rmi.Naming;
+import java.util.Properties;
+
 import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.Version;
-
-import java.net.MalformedURLException;
-import java.rmi.Naming;
-import java.rmi.NotBoundException;
-import java.rmi.RemoteException;
-import java.util.Properties;
 
 /**
  * @author Marcelo Pasin (pasin)
