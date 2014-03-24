@@ -41,14 +41,16 @@ public class RemoteVersionedCacheServer {
 */
 
     private void run() {
-        Properties props = System.getProperties();
-        IncrediblePropertyLoader.load(props, "config.properties");
+        Properties props = new Properties();
         props.setProperty("log4j.configuration", "versioning-log4j.xml");
+        IncrediblePropertyLoader.load(props, "config.properties");
+        props.putAll(System.getProperties());
+
+        System.getProperties().putAll(props); // Valerio is not confident about this
+
         logger = Logger.getLogger(this.getClass());
-        int port = 1099;
-        String overridePort = props.getProperty("rmiRegistryPort");
-        if (overridePort != null)
-            port = Integer.valueOf(overridePort);
+        String overridePort = props.getProperty("rmiRegistryPort", "1099");
+        int port = Integer.valueOf(overridePort);
 
         try {
             LocateRegistry.createRegistry(port);
