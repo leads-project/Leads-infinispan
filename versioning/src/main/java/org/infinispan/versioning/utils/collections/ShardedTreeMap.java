@@ -2,7 +2,15 @@ package org.infinispan.versioning.utils.collections;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Map;
+
+
 
 /**
  *
