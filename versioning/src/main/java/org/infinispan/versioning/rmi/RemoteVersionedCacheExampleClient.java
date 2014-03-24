@@ -103,24 +103,24 @@ public class RemoteVersionedCacheExampleClient {
    }
 
     /**
-     * Measure get time, 1 key, many versions, earliest, latest time.
+     * Measure get time, 1 key, get all versions.
      * @param serviceURL
      */
     void run_t3(String serviceURL){
    	 try {
    		 	final String key="key1";
-   		 	final int VERSIONS=100;
+   		 	final int VERSIONS=1000;
 			RemoteVersionedCache<String,String> cache = (RemoteVersionedCache<String,String>) Naming.lookup(serviceURL);
 			for (int i = 0; i <VERSIONS ; i++) {
 				cache.put(key,new Integer(i).toString());
 			}
 			
-			Version earlist=cache.getEarliestVersion(key);
-			Version last = cache.getLatestVersion(key);
+			Version earliest=cache.getEarliestVersion(key);
+			Version latest = cache.getLatestVersion(key);
 			
 			
 			long now = System.nanoTime();
-			cache.get(key, earlist, last);
+			cache.get(key, earliest, latest);
 			long time = System.nanoTime() - now;
 			System.out.println("Get all versions:"+ time);
 					
