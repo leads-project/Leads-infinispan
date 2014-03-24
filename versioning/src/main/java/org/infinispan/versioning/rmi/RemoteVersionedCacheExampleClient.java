@@ -47,7 +47,10 @@ public class RemoteVersionedCacheExampleClient {
             e.printStackTrace();
         }
     }
-    
+    /**
+     * Measure insertion time, 1 key, many versions.
+     * @param serviceURL
+     */
     void run_t1(String serviceURL){
     	 try {
     		 
@@ -69,6 +72,67 @@ public class RemoteVersionedCacheExampleClient {
             e.printStackTrace();
         }
     }
+    /**
+     * Measure get time, 1 key, many versions, earliest, latest time.
+     * @param serviceURL
+     */
+    void run_t2(String serviceURL){
+   	 try {
+   		 
+   		 	final int VERSIONS=10000;
+			RemoteVersionedCache<String,String> cache = (RemoteVersionedCache<String,String>) Naming.lookup(serviceURL);
+			for (int i = 0; i <VERSIONS ; i++) {
+				cache.put("key1",new Integer(i).toString());
+			}
+			long now = System.nanoTime();
+			cache.getLatestVersion("key1");
+			long insertionTime = System.nanoTime() - now;
+			System.out.println("Latest version got in:"+ insertionTime);
+			
+			now = System.nanoTime();
+			cache.getEarliestVersion("key1");
+			insertionTime = System.nanoTime() - now;
+			System.out.println("Earlist version got in:"+ insertionTime);
+			
+			//cache.clear(); //to avoid next tests to have some effects			
+			
+		}catch (Exception e) {
+           System.out.println("RemoteVersionedCacheExampleClient exception: " + e.getMessage());
+           e.printStackTrace();
+       }
+   }
+
+    /**
+     * Measure get time, 1 key, many versions, earliest, latest time.
+     * @param serviceURL
+     */
+    void run_t3(String serviceURL){
+   	 try {
+   		 	final String key="key1";
+   		 	final int VERSIONS=100;
+			RemoteVersionedCache<String,String> cache = (RemoteVersionedCache<String,String>) Naming.lookup(serviceURL);
+			for (int i = 0; i <VERSIONS ; i++) {
+				cache.put(key,new Integer(i).toString());
+			}
+			
+			Version earlist=cache.getEarliestVersion(key);
+			Version last = cache.getLatestVersion(key);
+			
+			
+			long now = System.nanoTime();
+			cache.get(key, earlist, last);
+			long time = System.nanoTime() - now;
+			System.out.println("Get all versions:"+ time);
+					
+			//cache.clear(); //to avoid next tests to have some effects			
+			
+		}catch (Exception e) {
+           System.out.println("RemoteVersionedCacheExampleClient exception: " + e.getMessage());
+           e.printStackTrace();
+       }
+   }
+
+    
 
     public static void main(String args[]) {
         RemoteVersionedCacheExampleClient client = new RemoteVersionedCacheExampleClient();
@@ -78,7 +142,7 @@ public class RemoteVersionedCacheExampleClient {
         for (String server : servers.split(";")) {
             String serviceURL = "//" + server + "/" + RemoteVersionedCacheImpl.SERVICE_NAME;
             System.out.println("Connecting to " + serviceURL + " ...");
-            client.run_t1(serviceURL);
+            client.run_t3(serviceURL);
         }
     }
 }
