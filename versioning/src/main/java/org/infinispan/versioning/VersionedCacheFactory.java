@@ -40,7 +40,7 @@ public class VersionedCacheFactory {
     }
 
     public VersionedCacheFactory(){
-        IncrediblePropertyLoader.load(System.getProperties(), "config.properties");
+        IncrediblePropertyLoader.load(System.getProperties());
         logger = Logger.getLogger(this.getClass());
         startManager();
 	}

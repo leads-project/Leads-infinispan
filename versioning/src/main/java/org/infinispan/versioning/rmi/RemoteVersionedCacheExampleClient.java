@@ -47,9 +47,10 @@ public class RemoteVersionedCacheExampleClient {
 
     public static void main(String args[]) {
         RemoteVersionedCacheExampleClient client = new RemoteVersionedCacheExampleClient();
-        Properties prop = new Properties();
-        IncrediblePropertyLoader.load(prop, "rvc-rmi-client.properties");
-        String servers = prop.getProperty("servers");
+        Properties sysProp = System.getProperties();
+        IncrediblePropertyLoader.load(sysProp, "rvc-rmi-client.properties");
+        String servers = sysProp.getProperty("servers");
+
         for (String server : servers.split(";")) {
             String serviceURL = "//" + server + "/" + RemoteVersionedCacheImpl.SERVICE_NAME;
             System.out.println("Connecting to " + serviceURL + " ...");
