@@ -43,6 +43,7 @@ public class RemoteVersionedCacheServer {
     private void run() {
         Properties props = System.getProperties();
         IncrediblePropertyLoader.load(props, "config.properties");
+        props.setProperty("log4j.configuration", "versioning-log4j.xml");
         logger = Logger.getLogger(this.getClass());
 
         try {
