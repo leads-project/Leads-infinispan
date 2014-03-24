@@ -6,9 +6,7 @@ import org.infinispan.versioning.utils.version.Version;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -130,7 +128,9 @@ public class RemoteVersionedCacheImpl<K,V> extends UnicastRemoteObject implement
 
     @Override
     public Collection<V> get(K key, Version first, Version last) throws RemoteException {
-        return delegate.get(key, first, last);
+        LinkedList<V> list = new LinkedList<V>();
+        list.addAll(delegate.get(key, first, last));
+        return list;
     }
 
     @Override
