@@ -3,7 +3,10 @@ package org.infinispan.versioning.rmi;
 import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.Version;
 
+import java.net.MalformedURLException;
 import java.rmi.Naming;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
 import java.util.Properties;
 
 /**
@@ -44,6 +47,28 @@ public class RemoteVersionedCacheExampleClient {
             e.printStackTrace();
         }
     }
+    
+    void run_t1(String serviceURL){
+    	 try {
+    		 
+    		final int VERSIONS=10000;
+			RemoteVersionedCache<String,String> cache = (RemoteVersionedCache<String,String>) Naming.lookup(serviceURL);
+			
+			long now = System.currentTimeMillis();
+			
+			for (int i = 0; i <VERSIONS ; i++) {
+				cache.put("key1",new Integer(i).toString());
+			}
+			
+			long insertionTime = System.currentTimeMillis() - now;
+			System.out.println(VERSIONS+" versions inserted in:"+ insertionTime);
+			//cache.clear(); //to avoid next tests to have some effects			
+			
+		}catch (Exception e) {
+            System.out.println("RemoteVersionedCacheExampleClient exception: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 
     public static void main(String args[]) {
         RemoteVersionedCacheExampleClient client = new RemoteVersionedCacheExampleClient();
@@ -53,7 +78,7 @@ public class RemoteVersionedCacheExampleClient {
         for (String server : servers.split(";")) {
             String serviceURL = "//" + server + "/" + RemoteVersionedCacheImpl.SERVICE_NAME;
             System.out.println("Connecting to " + serviceURL + " ...");
-            client.run(serviceURL);
+            client.run_t1(serviceURL);
         }
     }
 }
