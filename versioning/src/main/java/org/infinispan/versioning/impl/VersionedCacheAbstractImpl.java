@@ -163,122 +163,122 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
     @Override
     public int size() {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putAsync(K key, V value) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit unit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit unit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<Void> clearAsync() {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit unit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> removeAsync(Object key) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<Boolean> removeAsync(Object key, Object value) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit unit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit unit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public NotifyingFuture<V> getAsync(K key) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public String getName() {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public String getVersion() {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public V put(K key, V value, long lifespan, TimeUnit unit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public V putIfAbsent(K key, V value, long lifespan, TimeUnit unit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
@@ -288,7 +288,7 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
     @Override
     public V replace(K key, V value, long lifespan, TimeUnit unit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
@@ -298,67 +298,67 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
     @Override
     public V put(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public V putIfAbsent(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public V replace(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public V remove(Object key) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public void clear() {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public V putIfAbsent(K k, V v) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public boolean remove(Object o, Object o2) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public boolean replace(K k, V v, V v2) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public V replace(K k, V v) {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public Set<Entry<K, V>> entrySet() {
-        throw new RuntimeException("NYI");
+        throw new UnsupportedOperationException("NYI");
     }
 
 }
