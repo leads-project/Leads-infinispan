@@ -45,9 +45,13 @@ public class RemoteVersionedCacheServer {
         IncrediblePropertyLoader.load(props, "config.properties");
         props.setProperty("log4j.configuration", "versioning-log4j.xml");
         logger = Logger.getLogger(this.getClass());
+        int port = 1099;
+        String overridePort = props.getProperty("rmiRegistryPort");
+        if (overridePort != null)
+            port = Integer.valueOf(overridePort);
 
         try {
-            LocateRegistry.createRegistry(1099);
+            LocateRegistry.createRegistry(port);
             VersionGenerator generator = new VersionScalarGenerator();
             String versioningTechnique = props.getProperty("versioningTechnique");
             VersionedCacheFactory.VersioningTechnique tech = (versioningTechnique != null) ?
@@ -59,10 +63,11 @@ public class RemoteVersionedCacheServer {
             VersionedCache<String,String> vCache = fac.newVersionedCache(tech, generator, "default");
             RemoteVersionedCache<String,String> service = new RemoteVersionedCacheImpl<String, String>(vCache);
 
-            Naming.rebind(RemoteVersionedCacheImpl.SERVICE_NAME, service);
-            logger.info("RemoteVersionedCacheServer bound in registry: //"+
-                    InetAddress.getLocalHost().getHostAddress().toString() +
-                    "/" + RemoteVersionedCacheImpl.SERVICE_NAME);
+            String serviceName = "//" + InetAddress.getLocalHost().getHostAddress().toString() + ":" + port +
+                    "/" + RemoteVersionedCacheImpl.SERVICE_NAME;
+
+            Naming.rebind(serviceName, service);
+            logger.info("RemoteVersionedCacheServer bound in registry: " + serviceName);
 
 //            Runtime.getRuntime().addShutdownHook(new UnbindServiceHook("RemoteVersionedCacheServer"));
         } catch (Exception e) {
