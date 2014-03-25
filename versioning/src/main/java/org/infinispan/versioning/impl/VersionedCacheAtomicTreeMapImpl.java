@@ -26,12 +26,12 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstract
 
     @Override
     protected SortedMap<Version, V> versionMapGet(K key) {
-        return factory.getInstanceOf(TreeMap.class,key,true,null,false);
+        return factory.getInstanceOf(TreeMap.class,key,true,null,true);
     }
 
     @Override
     protected void versionMapPut(K key, V value, Version version) {
-        factory.getInstanceOf(TreeMap.class,key,true,null,false).put(version, value);
+        factory.getInstanceOf(TreeMap.class,key,true,null,true).put(version, value);
     }
 
     @Override
@@ -47,7 +47,7 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstract
     @Override
     public boolean containsValue(Object o) {
         for(Object k: delegate.keySet()){
-            if(factory.getInstanceOf(TreeMap.class,k,true,null,false).containsValue(o))
+            if(factory.getInstanceOf(TreeMap.class,k,true,null,true).containsValue(o))
                 return true;
         }
         return false;

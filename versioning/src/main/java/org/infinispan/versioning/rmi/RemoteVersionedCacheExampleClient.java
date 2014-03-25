@@ -106,20 +106,28 @@ public class RemoteVersionedCacheExampleClient {
     void run_t3(String serviceURL){
    	 try {
    		 	final String key="key1";
-   		 	final int VERSIONS=1000;
+   		 	final int VERSIONS=100000;
 			RemoteVersionedCache<String,String> cache = (RemoteVersionedCache<String,String>) Naming.lookup(serviceURL);
+			long start=System.currentTimeMillis();
 			for (int i = 0; i <VERSIONS ; i++) {
 				cache.put(key,new Integer(i).toString());
+				if (i%100==0) {
+					long t1=System.currentTimeMillis();
+					System.out.println("Inserted so far:"+i+ " versions. 100 versions in "+(t1-start)+" ms");
+					start=t1;					
+				}
 			}
 			
 			Version earliest=cache.getEarliestVersion(key);
 			Version latest = cache.getLatestVersion(key);
 			
+			for (int i = 0; i < 1000; i++) {
+				long now = System.nanoTime();
+				cache.get(key, earliest, latest);
+				long time = System.nanoTime() - now;
+				System.out.println( time );			
+			}
 			
-			long now = System.nanoTime();
-			cache.get(key, earliest, latest);
-			long time = System.nanoTime() - now;
-			System.out.println("Get all versions:"+ time);
 					
 			//cache.clear(); //to avoid next tests to have some effects			
 			
