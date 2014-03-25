@@ -28,7 +28,7 @@ public class RemoteVersionedCacheServer {
         String overridePort = sysProps.getProperty("rmiRegistryPort", "1099");
         int port = Integer.valueOf(overridePort);
 
-        String versioningTechnique = sysProps.getProperty("versioningTechnique", "TREEMAP");
+        String versioningTechnique = sysProps.getProperty("versioningTechnique", "ATOMICMAP");
         VersionedCacheFactory.VersioningTechnique tech = VersionedCacheFactory.VersioningTechnique.valueOf(versioningTechnique);
         logger.info("Versioning implementation used: " + tech.toString());
 
@@ -37,7 +37,7 @@ public class RemoteVersionedCacheServer {
             VersionedCache<String,String> vCache = fac.newVersionedCache(tech, new VersionScalarGenerator(), "default");
             RemoteVersionedCache<String,String> service = new RemoteVersionedCacheImpl<String, String>(vCache);
 
-            String serviceName = "//" + InetAddress.getLocalHost().getHostAddress().toString() + ":" + port + "/" + RemoteVersionedCacheImpl.SERVICE_NAME;
+            String serviceName = "//" + InetAddress.getLocalHost().getHostAddress().toString() + ":" + port + "/" + RemoteVersionedCacheImpl.SERVICE_NAME + "-" + versioningTechnique;
             LocateRegistry.createRegistry(port);
             Naming.rebind(serviceName, service);
             logger.info("Bound in registry: " + serviceName);

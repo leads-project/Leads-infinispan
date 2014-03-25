@@ -3,10 +3,7 @@ package org.infinispan.versioning.rmi;
 import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.Version;
 
-import java.net.MalformedURLException;
 import java.rmi.Naming;
-import java.rmi.NotBoundException;
-import java.rmi.RemoteException;
 import java.util.Properties;
 
 /**
@@ -136,12 +133,13 @@ public class RemoteVersionedCacheExampleClient {
 
     public static void main(String args[]) {
         RemoteVersionedCacheExampleClient client = new RemoteVersionedCacheExampleClient();
-        Properties sysProp = System.getProperties();
-        IncrediblePropertyLoader.load(sysProp, "rvc-rmi-client.properties");
-        String servers = sysProp.getProperty("servers");
+        Properties sysProps = System.getProperties();
+        IncrediblePropertyLoader.load(sysProps, "rvc-rmi-client.properties");
+        String servers = sysProps.getProperty("servers");
+        String versioningTechnique = sysProps.getProperty("versioningTechnique", "ATOMICMAP");
 
         for (String server : servers.split(";")) {
-            String serviceURL = "//" + server + "/" + RemoteVersionedCacheImpl.SERVICE_NAME;
+            String serviceURL = "//" + server + "/" + RemoteVersionedCacheImpl.SERVICE_NAME + "-" + versioningTechnique;
             System.out.println("Connecting to " + serviceURL + " ...");
             client.run_t3(serviceURL);
         }
