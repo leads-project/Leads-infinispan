@@ -98,6 +98,17 @@
 					</descriptorRefs>
 				</configuration>
 			</plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <classifier>only-client-library</classifier>
+                    <includes>
+                        <include>org/infinispan/versioning/rmi/RemoteVersionedCache.class</include>
+                        <include>org/infinispan/versioning/utils/version/*</include>
+                        <include>org/infinispan/versioning/utils/IncrediblePropertyLoader.class</include>
+                    </includes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

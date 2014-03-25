@@ -9,35 +9,47 @@ import java.io.Serializable;
  */
 public class VersionScalar extends Version implements Serializable{
 
-    private Integer scalar;
+    private long scalar;
 
     public VersionScalar(){
-        scalar=0;
+        scalar = 0L;
+    }
+
+    public VersionScalar(long value){
+        scalar = value;
     }
 
     public VersionScalar(VersionScalar v){
-        scalar=v.scalar;
+        scalar = v.scalar;
     }
 
     @Override
     public int compareTo(Version version) {
         if(!(version instanceof VersionScalar))
             throw new IllegalArgumentException();
-        return scalar.compareTo(((VersionScalar)version).scalar);
+        if (scalar > ((VersionScalar)version).scalar)
+            return 1;
+        if (scalar < ((VersionScalar)version).scalar)
+            return -1;
+        return 0;
     }
 
     @Override
     public void increment() {
-        scalar++;
+        scalar ++;
     }
 
-    public int version(){
+    public long version(){
         return scalar;
     }
 
     @Override
     public int hashCode(){
-        return scalar;
+        return (int) scalar;
     }
 
+    @Override
+    public String toString() {
+        return Long.toString(scalar);
+    }
 }

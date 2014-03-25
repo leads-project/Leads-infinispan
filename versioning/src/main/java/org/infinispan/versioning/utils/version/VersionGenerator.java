@@ -9,6 +9,6 @@ package org.infinispan.versioning.utils.version;
 public abstract class VersionGenerator {
 
     public abstract Version generateNew();
-
+    public abstract Version generateFrom(Object objectValue);
     public abstract Version increment(Version v);
 }
