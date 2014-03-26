@@ -3,6 +3,7 @@ package org.infinispan.versioning.impl;
 import org.infinispan.Cache;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
+import org.jboss.logging.Logger;
 
 import java.util.Set;
 import java.util.SortedMap;
@@ -22,6 +23,7 @@ import java.util.TreeMap;
  */
 public class VersionedCacheNaiveImpl<K, V> extends
 		VersionedCacheAbstractImpl<K, V> {
+	Logger logger;
 
 	/**
 	 * 
@@ -32,8 +34,10 @@ public class VersionedCacheNaiveImpl<K, V> extends
 	 * @param name
 	 *            the name of the cache
 	 */
-	public VersionedCacheNaiveImpl(Cache delegate,VersionGenerator generator, String name) {
+	public VersionedCacheNaiveImpl(Cache delegate, VersionGenerator generator,
+			String name) {
 		super(delegate, generator, name);
+		this.logger = Logger.getLogger(this.getClass());
 	}
 
 	/**
@@ -64,17 +68,18 @@ public class VersionedCacheNaiveImpl<K, V> extends
 	 * versions of this object. This operation is potentially very expensive.
 	 */
 	@Override
-	protected SortedMap<Version,V> versionMapGet(K key) {
-		TreeMap<Version,V> map = new TreeMap<Version, V>();
+	protected SortedMap<Version, V> versionMapGet(K key) {
+		TreeMap<Version, V> map = new TreeMap<Version, V>();
 		map.putAll(delegate);
 		return map;
 	}
-	
+
 	@Override
 	protected void versionMapPut(K key, V value, Version version) {
+		long now = System.nanoTime();
 		delegate.put(version, value);
-
+		long t = System.nanoTime() - now;
+		logger.debug("PUT (ns) " + t);
 	}
-	
 
 }

@@ -4,6 +4,7 @@ import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicMapLookup;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
+import org.jboss.logging.Logger;
 
 import java.util.Set;
 import java.util.SortedMap;
@@ -15,9 +16,12 @@ import java.util.TreeMap;
  * @since 4.0
  */
 public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
-
+	
+	Logger logger;
+	
     public VersionedCacheAtomicMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
+        this.logger  = Logger.getLogger(this.getClass());
     }
 
     @Override
@@ -29,7 +33,10 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
 
     @Override
     protected void versionMapPut(K key, V value, Version version) {
+    	long now=System.nanoTime();
         AtomicMapLookup.getAtomicMap(delegate, key).put(version,value);
+        long t=System.nanoTime()-now;
+        logger.debug("PUT (ns) "+t);
     }
 
     @Override
