@@ -28,25 +28,4 @@ public class VersionScalarGenerator extends VersionGenerator {
         return ret;
     }
 
-    @Override
-    public synchronized Version generateFrom(Object objectValue) {
-        VersionScalar ver;
-        if (objectValue instanceof Long)
-            ver = new VersionScalar(((Long) objectValue).longValue());
-        else if (objectValue instanceof Integer)
-            ver = new VersionScalar((long)((Integer) objectValue).intValue());
-        else
-            throw new IllegalArgumentException("Cannot generate ScalarVersion from object type " + objectValue.getClass().toString());
-
-/*
-  TODO: There should be some sanity check here, but for now wee did not decide on
-        an appropriate semantics here, so we don't. Ask Pierre's opinion.
-
-        if (ver.compareTo((Version)current) < 0 )
-            throw new IllegalArgumentException("Cannot generate ScalarVersion in the past (current=" + current + " from=" + ver + ")");
-*/
-        current = ver;
-        return ver;
-    }
-
 }
