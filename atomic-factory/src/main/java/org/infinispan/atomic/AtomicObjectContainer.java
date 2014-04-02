@@ -208,7 +208,7 @@ public class AtomicObjectContainer {
                 }
                 return;
             } catch (Exception e) {
-                log.info("Enable to retrieve object " + key + " from the cache.");
+                log.debug("Enable to retrieve object " + key + " from the cache."+e.getMessage());
             }
         }
 
@@ -232,7 +232,7 @@ public class AtomicObjectContainer {
         }
 
         if(found)
-            log.info("Object "+key+" is created.");
+            log.debug("Object "+key+" is created.");
         else
             throw new IllegalArgumentException("Unable to find constructor for "+clazz.toString()+" with "+initArgs);
 
