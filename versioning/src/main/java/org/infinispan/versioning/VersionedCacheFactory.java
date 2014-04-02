@@ -10,8 +10,8 @@ import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.transaction.TransactionMode;
 import org.infinispan.versioning.impl.VersionedCacheAtomicMapImpl;
+import org.infinispan.versioning.impl.VersionedCacheAtomicShardedTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
-import org.infinispan.versioning.impl.VersionedCacheHibernateImpl;
 import org.infinispan.versioning.impl.VersionedCacheNaiveImpl;
 import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.VersionGenerator;
@@ -35,7 +35,6 @@ public class VersionedCacheFactory {
         NAIVE,
         ATOMICMAP,
         TREEMAP,
-        HIBERNATE,
         SHARDED_TREE
     }
 
@@ -68,14 +67,11 @@ public class VersionedCacheFactory {
 		case ATOMICMAP: {
 		       return new VersionedCacheAtomicMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
 		}
-		case HIBERNATE: {
-			 return new VersionedCacheHibernateImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
-		}
 		case TREEMAP:{
 			 return new VersionedCacheAtomicTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
 		case SHARDED_TREE:{
-			 throw new UnsupportedOperationException("not implemented yet");  
+            return new VersionedCacheAtomicShardedTreeMapImpl<K, V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
 		default:
 			logger.info("Creating default versioned cache of type "+VersionedCacheNaiveImpl.class.getCanonicalName());

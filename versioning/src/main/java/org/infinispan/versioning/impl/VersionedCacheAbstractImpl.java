@@ -140,6 +140,11 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     }
 
     @Override
+    public void clear() {
+        delegate.clear();
+    }
+
+    @Override
     public void start() {
     }
 
@@ -328,11 +333,6 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
-        throw new UnsupportedOperationException("NYI");
-    }
-
-    @Override
-    public void clear() {
         throw new UnsupportedOperationException("NYI");
     }
 
