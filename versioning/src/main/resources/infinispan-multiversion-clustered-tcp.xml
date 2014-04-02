@@ -9,7 +9,7 @@
       <globalJmxStatistics enabled="true" jmxDomain="Infinispan" />
       <transport clusterName="clustered" nodeName="client">
          <properties>
-            <property name="configurationFile" value="jgroups-tcp.xml" />
+            <property name="configurationFile" value="multiversion-jgroups-tcp.xml" />
          </properties>
       </transport>
    </global>
