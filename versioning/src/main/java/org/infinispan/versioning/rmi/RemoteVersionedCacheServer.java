@@ -7,7 +7,6 @@ import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 import org.jboss.logging.Logger;
 
-import java.io.IOException;
 import java.net.InetAddress;
 import java.rmi.Naming;
 import java.rmi.registry.LocateRegistry;
@@ -29,6 +28,8 @@ public class RemoteVersionedCacheServer {
         int port = Integer.valueOf(overridePort);
 
         String versioningTechnique = sysProps.getProperty("versioningTechnique", "ATOMICMAP");
+
+
         VersionedCacheFactory.VersioningTechnique tech = VersionedCacheFactory.VersioningTechnique.valueOf(versioningTechnique);
         logger.info("Versioning implementation used: " + tech.toString());
 

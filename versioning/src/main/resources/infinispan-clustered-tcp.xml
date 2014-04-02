@@ -15,7 +15,7 @@
    </global>
 
    <namedCache name="default" >
-      <clustering mode="repl" />
+      <clustering mode="dist" />
       <transaction transactionMode="TRANSACTIONAL"/>
    </namedCache>
 

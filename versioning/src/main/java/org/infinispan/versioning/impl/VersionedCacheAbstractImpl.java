@@ -49,7 +49,7 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     public Collection<V> get(K key, Version first, Version last) {
         SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
-            return null;
+            return Collections.EMPTY_LIST;
         return map.subMap(first, last).values();
     }
 

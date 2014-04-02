@@ -31,8 +31,8 @@ public class AtomicObjectFactory {
         if(!factories.containsKey(cache))
             factories.put(cache, new AtomicObjectFactory(cache));
         return factories.get(cache);
-
     }
+    private static final int MAX_CONTAINERS=100;// each container requires a running thread
 
     //
     // OBJECT FIELDS
@@ -83,7 +83,7 @@ public class AtomicObjectFactory {
      * @param c a cache,  it must be synchronous.and transactional (with autoCommit set to true, its default value).
      */
 	public AtomicObjectFactory(Cache<Object, Object> c) throws InvalidCacheUsageException{
-        this(c,0);
+        this(c,MAX_CONTAINERS);
 	}
 
 
