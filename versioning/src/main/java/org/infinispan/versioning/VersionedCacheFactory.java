@@ -12,6 +12,7 @@ import org.infinispan.transaction.TransactionMode;
 import org.infinispan.versioning.impl.VersionedCacheAtomicMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicShardedTreeMapImpl;
 import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
+import org.infinispan.versioning.impl.VersionedCacheDummyImpl;
 import org.infinispan.versioning.impl.VersionedCacheNaiveImpl;
 import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.VersionGenerator;
@@ -32,6 +33,7 @@ public class VersionedCacheFactory {
 	private EmbeddedCacheManager cacheManager;
 
     public static enum VersioningTechnique {
+    	DUMMY,
         NAIVE,
         ATOMICMAP,
         TREEMAP,
@@ -61,6 +63,9 @@ public class VersionedCacheFactory {
 		}
 		
 		switch (versioningTechnique) {
+		case DUMMY: {
+			return new VersionedCacheDummyImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
+		}
 		case NAIVE: {
 			return new VersionedCacheNaiveImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
