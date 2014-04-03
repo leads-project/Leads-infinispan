@@ -76,10 +76,10 @@ public class VersionedCacheNaiveImpl<K, V> extends
 
 	@Override
 	protected void versionMapPut(K key, V value, Version version) {
-		long now = System.nanoTime();
+		//long now = System.nanoTime();
 		delegate.put(version, value);
-		long t = System.nanoTime() - now;
-		logger.debug("PUT (ns) " + t);
+		//long t = System.nanoTime() - now;
+		//logger.debug("PUT (ns) " + t);
 	}
 
 }
