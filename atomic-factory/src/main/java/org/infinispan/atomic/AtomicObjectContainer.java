@@ -400,15 +400,15 @@ public class AtomicObjectContainer {
     }
 
 
-    public static class AtomicObjectContainertSignature{
+    public static class AtomicObjectContainerSignature{
 
         int hash;
 
-        public AtomicObjectContainertSignature(Class clazz, Object key){
+        public AtomicObjectContainerSignature(Class clazz, Object key){
             hash = clazz.hashCode() + key.hashCode();
         }
 
-        public AtomicObjectContainertSignature(AtomicObjectContainer container){
+        public AtomicObjectContainerSignature(AtomicObjectContainer container){
             hash = container.clazz.hashCode() + container.key.hashCode();
         }
 
@@ -419,9 +419,9 @@ public class AtomicObjectContainer {
 
         @Override
         public boolean equals(Object o){
-            if (!(o instanceof AtomicObjectContainertSignature))
+            if (!(o instanceof AtomicObjectContainerSignature))
                 return false;
-            return ((AtomicObjectContainertSignature)o).hash == this.hash;
+            return ((AtomicObjectContainerSignature)o).hash == this.hash;
         }
 
     }
