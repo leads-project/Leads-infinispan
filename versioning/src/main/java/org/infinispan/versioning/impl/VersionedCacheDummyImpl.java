@@ -1,12 +1,13 @@
 package org.infinispan.versioning.impl;
 
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeSet;
-
 import org.infinispan.Cache;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
+
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 public class VersionedCacheDummyImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
@@ -37,7 +38,7 @@ public class VersionedCacheDummyImpl<K,V> extends VersionedCacheAbstractImpl<K,V
 
 	@Override
 	protected SortedMap<Version, V> versionMapGet(K key) {		
-		return null;
+		return new TreeMap<Version,V>();
 	}
 
 	@Override
