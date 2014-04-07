@@ -6,6 +6,8 @@ import javassist.util.proxy.ProxyFactory;
 import javassist.util.proxy.ProxyObject;
 import org.infinispan.Cache;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
+import org.infinispan.metadata.Metadata;
+import org.infinispan.notifications.KeyValueFilter;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
@@ -15,6 +17,7 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -40,10 +43,9 @@ public class AtomicObjectContainer {
         }
     };
     private static Log log = LogFactory.getLog(AtomicObjectContainer.class);
-    private static final int N_RETRIEVE_HELPERS= 2;
     private static final int CALL_TTIMEOUT_TIME = 3000;
     private static final int RETRIEVE_TTIMEOUT_TIME = 30000;
-    private static ExecutorService service = Executors.newCachedThreadPool();
+    private static ExecutorService callExecutors = Executors.newCachedThreadPool();
     private static Random random = new Random(System.currentTimeMillis());
 
     //
@@ -62,9 +64,6 @@ public class AtomicObjectContainer {
     private Method equalsMethod;
 
     private Map<Integer,AtomicObjectCallFuture> registeredCalls;
-
-    private BlockingQueue<AtomicObjectCall> calls;
-    private Future<Integer> callHandlerFuture;
 
     private AtomicObjectCallFuture retrieve_future;
     private ArrayList<AtomicObjectCallInvoke> retrieve_calls;
@@ -131,15 +130,12 @@ public class AtomicObjectContainer {
         proxy = fact.createClass().newInstance();
         ((ProxyObject)proxy).setHandler(handler);
 
-        calls = new LinkedBlockingDeque<AtomicObjectCall>();
-        AtomicObjectContainerTask callHandler = new AtomicObjectContainerTask();
-        callHandlerFuture = service.submit(callHandler);
-
         // Register
-        cache.addListener(this);
+        cache.addListener(this, new AtomicObjectContainterFilter(key), null);
+        // cache.addListener(this);
 
         // Build the object
-        initObject(forceNew,initArgs);
+        initObject(forceNew, initArgs);
 
     }
 
@@ -168,7 +164,7 @@ public class AtomicObjectContainer {
             byte[] bb = (byte[]) event.getValue();
             AtomicObjectCall call = (AtomicObjectCall) marshaller.objectFromByteBuffer(bb);
             log.debug("Received " + call + " from " + event.getCache().toString());
-            calls.add(call);
+            callExecutors.submit(new AtomicObjectContainerTask(call));
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -185,7 +181,6 @@ public class AtomicObjectContainer {
             AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
             cache.put(key,marshaller.objectToByteBuffer(persist));
         }
-        callHandlerFuture.cancel(true);
         cache.removeListener(this);
     }
 
@@ -208,7 +203,7 @@ public class AtomicObjectContainer {
                 }
                 return;
             } catch (Exception e) {
-                log.debug("Enable to retrieve object " + key + " from the cache."+e.getMessage());
+                log.debug("Unable to retrieve object " + key + " from the cache.");
             }
         }
 
@@ -252,6 +247,11 @@ public class AtomicObjectContainer {
     @Override
     public int hashCode(){
         return containerSignature(this.clazz,this.key);
+    }
+
+    @Override
+    public String toString(){
+        return "Container ["+this.clazz.toString()+"::"+this.key.toString()+"]";
     }
 
 
@@ -327,10 +327,10 @@ public class AtomicObjectContainer {
 
     private class AtomicObjectContainerTask implements Callable<Integer>{
 
-        private int retrieveRank;
+        private AtomicObjectCall call;
 
-        public AtomicObjectContainerTask(){
-            retrieveRank = 0;
+        public AtomicObjectContainerTask(AtomicObjectCall c){
+            call = c;
         }
 
         @Override
@@ -338,55 +338,43 @@ public class AtomicObjectContainer {
 
             try {
 
-                while(true){
+                if (call instanceof AtomicObjectCallInvoke) {
 
-                    AtomicObjectCall call = calls.take();
+                    if(object != null){
 
-                    if (call instanceof AtomicObjectCallInvoke) {
+                        AtomicObjectCallInvoke invocation = (AtomicObjectCallInvoke) call;
+                        handleInvocation(invocation);
 
-                        if(object != null){
+                    }else if (retrieve_calls != null) {
 
-                            AtomicObjectCallInvoke invocation = (AtomicObjectCallInvoke) call;
-                            if(handleInvocation(invocation))
-                                retrieveRank = N_RETRIEVE_HELPERS;
-                            else if (retrieveRank > 0)
-                                retrieveRank --;
-                            else
-                                retrieveRank = 0;
-
-                        }else if (retrieve_calls != null) {
-
-                            retrieve_calls.add((AtomicObjectCallInvoke) call);
-
-                        }
-
-                    } else if (call instanceof AtomicObjectCallRetrieve) {
-
-                        if (object != null && retrieveRank > 0) {
-
-                            AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
-                            GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
-                            cache.put(key, marshaller.objectToByteBuffer(persist));
-
-                        }else if (retrieve_call != null && retrieve_call.callID == ((AtomicObjectCallRetrieve)call).callID) {
-
-                            assert retrieve_calls == null;
-                            retrieve_calls = new ArrayList<AtomicObjectCallInvoke>();
-
-                        }
-
-                    } else { // AtomicObjectCallPersist
-
-                        if (object == null && retrieve_calls != null)  {
-                            object = ((AtomicObjectCallPersist)call).object;
-                            for(AtomicObjectCallInvoke invocation : retrieve_calls){
-                                handleInvocation(invocation);
-                            }
-                            retrieve_future.setReturnValue(null);
-                        }
+                        retrieve_calls.add((AtomicObjectCallInvoke) call);
 
                     }
 
+                } else if (call instanceof AtomicObjectCallRetrieve) {
+
+                    if (object != null ) {
+
+                        AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
+                        GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
+                        cache.put(key, marshaller.objectToByteBuffer(persist));
+
+                    }else if (retrieve_call != null && retrieve_call.callID == ((AtomicObjectCallRetrieve)call).callID) {
+
+                        assert retrieve_calls == null;
+                        retrieve_calls = new ArrayList<AtomicObjectCallInvoke>();
+
+                    }
+
+                } else { // AtomicObjectCallPersist
+
+                    if (object == null && retrieve_calls != null)  {
+                        object = ((AtomicObjectCallPersist)call).object;
+                        for(AtomicObjectCallInvoke invocation : retrieve_calls){
+                            handleInvocation(invocation);
+                        }
+                        retrieve_future.setReturnValue(null);
+                    }
                 }
 
             } catch (InterruptedException e) {
@@ -394,6 +382,7 @@ public class AtomicObjectContainer {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+
             return 1;
 
         }
@@ -424,6 +413,20 @@ public class AtomicObjectContainer {
             return ((AtomicObjectContainertSignature)o).hash == this.hash;
         }
 
+    }
+
+    public static class AtomicObjectContainterFilter implements KeyValueFilter<Object,Object>, Serializable{
+
+        private Object key;
+
+        public AtomicObjectContainterFilter(Object k){
+            this.key = k;
+        }
+
+        @Override
+        public boolean accept(Object k, Object v, Metadata m) {
+            return key.equals(k);
+        }
     }
 
 }

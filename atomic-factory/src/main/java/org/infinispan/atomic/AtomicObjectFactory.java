@@ -1,8 +1,7 @@
 package org.infinispan.atomic;
 
-import org.infinispan.Cache;
+ import org.infinispan.Cache;
 import org.infinispan.InvalidCacheUsageException;
-import org.infinispan.transaction.TransactionMode;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -12,6 +11,9 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.infinispan.atomic.AtomicObjectContainer.AtomicObjectContainertSignature;
 
@@ -32,7 +34,8 @@ public class AtomicObjectFactory {
             factories.put(cache, new AtomicObjectFactory(cache));
         return factories.get(cache);
     }
-    private static final int MAX_CONTAINERS=100;// each container requires a running thread
+    private static final int MAX_CONTAINERS=0;// 0 means no limit
+
 
     //
     // OBJECT FIELDS
@@ -40,6 +43,7 @@ public class AtomicObjectFactory {
 	private Cache cache;
 	private Map<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer> registeredContainers;
     private int maxSize;
+    private final ExecutorService evictionExecutor = Executors.newCachedThreadPool();
 
 
     /**
@@ -52,22 +56,24 @@ public class AtomicObjectFactory {
      * @throws InvalidCacheUsageException
      */
     public AtomicObjectFactory(Cache<Object, Object> c, int m) throws InvalidCacheUsageException{
-        if( ! c.getCacheConfiguration().clustering().cacheMode().isSynchronous()
-                || c.getCacheConfiguration().transaction().transactionMode() != TransactionMode.TRANSACTIONAL )
-            throw new InvalidCacheUsageException("The cache must be synchronous and transactional.");
         cache = c;
         maxSize = m;
         registeredContainers= new LinkedHashMap<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer>(){
             @Override
-            protected boolean removeEldestEntry(java.util.Map.Entry<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer> eldest) {
+            protected boolean removeEldestEntry(final java.util.Map.Entry<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer> eldest) {
                 if(maxSize!=0 && this.size() == maxSize){
-                    try {
-                        eldest.getValue().dispose(true);
-                    } catch (IOException e) {
-                        e.printStackTrace();  // TODO: Customise this generated block
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();  // TODO: Customise this generated block
-                    }
+                    evictionExecutor.submit(new Callable<Void>() {
+                        @Override
+                        public Void call() throws IOException {
+                            try {
+                                log.debug("Disposing " + eldest.getValue().toString());
+                                eldest.getValue().dispose(true);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                            return null;
+                        }
+                    });
                     return true;
                 }
                 return false;
@@ -157,7 +163,7 @@ public class AtomicObjectFactory {
             if(!registeredContainers.containsKey(signature)){
                 AtomicObjectContainer container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs);
                 registeredContainers.put(signature, container);
-                log.debug("Registering cache "+signature);
+                log.debug("Registering "+container);
             }
         } catch (Exception e){
             e.printStackTrace();
@@ -210,5 +216,24 @@ public class AtomicObjectFactory {
         return ret;
 
     }
+
+    //
+    // PRIVATE CLASS
+    //
+
+    private class EvictionTask implements Callable<Void> {
+
+        AtomicObjectContainer container;
+
+        public EvictionTask(AtomicObjectContainer c){
+            this.container = c;
+        }
+
+        @Override
+        public Void call() throws Exception {
+            return null;
+        }
+    }
+
 
 }

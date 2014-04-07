@@ -127,7 +127,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
         factory1 = new AtomicObjectFactory(cache1);
         set1 = (HashSet) factory1.getInstanceOf(HashSet.class, "hashset");
         set1.add("smthing");
-
+        factory1.disposeInstanceOf(HashSet.class,"hashset",true);
 
         cache2 = manager2.getCache();
         factory2 = new AtomicObjectFactory(cache2);
