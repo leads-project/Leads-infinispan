@@ -34,7 +34,7 @@ public class AtomicObjectFactory {
             factories.put(cache, new AtomicObjectFactory(cache));
         return factories.get(cache);
     }
-    private static final int MAX_CONTAINERS=0;// 0 means no limit
+    private static final int MAX_CONTAINERS=1000;// 0 means no limit
 
 
     //

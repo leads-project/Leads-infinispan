@@ -132,7 +132,6 @@ public class AtomicObjectContainer {
 
         // Register
         cache.addListener(this, new AtomicObjectContainterFilter(key), null);
-        // cache.addListener(this);
 
         // Build the object
         initObject(forceNew, initArgs);
@@ -172,14 +171,14 @@ public class AtomicObjectContainer {
 
     }
 
-    public synchronized void dispose(boolean keepPersistent)
+    public void dispose(boolean keepPersistent)
             throws IOException, InterruptedException {
         if (!keepPersistent) {
             cache.remove(key);
         } else {
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
             AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
-            cache.put(key,marshaller.objectToByteBuffer(persist));
+            cache.putAsync(key,marshaller.objectToByteBuffer(persist));
         }
         cache.removeListener(this);
     }
