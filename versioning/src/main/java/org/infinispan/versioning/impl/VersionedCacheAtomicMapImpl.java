@@ -48,7 +48,7 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
     @Override
     public boolean containsValue(Object o) {
         for(Object k: delegate.keySet()){
-            if(factory.getInstanceOf(TreeMap.class,k,true,null,false).containsValue(o))
+            if(factory.getInstanceOf(HashMap.class,k,true,null,false).containsValue(o))
                 return true;
         }
         return false;
@@ -68,7 +68,7 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
 
     @Override
     public void putAll(K key, Map<Version,V> map){
-        factory.getInstanceOf(TreeMap.class,key,true,null,false).putAll(map);
+        factory.getInstanceOf(HashMap.class,key,true,null,false).putAll(map);
     }
 
 }
