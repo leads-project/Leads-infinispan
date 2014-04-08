@@ -29,8 +29,9 @@ public class VersionedCacheFactory {
 	private EmbeddedCacheManager cacheManager;
 
     public static enum VersioningTechnique {
-    	DUMMY,
+        FAKE,
         NAIVE,
+    	DUMMY,
         ATOMICFGMAP,
         ATOMICMAP,
         TREEMAP,
@@ -60,12 +61,15 @@ public class VersionedCacheFactory {
 		}
 		
 		switch (versioningTechnique) {
-		case DUMMY: {
-			return new VersionedCacheDummyImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
-		}
+		case FAKE: {
+			return new VersionedCacheFakeImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
+        }
 		case NAIVE: {
 			return new VersionedCacheNaiveImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
+        case DUMMY: {
+            return new VersionedCacheDummyImpl<K, V>(cacheManager.getCache(cacheName), generator, cacheName);
+        }
         case ATOMICMAP:{
             return new VersionedCacheAtomicMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
         }

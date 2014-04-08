@@ -371,4 +371,9 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
         throw new UnsupportedOperationException("NYI");
     }
 
+    @Override
+    public boolean containsValue(Object arg0) {
+        throw new UnsupportedOperationException("NYI");
+    }
+
 }

@@ -125,7 +125,7 @@ public class AtomicObjectFactory {
      * @return an object of the class <i>clazz</i>
      * @throws InvalidCacheUsageException
      */
-    public synchronized <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization)
+    public <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization)
             throws InvalidCacheUsageException{
         return getInstanceOf(clazz, key, withReadOptimization, null, true);
     }
@@ -150,7 +150,7 @@ public class AtomicObjectFactory {
      * @return an object of the class <i>clazz</i>
      * @throws InvalidCacheUsageException
      */
-    public synchronized <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization, Method equalsMethod, boolean forceNew, Object ... initArgs)
+    public <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization, Method equalsMethod, boolean forceNew, Object ... initArgs)
             throws InvalidCacheUsageException{
 
         if( !(clazz instanceof Serializable)){
@@ -162,8 +162,12 @@ public class AtomicObjectFactory {
         try{
             if(!registeredContainers.containsKey(signature)){
                 AtomicObjectContainer container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs);
-                registeredContainers.put(signature, container);
-                log.debug("Registering "+container);
+                synchronized (registeredContainers){
+                    if(registeredContainers.containsKey(signature))
+                        container.dispose(false);
+                    else
+                        registeredContainers.put(signature, container);
+                }
             }
         } catch (Exception e){
             e.printStackTrace();
@@ -182,38 +186,27 @@ public class AtomicObjectFactory {
      * @param key the key to use in order to store the object.
      * @param keepPersistent indicates that a persistent copy is stored in the cache or not.
      */
-    public synchronized void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
+    public void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
             throws IOException, InvalidCacheUsageException {
     	
         AtomicObjectContainerSignature signature = new AtomicObjectContainerSignature(clazz,key);
     	log.debug("Disposing instance from key:"+signature);
-        AtomicObjectContainer container = registeredContainers.get(signature);
+        synchronized (registeredContainers){
+            AtomicObjectContainer container = registeredContainers.get(signature);
+            if( container == null )
+                throw new InvalidCacheUsageException("The object does not exist.");
 
-        if( container == null )
-            throw new InvalidCacheUsageException("The object does not exist.");
+            if( ! container.getClazz().equals(clazz) )
+                throw new InvalidCacheUsageException("The object is not of the right class.");
 
-        if( ! container.getClazz().equals(clazz) )
-            throw new InvalidCacheUsageException("The object is not of the right class.");
+            try{
+                container.dispose(keepPersistent);
+            }catch (Exception e){
+                throw new InvalidCacheUsageException(e.getCause());
+            }
 
-        try{
-            container.dispose(keepPersistent);
-        }catch (Exception e){
-            throw new InvalidCacheUsageException(e.getCause());
+            registeredContainers.remove(signature);
         }
-
-        registeredContainers.remove(signature);
-
-    }
-
-    /**
-     * @return a hash value of the order in which the calls on all the atomic objects built by this factory were executed.
-     */
-    @Override
-    public int hashCode(){
-        int ret = 0;
-        for(AtomicObjectContainer c : registeredContainers.values())
-            ret += c.hashCode();
-        return ret;
 
     }
 
