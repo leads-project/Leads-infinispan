@@ -15,7 +15,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static org.infinispan.atomic.AtomicObjectContainer.AtomicObjectContainertSignature;
+import static org.infinispan.atomic.AtomicObjectContainer.AtomicObjectContainerSignature;
 
 
 /**
@@ -41,7 +41,7 @@ public class AtomicObjectFactory {
     // OBJECT FIELDS
     //
 	private Cache cache;
-	private Map<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer> registeredContainers;
+	private Map<AtomicObjectContainer.AtomicObjectContainerSignature,AtomicObjectContainer> registeredContainers;
     private int maxSize;
     private final ExecutorService evictionExecutor = Executors.newCachedThreadPool();
 
@@ -58,9 +58,13 @@ public class AtomicObjectFactory {
     public AtomicObjectFactory(Cache<Object, Object> c, int m) throws InvalidCacheUsageException{
         cache = c;
         maxSize = m;
-        registeredContainers= new LinkedHashMap<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer>(){
+        registeredContainers= new LinkedHashMap<AtomicObjectContainer.AtomicObjectContainerSignature,AtomicObjectContainer>(){
             @Override
+<<<<<<< HEAD
             protected boolean removeEldestEntry(final java.util.Map.Entry<AtomicObjectContainer.AtomicObjectContainertSignature,AtomicObjectContainer> eldest) {
+=======
+            protected boolean removeEldestEntry(java.util.Map.Entry<AtomicObjectContainer.AtomicObjectContainerSignature,AtomicObjectContainer> eldest) {
+>>>>>>> 5b10d1cecac44d97ebf9eac8094a229562811f42
                 if(maxSize!=0 && this.size() == maxSize){
                     evictionExecutor.submit(new Callable<Void>() {
                         @Override
@@ -157,7 +161,7 @@ public class AtomicObjectFactory {
             throw new InvalidCacheUsageException("The object must be serializable.");
         }
 
-        AtomicObjectContainertSignature signature = new AtomicObjectContainertSignature(clazz,key);
+        AtomicObjectContainerSignature signature = new AtomicObjectContainerSignature(clazz,key);
 
         try{
             if(!registeredContainers.containsKey(signature)){
@@ -185,7 +189,7 @@ public class AtomicObjectFactory {
     public synchronized void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
             throws IOException, InvalidCacheUsageException {
     	
-        AtomicObjectContainertSignature signature = new AtomicObjectContainertSignature(clazz,key);
+        AtomicObjectContainerSignature signature = new AtomicObjectContainerSignature(clazz,key);
     	log.debug("Disposing instance from key:"+signature);
         AtomicObjectContainer container = registeredContainers.get(signature);
 
