@@ -4,19 +4,13 @@ import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.test.MultipleCacheManagersTest;
-import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
+import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.*;
 
 /**
  * @author marcelo pasin, pierre sutra
@@ -57,134 +51,142 @@ public abstract class VersionedCacheAbstractTest extends MultipleCacheManagersTe
         cache.put("k", "b");
         assert 0 == cache.get("k", cache.getEarliestVersion("k"), cache.getEarliestVersion("k")).size();
         assert 1 == cache.get("k", generator.generateNew(), generator.generateNew()).size();
-    }
+        assert cache.get("k").equals("b");
 
-    @Test
-    public void computeBaseLine() {
-        Cache cache = cacheManagers.get(0).getCache("baseline");
-        float avrg = 0;
-        for (int i = 0; i < NCALLS; i++) {
-            long start = System.nanoTime();
-            String k = Integer.toString(rand.nextInt(NKEYS));
-            cache.put(k, "a");
-            avrg += System.nanoTime() - start;
-        }
-        System.out.println("baseline put(): " + (avrg / NCALLS) / 1000000 + " ms");
-        avrg = 0;
-        for (int i = 0; i < NCALLS; i++) {
-            long start = System.nanoTime();
-            cache.get("a");
-            avrg += System.nanoTime() - start;
-        }
-        System.out.println("baseline get(): " + (avrg / NCALLS) / 1000000 + " ms");
-    }
-
-    @Test
-    public void basicDistributedUsage() throws Exception {
-        ExecutorService service = Executors.newCachedThreadPool();
-        List<Future<Integer>> futures = new ArrayList<Future<Integer>>();
-
-        for (int i = 0; i < NCACHES; i++) {
-            Cache delegate = cacheManagers.get(i).getCache();
-            delegates.add(delegate);
-            VersionScalarGenerator generator = new VersionScalarGenerator();
-            vcaches.add(getCache(delegate, generator, "test"));
-        }
-
-        initAndTest();
-
-        for (VersionedCache vcache : vcaches) {
-            if (vcache.equals(vcaches.get(0)))
-                futures.add(service.submit(new ExerciceVersionedCache(vcache, NCALLS)));
-        }
-
-        Integer total = 0;
-        for (Future<Integer> future : futures) {
-            total += future.get();
-        }
-
-        // assert total == NCACHES*NCALLS;
-        Thread.sleep(3000);
+        Map<Version,String> m = new HashMap<Version,String>();
+        m.put(generator.generateNew(),"c");
+        m.put(generator.generateNew(),"d");
+        cache.putAll("k", m);
+        assert cache.get("k").equals("d");
 
     }
 
-    //
-    // OBJECT METHODS
-    //
-
-    protected void initAndTest() {
-        for (Cache<Object, String> c : delegates) assert c.isEmpty();
-        delegates.iterator().next().put("k1", "version");
-        assertOnAllCaches("k1", "version");
-    }
-
-    protected void assertOnAllCaches(Object key, String value) {
-        for (Cache<Object, String> c : delegates) {
-            Object realVal = c.get(key);
-            if (value == null) {
-                assert realVal == null : "Expecting [" + key + "] to equal [" + value + "] on cache " + c.toString();
-            } else {
-                assert value.equals(realVal) : "Expecting [" + key + "] to equal [" + value + "] on cache " + c.toString();
-            }
-        }
-        // Allow some time for all ClusteredGetCommands to finish executing
-        TestingUtil.sleepThread(1000);
-    }
-
-    //
-    // INNER CLASSES
-    //
-
-    private class ExerciceVersionedCache implements Callable<Integer> {
-
-        private int ncalls;
-        private VersionedCache versionedCache;
-
-        public ExerciceVersionedCache(VersionedCache<String, String> vcache, int n) {
-            versionedCache = vcache;
-            ncalls = n;
-        }
-
-        @Override
-        public Integer call() throws Exception {
-            int ret = 0;
-            float avrg = 0;
-            for (int i = 0; i < ncalls; i++) {
-                long start = System.nanoTime();
-                String k = Integer.toString(rand.nextInt(NKEYS));
-                versionedCache.put(k, Integer.toString(i));
-                avrg += System.nanoTime() - start;
-            }
-            System.out.println("avrg put() time: " + (avrg / NCALLS) / 1000000 + " ms");
-
-            avrg = 0;
-            for (int i = 0; i < ncalls; i++) {
-                String k = Integer.toString(rand.nextInt(NKEYS));
-                long start = System.nanoTime();
-                versionedCache.get(k);
-                avrg += System.nanoTime() - start;
-            }
-            System.out.println("avrg get() time: " + (avrg / NCALLS) / 1000000 + " ms");
-
-            avrg = 0;
-            for (int i = 0; i < ncalls; i++) {
-                String k = Integer.toString(rand.nextInt(NKEYS));
-                long start = System.nanoTime();
-                versionedCache.get(k, versionedCache.getEarliestVersion(k), versionedCache.getLatestVersion(k));
-                avrg += System.nanoTime() - start;
-            }
-            System.out.println("avrg get(earliestVersion,latestVersion) time: " + (avrg / NCALLS) / 1000000 + " ms");
-
-
-            for(Cache cache: caches()){
-                System.out.println("Cache "+cache.getName()+" size : "+cache.size());
-            }
-
-            System.out.println();
-
-            return new Integer(ncalls);
-        }
-    }
+//    @Test
+//    public void computeBaseLine() {
+//        Cache cache = cacheManagers.get(0).getCache("baseline");
+//        float avrg = 0;
+//        for (int i = 0; i < NCALLS; i++) {
+//            long start = System.nanoTime();
+//            String k = Integer.toString(rand.nextInt(NKEYS));
+//            cache.put(k, "a");
+//            avrg += System.nanoTime() - start;
+//        }
+//        System.out.println("baseline put(): " + (avrg / NCALLS) / 1000000 + " ms");
+//        avrg = 0;
+//        for (int i = 0; i < NCALLS; i++) {
+//            long start = System.nanoTime();
+//            cache.get("a");
+//            avrg += System.nanoTime() - start;
+//        }
+//        System.out.println("baseline get(): " + (avrg / NCALLS) / 1000000 + " ms");
+//    }
+//
+//    @Test
+//    public void basicDistributedUsage() throws Exception {
+//        ExecutorService service = Executors.newCachedThreadPool();
+//        List<Future<Integer>> futures = new ArrayList<Future<Integer>>();
+//
+//        for (int i = 0; i < NCACHES; i++) {
+//            Cache delegate = cacheManagers.get(i).getCache();
+//            delegates.add(delegate);
+//            VersionScalarGenerator generator = new VersionScalarGenerator();
+//            vcaches.add(getCache(delegate, generator, "test"));
+//        }
+//
+//        initAndTest();
+//
+//        for (VersionedCache vcache : vcaches) {
+//            if (vcache.equals(vcaches.get(0)))
+//                futures.add(service.submit(new ExerciceVersionedCache(vcache, NCALLS)));
+//        }
+//
+//        Integer total = 0;
+//        for (Future<Integer> future : futures) {
+//            total += future.get();
+//        }
+//
+//        // assert total == NCACHES*NCALLS;
+//        Thread.sleep(3000);
+//
+//    }
+//
+//    //
+//    // OBJECT METHODS
+//    //
+//
+//    protected void initAndTest() {
+//        for (Cache<Object, String> c : delegates) assert c.isEmpty();
+//        delegates.iterator().next().put("k1", "version");
+//        assertOnAllCaches("k1", "version");
+//    }
+//
+//    protected void assertOnAllCaches(Object key, String value) {
+//        for (Cache<Object, String> c : delegates) {
+//            Object realVal = c.get(key);
+//            if (value == null) {
+//                assert realVal == null : "Expecting [" + key + "] to equal [" + value + "] on cache " + c.toString();
+//            } else {
+//                assert value.equals(realVal) : "Expecting [" + key + "] to equal [" + value + "] on cache " + c.toString();
+//            }
+//        }
+//        // Allow some time for all ClusteredGetCommands to finish executing
+//        TestingUtil.sleepThread(1000);
+//    }
+//
+//    //
+//    // INNER CLASSES
+//    //
+//
+//    private class ExerciceVersionedCache implements Callable<Integer> {
+//
+//        private int ncalls;
+//        private VersionedCache versionedCache;
+//
+//        public ExerciceVersionedCache(VersionedCache<String, String> vcache, int n) {
+//            versionedCache = vcache;
+//            ncalls = n;
+//        }
+//
+//        @Override
+//        public Integer call() throws Exception {
+//            int ret = 0;
+//            float avrg = 0;
+//            for (int i = 0; i < ncalls; i++) {
+//                long start = System.nanoTime();
+//                String k = Integer.toString(rand.nextInt(NKEYS));
+//                versionedCache.put(k, Integer.toString(i));
+//                avrg += System.nanoTime() - start;
+//            }
+//            System.out.println("avrg put() time: " + (avrg / NCALLS) / 1000000 + " ms");
+//
+//            avrg = 0;
+//            for (int i = 0; i < ncalls; i++) {
+//                String k = Integer.toString(rand.nextInt(NKEYS));
+//                long start = System.nanoTime();
+//                versionedCache.get(k);
+//                avrg += System.nanoTime() - start;
+//            }
+//            System.out.println("avrg get() time: " + (avrg / NCALLS) / 1000000 + " ms");
+//
+//            avrg = 0;
+//            for (int i = 0; i < ncalls; i++) {
+//                String k = Integer.toString(rand.nextInt(NKEYS));
+//                long start = System.nanoTime();
+//                versionedCache.get(k, versionedCache.getEarliestVersion(k), versionedCache.getLatestVersion(k));
+//                avrg += System.nanoTime() - start;
+//            }
+//            System.out.println("avrg get(earliestVersion,latestVersion) time: " + (avrg / NCALLS) / 1000000 + " ms");
+//
+//
+//            for(Cache cache: caches()){
+//                System.out.println("Cache "+cache.getName()+" size : "+cache.size());
+//            }
+//
+//            System.out.println();
+//
+//            return new Integer(ncalls);
+//        }
+//    }
 
 
 

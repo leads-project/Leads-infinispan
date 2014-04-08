@@ -9,11 +9,7 @@ import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.transaction.TransactionMode;
-import org.infinispan.versioning.impl.VersionedCacheAtomicMapImpl;
-import org.infinispan.versioning.impl.VersionedCacheAtomicShardedTreeMapImpl;
-import org.infinispan.versioning.impl.VersionedCacheAtomicTreeMapImpl;
-import org.infinispan.versioning.impl.VersionedCacheDummyImpl;
-import org.infinispan.versioning.impl.VersionedCacheNaiveImpl;
+import org.infinispan.versioning.impl.*;
 import org.infinispan.versioning.utils.IncrediblePropertyLoader;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.infinispan.versioning.utils.version.VersionScalarGenerator;
@@ -35,6 +31,7 @@ public class VersionedCacheFactory {
     public static enum VersioningTechnique {
     	DUMMY,
         NAIVE,
+        ATOMICFGMAP,
         ATOMICMAP,
         TREEMAP,
         SHARDED_TREE
@@ -69,8 +66,11 @@ public class VersionedCacheFactory {
 		case NAIVE: {
 			return new VersionedCacheNaiveImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
-		case ATOMICMAP: {
-		       return new VersionedCacheAtomicMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
+        case ATOMICMAP:{
+            return new VersionedCacheAtomicMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
+        }
+		case ATOMICFGMAP: {
+		       return new VersionedCacheFinedGrainedAtomicMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
 		}
 		case TREEMAP:{
 			 return new VersionedCacheAtomicTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);

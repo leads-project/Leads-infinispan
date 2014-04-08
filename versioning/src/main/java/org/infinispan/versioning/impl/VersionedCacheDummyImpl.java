@@ -4,10 +4,7 @@ import org.infinispan.Cache;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 
 public class VersionedCacheDummyImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
@@ -43,7 +40,10 @@ public class VersionedCacheDummyImpl<K,V> extends VersionedCacheAbstractImpl<K,V
 
 	@Override
 	protected void versionMapPut(K key, V value, Version version) {
-		
 	}
+
+    @Override
+    public void putAll(K k, Map<Version,V> map){
+    }
 
 }

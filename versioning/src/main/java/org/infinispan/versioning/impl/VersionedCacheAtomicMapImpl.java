@@ -1,42 +1,38 @@
 package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
-import org.infinispan.atomic.AtomicMapLookup;
+import org.infinispan.atomic.AtomicObjectFactory;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.jboss.logging.Logger;
 
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  *
- * @author Fábio André Coelho, Pierre Sutra
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 7.0
  */
 public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
-	
-	Logger logger;
-	
+
+    AtomicObjectFactory factory;
+    Logger logger;
     public VersionedCacheAtomicMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
+        factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
         this.logger  = Logger.getLogger(this.getClass());
+
     }
 
     @Override
     protected SortedMap<Version, V> versionMapGet(K key) {
-        TreeMap map =  new TreeMap<Version, V>();
-        map.putAll(AtomicMapLookup.getAtomicMap(delegate, key));
-        return map;
+        HashMap<Version,V> map = factory.getInstanceOf(HashMap.class,key,true,null,false);
+        return new TreeMap<Version,V>(map);
     }
 
     @Override
     protected void versionMapPut(K key, V value, Version version) {
-    	long now=System.nanoTime();
-        AtomicMapLookup.getAtomicMap(delegate, key).put(version,value);
-        long t=System.nanoTime()-now;
-        logger.debug("PUT (ns) "+t);
+        factory.getInstanceOf(HashMap.class,key,true,null,false).put(version, value);
     }
 
     @Override
@@ -52,7 +48,7 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
     @Override
     public boolean containsValue(Object o) {
         for(Object k: delegate.keySet()){
-            if(AtomicMapLookup.getAtomicMap(delegate,k).containsValue(o))
+            if(factory.getInstanceOf(TreeMap.class,k,true,null,false).containsValue(o))
                 return true;
         }
         return false;
@@ -62,4 +58,18 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
     public Set<K> keySet() {
         return delegate.keySet();
     }
+
+    @Override
+    public Collection<V> get(K key, Version first, Version last) {
+        HashMap<Version,V> map = factory.getInstanceOf(HashMap.class,key,true,null,false);
+        TreeMap<Version,V> treeMap = new TreeMap<Version,V>(map);
+        return treeMap.subMap(first, last).values();
+    }
+
+    @Override
+    public void putAll(K key, Map<Version,V> map){
+        factory.getInstanceOf(TreeMap.class,key,true,null,false).putAll(map);
+    }
+
 }
+

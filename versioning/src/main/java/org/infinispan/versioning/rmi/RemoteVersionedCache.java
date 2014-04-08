@@ -3,7 +3,6 @@ package org.infinispan.versioning.rmi;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.versioning.utils.version.Version;
 
-
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.Collection;
@@ -28,6 +27,7 @@ public interface RemoteVersionedCache<K,V> extends Remote {
     public V putIfAbsent(K key, V value) throws RemoteException;
     public V putIfAbsent(K k, V v, long l, TimeUnit timeUnit) throws RemoteException;
     public V putIfAbsent(K k, V v, long l, TimeUnit timeUnit, long l2, TimeUnit timeUnit2) throws RemoteException;
+    public void putAll(K key, Map<Version,V> map) throws RemoteException;
     public void putAll(Map<? extends K, ? extends V> m) throws RemoteException;
     public void putAll(Map<? extends K, ? extends V> map, long l, TimeUnit timeUnit) throws RemoteException;
     public void putAll(Map<? extends K, ? extends V> map, long l, TimeUnit timeUnit, long l2, TimeUnit timeUnit2) throws RemoteException;

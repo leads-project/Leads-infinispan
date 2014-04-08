@@ -111,7 +111,9 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
     @Override
     public V get(Object o) {
-        return get((K) o, getLatestVersion((K) o));
+        SortedMap<Version,V> map = versionMapGet((K) o);
+        if(map.isEmpty()) return null;
+        return map.get(map.lastKey());
     }
 
     @Override
@@ -143,6 +145,14 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     public void clear() {
         delegate.clear();
     }
+
+    @Override
+    public void putAll(K k, Map<Version,V> map){
+        for(Version v: map.keySet()){
+            versionMapPut(k,map.get(v),v);
+        }
+    }
+
 
     @Override
     public void start() {

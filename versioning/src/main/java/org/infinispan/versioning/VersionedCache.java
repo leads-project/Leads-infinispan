@@ -4,6 +4,7 @@ import org.infinispan.commons.api.BasicCache;
 import org.infinispan.versioning.utils.version.Version;
 
 import java.util.Collection;
+import java.util.Map;
 
 /**
  *
@@ -21,6 +22,8 @@ public interface VersionedCache<K,V> extends BasicCache<K,V> {
 
     @Override
     V put(K key, V value);
+
+    void putAll(K key, Map<Version,V> map);
 
     @Override
     V get(Object k);

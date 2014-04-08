@@ -5,6 +5,7 @@ import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.jboss.logging.Logger;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -81,5 +82,9 @@ public class VersionedCacheNaiveImpl<K, V> extends
 		//long t = System.nanoTime() - now;
 		//logger.debug("PUT (ns) " + t);
 	}
+    @Override
+    public void putAll(K k, Map<Version,V> map){
+        delegate.putAll(map);
+    }
 
 }

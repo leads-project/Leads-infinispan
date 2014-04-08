@@ -72,6 +72,11 @@ public class RemoteVersionedCacheImpl<K,V> extends UnicastRemoteObject implement
     }
 
     @Override
+    public void putAll(K key, Map<Version,V> map) throws RemoteException{
+        delegate.putAll(key,map);
+    }
+
+    @Override
     public void putAll(Map<? extends K, ? extends V> m) throws RemoteException {
         delegate.putAll(m);
     }

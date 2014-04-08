@@ -6,10 +6,7 @@ import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.jboss.logging.Logger;
 
-import java.util.Collection;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  * // TODO: Document this
@@ -67,4 +64,9 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstract
         return factory.getInstanceOf(TreeMap.class,key,true,null,false).subMap(first, last).values();
     }
 
-}
+    @Override
+    public void putAll(K key, Map<Version,V> map){
+        factory.getInstanceOf(TreeMap.class,key,true,null,false).putAll(map);
+    }
+
+ }
