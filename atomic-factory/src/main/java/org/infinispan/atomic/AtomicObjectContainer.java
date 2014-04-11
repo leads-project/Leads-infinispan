@@ -6,8 +6,7 @@ import javassist.util.proxy.ProxyFactory;
 import javassist.util.proxy.ProxyObject;
 import org.infinispan.Cache;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
-import org.infinispan.metadata.Metadata;
-import org.infinispan.notifications.KeyValueFilter;
+import org.infinispan.notifications.KeySpecificListener;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
@@ -17,7 +16,6 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -29,8 +27,8 @@ import java.util.concurrent.*;
  *  @since 6.0
  *
  */
-@Listener(sync = true,clustered = true)
-public class AtomicObjectContainer {
+@Listener(sync = true, clustered = true)
+public class AtomicObjectContainer extends KeySpecificListener {
 
     //
     // CLASS FIELDS
@@ -55,13 +53,14 @@ public class AtomicObjectContainer {
     private Cache cache;
     private Object object;
     private Class clazz;
-    private Object key;
     private Object proxy;
 
     private Boolean withReadOptimization;
     private Set<String> readOptimizationFailedMethods;
     private Set<String> readOptimizationSuceedMethods;
     private Method equalsMethod;
+    private Boolean isInstalled = false;
+    private AtomicObjectContainer listener = this;
 
     private Map<Integer,AtomicObjectCallFuture> registeredCalls;
 
@@ -91,6 +90,7 @@ public class AtomicObjectContainer {
                 GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
 
                 synchronized(withReadOptimization){
+                    log.debug("Call "+m.getName()+" is local ");
                     if (withReadOptimization){
                         if(readOptimizationSuceedMethods.contains(m.getName())){
                             return doCall(object,m.getName(),args);
@@ -112,6 +112,15 @@ public class AtomicObjectContainer {
                 byte[] bb = marshaller.objectToByteBuffer(invoke);
                 AtomicObjectCallFuture future = new AtomicObjectCallFuture();
                 registeredCalls.put(callID, future);
+
+                synchronized (listener){
+                    if(!isInstalled ){
+                        // Register
+                        cache.addListener(listener);
+                        isInstalled = true;
+                    }
+                }
+
                 cache.put(key, bb);
                 log.debug("Called " + invoke + " on object " + key);
 
@@ -120,6 +129,7 @@ public class AtomicObjectContainer {
                 if(!future.isDone()){
                     throw new TimeoutException("Unable to execute "+invoke+" on "+clazz+ " @ "+key);
                 }
+
                 return ret;
             }
         };
@@ -129,9 +139,6 @@ public class AtomicObjectContainer {
         fact.setFilter(mfilter);
         proxy = fact.createClass().newInstance();
         ((ProxyObject)proxy).setHandler(handler);
-
-        // Register
-        cache.addListener(this, new AtomicObjectContainterFilter(key), null);
 
         // Build the object
         initObject(forceNew, initArgs);
@@ -171,16 +178,16 @@ public class AtomicObjectContainer {
 
     }
 
-    public void dispose(boolean keepPersistent)
-            throws IOException, InterruptedException {
-        if (!keepPersistent) {
-            cache.remove(key);
-        } else {
+    public synchronized void dispose(boolean keepPersistent) throws IOException, InterruptedException {
+        if (!registeredCalls.isEmpty())
+            return; // somebody is using this container
+        if ( keepPersistent && isInstalled) {
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
             AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
-            cache.putAsync(key,marshaller.objectToByteBuffer(persist));
+            byte[] bb = marshaller.objectToByteBuffer(persist);
+            cache.put(key,bb);
+            cache.removeListener(this);
         }
-        cache.removeListener(this);
     }
 
     private void initObject(boolean forceNew, Object ... initArgs) throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
@@ -193,6 +200,11 @@ public class AtomicObjectContainer {
                     object = ((AtomicObjectCallPersist)persist).object;
                 }else{
                     log.debug("Retrieving object "+key);
+                    if(!isInstalled){
+                        // Register
+                        cache.addListener(this);
+                        isInstalled = true;
+                    }
                     retrieve_future = new AtomicObjectCallFuture();
                     retrieve_call = new AtomicObjectCallRetrieve(nextCallID(cache));
                     marshaller = new GenericJBossMarshaller();
@@ -277,7 +289,6 @@ public class AtomicObjectContainer {
             return false;
         }
     }
-
 
     //
     // HELPERS
@@ -412,20 +423,6 @@ public class AtomicObjectContainer {
             return ((AtomicObjectContainerSignature)o).hash == this.hash;
         }
 
-    }
-
-    public static class AtomicObjectContainterFilter implements KeyValueFilter<Object,Object>, Serializable{
-
-        private Object key;
-
-        public AtomicObjectContainterFilter(Object k){
-            this.key = k;
-        }
-
-        @Override
-        public boolean accept(Object k, Object v, Metadata m) {
-            return key.equals(k);
-        }
     }
 
 }

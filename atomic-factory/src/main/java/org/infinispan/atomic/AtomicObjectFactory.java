@@ -158,17 +158,21 @@ public class AtomicObjectFactory {
         }
 
         AtomicObjectContainerSignature signature = new AtomicObjectContainerSignature(clazz,key);
+        AtomicObjectContainer container;
 
         try{
-            if(!registeredContainers.containsKey(signature)){
-                AtomicObjectContainer container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs);
+
+            if( !registeredContainers.containsKey(signature) ){
+                container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs);
                 synchronized (registeredContainers){
-                    if(registeredContainers.containsKey(signature))
+                    if(registeredContainers.containsKey(signature)){
                         container.dispose(false);
-                    else
+                    }else{
                         registeredContainers.put(signature, container);
+                    }
                 }
             }
+
         } catch (Exception e){
             e.printStackTrace();
             throw new InvalidCacheUsageException(e.getCause());
@@ -191,24 +195,25 @@ public class AtomicObjectFactory {
     	
         AtomicObjectContainerSignature signature = new AtomicObjectContainerSignature(clazz,key);
     	log.debug("Disposing instance from key:"+signature);
+        AtomicObjectContainer container;
         synchronized (registeredContainers){
-            AtomicObjectContainer container = registeredContainers.get(signature);
+            container = registeredContainers.get(signature);
             if( container == null )
-                throw new InvalidCacheUsageException("The object does not exist.");
-
+                return;
             if( ! container.getClazz().equals(clazz) )
                 throw new InvalidCacheUsageException("The object is not of the right class.");
-
-            try{
-                container.dispose(keepPersistent);
-            }catch (Exception e){
-                throw new InvalidCacheUsageException(e.getCause());
-            }
-
             registeredContainers.remove(signature);
         }
 
+        try{
+            container.dispose(keepPersistent);
+        }catch (Exception e){
+            throw new InvalidCacheUsageException(e.getCause());
+        }
+
     }
+
+
 
     //
     // PRIVATE CLASS
