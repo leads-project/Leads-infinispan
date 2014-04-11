@@ -185,7 +185,7 @@ public class AtomicObjectContainer extends KeySpecificListener {
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
             AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
             byte[] bb = marshaller.objectToByteBuffer(persist);
-            cache.put(key,bb);
+            cache.putAsync(key,bb);
             cache.removeListener(this);
         }
     }
