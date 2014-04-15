@@ -1,14 +1,11 @@
 package org.infinispan.versioning.utils.collections;
 
-import java.io.ObjectStreamException;
+import org.infinispan.atomic.AtomicObjectFactory;
+import org.infinispan.versioning.VersionedCacheFactory;
+
+import java.io.IOException;
 import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Map;
+import java.util.*;
 
 
 
@@ -25,10 +22,11 @@ import java.util.Map;
 public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
 {
 
-    private final static int DEFAULT_THRESHOLD = 100;
+    private final static int DEFAULT_THRESHOLD = 1000 ;
+    private static transient AtomicObjectFactory factory = AtomicObjectFactory.forCache(VersionedCacheFactory.cache);
 
+    private SortedMap<K,TreeMap<K,V>> delegate;
     private Set<K> entries;
-    private transient SortedMap<K,TreeMap<K,V>> delegate;
     private int threshhold; // how many entries are stored before creating a new subtree.
 
     public ShardedTreeMap(){
@@ -48,8 +46,9 @@ public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
             K v1,
             K v2) {
         SortedMap<K,V> result = new TreeMap<K, V>();
-        for(K version : delegate.subMap(v1, v2).keySet()){
-            result.putAll(delegate.get(version).subMap(v1, v2));
+        for(K key : delegate.subMap(v1, v2).keySet()){
+            allocateTree(key);
+            result.putAll(delegate.get(key).subMap(v1, v2));
         }
         return result;
     }
@@ -57,8 +56,9 @@ public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
     @Override
     public SortedMap<K, V> headMap(K v) {
         SortedMap<K,V> result = new TreeMap<K, V>();
-        for(K version : delegate.headMap(v).keySet()){
-            result.putAll(delegate.get(version).headMap(v));
+        for(K key : delegate.headMap(v).keySet()){
+            allocateTree(key);
+            result.putAll(delegate.get(key).headMap(v));
         }
         return result;
     }
@@ -66,19 +66,26 @@ public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
     @Override
     public SortedMap<K, V> tailMap(K v) {
         SortedMap<K,V> result = new TreeMap<K, V>();
-        for(K version : delegate.tailMap(v).keySet()){
-            result.putAll(delegate.get(version).tailMap(v));
+        for(K key : delegate.tailMap(v).keySet()){
+            allocateTree(key);
+            result.putAll(delegate.get(key).tailMap(v));
         }
         return result;
     }
 
     @Override
     public K firstKey() {
+        allocateTree(delegate.firstKey());
         return delegate.get(delegate.firstKey()).firstKey();
     }
 
     @Override
     public K lastKey() {
+        allocateTree(delegate.lastKey());
+        if(delegate.isEmpty())
+            return null;
+        if(delegate.get(delegate.lastKey()).isEmpty())
+            return null;
         return delegate.get(delegate.lastKey()).lastKey();
     }
 
@@ -92,29 +99,35 @@ public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
 
     @Override
     public boolean isEmpty() {
-        return delegate.isEmpty();
+        return entries.isEmpty();
     }
 
     @Override
     public V get(Object o) {
-        SortedMap<K,TreeMap<K,V>> m
-                = delegate.tailMap((K)o);
-        if(m.isEmpty())
+        if (delegate.isEmpty())
             return null;
-        return delegate.get(m.firstKey()).get(o);
+        K last = delegate.lastKey();
+        TreeMap<K,V> treeMap = allocateTree(last);
+        if(treeMap.lastEntry()==null)
+            return null;
+        V ret = treeMap.lastEntry().getValue();
+        unallocateTrees();
+        return ret;
     }
 
     @Override
     public V put(K k, V v) {
-        V ret = get(k);
-        if( delegate.isEmpty()
-            || delegate.get(delegate.lastKey()).size()==threshhold ){
-            delegate.put(k, new TreeMap());
+        entries.add(k);
+        if (!delegate.isEmpty()) {
+            K last = delegate.lastKey();
+            allocateTree(last);
+            if (delegate.get(last).size()<threshhold) {
+                return delegate.get(last).put(k, v);
+            }
         }
-        K k1 = delegate.lastKey(); // FIXME
-        TreeMap<K,V> inner = delegate.get(k1);
-        inner.put(k, v);
-        return v;
+        delegate.put(k,null);
+        allocateTree(k);
+        return delegate.get(k).put(k, v);
     }
 
     @Override
@@ -127,14 +140,33 @@ public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
         return delegate.hashCode();
     }
 
-    // When the object is unserialized, we reconstruct all the subtrees.
-    public Object readResolve() throws ObjectStreamException {
-        delegate = new TreeMap<K, TreeMap<K,V>>();
-        for(K k: entries){
-            TreeMap map = new TreeMap();
-            delegate.put(k,map);
+    @Override
+    public void putAll(Map<? extends K, ? extends V> map) {
+        for(K k : map.keySet()){
+            put(k, map.get(k));
         }
-        return this;
+        unallocateTrees();
+    }
+
+    private TreeMap<K,V> allocateTree(K k){
+        if(delegate.get(k)==null){
+            TreeMap<K,V> treeMap = factory.getInstanceOf(TreeMap.class, k, true, null, false); // cause this is monotonically growing
+            delegate.put(k, treeMap);
+        }
+        return delegate.get(k);
+    }
+
+    private void unallocateTrees(){
+        for(K k : delegate.keySet()){
+            if(delegate.get(k)!=null){
+                try {
+                    factory.disposeInstanceOf(TreeMap.class,k,true);
+                } catch (IOException e) {
+                    e.printStackTrace();  // TODO: Customise this generated block
+                }
+                delegate.put(k,null);
+            }
+        }
     }
 
     //
@@ -143,11 +175,6 @@ public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
 
     @Override
     public V remove(Object o) {
-        throw new UnsupportedOperationException("to be implemented");
-    }
-
-    @Override
-    public void putAll(Map<? extends K, ? extends V> map) {
         throw new UnsupportedOperationException("to be implemented");
     }
 
@@ -185,6 +212,5 @@ public class ShardedTreeMap<K,V> implements Serializable, SortedMap<K, V>
     public Comparator<? super K> comparator() {
         throw new UnsupportedOperationException("to be implemented");
     }
-
 
 }

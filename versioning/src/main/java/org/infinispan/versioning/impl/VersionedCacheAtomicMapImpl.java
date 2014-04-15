@@ -6,6 +6,7 @@ import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.jboss.logging.Logger;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -32,7 +33,13 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
 
     @Override
     protected void versionMapPut(K key, V value, Version version) {
-        factory.getInstanceOf(HashMap.class,key,true,null,false).put(version, value);
+        HashMap hashMap = factory.getInstanceOf(HashMap.class, key, true, null, false);
+        hashMap.put(version, value);
+        try {
+            factory.disposeInstanceOf(HashMap.class,key,true);
+        } catch (IOException e) {
+            e.printStackTrace();  // TODO: Customise this generated block
+        }
     }
 
     @Override
@@ -68,7 +75,13 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
 
     @Override
     public void putAll(K key, Map<Version,V> map){
-        factory.getInstanceOf(HashMap.class,key,true,null,false).putAll(map);
+        HashMap hashMap = factory.getInstanceOf(HashMap.class, key, true, null, false);
+        hashMap.putAll(map);
+        try {
+            factory.disposeInstanceOf(HashMap.class,key,true);
+        } catch (IOException e) {
+            e.printStackTrace();  // TODO: Customise this generated block
+        }
     }
 
 }

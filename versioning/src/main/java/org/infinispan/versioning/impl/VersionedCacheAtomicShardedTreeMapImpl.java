@@ -6,6 +6,9 @@ import org.infinispan.versioning.utils.collections.ShardedTreeMap;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 
@@ -58,6 +61,35 @@ public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheA
     @Override
     public Set<K> keySet() {
         return delegate.keySet();
+    }
+
+    @Override
+    public V get(Object key){
+        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        return shardedMap.get(key);
+    }
+
+    @Override
+    public Collection<V> get(K key, Version first, Version last) {
+        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        Collection<V> ret = shardedMap.subMap(first,last).values();
+        try {
+            factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
+        } catch (IOException e) {
+            e.printStackTrace();  // TODO: Customise this generated block
+        }
+        return ret;
+    }
+
+   @Override
+    public void putAll(K key, Map<Version,V> map){
+        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        shardedMap.putAll(map);
+        try {
+            factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
+        } catch (IOException e) {
+            e.printStackTrace();  // TODO: Customise this generated block
+        }
     }
 
 }

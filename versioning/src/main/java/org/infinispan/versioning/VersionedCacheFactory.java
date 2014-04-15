@@ -1,5 +1,6 @@
 package org.infinispan.versioning;
 
+import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
@@ -26,7 +27,8 @@ import java.io.IOException;
 public class VersionedCacheFactory {
 	
 	private Logger logger;
-	private EmbeddedCacheManager cacheManager;
+	public static EmbeddedCacheManager cacheManager;
+    public static Cache cache;
 
     public static enum VersioningTechnique {
         FAKE,
@@ -59,7 +61,9 @@ public class VersionedCacheFactory {
 		} else if(cacheName == null) {
 			throw new IllegalArgumentException("Cache");
 		}
-		
+
+        cache = cacheManager.getCache(cacheName);
+
 		switch (versioningTechnique) {
 		case FAKE: {
 			return new VersionedCacheFakeImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
