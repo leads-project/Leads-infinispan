@@ -19,15 +19,19 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
   * @author Pierre Sutra
  *  @since 6.0
  *
  */
-@Listener(sync = true, clustered = true)
+@Listener(sync = false, clustered = true, primaryOnly = true)
 public class AtomicObjectContainer extends KeySpecificListener {
 
     //
@@ -36,15 +40,14 @@ public class AtomicObjectContainer extends KeySpecificListener {
 
     private static final MethodFilter mfilter = new MethodFilter() {
         @Override
-        public boolean isHandled(Method arg0) {
-            return true;
+        public boolean isHandled(Method m) {
+            // ignore finalize()
+            return !m.getName().equals("finalize");
         }
     };
     private static Log log = LogFactory.getLog(AtomicObjectContainer.class);
     private static final int CALL_TTIMEOUT_TIME = 3000;
-    private static final int RETRIEVE_TTIMEOUT_TIME = 30000;
-    private static ExecutorService callExecutors = Executors.newCachedThreadPool();
-    private static Random random = new Random(System.currentTimeMillis());
+    private static final int RETRIEVE_TTIMEOUT_TIME = 3000;
 
     //
     // OBJECT FIELDS
@@ -55,49 +58,62 @@ public class AtomicObjectContainer extends KeySpecificListener {
     private Class clazz;
     private Object proxy;
 
-    private Boolean withReadOptimization;
-    private Set<String> readOptimizationFailedMethods;
-    private Set<String> readOptimizationSuceedMethods;
-    private Method equalsMethod;
-    private Boolean isInstalled = false;
-    private AtomicObjectContainer listener = this;
+    private ExecutorService callExecutors = Executors.newSingleThreadExecutor();
 
-    private Map<Integer,AtomicObjectCallFuture> registeredCalls;
+    private Boolean withReadOptimization; // serialize operation on the object copy
+    private Method equalsMethod;
+    private AtomicBoolean isInstalled;
+    private Boolean isDisposed;
+    private final AtomicObjectContainer listener = this;
+    private Set<String> readOptimizationSuceedMethods;
+    private Set<String> readOptimizationFailedMethods;
+
+    private Map<Long,AtomicObjectCallFuture> registeredCalls;
 
     private AtomicObjectCallFuture retrieve_future;
     private ArrayList<AtomicObjectCallInvoke> retrieve_calls;
     private AtomicObjectCallRetrieve retrieve_call;
 
-    public AtomicObjectContainer(Cache c, Class cl, Object k, boolean readOptimization, Method m, boolean forceNew, Object ... initArgs)
+    public AtomicObjectContainer(final Cache c, final Class cl, final Object key, final boolean readOptimization, Method m, final boolean forceNew, final Object ... initArgs)
             throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException {
+
+        // check parameters
+        assert !AtomicObject.class.isAssignableFrom(cl) || readOptimization==false;
 
         cache = c;
         clazz = cl;
-        key = k;
+        this.key = key;
 
-        readOptimizationFailedMethods = new HashSet<String>();
-        readOptimizationSuceedMethods = new HashSet<String>();
         withReadOptimization = readOptimization;
+        isInstalled = new AtomicBoolean(false);
+        readOptimizationSuceedMethods = new ConcurrentSkipListSet<String>();
+        readOptimizationFailedMethods = new ConcurrentSkipListSet<String>();
 
         equalsMethod = m;
 
-        registeredCalls = new ConcurrentHashMap<Integer, AtomicObjectCallFuture>();
+        registeredCalls = new ConcurrentHashMap<Long, AtomicObjectCallFuture>();
 
         // build the proxy
         MethodHandler handler = new MethodHandler() {
+
             public Object invoke(Object self, Method m, Method proceed, Object[] args) throws Throwable {
 
-                GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
+                if (listener==null)
+                    throw new IllegalAccessException();
 
-                synchronized(withReadOptimization){
-                    log.debug("Call "+m.getName()+" is local ");
-                    if (withReadOptimization){
+                // 1 - local operation
+                GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
+                if (withReadOptimization ) {
+                    if (object==null)
+                        initObject(forceNew, initArgs);
+                    synchronized(listener){
                         if(readOptimizationSuceedMethods.contains(m.getName())){
                             return doCall(object,m.getName(),args);
                         }else if(!readOptimizationFailedMethods.contains(m.getName())){
                             Object copy = marshaller.objectFromByteBuffer(marshaller.objectToByteBuffer(object));
                             Object ret = doCall(copy,m.getName(),args);
                             if( equalsMethod == null ? copy.equals(object) : equalsMethod.invoke(copy, object).equals(Boolean.TRUE) ){
+                                log.debug("Call "+m.getName()+"() local succeed");
                                 readOptimizationSuceedMethods.add(m.getName());
                                 return ret;
                             }else{
@@ -107,29 +123,31 @@ public class AtomicObjectContainer extends KeySpecificListener {
                     }
                 }
 
-                int callID = nextCallID(cache);
+                // 2 - remote operation
+
+                // 2.1 - call creation
+                long callID = nextCallID();
                 AtomicObjectCallInvoke invoke = new AtomicObjectCallInvoke(callID,m.getName(),args);
                 byte[] bb = marshaller.objectToByteBuffer(invoke);
                 AtomicObjectCallFuture future = new AtomicObjectCallFuture();
                 registeredCalls.put(callID, future);
+                log.debug("Call " + invoke);
 
-                synchronized (listener){
-                    if(!isInstalled ){
-                        // Register
-                        cache.addListener(listener);
-                        isInstalled = true;
-                    }
+                // 2.2 - listener installation and object creation (if necessary)
+                if (!isInstalled.get() ) {
+                    cache.addListener(listener);
+                    initObject(forceNew,initArgs);
+                    isInstalled.set(true);
                 }
 
-                cache.put(key, bb);
-                log.debug("Called " + invoke + " on object " + key);
-
+                // 2.3 - call execution
+                cache.put(AtomicObjectContainer.this.key, bb);
                 Object ret = future.get(CALL_TTIMEOUT_TIME,TimeUnit.MILLISECONDS);
                 registeredCalls.remove(callID);
                 if(!future.isDone()){
-                    throw new TimeoutException("Unable to execute "+invoke+" on "+clazz+ " @ "+key);
+                    throw new TimeoutException("Unable to execute "+invoke+" on "+clazz+ " @ "+ AtomicObjectContainer.this.key);
                 }
-
+                log.debug("Return " + invoke+ " "+(ret==null ? "null" : ret.toString()));
                 return ret;
             }
         };
@@ -139,9 +157,6 @@ public class AtomicObjectContainer extends KeySpecificListener {
         fact.setFilter(mfilter);
         proxy = fact.createClass().newInstance();
         ((ProxyObject)proxy).setHandler(handler);
-
-        // Build the object
-        initObject(forceNew, initArgs);
 
     }
 
@@ -154,12 +169,12 @@ public class AtomicObjectContainer extends KeySpecificListener {
     @CacheEntryModified
     @CacheEntryCreated
     @Deprecated
-    public synchronized void onCacheModification(CacheEntryEvent event){
+    public void onCacheModification(CacheEntryEvent event){
+
+        log.debug(event.getType() + " " + event.isPre());
 
         if( !event.getKey().equals(key) )
             return;
-
-        // System.out.println("receive "+event.getValue()+" with "+event.isPre());
 
         if(event.isPre())
             return;
@@ -169,7 +184,7 @@ public class AtomicObjectContainer extends KeySpecificListener {
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
             byte[] bb = (byte[]) event.getValue();
             AtomicObjectCall call = (AtomicObjectCall) marshaller.objectFromByteBuffer(bb);
-            log.debug("Received " + call + " from " + event.getCache().toString());
+            log.debug("Receive " + call+" "+event.isOriginLocal());
             callExecutors.submit(new AtomicObjectContainerTask(call));
 
         } catch (Exception e) {
@@ -178,16 +193,26 @@ public class AtomicObjectContainer extends KeySpecificListener {
 
     }
 
-    public synchronized void dispose(boolean keepPersistent) throws IOException, InterruptedException {
+    public synchronized void dispose(boolean keepPersistent) throws IOException, InterruptedException, IllegalAccessException {
+
+        log.debug("Disposing "+key+"["+clazz.getSimpleName()+"]");
+
         if (!registeredCalls.isEmpty())
-            return; // somebody is using this container
-        if ( keepPersistent && isInstalled) {
+            throw new IllegalAccessException();
+
+        if (isInstalled.get()){
+            cache.removeListener(listener);
+            isInstalled.set(false);
+        }
+
+        if ( keepPersistent ) {
+            log.debug(" ... persisted");
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
             AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
             byte[] bb = marshaller.objectToByteBuffer(persist);
-            cache.putAsync(key,bb);
-            cache.removeListener(this);
+            cache.put(key, bb);
         }
+
     }
 
     private void initObject(boolean forceNew, Object ... initArgs) throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
@@ -197,20 +222,25 @@ public class AtomicObjectContainer extends KeySpecificListener {
             try {
                 AtomicObjectCall persist = (AtomicObjectCall) marshaller.objectFromByteBuffer((byte[]) cache.get(key));
                 if(persist instanceof AtomicObjectCallPersist){
+                    log.debug("Persisted object "+key);
                     object = ((AtomicObjectCallPersist)persist).object;
                 }else{
                     log.debug("Retrieving object "+key);
-                    if(!isInstalled){
+                    if(!isInstalled.get()){
                         // Register
                         cache.addListener(this);
-                        isInstalled = true;
+                        isInstalled.set(true);
                     }
                     retrieve_future = new AtomicObjectCallFuture();
-                    retrieve_call = new AtomicObjectCallRetrieve(nextCallID(cache));
+                    retrieve_call = new AtomicObjectCallRetrieve(nextCallID());
                     marshaller = new GenericJBossMarshaller();
                     cache.put(key,marshaller.objectToByteBuffer(retrieve_call));
                     retrieve_future.get(RETRIEVE_TTIMEOUT_TIME,TimeUnit.MILLISECONDS);
                     if(!retrieve_future.isDone()) throw new TimeoutException();
+                }
+                if (object instanceof AtomicObject){
+                    ((AtomicObject)object).cache = this.cache;
+                    ((AtomicObject)object).key = this.key;
                 }
                 return;
             } catch (Exception e) {
@@ -237,8 +267,13 @@ public class AtomicObjectContainer extends KeySpecificListener {
             }
         }
 
+        if (object instanceof AtomicObject){
+            ((AtomicObject)object).cache = this.cache;
+            ((AtomicObject)object).key = this.key;
+        }
+
         if(found)
-            log.debug("Object "+key+" is created.");
+            log.debug("Object " + key + "[" + clazz.getSimpleName() + "] is created "+(object instanceof AtomicObject));
         else
             throw new IllegalArgumentException("Unable to find constructor for "+clazz.toString()+" with "+initArgs);
 
@@ -252,17 +287,9 @@ public class AtomicObjectContainer extends KeySpecificListener {
         return clazz;
     }
 
-    /**
-     * @return a hash of the order in which the calls where executed.
-     */
-    @Override
-    public int hashCode(){
-        return containerSignature(this.clazz,this.key);
-    }
-
     @Override
     public String toString(){
-        return "Container ["+this.clazz.toString()+"::"+this.key.toString()+"]";
+        return "Container ["+this.clazz.getSimpleName()+"::"+this.key.toString()+"]";
     }
 
 
@@ -279,7 +306,7 @@ public class AtomicObjectContainer extends KeySpecificListener {
      */
     private boolean handleInvocation(AtomicObjectCallInvoke invocation)
             throws InvocationTargetException, IllegalAccessException {
-        synchronized(withReadOptimization){
+        synchronized(listener){
             Object ret = doCall(object,invocation.method,invocation.arguments);
             if(registeredCalls.containsKey(invocation.callID)){
                 assert ! registeredCalls.get(invocation.callID).isDone() : "Received twice "+ invocation.callID+" ?";
@@ -294,12 +321,12 @@ public class AtomicObjectContainer extends KeySpecificListener {
     // HELPERS
     //
 
-    private synchronized static int nextCallID(Cache c){
-        int rand = random.nextInt();
-        return rand+c.hashCode();
+    private long nextCallID(){
+        Random random = new Random(System.nanoTime());
+        return Thread.currentThread().getId()*random.nextLong();
     }
 
-    private static Object doCall(Object obj, String method, Object[] args) throws InvocationTargetException, IllegalAccessException {
+    private Object doCall(Object obj, String method, Object[] args) throws InvocationTargetException, IllegalAccessException {
         boolean isFound = false;
         Object ret = null;
         for (Method m : obj .getClass().getMethods()) { // only public methods (inherited and not)
@@ -367,7 +394,7 @@ public class AtomicObjectContainer extends KeySpecificListener {
 
                         AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
                         GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
-                        cache.put(key, marshaller.objectToByteBuffer(persist));
+                        cache.putAsync(key, marshaller.objectToByteBuffer(persist));
 
                     }else if (retrieve_call != null && retrieve_call.callID == ((AtomicObjectCallRetrieve)call).callID) {
 
@@ -398,31 +425,5 @@ public class AtomicObjectContainer extends KeySpecificListener {
         }
     }
 
-
-    public static class AtomicObjectContainerSignature{
-
-        int hash;
-
-        public AtomicObjectContainerSignature(Class clazz, Object key){
-            hash = clazz.hashCode() + key.hashCode();
-        }
-
-        public AtomicObjectContainerSignature(AtomicObjectContainer container){
-            hash = container.clazz.hashCode() + container.key.hashCode();
-        }
-
-        @Override
-        public int hashCode(){
-            return hash;
-        }
-
-        @Override
-        public boolean equals(Object o){
-            if (!(o instanceof AtomicObjectContainerSignature))
-                return false;
-            return ((AtomicObjectContainerSignature)o).hash == this.hash;
-        }
-
-    }
 
 }

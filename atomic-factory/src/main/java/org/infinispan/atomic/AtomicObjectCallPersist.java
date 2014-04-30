@@ -7,8 +7,13 @@ package org.infinispan.atomic;
 */
 class AtomicObjectCallPersist extends AtomicObjectCall{
     Object object;
-    public AtomicObjectCallPersist(int id, Object o) {
+    public AtomicObjectCallPersist(long id, Object o) {
         super(id);
         object = o;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString()+"(PER)";
     }
 }

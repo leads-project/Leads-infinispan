@@ -15,8 +15,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static org.infinispan.atomic.AtomicObjectContainer.AtomicObjectContainerSignature;
-
 
 /**
  * @author Pierre Sutra
@@ -41,7 +39,7 @@ public class AtomicObjectFactory {
     // OBJECT FIELDS
     //
 	private Cache cache;
-	private Map<AtomicObjectContainer.AtomicObjectContainerSignature,AtomicObjectContainer> registeredContainers;
+	private Map<AtomicObjectContainerSignature,AtomicObjectContainer> registeredContainers;
     private int maxSize;
     private final ExecutorService evictionExecutor = Executors.newCachedThreadPool();
 
@@ -58,9 +56,9 @@ public class AtomicObjectFactory {
     public AtomicObjectFactory(Cache<Object, Object> c, int m) throws InvalidCacheUsageException{
         cache = c;
         maxSize = m;
-        registeredContainers= new LinkedHashMap<AtomicObjectContainer.AtomicObjectContainerSignature,AtomicObjectContainer>(){
+        registeredContainers= new LinkedHashMap<AtomicObjectContainerSignature,AtomicObjectContainer>(){
             @Override
-            protected boolean removeEldestEntry(final java.util.Map.Entry<AtomicObjectContainer.AtomicObjectContainerSignature,AtomicObjectContainer> eldest) {
+            protected boolean removeEldestEntry(final java.util.Map.Entry<AtomicObjectContainerSignature,AtomicObjectContainer> eldest) {
                 if(maxSize!=0 && this.size() == maxSize){
                     evictionExecutor.submit(new Callable<Void>() {
                         @Override
@@ -191,10 +189,10 @@ public class AtomicObjectFactory {
      * @param keepPersistent indicates that a persistent copy is stored in the cache or not.
      */
     public void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
-            throws IOException, InvalidCacheUsageException {
+            throws InvalidCacheUsageException {
     	
         AtomicObjectContainerSignature signature = new AtomicObjectContainerSignature(clazz,key);
-    	log.debug("Disposing instance from key:"+signature);
+    	log.debug("Disposing "+signature);
         AtomicObjectContainer container;
         synchronized (registeredContainers){
             container = registeredContainers.get(signature);
@@ -208,12 +206,11 @@ public class AtomicObjectFactory {
         try{
             container.dispose(keepPersistent);
         }catch (Exception e){
-            throw new InvalidCacheUsageException(e.getCause());
+            e.printStackTrace();
+            throw new InvalidCacheUsageException("");
         }
 
     }
-
-
 
     //
     // PRIVATE CLASS

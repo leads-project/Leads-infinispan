@@ -27,11 +27,13 @@ import java.util.concurrent.Future;
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
     private static int NCALLS= 100;
-    private static int NCACHES = 4;
+    private static int NCACHES = 3;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
 
+
+    @Test(enabled = true)
     public void basicUsageTest() throws  Exception{
 
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
@@ -56,6 +58,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
     }
 
+    @Test(enabled = false)
     public void basicPerformanceTest() throws Exception{
 
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
@@ -76,6 +79,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
     }
 
+    @Test(enabled = true)
     public void distributedCacheTest() throws Exception {
 
         ExecutorService service = Executors.newCachedThreadPool();
@@ -90,11 +94,9 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
             caches.add(cache);
             factory = new AtomicObjectFactory(cache);
             factories.add(factory);
-            set = (HashSet) factory.getInstanceOf(HashSet.class, "aset");
+            set = (HashSet) factory.getInstanceOf(HashSet.class, "aset", false, null, false);
             sets.add(set);
         }
-
-        initAndTest();
 
         for(Set s : sets){
             futures.add(service.submit(new ExerciceAtomicSetTask(s, NCALLS)));
@@ -105,15 +107,11 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
             total += future.get();
         }
 
-        assert total == (NCALLS *(NCACHES-1)) : "obtained = "+total+"; espected = "+ (NCALLS * (NCACHES-1));
-
-        int hash = factories.get(0).hashCode();
-        for(AtomicObjectFactory f : factories){
-            assert f.hashCode() == hash;
-        }
+        assert total == (NCALLS) : "obtained = "+total+"; espected = "+ (NCALLS);
 
     }
 
+    @Test(enabled = true)
     public void distributedPersistenceTest() throws Exception {
 
         Iterator<EmbeddedCacheManager> it = cacheManagers.iterator();
@@ -125,20 +123,25 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
         cache1 = manager1.getCache();
         factory1 = new AtomicObjectFactory(cache1);
-        set1 = (HashSet) factory1.getInstanceOf(HashSet.class, "hashset");
+        set1 = (HashSet) factory1.getInstanceOf(HashSet.class, "persist");
         set1.add("smthing");
-        factory1.disposeInstanceOf(HashSet.class,"hashset",true);
+        factory1.disposeInstanceOf(HashSet.class,"persist",true);
 
         cache2 = manager2.getCache();
         factory2 = new AtomicObjectFactory(cache2);
-        set2 = (HashSet) factory2.getInstanceOf(HashSet.class, "hashset", true, null, false);
+        set2 = (HashSet) factory2.getInstanceOf(HashSet.class, "persist", true, null, false);
         assert set2.contains("smthing");
 
     }
 
+    //
+    // HELPERS
+    //
+
     @Override
     protected void createCacheManagers() throws Throwable {
-        ConfigurationBuilder builder = AbstractCacheTest.getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
+        ConfigurationBuilder builder
+                = AbstractCacheTest.getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false);
         TransportFlags flags = new TransportFlags();
         createClusteredCaches(NCACHES, builder, flags);
     }
@@ -180,8 +183,10 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
         public Integer call() throws Exception {
             int ret = 0;
             for(int i=0; i<ncalls;i++){
-                if( ! set.add(i) )
+                boolean r = set.add(i);
+                if(r)
                     ret ++;
+                // System.out.println(i+" => "+r);
             }
             return  ret;
         }

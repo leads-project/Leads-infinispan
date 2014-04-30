@@ -9,8 +9,13 @@ import java.io.Serializable;
 * @since 6.0
 */
 abstract class AtomicObjectCall implements Serializable {
-    int callID;
-    public AtomicObjectCall(int id){
+    long callID;
+    public AtomicObjectCall(long id){
         callID = id;
+    }
+
+    @Override
+    public String toString(){
+        return Long.toString(callID);
     }
 }
