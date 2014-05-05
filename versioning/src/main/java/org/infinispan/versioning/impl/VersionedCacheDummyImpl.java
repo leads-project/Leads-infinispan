@@ -2,7 +2,6 @@ package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
-import org.infinispan.versioning.utils.collections.ShardedTreeMap;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 
@@ -42,7 +41,7 @@ public class VersionedCacheDummyImpl<K,V> extends VersionedCacheAbstractImpl<K,V
     protected SortedMap<Version, V> versionMapGet(K key) {
         TreeMap<Version,V> map = retrieveTreeMap(key);
         if(map==null)
-            return  new ShardedTreeMap<Version, V>();
+            return  new TreeMap<Version, V>();
         return map;
     }
 

@@ -132,8 +132,8 @@ public class RemoteVersionedCacheImpl<K,V> extends UnicastRemoteObject implement
     }
 
     @Override
-    public Collection<V> get(K key, Version first, Version last) throws RemoteException {
-        LinkedList<V> list = new LinkedList<V>();
+    public Collection<Version> get(K key, Version first, Version last) throws RemoteException {
+        LinkedList<Version> list = new LinkedList<Version>();
         list.addAll(delegate.get(key, first, last));
         return list;
     }

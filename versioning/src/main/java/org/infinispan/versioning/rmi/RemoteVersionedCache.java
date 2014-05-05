@@ -40,7 +40,7 @@ public interface RemoteVersionedCache<K,V> extends Remote {
 
     public V get(K k) throws RemoteException;
     public V get(K key, Version version) throws RemoteException;
-    public Collection<V> get(K key, Version first, Version last) throws RemoteException;
+    public Collection<Version> get(K key, Version first, Version last) throws RemoteException;
     public V getLatest(K key, Version upperBound) throws RemoteException;
     public V getEarliest(K key, Version lowerBound) throws RemoteException;
     public Version getLatestVersion(K key) throws RemoteException;

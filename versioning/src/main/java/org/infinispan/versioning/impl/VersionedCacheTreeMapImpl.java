@@ -6,7 +6,6 @@ import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.jboss.logging.Logger;
 
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -15,11 +14,11 @@ import java.util.*;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
+public class VersionedCacheTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
     AtomicObjectFactory factory;
     Logger logger;
-    public VersionedCacheAtomicTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
+    public VersionedCacheTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
         this.logger  = Logger.getLogger(this.getClass());
@@ -35,11 +34,7 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstract
     protected void versionMapPut(K key, V value, Version version) {
         TreeMap<Version,V> treeMap = factory.getInstanceOf(TreeMap.class, key, true, null, false);
         treeMap.put(version, value);
-        try {
-            factory.disposeInstanceOf(TreeMap.class,key,true);
-        } catch (IOException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
-        }
+        factory.disposeInstanceOf(TreeMap.class,key,true);
     }
 
     @Override
@@ -66,20 +61,16 @@ public class VersionedCacheAtomicTreeMapImpl<K,V> extends VersionedCacheAbstract
         return delegate.keySet();
     }
 
-    @Override
-    public Collection<V> get(K key, Version first, Version last) {
-        return factory.getInstanceOf(TreeMap.class,key,true,null,false).subMap(first, last).values();
+        @Override
+    public Collection<Version> get(K key, Version first, Version last) {
+        return factory.getInstanceOf(TreeMap.class,key,true,null,false).subMap(first, last).keySet();
     }
 
     @Override
     public void putAll(K key, Map<Version,V> map){
         TreeMap<Version,V> treeMap  = factory.getInstanceOf(TreeMap.class, key, true, null, false);
         treeMap.putAll(map);
-        try {
-            factory.disposeInstanceOf(TreeMap.class,key,true);
-        } catch (IOException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
-        }
+        factory.disposeInstanceOf(TreeMap.class,key,true);
     }
 
  }

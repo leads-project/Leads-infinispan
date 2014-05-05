@@ -16,11 +16,11 @@ import java.util.TreeMap;
  * @author Fábio André Coelho, Pierre Sutra
  * @since 4.0
  */
-public class VersionedCacheFinedGrainedAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
+public class VersionedCacheFinedGrainedHashMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 	
 	Logger logger;
 	
-    public VersionedCacheFinedGrainedAtomicMapImpl(Cache delegate, VersionGenerator generator, String name) {
+    public VersionedCacheFinedGrainedHashMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         this.logger  = Logger.getLogger(this.getClass());
     }

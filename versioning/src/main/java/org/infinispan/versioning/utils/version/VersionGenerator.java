@@ -1,10 +1,9 @@
 package org.infinispan.versioning.utils.version;
 
 /**
- * // TODO: Document this
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 7.0
  */
 public abstract class VersionGenerator {
 

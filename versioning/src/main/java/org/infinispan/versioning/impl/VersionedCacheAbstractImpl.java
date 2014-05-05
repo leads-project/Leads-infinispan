@@ -46,11 +46,11 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
      * @return
      */
     @Override
-    public Collection<V> get(K key, Version first, Version last) {
+    public Collection<Version> get(K key, Version first, Version last) {
         SortedMap<Version,V> map = versionMapGet(key);
         if(map.isEmpty())
             return Collections.EMPTY_LIST;
-        return map.subMap(first, last).values();
+        return map.subMap(first, last).keySet();
     }
 
     @Override
@@ -162,9 +162,14 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
     public void stop() {
     }
 
+    @Override
+    public String toString(){
+        return delegate.toString();
+    }
+
 
     //
-    // OBJECT METHODS
+    // ABSTRACT METHODS
     //
 
     protected abstract SortedMap<Version,V> versionMapGet(K key);
@@ -173,7 +178,7 @@ public abstract class VersionedCacheAbstractImpl<K,V> implements VersionedCache<
 
 
     //
-    // NYI
+    // NYI METHODS
     //
 
     @Override

@@ -6,7 +6,6 @@ import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 import org.jboss.logging.Logger;
 
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -14,11 +13,13 @@ import java.util.*;
  * @author Pierre Sutra
  * @since 7.0
  */
-public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
+public class VersionedCacheHashMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
     AtomicObjectFactory factory;
     Logger logger;
-    public VersionedCacheAtomicMapImpl(Cache delegate, VersionGenerator generator, String name) {
+    Class mapClass;
+
+    public VersionedCacheHashMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
         this.logger  = Logger.getLogger(this.getClass());
@@ -35,11 +36,7 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
     protected void versionMapPut(K key, V value, Version version) {
         HashMap hashMap = factory.getInstanceOf(HashMap.class, key, true, null, false);
         hashMap.put(version, value);
-        try {
-            factory.disposeInstanceOf(HashMap.class,key,true);
-        } catch (IOException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
-        }
+        factory.disposeInstanceOf(HashMap.class,key,true);
     }
 
     @Override
@@ -67,21 +64,17 @@ public class VersionedCacheAtomicMapImpl<K,V> extends VersionedCacheAbstractImpl
     }
 
     @Override
-    public Collection<V> get(K key, Version first, Version last) {
+    public Collection<Version> get(K key, Version first, Version last) {
         HashMap<Version,V> map = factory.getInstanceOf(HashMap.class,key,true,null,false);
         TreeMap<Version,V> treeMap = new TreeMap<Version,V>(map);
-        return treeMap.subMap(first, last).values();
+        return treeMap.subMap(first, last).keySet();
     }
 
     @Override
     public void putAll(K key, Map<Version,V> map){
         HashMap hashMap = factory.getInstanceOf(HashMap.class, key, true, null, false);
         hashMap.putAll(map);
-        try {
-            factory.disposeInstanceOf(HashMap.class,key,true);
-        } catch (IOException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
-        }
+        factory.disposeInstanceOf(HashMap.class,key,true);
     }
 
 }

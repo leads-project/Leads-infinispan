@@ -2,11 +2,10 @@ package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.versioning.utils.collections.ShardedTreeMap;
+import org.infinispan.atomic.collections.ShardedTreeMap;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -20,11 +19,11 @@ import java.util.SortedMap;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
+public class VersionedCacheShardedTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
     private AtomicObjectFactory factory;
 
-    public VersionedCacheAtomicShardedTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
+    public VersionedCacheShardedTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
     }
@@ -70,14 +69,26 @@ public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheA
     }
 
     @Override
-    public Collection<V> get(K key, Version first, Version last) {
+    public V put(K key, V value) {
         ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
-        Collection<V> ret = shardedMap.subMap(first,last).values();
-        try {
-            factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
-        } catch (IOException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
+        if (shardedMap.isEmpty()){
+            shardedMap.put(generator.generateNew(),value);
+        }else{
+            Version last = shardedMap.lastKey();
+            Version next = generator.increment(last);
+            shardedMap.put(next,value);
         }
+        factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
+        return null;
+    }
+
+
+    @Override
+    public Collection<Version> get(K key, Version first, Version last) {
+        assert first != null && last != null;
+        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        Collection<Version> ret = shardedMap.subMap(first,last).keySet();
+        factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
         return ret;
     }
 
@@ -85,11 +96,7 @@ public class VersionedCacheAtomicShardedTreeMapImpl<K,V> extends VersionedCacheA
     public void putAll(K key, Map<Version,V> map){
         ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
         shardedMap.putAll(map);
-        try {
-            factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
-        } catch (IOException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
-        }
+        factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
     }
 
 }

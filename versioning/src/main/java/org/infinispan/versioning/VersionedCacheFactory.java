@@ -27,12 +27,11 @@ import java.io.IOException;
 public class VersionedCacheFactory {
 	
 	private Logger logger;
-	public static EmbeddedCacheManager cacheManager;
-    public static Cache cache;
+	private static EmbeddedCacheManager cacheManager;
+    private static Cache cache;
 
     public static enum VersioningTechnique {
         FAKE,
-        NAIVE,
     	DUMMY,
         ATOMICFGMAP,
         ATOMICMAP,
@@ -68,27 +67,24 @@ public class VersionedCacheFactory {
 		case FAKE: {
 			return new VersionedCacheFakeImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
         }
-		case NAIVE: {
-			return new VersionedCacheNaiveImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
-		}
         case DUMMY: {
             return new VersionedCacheDummyImpl<K, V>(cacheManager.getCache(cacheName), generator, cacheName);
         }
         case ATOMICMAP:{
-            return new VersionedCacheAtomicMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
+            return new VersionedCacheHashMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
         }
 		case ATOMICFGMAP: {
-		       return new VersionedCacheFinedGrainedAtomicMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
+		       return new VersionedCacheFinedGrainedHashMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
 		}
 		case TREEMAP:{
-			 return new VersionedCacheAtomicTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
+			 return new VersionedCacheTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
 		case SHARDED_TREE:{
-            return new VersionedCacheAtomicShardedTreeMapImpl<K, V>(cacheManager.getCache(cacheName), generator, cacheName);
+            return new VersionedCacheShardedTreeMapImpl<K, V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
 		default:
-			logger.info("Creating default versioned cache of type "+VersionedCacheNaiveImpl.class.getCanonicalName());
-			return new VersionedCacheNaiveImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);
+			logger.info("Creating default versioned cache of type "+VersionedCacheDummyImpl.class.getCanonicalName());
+            return new VersionedCacheDummyImpl<K, V>(cacheManager.getCache(cacheName), generator, cacheName);
 		}
 	}
 	
@@ -106,14 +102,14 @@ public class VersionedCacheFactory {
 	
 	/**
 	 * Use the {@link VersionScalarGenerator} with the given {@link VersioningTechnique} versioned cache.
-	 * Use the {@link VersioningTechnique#NAIVE} versioning technique.
+	 * Use the {@link VersioningTechnique#DUMMY} versioning technique.
 	 * Forward the call to {@link VersionedCacheFactory#newVersionedCache(VersioningTechnique, VersionGenerator, String)}.
 	 * 
 	 * @param cacheName
 	 * @return an instance of {@link VersionedCache}.
 	 */
 	public <K,V> VersionedCache<K,V> newVersionedCache( String cacheName){
-		return newVersionedCache(VersioningTechnique.NAIVE, new VersionScalarGenerator(), cacheName);
+		return newVersionedCache(VersioningTechnique.DUMMY, new VersionScalarGenerator(), cacheName);
 	}
 	
 	public  void startManager() {
