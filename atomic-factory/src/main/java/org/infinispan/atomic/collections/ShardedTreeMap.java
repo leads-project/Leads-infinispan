@@ -27,7 +27,7 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
 {
 
     private static Log log = LogFactory.getLog(ShardedTreeMap.class);
-    private final static int DEFAULT_THRESHOLD = 1000 ;
+    private final static int DEFAULT_THRESHOLD = 100;
 
     private SortedMap<K,TreeMap<K,V>> forest; // the ordered forest
     private int threshold; // how many entries are stored before creating a new tree in the forest.
@@ -128,26 +128,7 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
 
     @Override
     public V put(K k, V v) {
-        log.debug("adding "+k+"="+v);
-        V ret = null;
-        if (forest.isEmpty()){
-            forest.put(k,null);
-            allocateTree(k);
-            forest.get(k).put(k, v);
-        }else if (forest.containsKey(k)) {
-            ret = forest.get(k).put(k,v);
-        }else{
-            K last = forest.headMap(k).lastKey();
-            allocateTree(last);
-            ret = forest.get(last).put(k,v);
-            if (forest.get(last).size() > threshold){ // FIXME assumption on monotonically growing insertions
-                Entry<K,V> entry = forest.get(last).lastEntry();
-                forest.get(last).remove(entry.getKey());
-                forest.put(entry.getKey(),null);
-                allocateTree(entry.getKey());
-                forest.get(entry.getKey()).put(entry.getKey(), v);
-            }
-        }
+        V ret = doPut(k,v);
         unallocateTrees();
         return ret;
     }
@@ -164,9 +145,12 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
+        long start = System.currentTimeMillis();
         for(K k : map.keySet()){
-            put(k, map.get(k));
+            doPut(k, map.get(k));
         }
+        unallocateTrees();
+        System.out.println(System.currentTimeMillis()-start);
     }
 
 
@@ -203,10 +187,50 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
     // HELPERS
     //
 
+    private V doPut(K k, V v){
+        log.debug("adding " + k + "=" + v);
+
+        V ret = null;
+        K key;
+        TreeMap<K,V> tree;
+        SortedMap<K,TreeMap<K,V>> headMap;
+
+        // 1 - Find the tree where to add (k,v)
+        headMap = forest.headMap(k);
+        if ( !headMap.isEmpty()
+             && allocateTree(headMap.lastKey()).size() < threshold)
+            key = headMap.lastKey();
+        else
+            key = k;
+
+        // 2 - add (k,v)
+        tree = allocateTree(key);
+        ret = tree.put(k,v);
+
+        log.debug("in tree "+key+" -> "+tree);
+
+        // 3 - update the forest if needed
+        // 3.1 - change the GLB element in the tree
+        if (key!=k && tree.firstKey().equals(k)) {
+            forest.remove(key);
+            forest.put(k,tree);
+        }
+
+        // 3.2 -split the tree if needed
+        if (tree.size() > threshold) {
+            Entry<K,V> entry = tree.lastEntry();
+            tree.remove(entry.getKey());
+            put(entry.getKey(),entry.getValue());
+        }
+
+        return ret;
+
+    }
+
+
     private TreeMap<K,V> allocateTree(K k){
         log.debug("Allocating "+k);
         if(forest.get(k)==null){
-            assert this.key!=null;
             TreeMap treeMap = AtomicObjectFactory.forCache(this.cache).getInstanceOf(
                     TreeMap.class, this.key.toString()+":"+k.toString(), true, null, false);
             forest.put(k, treeMap);

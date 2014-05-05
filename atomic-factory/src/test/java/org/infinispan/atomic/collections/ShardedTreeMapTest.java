@@ -25,7 +25,7 @@ import java.util.SortedMap;
 public class ShardedTreeMapTest extends MultipleCacheManagersTest {
 
     private static int NCALLS= 100;
-    private static int NCACHES = 1;
+    private static int NCACHES = 3;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     @Test(enabled = true)
@@ -34,11 +34,15 @@ public class ShardedTreeMapTest extends MultipleCacheManagersTest {
         Cache cache = cacheManager.getCache();
         AtomicObjectFactory factory = new AtomicObjectFactory(cache);
         SortedMap<String,String> map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,2);
-        for(int i=0; i<NCALLS; i++)
+        for(int i=0; i<NCALLS; i++) {
             map.put(Integer.toString(i),Integer.toString(i));
+        }
         factory.disposeInstanceOf(ShardedTreeMap.class,"test",true);
         map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,2);
+        int a = map.size();
+        log.debug(a);
         assert map.size() == NCALLS;
+
     }
 
     //
