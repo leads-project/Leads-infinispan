@@ -42,11 +42,13 @@ public class AtomicObjectContainer extends KeySpecificListener {
         }
     };
     private static Log log = LogFactory.getLog(AtomicObjectContainer.class);
-    private static final int CALL_TTIMEOUT_TIME = 3000;
-    private static final int RETRIEVE_TTIMEOUT_TIME = 3000;
+    private static final int CALL_TTIMEOUT_TIME = 10000;
+    private static final int RETRIEVE_TTIMEOUT_TIME = 10000;
     private static final int MAXPOOL = 100;
     private static PriorityBlockingQueue<AtomicObjectContainerTask> queue = new PriorityBlockingQueue<AtomicObjectContainerTask>(MAXPOOL,new TaskComparator());
     private static ThreadPoolExecutor callExecutors = new ThreadPoolExecutor(30, MAXPOOL, MAXPOOL, TimeUnit.SECONDS, (PriorityBlockingQueue) queue);
+    private static Set<String> readOptimizationSuceedMethods = new ConcurrentSkipListSet<String>();
+    private static Set<String> readOptimizationFailedMethods = new ConcurrentSkipListSet<String>();
 
     //
     // OBJECT FIELDS
@@ -61,8 +63,6 @@ public class AtomicObjectContainer extends KeySpecificListener {
     private Method equalsMethod;
     private Integer listenerState; // 0 = not installed, 1 = installed, -1 = disposed
     private final AtomicObjectContainer listener = this;
-    private Set<String> readOptimizationSuceedMethods;
-    private Set<String> readOptimizationFailedMethods;
 
     private Map<Long,AtomicObjectCallFuture> registeredCalls;
 
@@ -85,10 +85,7 @@ public class AtomicObjectContainer extends KeySpecificListener {
         this.key = key;
 
         withReadOptimization = readOptimization;
-        listenerState = 9;
-        readOptimizationSuceedMethods = new ConcurrentSkipListSet<String>();
-        readOptimizationFailedMethods = new ConcurrentSkipListSet<String>();
-
+        listenerState = 0;
         equalsMethod = m;
 
         registeredCalls = new ConcurrentHashMap<Long, AtomicObjectCallFuture>();

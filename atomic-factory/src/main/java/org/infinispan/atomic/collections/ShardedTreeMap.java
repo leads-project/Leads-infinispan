@@ -27,7 +27,7 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
 {
 
     private static Log log = LogFactory.getLog(ShardedTreeMap.class);
-    private final static int DEFAULT_THRESHOLD = 100;
+    private final static int DEFAULT_THRESHOLD = 1000;
 
     private SortedMap<K,TreeMap<K,V>> forest; // the ordered forest
     private int threshold; // how many entries are stored before creating a new tree in the forest.
@@ -119,13 +119,10 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
         if (forest.isEmpty())
             return null;
         K last = forest.lastKey();
-        System.out.println("IN");
         TreeMap<K,V> treeMap = allocateTree(last);
-        System.out.println("IN2");
-        assert !forest.get(last).isEmpty();
+        assert !treeMap.isEmpty();
         V ret = treeMap.lastEntry().getValue();
         unallocateTrees();
-        System.out.println("IN3");
         return ret;
     }
 
@@ -153,7 +150,6 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
         }
         unallocateTrees();
     }
-
 
     @Override
     public String toString(){
@@ -191,7 +187,7 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
     private V doPut(K k, V v){
         log.debug("adding " + k + "=" + v);
 
-        V ret = null;
+        V ret;
         K key;
         TreeMap<K,V> tree;
         SortedMap<K,TreeMap<K,V>> headMap;
