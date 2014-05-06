@@ -119,10 +119,13 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
         if (forest.isEmpty())
             return null;
         K last = forest.lastKey();
+        System.out.println("IN");
         TreeMap<K,V> treeMap = allocateTree(last);
+        System.out.println("IN2");
         assert !forest.get(last).isEmpty();
         V ret = treeMap.lastEntry().getValue();
         unallocateTrees();
+        System.out.println("IN3");
         return ret;
     }
 
@@ -145,12 +148,10 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
-        long start = System.currentTimeMillis();
         for(K k : map.keySet()){
             doPut(k, map.get(k));
         }
         unallocateTrees();
-        System.out.println(System.currentTimeMillis()-start);
     }
 
 
@@ -197,8 +198,7 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
 
         // 1 - Find the tree where to add (k,v)
         headMap = forest.headMap(k);
-        if ( !headMap.isEmpty()
-             && allocateTree(headMap.lastKey()).size() < threshold)
+        if (!headMap.isEmpty() && allocateTree(headMap.lastKey()).size() < threshold)
             key = headMap.lastKey();
         else
             key = k;

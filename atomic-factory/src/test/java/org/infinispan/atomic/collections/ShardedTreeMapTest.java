@@ -21,11 +21,11 @@ import java.util.SortedMap;
  * @author otrack
  * @since 7.0
  */
-@Test(groups = "functional", testName = "shardedTreeMapTest")
+@Test(groups = "functional", testName = "ShardedTreeMapTest")
 public class ShardedTreeMapTest extends MultipleCacheManagersTest {
 
     private static int NCALLS= 100;
-    private static int NCACHES = 3;
+    private static int NCACHES = 5;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     @Test(enabled = true)
@@ -33,9 +33,10 @@ public class ShardedTreeMapTest extends MultipleCacheManagersTest {
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
         Cache cache = cacheManager.getCache();
         AtomicObjectFactory factory = new AtomicObjectFactory(cache);
-        SortedMap<String,String> map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,2);
+        SortedMap<Integer,Integer> map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,2);
         for(int i=0; i<NCALLS; i++) {
-            map.put(Integer.toString(i),Integer.toString(i));
+            map.put(i,i);
+            map.get(i);
         }
         factory.disposeInstanceOf(ShardedTreeMap.class,"test",true);
         map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,2);

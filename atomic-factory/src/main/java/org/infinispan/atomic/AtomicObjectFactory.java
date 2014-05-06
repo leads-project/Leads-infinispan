@@ -59,7 +59,7 @@ public class AtomicObjectFactory {
         registeredContainers= new LinkedHashMap<AtomicObjectContainerSignature,AtomicObjectContainer>(){
             @Override
             protected boolean removeEldestEntry(final java.util.Map.Entry<AtomicObjectContainerSignature,AtomicObjectContainer> eldest) {
-                if(maxSize!=0 && this.size() == maxSize){
+                if(maxSize!=0 && this.size() >= maxSize){
                     evictionExecutor.submit(new Callable<Void>() {
                         @Override
                         public Void call() throws IOException {
