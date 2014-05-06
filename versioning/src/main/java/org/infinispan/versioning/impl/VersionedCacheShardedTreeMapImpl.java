@@ -65,7 +65,9 @@ public class VersionedCacheShardedTreeMapImpl<K,V> extends VersionedCacheAbstrac
     @Override
     public V get(Object key){
         ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
-        return shardedMap.get(key);
+        V ret = shardedMap.get(key);
+        factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
+        return ret;
     }
 
     @Override
