@@ -17,6 +17,10 @@ class AtomicObjectCallInvoke extends AtomicObjectCall{
 
     @Override
     public String toString(){
-        return super.toString()+"(INV "+method+ ")";
+        String args = " ";
+        for(Object a : arguments){
+            args+=a.toString()+" ";
+        }
+        return super.toString()+"  - INV - "+method+ " ("+args+")";
     }
 }

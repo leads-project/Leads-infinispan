@@ -12,6 +12,5 @@ import java.io.Externalizable;
 public abstract class AtomicObject implements Externalizable{
     protected transient Cache cache = null;
     protected transient Object key = null;
-    protected transient String[] romethods = {};
 }
 

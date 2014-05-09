@@ -8,10 +8,8 @@ import org.infinispan.util.logging.LogFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.concurrent.Callable;
+ import java.util.*;
+ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -33,6 +31,26 @@ public class AtomicObjectFactory {
         return factories.get(cache);
     }
     private static final int MAX_CONTAINERS=1000;// 0 means no limit
+    public static final Map<Class,List<Method>> updateMethods;
+    static{
+            updateMethods = new HashMap<Class,List<Method>>();
+        try {
+            updateMethods.put(List.class, new ArrayList<Method>());
+            updateMethods.get(List.class).add(List.class.getDeclaredMethod("add", Object.class));
+            updateMethods.get(List.class).add(List.class.getDeclaredMethod("add", int.class, Object.class));
+            updateMethods.get(List.class).add(List.class.getDeclaredMethod("addAll", Collection.class));
+            updateMethods.get(List.class).add(List.class.getDeclaredMethod("addAll", int.class, Collection.class));
+            updateMethods.put(Set.class, new ArrayList<Method>());
+            updateMethods.get(Set.class).add(Set.class.getDeclaredMethod("add", Object.class));
+            updateMethods.get(Set.class).add(Set.class.getDeclaredMethod("addAll", Collection.class));
+            updateMethods.put(Map.class, new ArrayList<Method>());
+            updateMethods.get(Map.class).add(Map.class.getDeclaredMethod("put", Object.class, Object.class));
+            updateMethods.get(Map.class).add(Map.class.getDeclaredMethod("putAll", Map.class));
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        }
+    };
+
 
 
     //
@@ -151,7 +169,7 @@ public class AtomicObjectFactory {
     public <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization, Method equalsMethod, boolean forceNew, Object ... initArgs)
             throws InvalidCacheUsageException{
 
-        if( !(clazz instanceof Serializable)){
+        if( !(Serializable.class.isAssignableFrom(clazz))){
             throw new InvalidCacheUsageException("The object must be serializable.");
         }
 
@@ -161,7 +179,17 @@ public class AtomicObjectFactory {
         try{
 
             if( !registeredContainers.containsKey(signature) ){
-                container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs);
+                List<Method> methods = Collections.EMPTY_LIST;
+                if (updateMethods.containsKey(clazz)) {
+                    methods = updateMethods.get(clazz);
+                } else if (AtomicObject.class.isAssignableFrom(clazz)) {
+                    methods = new ArrayList<Method>();
+                    for(Method m : clazz.getDeclaredMethods()){
+                        if (m.isAnnotationPresent(Update.class))
+                            methods.add(m);
+                    }
+                }
+                container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, forceNew,methods, initArgs);
                 synchronized (registeredContainers){
                     if(registeredContainers.containsKey(signature)){
                         container.dispose(false);

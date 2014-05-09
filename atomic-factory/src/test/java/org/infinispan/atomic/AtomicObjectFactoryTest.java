@@ -23,11 +23,11 @@ import java.util.concurrent.Future;
  * @author Pierre Sutra
  * @since 6.0
  */
-@Test(groups = "functional", testName = "distexec.AtomicObjectFactoryTest")
+@Test(groups = "functional", testName = "AtomicObjectFactoryTest")
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
-    private static int NCALLS= 100;
-    private static int NCACHES = 3;
+    private static int NCALLS= 1000;
+    private static int NCACHES = 4;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
@@ -95,6 +95,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
             factory = new AtomicObjectFactory(cache);
             factories.add(factory);
             set = (HashSet) factory.getInstanceOf(HashSet.class, "aset", false, null, false);
+            set.add(-1); // to synchronize the copies
             sets.add(set);
         }
 
@@ -184,9 +185,10 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
             int ret = 0;
             for(int i=0; i<ncalls;i++){
                 boolean r = set.add(i);
-                if(r)
+                if(r){
                     ret ++;
-                // System.out.println(i+" => "+r);
+                    System.out.println("BING "+i);
+                }
             }
             return  ret;
         }

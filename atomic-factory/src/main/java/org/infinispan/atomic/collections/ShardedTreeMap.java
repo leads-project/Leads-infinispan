@@ -2,6 +2,7 @@ package org.infinispan.atomic.collections;
 
 import org.infinispan.atomic.AtomicObject;
 import org.infinispan.atomic.AtomicObjectFactory;
+import org.infinispan.atomic.Update;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -126,6 +127,7 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
         return ret;
     }
 
+    @Update
     @Override
     public V put(K k, V v) {
         V ret = doPut(k,v);
@@ -143,6 +145,7 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
         return forest.hashCode();
     }
 
+    @Update
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
         for(K k : map.keySet()){
