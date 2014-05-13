@@ -22,7 +22,7 @@ public class Site implements Serializable{
 
 
     //
-    // CLASS FIELDS AND METHODS
+    // CLASS FIELDS
     //
 
     public transient static Map<String,Site> _sites;
@@ -31,10 +31,6 @@ public class Site implements Serializable{
         _sites = new TreeMap<String, Site>();
     }
     private static final Log log = LogFactory.getLog(Site.class);
-
-    public static Site localSite() {
-        return localSite;
-    }
 
     //
     // OBJECT FIELDS
@@ -84,10 +80,14 @@ public class Site implements Serializable{
         return "@"+name;
     }
 
+    public static Site localSite() {
+        return localSite;
+    }
+
+
     //
     // Serializability management
     //
-
     @SuppressWarnings("unchecked")
     public Object readResolve() {
         synchronized(this.getClass()){
