@@ -1,6 +1,8 @@
 package org.infinispan.ensemble;
 
 import org.infinispan.client.hotrod.RemoteCacheManager;
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -18,15 +20,33 @@ import java.util.TreeMap;
 
 public class Site implements Serializable{
 
+
+    //
+    // CLASS FIELDS AND METHODS
+    //
+
     public transient static Map<String,Site> _sites;
     public transient static Site localSite;
     static{
         _sites = new TreeMap<String, Site>();
     }
+    private static final Log log = LogFactory.getLog(Site.class);
+
+    public static Site localSite() {
+        return localSite;
+    }
+
+    //
+    // OBJECT FIELDS
+    //
 
     private String name;
     private transient boolean isLocal;
     private transient RemoteCacheManager container;
+
+    //
+    // PUBLIC METHODS
+    //
 
     public Site(String name, RemoteCacheManager container, boolean isLocal) {
         this.name = name;
@@ -80,7 +100,4 @@ public class Site implements Serializable{
         }
     }
 
-    public static Site localSite() {
-        return localSite;
-    }
 }
