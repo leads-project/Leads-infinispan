@@ -8,6 +8,10 @@ import java.util.TreeMap;
 
 /**
  *
+ * A site is a geographical location where an ISPN instance is deployed.
+ * This deployment is accessed via the container field of the site.
+ * A single site can be marked local.
+ *
  * @author Pierre Sutra
  * @since 6.0
  */

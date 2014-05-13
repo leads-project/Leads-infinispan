@@ -14,9 +14,9 @@ public class MWMREnsembleCache<K,V> extends EnsembleCache<K,V> { {
 
     RemoteCache<K,V> primary;
 
-    public MWMREnsembleCache(String name, List<RemoteCache<K, V>> remoteCaches) {
-        super(name, remoteCaches);
-        primary = remoteCaches.iterator().next();
+    public MWMREnsembleCache(String name, List<Site> sites) {
+        super(name, sites);
+        primary = caches.iterator().next();
     }
 
 

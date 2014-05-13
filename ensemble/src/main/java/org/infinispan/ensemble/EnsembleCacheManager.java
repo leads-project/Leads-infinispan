@@ -1,10 +1,10 @@
 package org.infinispan.ensemble;
 
-import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.commons.CacheException;
-import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
 import org.menagerie.DefaultZkSessionManager;
 import org.menagerie.ZkSessionManager;
 
@@ -15,41 +15,44 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  *
- * Zk is deployed on ALL microclouds
- * Each ucloud has an address to which it always answer (via DNS) to ease configuration here
- *
- * FIXME add watcher on the modifications that occur to the index.
- *
- * Do we implement a RemotecacheContainer (yes, if the laod is too heavy for Zk).
- * What pattern to use for handling faults properly ?
- * It is also possible that the sites are found on the fly using Zk
- *
+ * An EnsembleCacheManager is a a container of EnsembleCaches.
+ * It is built upon a distributed ZooKeeper which store a set of sites and a mapping from EnsembleCache to the sitres storing it.
  *
  * @author Pierre Sutra
  * @since 6.0
  */
 public class EnsembleCacheManager implements  BasicCacheContainer{
 
+    //
+    // CLASS FIELDS
+    //
+
     public static final int ENSEMBLE_VERSION_MAJOR = 0;
     public static final int ENSEMBLE_VERSION_MINOR = 1;
-
     public static enum Consistency {
         SWMR,
         MWMR,
         WEAK
     }
+    private static final Log log = LogFactory.getLog(EnsembleCacheManager.class);
 
     public static final String ZK_INDEX = "/index";
     public static final String ZK_SITES = "/sites";
     public static final int ZK_TO = 12000;
 
-
-    private Map<String,EnsembleCache> ensembles;
+    //
+    // OBJECT FIELDS
+    //
 
     private ZkSessionManager zkManager;
+    private Map<String,EnsembleCache> ensembles;
     private ConcurrentMap<String,List<Site>> index;
     private Set<Site> sites;
 
+
+    //
+    // PUBLIC INTERFACE
+    //
 
     public EnsembleCacheManager() throws CacheException{
         this(Collections.EMPTY_LIST,"127.0.0.1",ZK_TO);
@@ -63,6 +66,20 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         this(Arrays.asList(sites.split("\\|")),zkConnectString,ZK_TO);
     }
 
+    /**
+     *
+     * Create an EnsembleCacheManager using
+     * <i>zkConnectString</i> as the connection string to ZooKeeper,
+     * <i>to</i> ms as a timeout, and
+     * <i>sites</i> as the set of sites.
+     *
+     * By convention, the first site is local.
+     *
+     * @param sites
+     * @param zkConnectString
+     * @param to
+     * @throws CacheException
+     */
     public EnsembleCacheManager(List<String> sites, String zkConnectString, int to) throws CacheException{
 
         try {
@@ -88,15 +105,11 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
     }
 
-    //
-    // PUBLIC INTERFACE
-    //
-
     /**
      * {@inheritDoc}
      **/
     @Override
-    public synchronized <K, V> BasicCache<K, V> getCache() {
+    public synchronized <K, V> EnsembleCache<K, V> getCache() {
 
         if(ensembles.containsKey(DEFAULT_CACHE_NAME))
             return ensembles.get(DEFAULT_CACHE_NAME);
@@ -108,15 +121,15 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      * {@inheritDoc}
      **/
     @Override
-    public <K,V> BasicCache<K,V> getCache(String cacheName){
+    public <K,V> EnsembleCache<K,V> getCache(String cacheName){
         return getCache(cacheName,assignRandomly(1),Consistency.WEAK);
     }
 
-    public <K,V> BasicCache<K,V> getCache(String cacheName, int replicationFactor){
+    public <K,V> EnsembleCache<K,V> getCache(String cacheName, int replicationFactor){
         return getCache(cacheName,assignRandomly(replicationFactor),Consistency.WEAK);
     }
 
-    public <K,V> BasicCache<K,V> getCache(String cacheName, int replicationFactor, Consistency consistency){
+    public <K,V> EnsembleCache<K,V> getCache(String cacheName, int replicationFactor, Consistency consistency){
         return getCache(cacheName,assignRandomly(replicationFactor),consistency);
     }
 
@@ -132,40 +145,32 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      * @param <V>
      * @return an EnsembleCache with name <i>cacheName</i>backed by RemoteCaches on <i>uclouds</i>.
      */
-    public synchronized <K,V> BasicCache<K,V> getCache(String cacheName, List<Site> sites, Consistency consistency) {
+    public synchronized <K,V> EnsembleCache<K,V> getCache(String cacheName, List<Site> sites, Consistency consistency) {
 
-        System.out.println("Creating cache : "+cacheName+" with ("+sites.toString()+";"+consistency+")");
+        log.debug("Creating cache : "+cacheName+" with ("+sites.toString()+";"+consistency+")");
 
         if(ensembles.containsKey(cacheName)){
-            System.out.println("Cache already exists (local)");
-            return (BasicCache<K,V>) ensembles.get(cacheName);
+            log.debug("Cache already exists (local)");
+            return (EnsembleCache<K,V>) ensembles.get(cacheName);
         }
 
         List<Site> previous = index.putIfAbsent(cacheName,sites);
         if(previous != null){
-            System.out.println("Cache already exists (remote)");
+            log.debug("Cache already exists (remote)");
             sites = previous;
         }
 
-        List<RemoteCache<K,V>> caches = new ArrayList<RemoteCache<K, V>>();
-        for(Site site: sites){
-            RemoteCache<K,V> c = site.getManager().getCache(cacheName);
-            assert site != null;
-            assert site.getManager() != null : site.getName();
-            caches.add(c);
-        }
-
-        EnsembleCache e  = null;
+        EnsembleCache e;
         switch (consistency){
             case SWMR:
-                e = new SWMREnsembleCache<K,V>(cacheName, caches);
+                e = new SWMREnsembleCache<K,V>(cacheName, sites);
                 break;
             case MWMR:
-                e = new MWMREnsembleCache<K,V>(cacheName, caches);
+                e = new MWMREnsembleCache<K,V>(cacheName, sites);
                 e.put(null,null);
                 break;
             case WEAK:
-                e = new WeakEnsembleCache<K,V>(cacheName,caches);
+                e = new WeakEnsembleCache<K,V>(cacheName,sites);
                 break;
             default:
                 throw new CacheException("Invalid consistency level "+consistency.toString());
@@ -177,20 +182,22 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
     public synchronized boolean addSite(Site site){
         boolean ret = sites.add(site);
-        System.out.println("Site added : "+ret);
+        log.debug("Site " +site+" added : "+ret);
         return ret;
     }
 
-    /**
-     *
-     * @return the available sites in the current state.
-     */
+    public synchronized boolean removeSite(Site site){
+        boolean ret = sites.remove(site);
+        log.debug("Site "+site+" removed: "+ret);
+        return ret;
+    }
+
     public synchronized Set<Site> sites(){
         return new HashSet<Site>(sites);
     }
 
     public synchronized void clear(){
-        System.out.println("Clearing Ensemble");
+        log.debug("Clearing Ensemble");
         for(String cache : index.keySet()){
             for(Site site : index.get(cache)){
                 site.getManager().getCache(cache).clear();

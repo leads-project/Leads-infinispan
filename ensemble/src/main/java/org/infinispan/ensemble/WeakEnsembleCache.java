@@ -14,8 +14,8 @@ import java.util.concurrent.ExecutionException;
  */
 public class WeakEnsembleCache<K,V> extends EnsembleCache<K,V> {
 
-    public WeakEnsembleCache(String name, List<RemoteCache<K, V>> caches){
-        super(name,caches);
+    public WeakEnsembleCache(String name, List<Site> sites){
+        super(name,sites);
     }
 
     @Override

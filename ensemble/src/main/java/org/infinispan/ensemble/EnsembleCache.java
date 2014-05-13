@@ -9,23 +9,33 @@
 
  /**
  *
- * The atomicity of the cache will be thus part of the property on the writeBack operation of the underlying cache.
- * Hence, this will be possible to use an assembled cache as input of the factory.
- *
+ * An ensemble cache aggregates multiple BasicCaches.
+ * This class is abstract and defines cores operations on the aggregated caches, such as retrieving a quorum of them.
+ * The actual implementations of this abstract class are
+ * @see org.infinispan.ensemble.MWMREnsembleCache,
+ * @see org.infinispan.ensemble.SWMREnsembleCache, and
+ * @see org.infinispan.ensemble.WeakEnsembleCache .
  *
  * @author Pierre Sutra
  * @since 6.0
  */
 public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
 
-    protected String name;
+    protected  String name;
+    protected List<Site> sites;
     protected List<RemoteCache<K,V>> caches;
 
-    public EnsembleCache(String name, List<RemoteCache<K, V>> caches){
+    public EnsembleCache(String name, List<Site> sites){
         this.name = name;
-        this.caches = caches;
+        this.sites = sites;
+        List<RemoteCache<K,V>> caches = new ArrayList<RemoteCache<K, V>>();
+        for(Site site: sites){
+            RemoteCache<K,V> c = site.getManager().getCache(name);
+            assert site != null;
+            assert site.getManager() != null : site.getName();
+            caches.add(c);
+        }
     }
-
 
      //
      // PUBLIC METHODS
@@ -60,6 +70,10 @@ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
      public void stop() {
          for(RemoteCache<K,V> c: caches)
              c.stop();
+     }
+
+     public List<Site> sites(){
+         return sites;
      }
 
      //

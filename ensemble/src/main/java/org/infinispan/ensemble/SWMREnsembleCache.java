@@ -15,8 +15,8 @@ import java.util.concurrent.ExecutionException;
  */
 public class SWMREnsembleCache<K,V> extends EnsembleCache<K,V> {
 
-    public SWMREnsembleCache(String name, List<RemoteCache<K, V>> caches){
-        super(name,caches);
+    public SWMREnsembleCache(String name, List<Site> sites){
+        super(name,sites);
     }
 
     @Override
