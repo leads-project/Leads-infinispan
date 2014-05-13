@@ -33,8 +33,8 @@ public class VersionedCacheFactory {
     public static enum VersioningTechnique {
         FAKE,
     	DUMMY,
-        ATOMICFGMAP,
-        ATOMICMAP,
+        FGMAP,
+        HASHMAP,
         TREEMAP,
         SHARDED_TREE
     }
@@ -70,11 +70,11 @@ public class VersionedCacheFactory {
         case DUMMY: {
             return new VersionedCacheDummyImpl<K, V>(cacheManager.getCache(cacheName), generator, cacheName);
         }
-        case ATOMICMAP:{
+        case HASHMAP:{
             return new VersionedCacheHashMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
         }
-		case ATOMICFGMAP: {
-		       return new VersionedCacheFinedGrainedHashMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
+		case FGMAP: {
+		       return new VersionedCacheFGMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
 		}
 		case TREEMAP:{
 			 return new VersionedCacheTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);

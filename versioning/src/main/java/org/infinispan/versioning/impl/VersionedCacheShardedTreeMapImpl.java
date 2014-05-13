@@ -30,12 +30,12 @@ public class VersionedCacheShardedTreeMapImpl<K,V> extends VersionedCacheAbstrac
 
     @Override
     protected SortedMap<Version, V> versionMapGet(K key) {
-        return factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        return factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false);
     }
 
     @Override
     protected void versionMapPut(K key, V value, Version version) {
-        factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false).put(version, value);
+        factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false).put(version, value);
     }
 
     @Override
@@ -64,7 +64,7 @@ public class VersionedCacheShardedTreeMapImpl<K,V> extends VersionedCacheAbstrac
 
     @Override
     public V get(Object key){
-        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false);
         V ret = shardedMap.get(key);
         factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
         return ret;
@@ -72,7 +72,7 @@ public class VersionedCacheShardedTreeMapImpl<K,V> extends VersionedCacheAbstrac
 
     @Override
     public V put(K key, V value) {
-        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false);
         if (shardedMap.isEmpty()){
             shardedMap.put(generator.generateNew(),value);
         }else{
@@ -88,7 +88,7 @@ public class VersionedCacheShardedTreeMapImpl<K,V> extends VersionedCacheAbstrac
     @Override
     public Collection<Version> get(K key, Version first, Version last) {
         assert first != null && last != null;
-        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false);
         Collection<Version> ret = shardedMap.subMap(first,last).keySet();
         factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
         return ret;
@@ -96,7 +96,7 @@ public class VersionedCacheShardedTreeMapImpl<K,V> extends VersionedCacheAbstrac
 
    @Override
     public void putAll(K key, Map<Version,V> map){
-        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,false,null,false);
+        ShardedTreeMap<Version,V> shardedMap= factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false);
         shardedMap.putAll(map);
         factory.disposeInstanceOf(ShardedTreeMap.class,key,true);
     }

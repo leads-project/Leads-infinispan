@@ -173,7 +173,7 @@ public class RemoteVersionedCacheExampleClient {
 		IncrediblePropertyLoader.load(sysProps, "rvc-rmi-client.properties");
 		String servers = sysProps.getProperty("servers");
 		String versioningTechnique = sysProps.getProperty(
-				"versioningTechnique", "ATOMICMAP");
+				"versioningTechnique", "HASHMAP");
 
 		for (String server : servers.split(";")) {
 			String serviceURL = "//" + server + "/"
