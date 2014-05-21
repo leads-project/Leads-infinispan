@@ -4,6 +4,8 @@
  import org.infinispan.commons.api.BasicCache;
  import org.infinispan.commons.util.concurrent.NotifyingFuture;
 
+ import javax.xml.bind.annotation.XmlElement;
+ import javax.xml.bind.annotation.XmlRootElement;
  import java.util.*;
  import java.util.concurrent.TimeUnit;
 
@@ -19,7 +21,9 @@
  * @author Pierre Sutra
  * @since 6.0
  */
-public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
+
+ @XmlRootElement(name="ensemble")
+ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
 
     protected  String name;
     protected List<Site> sites;
@@ -56,6 +60,7 @@ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
          return someCache().isEmpty();
      }
 
+     @XmlElement(name="name")
      public String getName() {
          return name;
      }
@@ -72,6 +77,7 @@ public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
              c.stop();
      }
 
+     @XmlElement(name="sites")
      public List<Site> sites(){
          return sites;
      }

@@ -16,7 +16,7 @@ public class IncrediblePropertyLoader {
 
     // add all default properties here
     public static final String DEFAULT_PROPERTIES =
-            "log4j.configuration=versioning-log4j.xml\n";
+            "\n";
 
     private static Set<String> loadedFiles = null;
 

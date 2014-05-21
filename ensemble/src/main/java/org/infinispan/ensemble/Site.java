@@ -4,7 +4,10 @@ import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
+import java.net.MalformedURLException;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -18,6 +21,7 @@ import java.util.TreeMap;
  * @since 6.0
  */
 
+@XmlRootElement(name="site")
 public class Site implements Serializable{
 
 
@@ -37,6 +41,7 @@ public class Site implements Serializable{
     //
 
     private String name;
+    private String url; // probably change to URL here
     private transient boolean isLocal;
     private transient RemoteCacheManager container;
 
@@ -47,7 +52,9 @@ public class Site implements Serializable{
     public Site(String name, RemoteCacheManager container, boolean isLocal) {
         this.name = name;
         this.isLocal = isLocal;
-        this.container= container;
+        this.container = container;
+        this.url = "hotrod://"+name+":1234/example";
+
         synchronized(this.getClass()){
             if(_sites.containsKey(name)){
                 System.out.println("Already existing site: "+name);
@@ -60,6 +67,7 @@ public class Site implements Serializable{
         }
     }
 
+    @XmlElement(name="name")
     public String getName(){
         return name;
     }
@@ -100,4 +108,12 @@ public class Site implements Serializable{
         }
     }
 
+    @XmlElement(name="url")
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
 }

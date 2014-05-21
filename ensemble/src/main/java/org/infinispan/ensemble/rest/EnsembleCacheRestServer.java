@@ -1,14 +1,10 @@
 package org.infinispan.ensemble.rest;
 
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.ensemble.Site;
 import org.jboss.logging.Logger;
-import org.jboss.resteasy.plugins.server.servlet.HttpServletDispatcher;
 
 import org.infinispan.ensemble.EnsembleCacheManager;
 import org.jboss.resteasy.plugins.server.tjws.TJWSEmbeddedJaxrsServer;
@@ -27,12 +23,7 @@ import java.util.Properties;
 
 public class EnsembleCacheRestServer {
 
-    private static EnsembleCacheManager manager;
     private List<RemoteCacheManager> remoteServers = new ArrayList<RemoteCacheManager>();
-
-    private EnsembleCacheRestServer() {
-        manager = new EnsembleCacheManager();
-    }
 
     private class HotRodConfigurationBuilder
             extends org.infinispan.client.hotrod.configuration.ConfigurationBuilder {
@@ -54,13 +45,12 @@ public class EnsembleCacheRestServer {
         IncrediblePropertyLoader.load(sysProps);
         Logger logger = Logger.getLogger(this.getClass());
 
-        String overridePort = sysProps.getProperty("restPort", "9090");
+        String overridePort = sysProps.getProperty("ECrest.port", "11021");
         int port = Integer.valueOf(overridePort);
 /*
         String hotrodServerString = sysProps.getProperty("restHotrodServers", "localhost:11222");
         String hotrodServer[] = hotrodServerString.split("|");
 
-        logger.info("Listening to port: " + port);
 
         manager = new EnsembleCacheManager();
 
@@ -108,11 +98,17 @@ public class EnsembleCacheRestServer {
             e.printStackTrace();
         }
 */
+
+        EnsembleCacheRestService.setContext(new EnsembleCacheRestContext());
+
         TJWSEmbeddedJaxrsServer tjws = new TJWSEmbeddedJaxrsServer();
         tjws.setPort(port);
-        tjws.getDeployment().getActualResourceClasses().add(EnsembleCacheRestIndex.class);
-        tjws.start();
+        tjws.setRootResourcePath("/");
+        tjws.getDeployment().getActualResourceClasses().add(EnsembleCacheRestService.class);
 
+        logger.info("Listening to port: " + port);
+
+        tjws.start();
 
     }
 
