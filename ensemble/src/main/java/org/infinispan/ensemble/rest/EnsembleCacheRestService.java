@@ -3,20 +3,25 @@ package org.infinispan.ensemble.rest;
 import org.jboss.logging.Logger;
 
 import javax.activation.MimetypesFileTypeMap;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
 import java.io.File;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-/**
- * Created by pasin on 21/05/14.
- */
+/*
 
-@Path("/")
+V get(Object key)
+V put(K key, V value)
+int size()
+boolean isEmpty()
+String getName()
+void start()
+void stop()
+
+*/
+
+@Path("ensemble")
 public class EnsembleCacheRestService {
 
     private static EnsembleCacheRestContext context = null;
@@ -31,34 +36,31 @@ public class EnsembleCacheRestService {
         assert context != null;
     }
 
+
     @GET
-    @Path("/index.html")
-    @Produces("text/html")
-    public Response index() throws URISyntaxException {
-
-        URL indexURL = getClass().getClassLoader().getResource("index.html");
-        File f =  new File(indexURL.toURI());
-
-        String mt = new MimetypesFileTypeMap().getContentType(f);
-        return Response.ok(f, mt).build();
-
+    @Path("{cache}/get")
+    public Response  get(@PathParam("cache") String cache){
+        String message = "GET /ensemble/get/" + cache + " called";
+        logger.info(message);
+        message += "\n";
+        return Response.status(200).entity(message).build();
     }
 
     @GET
-    @Path("/manager")
-    public Response  GETmanager() {
-        logger.info("GET /manager");
-
-        return Response.status(200).entity("HTTP GET /manager method called").build();
-
+    @Path("{path}")
+    public Response _get(@PathParam("path") String path) {
+        String message = "unknown GET path " + path;
+        logger.error(message);
+        message += "\n";
+        return Response.status(404).entity(message).build();
     }
 
-    @GET
-    @Path("/cache")
-    public Response  GETcache(){
-        logger.info("GET /cache");
-
-        return Response.status(200).entity("HTTP GET /cache method called").build();
-
+    @POST
+    @Path("{path}")
+    public Response _post(@PathParam("path") String path) {
+        String message = "unknown POST path " + path;
+        logger.error(message);
+        message += "\n";
+        return Response.status(404).entity(message).build();
     }
 }

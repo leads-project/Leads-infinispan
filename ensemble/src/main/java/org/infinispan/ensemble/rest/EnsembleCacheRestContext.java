@@ -1,8 +1,16 @@
 package org.infinispan.ensemble.rest;
 
-/**
- * Created by pasin on 21/05/14.
- */
-public class EnsembleCacheRestContext {
+import org.infinispan.ensemble.EnsembleCacheManager;
 
+
+public class EnsembleCacheRestContext {
+    private EnsembleCacheManager manager;
+
+    public EnsembleCacheManager getManager() {
+        return manager;
+    }
+
+    public void setManager(EnsembleCacheManager manager) {
+        this.manager = manager;
+    }
 }
