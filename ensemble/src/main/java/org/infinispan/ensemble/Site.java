@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -41,7 +42,7 @@ public class Site implements Serializable{
     //
 
     private String name;
-    private String url; // probably change to URL here
+    private URL url; // probably change to URL here
     private transient boolean isLocal;
     private transient RemoteCacheManager container;
 
@@ -49,11 +50,42 @@ public class Site implements Serializable{
     // PUBLIC METHODS
     //
 
+    public static RemoteCacheManager getRemoteManager(URL url) {
+        // build or get a RemoteCacheManager for a given URL
+        throw new UnsupportedOperationException();
+    }
+
+    public static boolean isLocal(URL url) {
+        // true if URL refers to the local JVM
+        throw new UnsupportedOperationException();
+    }
+
+    public Site(URL url) {
+        this(url.toString(), getRemoteManager(url), isLocal(url), url);
+    }
+
+    public Site(String name, URL url) {
+        this(name, getRemoteManager(url), isLocal(url), url);
+    }
+
+    public Site(String name, URL url, boolean isLocal) {
+        this(name, getRemoteManager(url), isLocal, url);
+    }
+
     public Site(String name, RemoteCacheManager container, boolean isLocal) {
+        this(name, container, isLocal, null);
+        try {
+            this.url = new URL("hotrod://" + name + ":1234/example");
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public Site(String name, RemoteCacheManager container, boolean isLocal, URL url) {
         this.name = name;
         this.isLocal = isLocal;
         this.container = container;
-        this.url = "hotrod://"+name+":1234/example";
+        this.url = url;
 
         synchronized(this.getClass()){
             if(_sites.containsKey(name)){
@@ -109,11 +141,19 @@ public class Site implements Serializable{
     }
 
     @XmlElement(name="url")
-    public String getUrl() {
+    public URL getUrl() {
         return url;
     }
 
     public void setUrl(String url) {
+        try {
+            this.url = new URL(url);
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void setUrl(URL url) {
         this.url = url;
     }
 }

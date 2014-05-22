@@ -47,6 +47,7 @@ public class EnsembleCacheRestServer {
 
         String overridePort = sysProps.getProperty("ECrest.port", "11021");
         int port = Integer.valueOf(overridePort);
+
 /*
         String hotrodServerString = sysProps.getProperty("restHotrodServers", "localhost:11222");
         String hotrodServer[] = hotrodServerString.split("|");
@@ -61,46 +62,10 @@ public class EnsembleCacheRestServer {
             logger.info("Adding site: " + site);
         }
 
-        try {
-            VersionedCacheFactory fac = new VersionedCacheFactory();
-            VersionedCache<String,String> vCache = fac.newVersionedCache(tech, new VersionScalarGenerator(), "default");
-            RemoteVersionedCache<String,String> service = new RemoteVersionedCacheImpl<String, String>(vCache);
-
-            String serviceName = "//" + InetAddress.getLocalHost().getHostAddress().toString() + ":" + port + "/" + RemoteVersionedCacheImpl.SERVICE_NAME + "-" + versioningTechnique;
-            LocateRegistry.createRegistry(port);
-            Naming.rebind(serviceName, service);
-            logger.info("Bound in registry: " + serviceName);
-
-//            Runtime.getRuntime().addShutdownHook(new UnbindServiceHook("RemoteVersionedCacheServer"));
-        } catch (Exception e) {
-            logger.error("Error: " + e.getMessage());
-            e.printStackTrace();
-        }
-        logger.info("Running forever, send interrupt to stop it properly.");
-
-*/
-
-/*
-        Server server = new Server(port);
-        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-        context.setContextPath("/");
-
-        ServletHolder h = new ServletHolder(new HttpServletDispatcher());
-        h.setInitParameter("javax.ws.rs.Application", "org.infinispan.ensemble.rest.EnsembleCacheRestServices");
-        context.addServlet(h, "/*");
-
-        server.setHandler(context);
-
-        try {
-            server.start();
-            server.join();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
 */
 
         EnsembleCacheRestContext ctx = new EnsembleCacheRestContext();
-        ctx.setManager(new EnsembleCacheManager());
+        ctx.setEnsembleManager(new EnsembleCacheManager());
 
         EnsembleCacheManagerRestService.setContext(ctx);
         EnsembleCacheRestService.setContext(ctx);
