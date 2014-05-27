@@ -282,11 +282,6 @@ public class EnsembleCacheRestService {
                             : EnsembleCacheManager.Consistency.valueOf(consistencyString);
             EnsembleCache ec = null;
 
-            // TODO FIXME missing a partitioner here
-            class Partito<K,V> extends Partitioner<K,V> {
-                public EnsembleCache<K,V> locate(K k) { return null;}
-            }
-
             switch (method) {
                 case REPL:
                     ec = manager.getCache(name, replication, consistency);
@@ -295,7 +290,8 @@ public class EnsembleCacheRestService {
                     ec = manager.getCache(name, sites, consistency);
                     break;
                 case PART:
-                    ec = manager.getCache(name, caches, new Partito());
+                    // TODO FIXME missing a partitioner here
+                    ec = manager.getCache(name, caches, null);
                     break;
                 default:
                     ec = manager.getCache(name, 1, consistency);
