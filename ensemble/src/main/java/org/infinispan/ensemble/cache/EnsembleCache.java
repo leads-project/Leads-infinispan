@@ -1,57 +1,59 @@
-package org.infinispan.ensemble.cache;
+ package org.infinispan.ensemble;
 
-import org.infinispan.commons.api.BasicCache;
-import org.infinispan.commons.util.concurrent.NotifyingFuture;
-import org.infinispan.ensemble.EnsembleCacheManager;
-import org.infinispan.ensemble.indexing.Indexable;
-import org.infinispan.ensemble.indexing.Primary;
-import org.infinispan.ensemble.indexing.Stored;
-import org.infinispan.util.logging.Log;
-import org.infinispan.util.logging.LogFactory;
+ import org.infinispan.client.hotrod.RemoteCache;
+ import org.infinispan.commons.api.BasicCache;
+ import org.infinispan.commons.util.concurrent.NotifyingFuture;
 
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+ import java.util.*;
+ import java.util.concurrent.TimeUnit;
 
-
-/**
+ /**
  *
- * An EnsembleCache offers a BasicCache API over a list of other EnsembleCaches.
- * Such an abstraction is of interest in various cases, e.g., when aggregating multiple Infinispan deployments.
+ * An ensemble cache aggregates multiple BasicCaches.
+ * This class is abstract and defines cores operations on the aggregated caches, such as retrieving a quorum of them.
+ * The actual implementations of this abstract class are
+ * @see org.infinispan.ensemble.MWMREnsembleCache,
+ * @see org.infinispan.ensemble.SWMREnsembleCache, and
+ * @see org.infinispan.ensemble.WeakEnsembleCache .
  *
  * @author Pierre Sutra
- * @since 7.0
+ * @since 6.0
  */
-public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache<K,V> {
+public abstract class EnsembleCache<K,V> implements BasicCache<K,V> {
 
-    //
-    // CLASS FIELDS
-    //
+    protected  String name;
+    protected List<Site> sites;
+    protected List<RemoteCache<K,V>> caches;
 
-    protected static final Log log = LogFactory.getLog(EnsembleCache.class);
-
-    //
-    // OBJECT FIELDS
-    //
-
-    @Primary
-    @Stored
-    protected String name;
-
-    @Stored
-    protected List<? extends EnsembleCache<K,V>> caches;
-
-    public EnsembleCache(String name, List<? extends EnsembleCache<K,V>> caches){
+    public EnsembleCache(String name, List<Site> sites){
         this.name = name;
-        this.caches= caches;
+        this.sites = sites;
+        List<RemoteCache<K,V>> caches = new ArrayList<RemoteCache<K, V>>();
+        for(Site site: sites){
+            RemoteCache<K,V> c = site.getManager().getCache(name);
+            assert site != null;
+            assert site.getManager() != null : site.getName();
+            caches.add(c);
+        }
     }
 
      //
-     // PUBLIC
+     // PUBLIC METHODS
      //
 
      @Override
      public String getVersion() {
          return Integer.toString(EnsembleCacheManager.ENSEMBLE_VERSION_MINOR)+"."+Integer.toString(EnsembleCacheManager.ENSEMBLE_VERSION_MAJOR);
+     }
+
+     @Override
+     public int size() {
+         return someCache().size();
+     }
+
+     @Override
+     public boolean isEmpty() {
+         return someCache().isEmpty();
      }
 
      public String getName() {
@@ -60,14 +62,54 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
 
      @Override
      public void start() {
-         for(BasicCache<K,V> c: caches)
+         for(RemoteCache<K,V> c: caches)
              c.start();
      }
 
      @Override
      public void stop() {
-         for(BasicCache<K,V> c: caches)
+         for(RemoteCache<K,V> c: caches)
              c.stop();
+     }
+
+     public List<Site> sites(){
+         return sites;
+     }
+
+     //
+     // OBJECT METHODS
+     //
+
+     protected RemoteCache<K,V> firstCache(){
+         return caches.iterator().next();
+     }
+
+     protected RemoteCache<K,V> someCache(){
+         return caches.iterator().next();
+     }
+
+     protected int quorumSize(){
+         return (int)Math.floor((double)caches.size()/(double)2) +1;
+     }
+
+     protected Collection<RemoteCache<K,V>> quorumCache(){
+         List<RemoteCache<K,V>> quorum = new ArrayList<RemoteCache<K, V>>();
+         for(int i=0; i< quorumSize(); i++){
+             quorum.add(caches.get(i));
+         }
+         assert quorum.size() == quorumSize();
+         return quorum;
+     }
+
+     protected Collection<RemoteCache<K,V>> quorumCacheContaining(RemoteCache<K, V> cache){
+         List<RemoteCache<K,V>> quorum = new ArrayList<RemoteCache<K, V>>();
+         quorum.add(cache);
+         for(int i=0; quorum.size()<quorumSize(); i++){
+             if(!caches.get(i).equals(cache))
+                 quorum.add(caches.get(i));
+         }
+         assert quorum.size() == quorumSize();
+         return quorum;
      }
 
      //
@@ -115,7 +157,7 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
 
      @Override
      public boolean containsKey(Object k) {
-         throw new UnsupportedOperationException();
+         return someCache().containsKey(k);
      }
 
      @Override

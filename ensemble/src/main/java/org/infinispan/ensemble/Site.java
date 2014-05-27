@@ -1,15 +1,12 @@
 package org.infinispan.ensemble;
 
 import org.infinispan.client.hotrod.RemoteCacheManager;
-import org.infinispan.ensemble.cache.EnsembleCache;
-import org.infinispan.ensemble.cache.SiteEnsembleCache;
-import org.infinispan.ensemble.indexing.Indexable;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.io.Serializable;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  *
@@ -21,14 +18,19 @@ import java.util.List;
  * @since 6.0
  */
 
-public class Site extends Indexable {
+public class Site implements Serializable{
 
 
     //
     // CLASS FIELDS
     //
+
+    public transient static Map<String,Site> _sites;
+    public transient static Site localSite;
+    static{
+        _sites = new TreeMap<String, Site>();
+    }
     private static final Log log = LogFactory.getLog(Site.class);
-    private transient static Site localSite;
 
     //
     // OBJECT FIELDS
@@ -42,34 +44,19 @@ public class Site extends Indexable {
     // PUBLIC METHODS
     //
 
-    public static Site localSite() {
-        return localSite;
-    }
-
-    /**
-     *
-     * By convention, the first name is the local site.
-     * @param sites
-     * @return
-     */
-    public static Collection<Site> fromNames(Collection<String> sites){
-        List<Site> list = new ArrayList<Site>();
-        boolean local=true;
-        for(String s: sites){
-            Site site = new Site(s, new RemoteCacheManager(s),local);
-            if(local) local=false;
-            list.add(site);
-        }
-        return list;
-    }
-
     public Site(String name, RemoteCacheManager container, boolean isLocal) {
         this.name = name;
         this.isLocal = isLocal;
         this.container= container;
         synchronized(this.getClass()){
-            if(isLocal && localSite==null)
-                localSite = this;
+            if(_sites.containsKey(name)){
+                System.out.println("Already existing site: "+name);
+            }else{
+                System.out.println("Adding site: "+name);
+                if(isLocal && localSite==null)
+                    localSite = this;
+                _sites.put(name,this);
+            }
         }
     }
 
@@ -79,10 +66,6 @@ public class Site extends Indexable {
 
     public RemoteCacheManager getManager(){
         return container;
-    }
-
-    public <K,V> EnsembleCache<K,V> getCache(String name){
-        return new SiteEnsembleCache<K, V>(name,container.getCache(name));
     }
 
     @Override
@@ -97,5 +80,24 @@ public class Site extends Indexable {
         return "@"+name;
     }
 
+    public static Site localSite() {
+        return localSite;
+    }
+
+
+    //
+    // Serializability management
+    //
+    @SuppressWarnings("unchecked")
+    public Object readResolve() {
+        synchronized(this.getClass()){
+            for(Site site: _sites.values()){
+                if(site.equals(this))
+                    return site;
+            }
+            _sites.put(this.name,this);
+            return this;
+        }
+    }
 
 }
