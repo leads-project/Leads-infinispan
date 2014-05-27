@@ -101,7 +101,7 @@ public class Site extends Indexable {
     }
 
     public <K,V> EnsembleCache<K,V> getCache(String name){
-        return new SiteEnsembleCache<K, V>(name,container.getCache(name));
+        return new SiteEnsembleCache<K, V>(container.getCache(name));
     }
 
     @Override

@@ -1,16 +1,11 @@
 package org.infinispan.ensemble.rest;
 
-import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.infinispan.commons.api.BasicCacheContainer;
-import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.EnsembleCacheManager;
 import org.infinispan.ensemble.Site;
-import org.infinispan.ensemble.cache.distributed.Partitioner;
+import org.infinispan.ensemble.cache.EnsembleCache;
 import org.jboss.logging.Logger;
-import org.codehaus.jackson.JsonParser;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.ws.rs.*;
@@ -18,7 +13,6 @@ import javax.ws.rs.core.Response;
 import javax.xml.bind.annotation.XmlElement;
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Collection;
@@ -290,8 +284,7 @@ public class EnsembleCacheRestService {
                     ec = manager.getCache(name, sites, consistency);
                     break;
                 case PART:
-                    // TODO FIXME missing a partitioner here
-                    ec = manager.getCache(name, caches, null);
+                    // TODO FIXME
                     break;
                 default:
                     ec = manager.getCache(name, 1, consistency);

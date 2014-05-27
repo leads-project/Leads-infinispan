@@ -14,11 +14,11 @@ import java.util.Set;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class SWSREnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
+public class SWMREnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
 
     EnsembleCache<K,V> primary;
 
-    public SWSREnsembleCache(String name, List<EnsembleCache<K, V>> caches) {
+    public SWMREnsembleCache(String name, List<EnsembleCache<K, V>> caches) {
         super(name, caches);
         primary = caches.iterator().next();
     }

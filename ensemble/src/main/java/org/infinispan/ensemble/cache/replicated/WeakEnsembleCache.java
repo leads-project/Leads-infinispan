@@ -4,7 +4,8 @@ import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.ensemble.cache.EnsembleCache;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -16,6 +17,11 @@ public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
 
     public WeakEnsembleCache(String name, List<EnsembleCache<K,V>> caches){
         super(name,caches);
+    }
+
+    @Override
+    public String getVersion() {
+        return null;  // TODO: Customise this generated block
     }
 
     @Override
@@ -38,6 +44,7 @@ public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
         return null;
     }
 
+
     /**
      * {@inheritDoc}
      *
@@ -58,7 +65,6 @@ public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
     public boolean isEmpty() {
         return someCache().isEmpty();
     }
-
 
 
 }

@@ -5,7 +5,7 @@ import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.ensemble.cache.*;
 import org.infinispan.ensemble.cache.distributed.DistributedEnsembleCache;
 import org.infinispan.ensemble.cache.distributed.Partitioner;
-import org.infinispan.ensemble.cache.replicated.SWSREnsembleCache;
+import org.infinispan.ensemble.cache.replicated.SWMREnsembleCache;
 import org.infinispan.ensemble.cache.replicated.MWMREnsembleCache;
 import org.infinispan.ensemble.cache.replicated.WeakEnsembleCache;
 import org.infinispan.ensemble.indexing.IndexBuilder;
@@ -127,19 +127,15 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         return getCache(cacheName,cacheList,consistency,null);
     }
 
-    public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<EnsembleCache<K,V>> cacheList, Partitioner<K,V> partitioner){
-        return getCache(cacheName, cacheList, null, partitioner);
-    }
-
     public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<EnsembleCache<K,V>> cacheList, Consistency consistency, Partitioner<K,V> partitioner){
         EnsembleCache<K,V> ret;
         if (partitioner==null){
             switch (consistency){
                 case SWMR:
-                    ret = new MWMREnsembleCache<K,V>(cacheName, cacheList);
+                    ret = new SWMREnsembleCache<K,V>(cacheName, cacheList);
                     break;
                 case MWMR:
-                    ret = new SWSREnsembleCache<K,V>(cacheName, cacheList);
+                    ret = new MWMREnsembleCache<K,V>(cacheName, cacheList);
                     break;
                 case WEAK:
                     ret = new WeakEnsembleCache<K,V>(cacheName,cacheList);
