@@ -2,11 +2,11 @@ package org.infinispan.ensemble.test;
 
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.test.MultiHotRodServersTest;
-import org.infinispan.commons.api.BasicCache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.ensemble.EnsembleCacheManager;
 import org.infinispan.ensemble.Site;
+import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -30,32 +30,40 @@ public class EnsembleBasicTest extends MultiHotRodServersTest {
     private static String SWMR_CACHE_NAME = "georeplicatedSWMRCache";
     private static EnsembleCacheManager manager;
 
-     public void basicWeakCacheUsageTest() throws  Exception {
-        BasicCache cache = manager.getCache();
+    // replicated ensemble caches
+
+    public void basicWeakEnsembleCacheTest() throws  Exception {
+        EnsembleCache<String,String> cache = manager.getCache();
         cache.put("key", "smthing");
         assert cache.containsKey("key");
         assert cache.get("key").equals("smthing");
     }
 
-    public void replicateddWeakCacheUsageTest() throws Exception {
-        BasicCache cache = manager.getCache(WEAK_CACHE_NAME,2);
-        cache.put("key","smthing");
-        assert cache.containsKey("key");
-        assert cache.get("key").equals("smthing");
-    }
-
-    public void basicSWMRCacheUsageTest() throws  Exception {
-        BasicCache cache = manager.getCache();
+    public void basicSWMREnsembleCacheTest() throws  Exception {
+        EnsembleCache<String,String> cache = manager.getCache();
         cache.put("key", "smthing");
         assert cache.containsKey("key");
         assert cache.get("key").equals("smthing");
     }
 
-    public void replicatedSWMRCacheUsageTest() throws Exception {
-        BasicCache cache = manager.getCache(SWMR_CACHE_NAME,2,SWMR);
+    public void SWMRCacheUsageTest() throws Exception {
+        EnsembleCache<String,String> cache = manager.getCache(SWMR_CACHE_NAME,2,SWMR);
         cache.put("key","smthing");
         assert cache.containsKey("key");
         assert cache.get("key").equals("smthing");
+    }
+
+    public void WeakCacheUsageTest() throws Exception {
+        EnsembleCache<String,String> cache = manager.getCache(WEAK_CACHE_NAME,2);
+        cache.put("key","smthing");
+        assert cache.containsKey("key");
+        assert cache.get("key").equals("smthing");
+    }
+
+    // distributed ensemble caches
+
+    public void distributedEnsembleCacheTest(){
+
     }
 
 

@@ -1,4 +1,4 @@
-package org.infinispan.ensemble;
+package org.infinispan.ensemble.indexing;
 
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 

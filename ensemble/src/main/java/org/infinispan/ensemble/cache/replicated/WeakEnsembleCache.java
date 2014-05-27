@@ -1,7 +1,8 @@
-package org.infinispan.ensemble;
+package org.infinispan.ensemble.cache.replicated;
 
-import org.infinispan.client.hotrod.RemoteCache;
+import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import org.infinispan.ensemble.cache.EnsembleCache;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,17 +13,17 @@ import java.util.concurrent.ExecutionException;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class WeakEnsembleCache<K,V> extends EnsembleCache<K,V> {
+public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
 
-    public WeakEnsembleCache(String name, List<Site> sites){
-        super(name,sites);
+    public WeakEnsembleCache(String name, List<EnsembleCache<K,V>> caches){
+        super(name,caches);
     }
 
     @Override
     public V put(K key, V value) {
         V ret;
         List<NotifyingFuture<V>> futures = new ArrayList<NotifyingFuture<V>>();
-        for(RemoteCache<K,V> c : caches){
+        for(BasicCache<K,V> c : caches){
             futures.add(c.putAsync(key, value));
         }
         for(NotifyingFuture<V> f : futures){
