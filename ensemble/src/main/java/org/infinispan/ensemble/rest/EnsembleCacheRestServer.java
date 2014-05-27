@@ -44,22 +44,6 @@ public class EnsembleCacheRestServer {
         String overridePort = sysProps.getProperty("ECrest.port", "11021");
         int port = Integer.valueOf(overridePort);
 
-/*
-        String hotrodServerString = sysProps.getProperty("restHotrodServers", "localhost:11222");
-        String hotrodServer[] = hotrodServerString.split("|");
-
-
-        manager = new EnsembleCacheManager();
-
-        for (String site: hotrodServer) {
-            HotRodConfigurationBuilder builder = new HotRodConfigurationBuilder(site);
-            RemoteCacheManager rcm = new RemoteCacheManager(builder.build());
-            manager.addSite(new Site(site, rcm, false));
-            logger.info("Adding site: " + site);
-        }
-
-*/
-
         EnsembleCacheManager ecm = new EnsembleCacheManager();
         EnsembleCacheRestService.setEnsembleManager(ecm);
 

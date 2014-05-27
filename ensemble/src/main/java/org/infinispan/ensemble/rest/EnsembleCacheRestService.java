@@ -5,9 +5,10 @@ import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.infinispan.commons.api.BasicCacheContainer;
-import org.infinispan.ensemble.EnsembleCache;
+import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.EnsembleCacheManager;
 import org.infinispan.ensemble.Site;
+import org.infinispan.ensemble.cache.distributed.Partitioner;
 import org.jboss.logging.Logger;
 import org.codehaus.jackson.JsonParser;
 
@@ -159,7 +160,13 @@ public class EnsembleCacheRestService {
             logger.info(message);
 
             String name = parser.getValue("name");
+            String isLocalString = parser.getValueOrNull("islocal");
+            if (isLocalString == null) isLocalString = "true";
+            boolean isLocal = Boolean.parseBoolean(isLocalString);
             logger.info("name=" + name);
+            String endpoint = parser.getValue("endpoint");
+            URL url = new URL(endpoint);
+/*
             List<String> endpoints = parser.getValueListOrNull("endpoints");
             LinkedList<URL> urlList = new LinkedList<URL>();
             if (endpoints != null) {
@@ -170,8 +177,10 @@ public class EnsembleCacheRestService {
             } else {
                 throw new IOException("Must have at least one endpoint");
             }
+            URL url = urlList.get(0);
+*/
 
-            Site site = new Site(name, urlList.get(0), true);
+            Site site = new Site(name, url, isLocal);
             manager.addSite(site);
 
             message = "POST /sites REPLY:" + site.toString();
@@ -273,6 +282,11 @@ public class EnsembleCacheRestService {
                             : EnsembleCacheManager.Consistency.valueOf(consistencyString);
             EnsembleCache ec = null;
 
+            // TODO FIXME missing a partitioner here
+            class Partito<K,V> extends Partitioner<K,V> {
+                public EnsembleCache<K,V> locate(K k) { return null;}
+            }
+
             switch (method) {
                 case REPL:
                     ec = manager.getCache(name, replication, consistency);
@@ -281,7 +295,7 @@ public class EnsembleCacheRestService {
                     ec = manager.getCache(name, sites, consistency);
                     break;
                 case PART:
-                    ec = manager.getCache(name, caches, partitionerUrl, partitionerParameters);
+                    ec = manager.getCache(name, caches, new Partito());
                     break;
                 default:
                     ec = manager.getCache(name, 1, consistency);

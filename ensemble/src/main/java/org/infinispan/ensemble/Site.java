@@ -80,7 +80,14 @@ public class Site extends Indexable {
     }
 
     public Site(URL url, boolean isLocal) {
-        container = new RemoteCacheManager(url.getHost(),url.getPort(),true);
+        name = url.toString();
+        container = new RemoteCacheManager(url.getHost(), url.getPort(), true);
+        this.isLocal = isLocal;
+    }
+
+    public Site(String name, URL url, boolean isLocal) {
+        this.name = name;
+        container = new RemoteCacheManager(url.getHost(), url.getPort(), true);
         this.isLocal = isLocal;
     }
 
