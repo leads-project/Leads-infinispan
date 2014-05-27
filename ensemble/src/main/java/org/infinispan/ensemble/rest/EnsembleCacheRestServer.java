@@ -60,18 +60,13 @@ public class EnsembleCacheRestServer {
 
 */
 
-        EnsembleCacheRestContext ctx = new EnsembleCacheRestContext();
-        ctx.setEnsembleManager(new EnsembleCacheManager());
-
-        EnsembleCacheManagerRestService.setContext(ctx);
-        EnsembleCacheRestService.setContext(ctx);
+        EnsembleCacheManager ecm = new EnsembleCacheManager();
+        EnsembleCacheRestService.setEnsembleManager(ecm);
 
         TJWSEmbeddedJaxrsServer tjws = new TJWSEmbeddedJaxrsServer();
         tjws.setPort(port);
         tjws.setRootResourcePath("/");
-        tjws.getDeployment().getActualResourceClasses().add(EnsembleCacheManagerRestService.class);
         tjws.getDeployment().getActualResourceClasses().add(EnsembleCacheRestService.class);
-        tjws.getDeployment().getActualResourceClasses().add(RootRestService.class);
 
         logger.info("Listening to port: " + port);
 
