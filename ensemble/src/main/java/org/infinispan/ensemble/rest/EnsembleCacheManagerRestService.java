@@ -1,17 +1,13 @@
 package org.infinispan.ensemble.rest;
 
-import org.infinispan.client.hotrod.RemoteCacheManager;
-import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.EnsembleCacheManager;
 import org.infinispan.ensemble.Site;
+import org.infinispan.ensemble.cache.EnsembleCache;
 import org.jboss.logging.Logger;
 
-import javax.activation.MimetypesFileTypeMap;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
-import java.io.File;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -131,7 +127,7 @@ public class EnsembleCacheManagerRestService {
             List<Site> lsites = new LinkedList<Site>();
             for (String s: sites.split("\\+")) {
                 try {
-                    lsites.add(new Site(new URL(s)));
+                    lsites.add(new Site(new URL(s),false));
                 } catch (MalformedURLException e) {
                     e.printStackTrace();
                 }
@@ -152,7 +148,7 @@ public class EnsembleCacheManagerRestService {
 
         URL url = null;
         try {
-            Site sobj = new Site(new URL(surl));
+            Site sobj = new Site(new URL(surl),false);
             context.getEnsembleManager().addSite(sobj);
             return sobj;
         } catch (MalformedURLException e) {

@@ -1,11 +1,10 @@
 package org.infinispan.ensemble.cache.replicated;
 
-import org.infinispan.commons.api.BasicCache;
+import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.ensemble.cache.EnsembleCache;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -23,8 +22,8 @@ public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
     public V put(K key, V value) {
         V ret;
         List<NotifyingFuture<V>> futures = new ArrayList<NotifyingFuture<V>>();
-        for(BasicCache<K,V> c : caches){
-            futures.add(c.putAsync(key, value));
+        for(EnsembleCache<K,V> c : caches){
+            futures.add(((RemoteCache)c).putAsync(key, value));
         }
         for(NotifyingFuture<V> f : futures){
             try {
@@ -49,6 +48,17 @@ public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
     public V get(Object k) {
         return someCache().get(k);
     }
+
+    @Override
+    public int size() {
+        return someCache().size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return someCache().isEmpty();
+    }
+
 
 
 }

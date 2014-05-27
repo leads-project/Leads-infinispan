@@ -1,37 +1,29 @@
 package org.infinispan.ensemble.cache;
 
-import org.infinispan.commons.api.BasicCache;
-import org.infinispan.commons.util.concurrent.NotifyingFuture;
-import org.infinispan.ensemble.EnsembleCacheManager;
 import org.infinispan.ensemble.indexing.Indexable;
 import org.infinispan.ensemble.indexing.Primary;
 import org.infinispan.ensemble.indexing.Stored;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 
 
 /**
  *
- * An EnsembleCache offers a BasicCache API over a list of other EnsembleCaches.
+ * An EnsembleCache offers a ConcurrentMap API over a list of EnsembleCaches.
  * Such an abstraction is of interest in various cases, e.g., when aggregating multiple Infinispan deployments.
  *
  * @author Pierre Sutra
  * @since 7.0
  */
-public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache<K,V> {
-
-    //
-    // CLASS FIELDS
-    //
+public abstract class EnsembleCache<K,V> extends Indexable implements ConcurrentMap<K,V> {
 
     protected static final Log log = LogFactory.getLog(EnsembleCache.class);
-
-    //
-    // OBJECT FIELDS
-    //
 
     @Primary
     @Stored
@@ -49,35 +41,33 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
     // PUBLIC
     //
 
-    @Override
-    public String getVersion() {
-        return Integer.toString(EnsembleCacheManager.ENSEMBLE_VERSION_MINOR)+"."+Integer.toString(EnsembleCacheManager.ENSEMBLE_VERSION_MAJOR);
-    }
-
     public String getName() {
         return name;
-    }
-
-    @Override
-    public void start() {
-        for(BasicCache<K,V> c: caches)
-            c.start();
-    }
-
-    @Override
-    public void stop() {
-        for(BasicCache<K,V> c: caches)
-            c.stop();
     }
 
     //
     // NYI
     //
 
+
+    // READ
+
+    @Override
+    public int size() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        throw new UnsupportedOperationException();
+    }
+
+
     @Override
     public Set<K> keySet() {
         throw new UnsupportedOperationException();
     }
+
     @Override
     public Collection<V> values() {
         throw new UnsupportedOperationException();
@@ -89,9 +79,16 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
     }
 
     @Override
-    public boolean containsValue(Object k) {
+    public boolean containsKey(Object o) {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean containsValue(Object o) {
+        throw new UnsupportedOperationException();
+    }
+
+    // WRITE
 
     @Override
     public V putIfAbsent(K k, V v) {
@@ -114,62 +111,7 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
     }
 
     @Override
-    public boolean containsKey(Object k) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public V put(K key, V value, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public V putIfAbsent(K key, V value, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public V replace(K key, V value, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public V put(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public V putIfAbsent(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public V replace(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public V remove(Object key) {
+    public V remove(Object o) {
         throw new UnsupportedOperationException();
     }
 
@@ -180,101 +122,6 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
 
     @Override
     public void clear() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> putAsync(K key, V value) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<Void> clearAsync() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> putIfAbsentAsync(K key, V value) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> removeAsync(Object key) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<Boolean> removeAsync(Object key, Object value) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> replaceAsync(K key, V value) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit unit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public NotifyingFuture<V> getAsync(K key) {
         throw new UnsupportedOperationException();
     }
 

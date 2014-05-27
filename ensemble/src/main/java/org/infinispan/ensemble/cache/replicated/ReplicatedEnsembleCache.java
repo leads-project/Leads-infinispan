@@ -1,6 +1,5 @@
 package org.infinispan.ensemble.cache.replicated;
 
-import org.infinispan.commons.api.BasicCache;
 import org.infinispan.ensemble.cache.EnsembleCache;
 
 import java.util.ArrayList;
@@ -23,21 +22,11 @@ public abstract class ReplicatedEnsembleCache<K,V> extends EnsembleCache<K,V> {
         super(name, caches);
     }
 
-    @Override
-    public int size() {
-        return someCache().size();
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return someCache().isEmpty();
-    }
-
     //
     // HELPERS
     //
 
-    protected BasicCache<K,V> someCache(){
+    protected EnsembleCache<K,V> someCache(){
         return caches.iterator().next();
     }
 
@@ -45,8 +34,8 @@ public abstract class ReplicatedEnsembleCache<K,V> extends EnsembleCache<K,V> {
         return (int)Math.floor((double)caches.size()/(double)2) +1;
     }
 
-    protected Collection<BasicCache<K,V>> quorumCache(){
-        List<BasicCache<K,V>> quorum = new ArrayList<BasicCache<K, V>>();
+    protected Collection<EnsembleCache<K,V>> quorumCache(){
+        List<EnsembleCache<K,V>> quorum = new ArrayList<EnsembleCache<K, V>>();
         for(int i=0; i< quorumSize(); i++){
             quorum.add(caches.get(i));
         }
@@ -54,8 +43,8 @@ public abstract class ReplicatedEnsembleCache<K,V> extends EnsembleCache<K,V> {
         return quorum;
     }
 
-    protected Collection<BasicCache<K,V>> quorumCacheContaining(BasicCache<K, V> cache){
-        List<BasicCache<K,V>> quorum = new ArrayList<BasicCache<K, V>>();
+    protected Collection<EnsembleCache<K,V>> quorumCacheContaining(EnsembleCache<K, V> cache){
+        List<EnsembleCache<K,V>> quorum = new ArrayList<EnsembleCache<K, V>>();
         quorum.add(cache);
         for(int i=0; quorum.size()<quorumSize(); i++){
             if(!caches.get(i).equals(cache))
