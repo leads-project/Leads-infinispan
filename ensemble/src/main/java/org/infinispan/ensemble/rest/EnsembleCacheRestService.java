@@ -2,12 +2,8 @@ package org.infinispan.ensemble.rest;
 
 import org.jboss.logging.Logger;
 
-import javax.activation.MimetypesFileTypeMap;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
-import java.io.File;
-import java.net.URISyntaxException;
-import java.net.URL;
 
 /*
 

@@ -1,7 +1,5 @@
 package org.infinispan.ensemble.rest;
 
-import org.infinispan.client.hotrod.RemoteCacheManager;
-import org.infinispan.ensemble.EnsembleCache;
 import org.infinispan.ensemble.EnsembleCacheManager;
 
 

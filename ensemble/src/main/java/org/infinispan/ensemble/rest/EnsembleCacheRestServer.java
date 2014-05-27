@@ -1,12 +1,8 @@
 package org.infinispan.ensemble.rest;
 
 import org.infinispan.client.hotrod.RemoteCacheManager;
-import org.infinispan.configuration.cache.CacheMode;
-import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.ensemble.Site;
-import org.jboss.logging.Logger;
-
 import org.infinispan.ensemble.EnsembleCacheManager;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.plugins.server.tjws.TJWSEmbeddedJaxrsServer;
 
 import java.util.ArrayList;

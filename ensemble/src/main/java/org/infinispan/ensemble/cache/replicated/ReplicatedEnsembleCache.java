@@ -10,8 +10,8 @@ import java.util.List;
 /**
  *
  * Existing implementations of this abstract class are:
+ * @see SWSREnsembleCache
  * @see MWMREnsembleCache
- * @see SWMREnsembleCache
  * @see WeakEnsembleCache
  *
  * @author Pierre Sutra

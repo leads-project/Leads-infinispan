@@ -1,7 +1,7 @@
 package org.infinispan.ensemble.rest;
 
 import org.infinispan.client.hotrod.RemoteCacheManager;
-import org.infinispan.ensemble.EnsembleCache;
+import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.EnsembleCacheManager;
 import org.infinispan.ensemble.Site;
 import org.jboss.logging.Logger;

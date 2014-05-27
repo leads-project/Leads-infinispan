@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutionException;
 /**
  *
  * @author Pierre Sutra
- * @since 6.0
+ * @since 7.0
  */
 public class MWMREnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
 
@@ -25,10 +25,10 @@ public class MWMREnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
     public V get(Object key) {
         Map<RemoteCache<K,V>, VersionedValue<V>> previous= previousValues((K)key);
         VersionedValue<V> g = greatestValue(previous);
-        if(g==null)
+        if(g.getValue()==null)
             return null;
         if(!isStable(previous, g))
-            writeStable((K) key, g.getValue(), g.getVersion()+1, previous.keySet());
+            writeStable((K) key, g.getValue(), g.getVersion(), previous.keySet());
         return g.getValue();
     }
 
@@ -36,8 +36,8 @@ public class MWMREnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
     public V put(K key, V value) {
         Map<RemoteCache<K,V>, VersionedValue<V>> previous= previousValues((K)key);
         VersionedValue<V> g = greatestValue(previous);
-        writeStable(key, value, g.getVersion()+1, previous.keySet());
-        if(g!=null)
+        writeStable(key, value, g.getVersion(), previous.keySet());
+        if(g.getValue()!=null)
             return g.getValue();
         return null;
     }
@@ -100,9 +100,19 @@ public class MWMREnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
     }
 
     private VersionedValue<V> greatestValue(Map<RemoteCache<K,V>,VersionedValue<V>> map){
-        VersionedValue<V> ret = null;
+        VersionedValue<V> ret = new VersionedValue<V>() {
+            @Override
+            public long getVersion() {
+                return 0;
+            }
+
+            @Override
+            public V getValue() {
+                return null;  // TODO: Customise this generated block
+            }
+        };
         for(VersionedValue<V> v: map.values()){
-            if ( v!=null && (ret==null || v.getVersion()>ret.getVersion()))
+            if ( v!=null && (ret.getValue()==null || v.getVersion()>ret.getVersion()))
                 ret = v;
         }
         return ret;
