@@ -10,6 +10,8 @@ import org.infinispan.query.dsl.embedded.sample_domain_model.Account;
 import org.infinispan.query.dsl.embedded.sample_domain_model.Address;
 import org.infinispan.query.dsl.embedded.sample_domain_model.Transaction;
 import org.infinispan.query.dsl.embedded.sample_domain_model.User;
+import org.infinispan.test.fwk.CleanupAfterTest;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -30,9 +32,10 @@ import static org.junit.Assert.*;
  * @since 6.0
  */
 @Test(groups = "functional", testName = "query.dsl.QueryDslConditionsTest")
+@CleanupAfterTest
 public class QueryDslConditionsTest extends AbstractQueryDslTest {
 
-   @BeforeMethod(alwaysRun = true)
+   @BeforeClass(alwaysRun = true)
    protected void populateCache() throws Exception {
       // create the test objects
       User user1 = new User();
@@ -146,6 +149,11 @@ public class QueryDslConditionsTest extends AbstractQueryDslTest {
       cache.put("transaction_" + transaction3.getId(), transaction3);
       cache.put("transaction_" + transaction4.getId(), transaction4);
       cache.put("transaction_" + transaction5.getId(), transaction5);
+   }
+
+   @Override
+   protected void clearContent() {
+        //Don't clear, this is destroying the index
    }
 
    public void testIndexPresence() {
@@ -810,7 +818,7 @@ public class QueryDslConditionsTest extends AbstractQueryDslTest {
       assertEquals("John", list.get(2).getName());
    }
 
-   public void testSampleDomainQuery4Wity2SortingOptions() throws Exception {
+   public void testSampleDomainQuery4With2SortingOptions() throws Exception {
       QueryFactory qf = Search.getSearchManager(cache).getQueryFactory();
 
       // all users ordered descendingly by name
@@ -1055,6 +1063,7 @@ public class QueryDslConditionsTest extends AbstractQueryDslTest {
 
       // all transactions of account with id 2 which have an amount larger than 1600 or their description contains the word 'rent'
       Query q = qf.from(Transaction.class)
+            .orderBy("description", SortOrder.ASC)
             .having("accountId").eq(1)
             .and(qf.having("amount").gt(1600)
                   .or().having("description").like("%rent%")).toBuilder().build();

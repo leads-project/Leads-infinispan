@@ -6,13 +6,17 @@ import OperationStatus._
 import org.infinispan.manager.EmbeddedCacheManager
 import org.infinispan.server.core.transport.ExtendedByteBuf._
 import java.nio.channels.ClosedChannelException
-import org.infinispan.{AdvancedCache, Cache}
 import java.io.{IOException, StreamCorruptedException}
 import java.lang.StringBuilder
 import org.infinispan.container.entries.CacheEntry
 import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration
 import io.netty.buffer.ByteBuf
 import io.netty.channel.Channel
+import io.netty.channel.ChannelHandlerContext
+import javax.security.sasl.SaslServer
+import org.infinispan.server.core.security.AuthorizingCallbackHandler
+import org.infinispan.configuration.cache.Configuration
+import org.infinispan.factories.ComponentRegistry
 
 /**
  * Top level Hot Rod decoder that after figuring out the version, delegates the rest of the reading to the
@@ -22,13 +26,16 @@ import io.netty.channel.Channel
  * @since 4.1
  */
 class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTransport, server: HotRodServer)
-        extends AbstractProtocolDecoder[Array[Byte], Array[Byte]](transport) with Constants {
+        extends AbstractProtocolDecoder[Array[Byte], Array[Byte]](server.getConfiguration.authentication().enabled(), transport) with Constants {
    type SuitableHeader = HotRodHeader
 
    type SuitableParameters = RequestParameters
    private var isError = false
 
    private val isTrace = isTraceEnabled
+
+   var saslServer : SaslServer = null
+   var callbackHandler: AuthorizingCallbackHandler = null
 
    protected def createHeader: HotRodHeader = new HotRodHeader
 
@@ -56,6 +63,7 @@ class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTranspor
       try {
          val decoder = version match {
             case VERSION_10 | VERSION_11 | VERSION_12 | VERSION_13 => Decoder10
+            case VERSION_20 => Decoder2x
             case _ => throw new UnknownVersionException(
                "Unknown version:" + version, version, messageId)
          }
@@ -76,7 +84,7 @@ class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTranspor
       }
    }
 
-   override def getCache: Cache[Array[Byte], Array[Byte]] = {
+   override def getCache: Cache = {
       val cacheName = header.cacheName
       // Talking to the wrong cache are really request parsing errors
       // and hence should be treated as client errors
@@ -98,7 +106,16 @@ class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTranspor
          }
       }
 
-      server.getCacheInstance(cacheName, cacheManager, seenForFirstTime)
+      val cache = server.getCacheInstance(cacheName, cacheManager, seenForFirstTime)
+      header.decoder.getOptimizedCache(header, cache)
+   }
+
+   override def getCacheConfiguration: Configuration = {
+      server.getCacheConfiguration(header.cacheName)
+   }
+
+   override def getCacheRegistry: ComponentRegistry = {
+      server.getCacheRegistry(header.cacheName)
    }
 
    override def readKey(b: ByteBuf): (Array[Byte], Boolean) =
@@ -125,23 +142,23 @@ class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTranspor
    override def createNotExistResponse: AnyRef =
       header.decoder.createNotExistResponse(header)
 
-   override def createGetResponse(k: Array[Byte], entry: CacheEntry): AnyRef =
+   override def createGetResponse(k: Array[Byte], entry: CacheEntry[Array[Byte], Array[Byte]]): AnyRef =
       header.decoder.createGetResponse(header, entry)
 
-   override def createMultiGetResponse(pairs: Map[Array[Byte], CacheEntry]): AnyRef =
+   override def createMultiGetResponse(pairs: Map[Array[Byte], CacheEntry[Array[Byte], Array[Byte]]]): AnyRef =
       null // Unsupported
 
-   override protected def customDecodeHeader(ch: Channel, buffer: ByteBuf): AnyRef =
-      writeResponse(ch, header.decoder.customReadHeader(header, buffer, cache))
+   override protected def customDecodeHeader(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef =
+      writeResponse(ctx.channel, header.decoder.customReadHeader(header, buffer, cache, server, ctx))
 
-   override protected def customDecodeKey(ch: Channel, buffer: ByteBuf): AnyRef =
-      writeResponse(ch, header.decoder.customReadKey(header, buffer, cache, server.getQueryFacades))
+   override protected def customDecodeKey(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef =
+      writeResponse(ctx.channel, header.decoder.customReadKey(header, buffer, cache, server, ctx.channel))
 
-   override protected def customDecodeValue(ch: Channel, buffer: ByteBuf): AnyRef =
-      writeResponse(ch, header.decoder.customReadValue(header, buffer, cache))
+   override protected def customDecodeValue(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef =
+      writeResponse(ctx.channel, header.decoder.customReadValue(header, buffer, cache))
 
    override def createStatsResponse: AnyRef =
-      header.decoder.createStatsResponse(header, cache.getAdvancedCache.getStats, transport)
+      header.decoder.createStatsResponse(header, cache.getStats, transport)
 
    override def createErrorResponse(t: Throwable): AnyRef = {
       t match {
@@ -153,9 +170,6 @@ class HotRodDecoder(cacheManager: EmbeddedCacheManager, transport: NettyTranspor
          }
       }
    }
-
-   override protected def getOptimizedCache(c: AdvancedCache[Array[Byte], Array[Byte]]): AdvancedCache[Array[Byte], Array[Byte]] =
-      header.decoder.getOptimizedCache(header, c)
 
    override protected def createServerException(e: Exception, b: ByteBuf): (HotRodException, Boolean) = {
       e match {

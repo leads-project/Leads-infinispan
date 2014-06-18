@@ -1,7 +1,12 @@
 package org.infinispan.persistence.jdbc.configuration;
 
+import java.util.Map;
+import java.util.Properties;
+
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
+import org.infinispan.configuration.parsing.XmlConfigHelper;
 import org.infinispan.commons.util.TypedProperties;
+import org.infinispan.persistence.jdbc.Dialect;
 
 public class JdbcBinaryStoreConfigurationBuilder extends
                                                       AbstractJdbcStoreConfigurationBuilder<JdbcBinaryStoreConfiguration, JdbcBinaryStoreConfigurationBuilder> {
@@ -32,8 +37,12 @@ public class JdbcBinaryStoreConfigurationBuilder extends
    }
 
    @Override
-   public void validate() {
-      super.validate();
+   public JdbcBinaryStoreConfigurationBuilder withProperties(Properties props) {
+      Map<Object, Object> unrecognized = XmlConfigHelper.setValues(this, props, false, false);
+      unrecognized = XmlConfigHelper.setValues(table, unrecognized, false, false);
+      XmlConfigHelper.showUnrecognizedAttributes(unrecognized);
+      this.properties = props;
+      return this;
    }
 
    public JdbcBinaryStoreConfigurationBuilder lockAcquisitionTimeout(long lockAcquisitionTimeout) {
@@ -52,12 +61,13 @@ public class JdbcBinaryStoreConfigurationBuilder extends
       ConnectionFactoryConfiguration cf = connectionFactory != null ? connectionFactory.create() : null;
       return new JdbcBinaryStoreConfiguration(purgeOnStartup, fetchPersistentState, ignoreModifications, async.create(),
                                               singletonStore.create(), preload, shared, TypedProperties.toTypedProperties(properties), cf,
-                                              manageConnectionFactory, table.create(), concurrencyLevel, lockAcquisitionTimeout);
+                                              manageConnectionFactory, table.create(), concurrencyLevel, lockAcquisitionTimeout, dialect);
    }
 
    @Override
    public JdbcBinaryStoreConfigurationBuilder read(JdbcBinaryStoreConfiguration template) {
-      super.readInternal(template);
+      super.read(template);
+
       this.table.read(template.table());
       this.lockAcquisitionTimeout = template.lockAcquisitionTimeout();
       this.concurrencyLevel = template.lockConcurrencyLevel();

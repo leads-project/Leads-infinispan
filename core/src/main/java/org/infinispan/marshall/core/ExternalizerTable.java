@@ -1,11 +1,11 @@
 package org.infinispan.marshall.core;
 
-import org.infinispan.atomic.AtomicHashMap;
-import org.infinispan.atomic.AtomicHashMapDelta;
-import org.infinispan.atomic.ClearOperation;
 import org.infinispan.atomic.DeltaCompositeKey;
-import org.infinispan.atomic.PutOperation;
-import org.infinispan.atomic.RemoveOperation;
+import org.infinispan.atomic.impl.AtomicHashMap;
+import org.infinispan.atomic.impl.AtomicHashMapDelta;
+import org.infinispan.atomic.impl.ClearOperation;
+import org.infinispan.atomic.impl.PutOperation;
+import org.infinispan.atomic.impl.RemoveOperation;
 import org.infinispan.commands.RemoteCommandsFactory;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.hash.MurmurHash2;
@@ -37,13 +37,14 @@ import org.infinispan.container.entries.metadata.MetadataTransientMortalCacheVal
 import org.infinispan.container.versioning.NumericVersion;
 import org.infinispan.container.versioning.SimpleClusteredVersion;
 import org.infinispan.context.Flag;
-import org.infinispan.distribution.ch.DefaultConsistentHash;
-import org.infinispan.distribution.ch.DefaultConsistentHashFactory;
-import org.infinispan.distribution.ch.ReplicatedConsistentHash;
-import org.infinispan.distribution.ch.ReplicatedConsistentHashFactory;
-import org.infinispan.distribution.ch.SyncConsistentHashFactory;
-import org.infinispan.distribution.ch.TopologyAwareConsistentHashFactory;
-import org.infinispan.distribution.ch.TopologyAwareSyncConsistentHashFactory;
+import org.infinispan.distexec.mapreduce.MapReduceManagerImpl;
+import org.infinispan.distribution.ch.impl.DefaultConsistentHash;
+import org.infinispan.distribution.ch.impl.DefaultConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.ReplicatedConsistentHash;
+import org.infinispan.distribution.ch.impl.ReplicatedConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.SyncConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.TopologyAwareConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.TopologyAwareSyncConsistentHashFactory;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
@@ -51,6 +52,8 @@ import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
 import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
+import org.infinispan.filter.CollectionKeyFilter;
+import org.infinispan.filter.CompositeKeyValueFilter;
 import org.infinispan.marshall.exts.ArrayExternalizers;
 import org.infinispan.marshall.exts.EnumSetExternalizer;
 import org.infinispan.marshall.exts.ListExternalizer;
@@ -60,13 +63,12 @@ import org.infinispan.marshall.exts.ReplicableCommandExternalizer;
 import org.infinispan.marshall.exts.SetExternalizer;
 import org.infinispan.marshall.exts.SingletonListExternalizer;
 import org.infinispan.metadata.EmbeddedMetadata;
-import org.infinispan.metadata.InternalMetadataImpl;
+import org.infinispan.metadata.impl.InternalMetadataImpl;
 import org.infinispan.notifications.cachelistener.cluster.ClusterEvent;
 import org.infinispan.notifications.cachelistener.cluster.ClusterEventCallable;
 import org.infinispan.notifications.cachelistener.cluster.ClusterListenerRemoveCallable;
 import org.infinispan.notifications.cachelistener.cluster.ClusterListenerReplicateCallable;
-import org.infinispan.notifications.cachelistener.filter.KeyFilterAsKeyValueFilter;
-import org.infinispan.notifications.cachelistener.filter.SimpleCollectionKeyFilter;
+import org.infinispan.filter.KeyFilterAsKeyValueFilter;
 import org.infinispan.registry.ScopedKey;
 import org.infinispan.remoting.responses.CacheNotFoundResponse;
 import org.infinispan.remoting.responses.ExceptionResponse;
@@ -308,13 +310,16 @@ public class ExternalizerTable implements ObjectTable {
       addInternalExternalizer(new InternalMetadataImpl.Externalizer());
       addInternalExternalizer(new MarshalledEntryImpl.Externalizer(globalMarshaller));
 
-      addInternalExternalizer(new SimpleCollectionKeyFilter.Externalizer());
+      addInternalExternalizer(new CollectionKeyFilter.Externalizer());
       addInternalExternalizer(new KeyFilterAsKeyValueFilter.Externalizer());
       addInternalExternalizer(new ClusterEvent.Externalizer());
       addInternalExternalizer(new ClusterEventCallable.Externalizer());
       addInternalExternalizer(new ClusterListenerRemoveCallable.Externalizer());
       addInternalExternalizer(new ClusterListenerReplicateCallable.Externalizer());
       addInternalExternalizer(new XSiteState.XSiteStateExternalizer());
+      addInternalExternalizer(new CompositeKeyValueFilter.Externalizer());
+      addInternalExternalizer(new MapReduceManagerImpl.DeltaListExternalizer());
+      addInternalExternalizer(new MapReduceManagerImpl.DeltaAwareListExternalizer());
    }
 
    void addInternalExternalizer(AdvancedExternalizer<?> ext) {

@@ -12,12 +12,11 @@ import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.commons.hash.Hash;
 import org.infinispan.commons.hash.MurmurHash3;
 import org.infinispan.commons.util.InfinispanCollections;
-import org.infinispan.commons.util.TimSort;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.RemoteTxInvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
-import org.infinispan.transaction.RemoteTransaction;
+import org.infinispan.transaction.impl.RemoteTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
 import org.infinispan.util.logging.Log;
@@ -252,7 +251,7 @@ public class PrepareCommand extends AbstractTransactionBoundaryCommand {
       }
       Object[] sorted = set.toArray(new Object[set.size()]);
       if (sort) {
-         TimSort.sort(sorted, KEY_COMPARATOR);
+         Arrays.sort(sorted, KEY_COMPARATOR);
       }
       return sorted;
    }

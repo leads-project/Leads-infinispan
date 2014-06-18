@@ -1,20 +1,40 @@
 package org.infinispan.remoting.transport.jgroups;
 
+import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
+import static org.infinispan.factories.KnownComponentNames.GLOBAL_MARSHALLER;
+import static org.infinispan.factories.KnownComponentNames.REMOTE_COMMAND_EXECUTOR;
+
+import java.io.FileNotFoundException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.remote.ClusteredGetCommand;
-import org.infinispan.configuration.parsing.XmlConfigHelper;
+import org.infinispan.commons.CacheConfigurationException;
+import org.infinispan.commons.CacheException;
+import org.infinispan.commons.marshall.StreamingMarshaller;
+import org.infinispan.commons.util.FileLookup;
+import org.infinispan.commons.util.InfinispanCollections;
+import org.infinispan.commons.util.TypedProperties;
+import org.infinispan.commons.util.Util;
 import org.infinispan.configuration.global.TransportConfiguration;
+import org.infinispan.configuration.parsing.XmlConfigHelper;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.jmx.JmxUtil;
-import org.infinispan.commons.CacheConfigurationException;
-import org.infinispan.commons.CacheException;
-import org.infinispan.commons.marshall.StreamingMarshaller;
-import org.infinispan.commons.util.FileLookupFactory;
-import org.infinispan.commons.util.InfinispanCollections;
-import org.infinispan.commons.util.TypedProperties;
-import org.infinispan.commons.util.Util;
 import org.infinispan.notifications.cachemanagerlistener.CacheManagerNotifier;
 import org.infinispan.remoting.InboundInvocationHandler;
 import org.infinispan.remoting.responses.Response;
@@ -45,29 +65,10 @@ import org.jgroups.protocols.relay.SiteMaster;
 import org.jgroups.protocols.tom.TOA;
 import org.jgroups.stack.AddressGenerator;
 import org.jgroups.util.Buffer;
+import org.jgroups.util.ExtendedUUID;
 import org.jgroups.util.Rsp;
 import org.jgroups.util.RspList;
 import org.jgroups.util.TopologyUUID;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-
-import java.io.FileNotFoundException;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-
-import static org.infinispan.factories.KnownComponentNames.REMOTE_COMMAND_EXECUTOR;
-import static org.infinispan.factories.KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR;
-import static org.infinispan.factories.KnownComponentNames.GLOBAL_MARSHALLER;
 
 /**
  * An encapsulation of a JGroups transport. JGroups transports can be configured using a variety of
@@ -182,7 +183,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
       props = TypedProperties.toTypedProperties(configuration.transport().properties());
 
       if (log.isInfoEnabled())
-         log.startingJGroupsChannel();
+         log.startingJGroupsChannel(configuration.transport().clusterName());
 
       initChannelAndRPCDispatcher();
       startJGroupsChannelIfNeeded();
@@ -191,8 +192,8 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
    }
 
    protected void startJGroupsChannelIfNeeded() {
+      String clusterName = configuration.transport().clusterName();
       if (connectChannel) {
-         String clusterName = configuration.transport().clusterName();
          try {
             channel.connect(clusterName);
          } catch (Exception e) {
@@ -220,7 +221,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
          viewAccepted(channel.getView());
       }
       if (log.isInfoEnabled())
-         log.localAndPhysicalAddress(getAddress(), getPhysicalAddresses());
+         log.localAndPhysicalAddress(clusterName, getAddress(), getPhysicalAddresses());
    }
 
    @Override
@@ -235,9 +236,10 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
 
    @Override
    public void stop() {
+      String clusterName = configuration.transport().clusterName();
       try {
          if (disconnectChannel && channel != null && channel.isConnected()) {
-            log.disconnectJGroups();
+            log.disconnectJGroups(clusterName);
 
             // Unregistering before disconnecting/closing because
             // after that the cluster name is null
@@ -251,11 +253,11 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
             channel.close();
          }
       } catch (Exception toLog) {
-         log.problemClosingChannel(toLog);
+         log.problemClosingChannel(toLog, clusterName);
       }
 
       if (dispatcher != null) {
-         log.stoppingRpcDispatcher();
+         log.stoppingRpcDispatcher(clusterName);
          dispatcher.stop();
          if (channel != null) {
             // Remove reference to up_handler
@@ -334,6 +336,8 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
 
    // This is per CM, so the CL in use should be the CM CL
    private void buildChannel() {
+	  FileLookup fileLookup = new FileLookup();
+	  
       // in order of preference - we first look for an external JGroups file, then a set of XML
       // properties, and
       // finally the legacy JGroups String properties.
@@ -359,7 +363,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
 
          if (channel == null && props.containsKey(CONFIGURATION_FILE)) {
             cfg = props.getProperty(CONFIGURATION_FILE);
-            URL conf = FileLookupFactory.newInstance().lookupFileLocation(cfg, configuration.classLoader());
+            URL conf = fileLookup.lookupFileLocation(cfg, configuration.classLoader());
             if (conf == null) {
                throw new CacheConfigurationException(CONFIGURATION_FILE
                         + " property specifies value " + cfg + " that could not be read!",
@@ -397,7 +401,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
       if (channel == null) {
          log.unableToUseJGroupsPropertiesProvided(props);
          try {
-            channel = new JChannel(FileLookupFactory.newInstance().lookupFileLocation(DEFAULT_JGROUPS_CONFIGURATION_FILE, configuration.classLoader()));
+            channel = new JChannel(fileLookup.lookupFileLocation(DEFAULT_JGROUPS_CONFIGURATION_FILE, configuration.classLoader()));
          } catch (Exception e) {
             throw new CacheException("Unable to start JGroups channel", e);
          }
@@ -659,12 +663,13 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
       // now notify listeners - *after* updating the isCoordinator. - JBCACHE-662
       boolean hasNotifier = notifier != null;
       if (hasNotifier) {
+         String clusterName = configuration.transport().clusterName();
          Notify n;
          if (newView instanceof MergeView) {
-            log.receivedMergedView(newView);
+            log.receivedMergedView(clusterName, newView);
             n = new NotifyMerge();
          } else {
-            log.receivedClusterView(newView);
+            log.receivedClusterView(clusterName, newView);
             n = new NotifyViewChange();
          }
 
@@ -696,8 +701,8 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
    }
 
    static Address fromJGroupsAddress(org.jgroups.Address addr) {
-      if (addr instanceof TopologyUUID)
-         return new JGroupsTopologyAwareAddress((TopologyUUID)addr);
+      if (addr instanceof ExtendedUUID)
+         return new JGroupsTopologyAwareAddress((ExtendedUUID)addr);
       else
          return new JGroupsAddress(addr);
    }

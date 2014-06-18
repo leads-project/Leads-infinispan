@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLContext;
 
 import org.infinispan.client.hotrod.configuration.Configuration;
+import org.infinispan.client.hotrod.event.ClientListenerNotifier;
 import org.infinispan.client.hotrod.impl.consistenthash.ConsistentHashFactory;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transport.Transport;
@@ -25,7 +26,7 @@ public final class MockTransportFactory implements TransportFactory {
    }
 
    @Override
-   public void start(Codec codec, Configuration configuration, AtomicInteger topologyId) {
+   public void start(Codec codec, Configuration configuration, AtomicInteger topologyId, ClientListenerNotifier listenerNotifier) {
    }
 
    @Override
@@ -41,8 +42,16 @@ public final class MockTransportFactory implements TransportFactory {
             final int numKeyOwners, final short hashFunctionVersion, final int hashSpace) {
    }
 
+   public void updateHashFunction(SocketAddress[][] segmentOwners, int numSegments, short hashFunctionVersion) {
+   }
+
    @Override
    public Transport getTransport(final byte[] key, Set<SocketAddress> failedServers) {
+      return null;
+   }
+
+   @Override
+   public Transport getAddressTransport(SocketAddress server) {
       return null;
    }
 

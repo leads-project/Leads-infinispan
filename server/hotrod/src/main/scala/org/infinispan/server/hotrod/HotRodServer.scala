@@ -14,6 +14,11 @@ import org.infinispan.upgrade.RollingUpgradeManager
 import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration
 import java.util.ServiceLoader
 import org.infinispan.util.concurrent.IsolationLevel
+import javax.security.sasl.SaslServerFactory
+import org.infinispan.server.core.security.SaslUtils
+import java.util.Arrays
+import java.util.Collections
+import org.infinispan.factories.ComponentRegistry
 
 /**
  * Hot Rod server, in charge of defining its encoder/decoder and, if clustered, update the topology information
@@ -29,21 +34,22 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
 
    type SuitableConfiguration = HotRodServerConfiguration
 
-   // Type aliases to reduce boilerplate definitions
-   type Bytes = Array[Byte]
-   type Cache = org.infinispan.Cache[Bytes, Bytes]
-   type AddressCache = org.infinispan.Cache[Address, ServerAddress]
-
    private var isClustered: Boolean = _
    private var clusterAddress: Address = _
    private var address: ServerAddress = _
    private var addressCache: AddressCache = _
-   private val knownCaches : java.util.Map[String, Cache] = CollectionFactory.makeConcurrentMap(4, 0.9f, 16)
+   private val knownCaches = CollectionFactory.makeConcurrentMap[String, Cache](4, 0.9f, 16)
+   private val knownCacheConfigurations = CollectionFactory.makeConcurrentMap[String, Configuration](4, 0.9f, 16)
+   private val knownCacheRegistries = CollectionFactory.makeConcurrentMap[String, ComponentRegistry](4, 0.9f, 16)
    private var queryFacades: Seq[QueryFacade] = _
+   private val saslMechFactories = CollectionFactory.makeConcurrentMap[String, SaslServerFactory](4, 0.9f, 16)
+   private var clientListenerRegistry: ClientListenerRegistry = _
 
    def getAddress: ServerAddress = address
 
    def getQueryFacades: Seq[QueryFacade] = queryFacades
+
+   def getClientListenerRegistry: ClientListenerRegistry = clientListenerRegistry
 
    override def getEncoder = new HotRodEncoder(getCacheManager, this)
 
@@ -52,6 +58,9 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
 
    override def startInternal(configuration: HotRodServerConfiguration, cacheManager: EmbeddedCacheManager) {
       this.configuration = configuration
+
+      // populate the sasl factories based on the required mechs
+      setupSasl
 
       // 1. Start default cache and the endpoint before adding self to
       // topology in order to avoid topology updates being used before
@@ -68,6 +77,7 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
       }
 
       queryFacades = loadQueryFacades()
+      clientListenerRegistry = new ClientListenerRegistry(configuration)
    }
 
    private def loadQueryFacades(): Seq[QueryFacade] =
@@ -90,8 +100,9 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
       // Start defined caches to avoid issues with lazily started caches
       for (cacheName <- asScalaIterator(cacheManager.getCacheNames.iterator)) {
          if (!cacheName.startsWith(HotRodServerConfiguration.TOPOLOGY_CACHE_NAME_PREFIX)) {
-            val cache = cacheManager.getCache(cacheName)
-            validateCacheConfiguration(cache.getCacheConfiguration)
+            val cache = getCacheInstance(cacheName, cacheManager, false)
+            val cacheCfg = SecurityActions.getCacheConfiguration(cache)
+            validateCacheConfiguration(cacheCfg)
          }
       }
    }
@@ -112,8 +123,7 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
       debug("Map %s cluster address with %s server endpoint in address cache", clusterAddress, address)
       // Guaranteed delivery required since if data is lost, there won't be
       // any further cache calls, so negative acknowledgment can cause issues.
-      addressCache.getAdvancedCache
-              .withFlags(Flag.SKIP_CACHE_LOAD, Flag.GUARANTEED_DELIVERY)
+      addressCache.getAdvancedCache.withFlags(Flag.SKIP_CACHE_LOAD, Flag.GUARANTEED_DELIVERY)
               .put(clusterAddress, address)
    }
 
@@ -161,17 +171,20 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
 
       if (cache == null) {
          val validCacheName = if (cacheName.isEmpty) configuration.defaultCacheName else cacheName
-         val tmpCache = cacheManager.getCache[Bytes, Bytes](validCacheName)
-         val compatibility = tmpCache.getCacheConfiguration.compatibility().enabled()
-         val indexing = tmpCache.getCacheConfiguration.indexing().enabled()
+         val tmpCache = SecurityActions.getCache[Bytes, Bytes](cacheManager, validCacheName)
+         val cacheConfiguration = SecurityActions.getCacheConfiguration(tmpCache.getAdvancedCache)
+         val compatibility = cacheConfiguration.compatibility().enabled()
+         val indexing = cacheConfiguration.indexing().enabled()
 
          // Use flag when compatibility is enabled, otherwise it's unnecessary
          if (compatibility || indexing)
             cache = tmpCache.getAdvancedCache.withFlags(Flag.OPERATION_HOTROD)
          else
-            cache = tmpCache
+            cache = tmpCache.getAdvancedCache
 
          knownCaches.put(cacheName, cache)
+         knownCacheConfigurations.put(cacheName, cacheConfiguration)
+         knownCacheRegistries.put(cacheName, SecurityActions.getCacheComponentRegistry(tmpCache.getAdvancedCache))
          // make sure we register a Migrator for this cache!
          tryRegisterMigrationManager(cacheName, cache)
       }
@@ -179,10 +192,37 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
       cache
    }
 
+   def getCacheConfiguration(cacheName: String): Configuration = {
+      knownCacheConfigurations.get(cacheName)
+   }
+
+   def getCacheRegistry(cacheName: String): ComponentRegistry = {
+      knownCacheRegistries.get(cacheName)
+   }
+
    def tryRegisterMigrationManager(cacheName: String, cache: Cache) {
-      val cr = cache.getAdvancedCache.getComponentRegistry
+      val cr = SecurityActions.getCacheComponentRegistry(cache.getAdvancedCache)
       val migrationManager = cr.getComponent(classOf[RollingUpgradeManager])
       if (migrationManager != null) migrationManager.addSourceMigrator(new HotRodSourceMigrator(cache))
+   }
+
+   private def setupSasl {
+      val saslFactories = SaslUtils.getSaslServerFactories(this.getClass().getClassLoader(), true)
+      while (saslFactories.hasNext) {
+         val saslFactory = saslFactories.next
+         val saslFactoryMechs = saslFactory.getMechanismNames(configuration.authentication.mechProperties)
+         for (supportedMech <- saslFactoryMechs) {
+            for (mech <- configuration.authentication.allowedMechs) {
+               if (supportedMech == mech) {
+                  saslMechFactories.putIfAbsent(mech, saslFactory)
+               }
+            }
+         }
+      }
+   }
+
+   def getSaslServerFactory(mech: String): SaslServerFactory = {
+      saslMechFactories.get(mech)
    }
 
    private[hotrod] def getAddressCache = addressCache

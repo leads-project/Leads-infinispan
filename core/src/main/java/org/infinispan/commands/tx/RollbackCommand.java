@@ -3,8 +3,8 @@ package org.infinispan.commands.tx;
 import org.infinispan.commands.Visitor;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.transaction.impl.RemoteTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
-import org.infinispan.transaction.RemoteTransaction;
 
 /**
  * Command corresponding to a transaction rollback.
@@ -30,6 +30,7 @@ public class RollbackCommand extends AbstractTransactionBoundaryCommand {
 
    @Override
    public Object perform(InvocationContext ctx) throws Throwable {
+      // Need to mark the transaction as completed even if the prepare command was not executed on this node
       txTable.markTransactionCompleted(globalTx);
       return super.perform(ctx);
    }

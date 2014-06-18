@@ -1,5 +1,7 @@
 package org.infinispan.notifications.cachelistener.event;
 
+import org.infinispan.metadata.Metadata;
+
 /**
  * A transactional event subtype that additionally expose a key as such events pertain to a specific cache entry.
  *
@@ -18,4 +20,13 @@ public interface CacheEntryEvent<K, V> extends TransactionalEvent<K, V> {
     * @return the value of the cache entry
     */
    V getValue();
+
+   /**
+    * Retrieves the metadata associated with the entry.
+    *
+    * @return the metadata of the cache entry
+    * @since 7.0
+    */
+   Metadata getMetadata();
+
 }

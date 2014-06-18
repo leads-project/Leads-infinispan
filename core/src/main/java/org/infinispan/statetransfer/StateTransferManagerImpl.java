@@ -14,6 +14,9 @@ import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.distribution.ch.*;
+import org.infinispan.distribution.ch.impl.DefaultConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.ReplicatedConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.TopologyAwareConsistentHashFactory;
 import org.infinispan.distribution.group.GroupManager;
 import org.infinispan.distribution.group.GroupingConsistentHash;
 import org.infinispan.factories.annotations.Inject;
@@ -54,7 +57,7 @@ public class StateTransferManagerImpl implements StateTransferManager {
    private final CountDownLatch initialStateTransferComplete = new CountDownLatch(1);
    // The first topology in which the local node was a member. Any command with a lower
    // topology id will be ignored.
-   private volatile int firstTopologyAsMember = -1;
+   private volatile int firstTopologyAsMember = Integer.MAX_VALUE;
 
    public StateTransferManagerImpl() {
    }
@@ -156,7 +159,11 @@ public class StateTransferManagerImpl implements StateTransferManager {
       if (pendingCH != null) {
          pendingCH = new GroupingConsistentHash(pendingCH, groupManager);
       }
-      return new CacheTopology(cacheTopology.getTopologyId(), currentCH, pendingCH);
+      ConsistentHash unionCH = cacheTopology.getUnionCH();
+      if (unionCH != null) {
+         unionCH = new GroupingConsistentHash(unionCH, groupManager);
+      }
+      return new CacheTopology(cacheTopology.getTopologyId(), currentCH, pendingCH, unionCH);
    }
 
    private void doTopologyUpdate(CacheTopology newCacheTopology, boolean isRebalance) {
@@ -165,7 +172,7 @@ public class StateTransferManagerImpl implements StateTransferManager {
       }
 
       // No need for extra synchronization here, since LocalTopologyManager already serializes topology updates.
-      if (firstTopologyAsMember < 0 && newCacheTopology.getMembers().contains(rpcManager.getAddress())) {
+      if (firstTopologyAsMember == Integer.MAX_VALUE && newCacheTopology.getMembers().contains(rpcManager.getAddress())) {
          if (trace) log.trace("This is the first topology in which the local node is a member");
          firstTopologyAsMember = newCacheTopology.getTopologyId();
       }
@@ -179,16 +186,12 @@ public class StateTransferManagerImpl implements StateTransferManager {
          throw new IllegalStateException("Old topology is higher: old=" + oldCacheTopology + ", new=" + newCacheTopology);
       }
 
-      ConsistentHash oldCH = oldCacheTopology != null ? oldCacheTopology.getWriteConsistentHash() : null;
-      ConsistentHash newCH = newCacheTopology.getWriteConsistentHash();
-
-      // TODO Improve notification to contain both CHs
-      cacheNotifier.notifyTopologyChanged(oldCH, newCH, newCacheTopology.getTopologyId(), true);
+      cacheNotifier.notifyTopologyChanged(oldCacheTopology, newCacheTopology, newCacheTopology.getTopologyId(), true);
 
       stateConsumer.onTopologyUpdate(newCacheTopology, isRebalance);
       stateProvider.onTopologyUpdate(newCacheTopology, isRebalance);
 
-      cacheNotifier.notifyTopologyChanged(oldCH, newCH, newCacheTopology.getTopologyId(), false);
+      cacheNotifier.notifyTopologyChanged(oldCacheTopology, newCacheTopology, newCacheTopology.getTopologyId(), false);
 
       if (initialStateTransferComplete.getCount() > 0) {
          boolean isJoined = stateConsumer.getCacheTopology().getReadConsistentHash().getMembers().contains(rpcManager.getAddress());
@@ -292,5 +295,11 @@ public class StateTransferManagerImpl implements StateTransferManager {
    @Override
    public int getFirstTopologyAsMember() {
       return firstTopologyAsMember;
+   }
+
+   @Override
+
+   public String toString() {
+      return "StateTransferManagerImpl [" + cacheName + "@" + rpcManager.getAddress() + "]";
    }
 }

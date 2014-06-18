@@ -24,7 +24,7 @@ import org.infinispan.stats.CacheStatisticManager;
 import org.infinispan.stats.ExtendedStatisticNotFoundException;
 import org.infinispan.stats.container.ExtendedStatistic;
 import org.infinispan.stats.logging.Log;
-import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.transaction.WriteSkewException;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.util.TimeService;
@@ -800,7 +800,7 @@ public class ExtendedStatisticInterceptor extends BaseCustomInterceptor {
    }
 
    private boolean isLockTimeout(TimeoutException e) {
-      return e.getMessage().startsWith("Unable to acquire lock after");
+      return e.getMessage().startsWith("ISPN000299: Unable to acquire lock after");
    }
 
    private void updateTime(ExtendedStatistic duration, ExtendedStatistic counter, long initTime, long endTime,

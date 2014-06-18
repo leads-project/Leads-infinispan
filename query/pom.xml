@@ -30,6 +30,11 @@
       </dependency>
 
       <dependency>
+         <groupId>${project.groupId}</groupId>
+         <artifactId>infinispan-objectfilter</artifactId>
+      </dependency>
+
+      <dependency>
          <groupId>org.hibernate.hql</groupId>
          <artifactId>hibernate-hql-parser</artifactId>
       </dependency>
@@ -50,8 +55,20 @@
       </dependency>
 
       <dependency>
+         <groupId>org.hibernate</groupId>
+         <artifactId>hibernate-search-serialization-avro</artifactId>
+      </dependency>
+
+      <dependency>
          <groupId>${project.groupId}</groupId>
          <artifactId>infinispan-lucene-directory</artifactId>
+      </dependency>
+
+      <dependency>
+         <groupId>org.apache.lucene</groupId>
+         <artifactId>lucene-queryparser</artifactId>
+         <version>${version.lucene.v4}</version>
+         <scope>test</scope>
       </dependency>
 
       <!-- Hack to make Eclipse happy when opening multiple modules at once:
@@ -61,6 +78,17 @@
          <groupId>${project.groupId}</groupId>
          <artifactId>infinispan-lucene-v3</artifactId>
          <scope>provided</scope>
+      </dependency>
+      <dependency>
+         <groupId>${project.groupId}</groupId>
+         <artifactId>infinispan-lucene-v4</artifactId>
+         <scope>provided</scope>
+      </dependency>
+       <dependency>
+         <groupId>${project.groupId}</groupId>
+         <artifactId>infinispan-lucene-v4</artifactId>
+         <type>test-jar</type>
+         <scope>test</scope>
       </dependency>
 
       <dependency>
@@ -83,7 +111,7 @@
        </dependency>
 
        <dependency>
-           <groupId>c3p0</groupId>
+           <groupId>com.mchange</groupId>
            <artifactId>c3p0</artifactId>
          <scope>test</scope>
       </dependency>

@@ -13,8 +13,8 @@ import org.infinispan.container.InternalEntryFactory;
 import org.infinispan.container.entries.ImmortalCacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.distribution.TestAddress;
-import org.infinispan.distribution.ch.DefaultConsistentHash;
-import org.infinispan.distribution.ch.DefaultConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.DefaultConsistentHash;
+import org.infinispan.distribution.ch.impl.DefaultConsistentHashFactory;
 import org.infinispan.notifications.cachelistener.cluster.ClusterCacheNotifier;
 import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
@@ -26,9 +26,9 @@ import org.infinispan.remoting.rpc.RpcOptionsBuilder;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.topology.CacheTopology;
-import org.infinispan.transaction.LocalTransaction;
-import org.infinispan.transaction.RemoteTransaction;
-import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.impl.LocalTransaction;
+import org.infinispan.transaction.impl.RemoteTransaction;
+import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.util.logging.Log;
@@ -67,7 +67,6 @@ public class StateProviderTest {
 
    private Configuration configuration;
 
-   private ExecutorService pooledExecutorService;
    private ExecutorService mockExecutorService;
    private Cache cache;
 
@@ -100,9 +99,6 @@ public class StateProviderTest {
          }
       };
 
-      pooledExecutorService = new ThreadPoolExecutor(10, 20, 0L, TimeUnit.MILLISECONDS,
-            new LinkedBlockingDeque<Runnable>(), threadFactory, new ThreadPoolExecutor.CallerRunsPolicy());
-
       mockExecutorService = mock(ExecutorService.class);
       cache = mock(Cache.class);
       when(cache.getName()).thenReturn("testCache");
@@ -122,11 +118,6 @@ public class StateProviderTest {
             return cacheTopology;
          }
       });
-   }
-
-   @AfterTest
-   public void tearDown() {
-      pooledExecutorService.shutdownNow();
    }
 
    public void test1() throws InterruptedException {
@@ -181,7 +172,7 @@ public class StateProviderTest {
       when(transactionTable.getLocalTransactions()).thenReturn(Collections.<LocalTransaction>emptyList());
       when(transactionTable.getRemoteTransactions()).thenReturn(Collections.<RemoteTransaction>emptyList());
 
-      cacheTopology = new CacheTopology(1, ch1, ch1);
+      cacheTopology = new CacheTopology(1, ch1, ch1, ch1);
       stateProvider.onTopologyUpdate(cacheTopology, false);
 
       log.debug("ch1: " + ch1);
@@ -203,7 +194,7 @@ public class StateProviderTest {
       assertTrue(stateProvider.isStateTransferInProgress());
 
       log.debug("ch2: " + ch2);
-      cacheTopology = new CacheTopology(2, ch2, ch2);
+      cacheTopology = new CacheTopology(2, ch2, ch2, ch2);
       stateProvider.onTopologyUpdate(cacheTopology, true);
 
       assertFalse(stateProvider.isStateTransferInProgress());
@@ -272,7 +263,7 @@ public class StateProviderTest {
 
       // create state provider
       StateProviderImpl stateProvider = new StateProviderImpl();
-      stateProvider.init(cache, pooledExecutorService,
+      stateProvider.init(cache, mockExecutorService,
             configuration, rpcManager, commandsFactory, cacheNotifier, persistenceManager,
             dataContainer, transactionTable, stateTransferLock, stateConsumer, ef);
 
@@ -294,7 +285,7 @@ public class StateProviderTest {
       when(transactionTable.getLocalTransactions()).thenReturn(Collections.<LocalTransaction>emptyList());
       when(transactionTable.getRemoteTransactions()).thenReturn(Collections.<RemoteTransaction>emptyList());
 
-      cacheTopology = new CacheTopology(1, ch1, ch1);
+      cacheTopology = new CacheTopology(1, ch1, ch1, ch1);
       stateProvider.onTopologyUpdate(cacheTopology, false);
 
       log.debug("ch1: " + ch1);
@@ -317,7 +308,7 @@ public class StateProviderTest {
 
       // TestingUtil.sleepThread(15000);
       log.debug("ch2: " + ch2);
-      cacheTopology = new CacheTopology(2, ch2, ch2);
+      cacheTopology = new CacheTopology(2, ch2, ch2, ch2);
       stateProvider.onTopologyUpdate(cacheTopology, false);
 
       assertFalse(stateProvider.isStateTransferInProgress());

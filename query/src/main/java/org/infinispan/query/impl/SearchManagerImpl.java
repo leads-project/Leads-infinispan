@@ -4,7 +4,7 @@ import java.util.concurrent.ExecutorService;
 
 import org.apache.lucene.search.Query;
 import org.hibernate.hql.ast.spi.EntityNamesResolver;
-import org.hibernate.search.SearchFactory;
+import org.hibernate.search.engine.SearchFactory;
 import org.hibernate.search.query.dsl.EntityContext;
 import org.hibernate.search.query.engine.spi.TimeoutExceptionFactory;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
@@ -15,6 +15,7 @@ import org.infinispan.query.Transformer;
 import org.infinispan.query.backend.QueryInterceptor;
 import org.infinispan.query.clustered.ClusteredCacheQueryImpl;
 import org.infinispan.query.dsl.QueryFactory;
+import org.infinispan.query.dsl.embedded.LuceneQuery;
 import org.infinispan.query.dsl.embedded.impl.EmbeddedLuceneQueryFactory;
 import org.infinispan.query.impl.massindex.MapReduceMassIndexer;
 import org.infinispan.query.spi.SearchManagerImplementor;
@@ -44,13 +45,13 @@ public class SearchManagerImpl implements SearchManagerImplementor {
    }
 
    @Override
-   public QueryFactory getQueryFactory() {
+   public QueryFactory<LuceneQuery> getQueryFactory() {
       EntityNamesResolver entityNamesResolver = new EntityNamesResolver() {
          @Override
          public Class<?> getClassFromName(String entityName) {
             Class clazz;
             try {
-               clazz = Class.forName(entityName);
+               clazz = Class.forName(entityName);  //todo [anistor] any potential class loading issues in AS ?
             } catch (ClassNotFoundException e) {
                return null;
             }

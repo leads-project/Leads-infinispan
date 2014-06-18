@@ -25,18 +25,22 @@ package org.jboss.as.clustering.infinispan.subsystem;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ADD;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.ServiceLoader;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import javax.management.MBeanServer;
 
+import org.infinispan.commons.util.ServiceFinder;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.jboss.as.clustering.infinispan.affinity.KeyAffinityServiceFactoryService;
+import org.jboss.as.clustering.infinispan.subsystem.EmbeddedCacheManagerConfigurationService.AuthorizationConfiguration;
 import org.jboss.as.clustering.jgroups.ChannelFactory;
 import org.jboss.as.clustering.jgroups.subsystem.ChannelFactoryService;
 import org.jboss.as.clustering.jgroups.subsystem.ChannelService;
@@ -165,13 +169,36 @@ public class CacheContainerAdd extends AbstractAddStepHandler {
 
             controllers.add(this.installChannelService(target, name, cluster, stack, verificationHandler));
 
-            for (ChannelDependentServiceProvider provider: ServiceLoader.load(ChannelDependentServiceProvider.class, ChannelDependentServiceProvider.class.getClassLoader())) {
+            for (ChannelDependentServiceProvider provider: ServiceFinder.load(ChannelDependentServiceProvider.class, ChannelDependentServiceProvider.class.getClassLoader())) {
                 controllers.add(provider.install(target, name));
             }
         }
 
+        Authorization authorizationConfig = null;
+        if (containerModel.hasDefined(ModelKeys.SECURITY) && containerModel.get(ModelKeys.SECURITY).hasDefined(ModelKeys.SECURITY_NAME)) {
+            ModelNode securityModel = containerModel.get(ModelKeys.SECURITY, ModelKeys.SECURITY_NAME);
+
+            if (securityModel.hasDefined(ModelKeys.AUTHORIZATION) && securityModel.get(ModelKeys.AUTHORIZATION).hasDefined(ModelKeys.AUTHORIZATION_NAME)) {
+                ModelNode authzModel = securityModel.get(ModelKeys.AUTHORIZATION, ModelKeys.AUTHORIZATION_NAME);
+
+                authorizationConfig = new Authorization();
+                authorizationConfig.setPrincipalMapper((resolvedValue = CacheContainerAuthorizationResource.MAPPER.resolveModelAttribute(context, authzModel)).isDefined() ? resolvedValue.asString() : null);
+
+                for(ModelNode roleNode : authzModel.get(ModelKeys.ROLE).asList()) {
+                    ModelNode role = roleNode.get(0);
+                    String roleName = AuthorizationRoleResource.NAME.resolveModelAttribute(context, role).asString();
+                    List<String> permissions = new ArrayList<String>();
+                    for(ModelNode permission : AuthorizationRoleResource.PERMISSIONS.resolveModelAttribute(context, role).asList()) {
+                        permissions.add(permission.asString());
+                    }
+                    authorizationConfig.getRoles().put(roleName, permissions);
+                }
+
+            }
+        }
+
         // install the cache container configuration service
-        controllers.add(this.installContainerConfigurationService(target, name, defaultCache, statistics, moduleId, stack, transportConfig,
+        controllers.add(this.installContainerConfigurationService(target, name, defaultCache, statistics, moduleId, stack, transportConfig, authorizationConfig,
                         transportExecutor, listenerExecutor, evictionExecutor, replicationQueueExecutor, verificationHandler));
 
         // install a cache container service
@@ -208,7 +235,7 @@ public class CacheContainerAdd extends AbstractAddStepHandler {
         final ServiceName channelServiceName = ChannelService.getServiceName(containerName) ;
         final ServiceController<?> channelServiceController = context.getServiceRegistry(false).getService(channelServiceName);
         if (channelServiceController != null) {
-            for (ChannelDependentServiceProvider provider: ServiceLoader.load(ChannelDependentServiceProvider.class, ChannelDependentServiceProvider.class.getClassLoader())) {
+            for (ChannelDependentServiceProvider provider: ServiceFinder.load(ChannelDependentServiceProvider.class, ChannelDependentServiceProvider.class.getClassLoader())) {
                 context.removeService(provider.getServiceName(containerName));
             }
             context.removeService(channelServiceName);
@@ -237,12 +264,12 @@ public class CacheContainerAdd extends AbstractAddStepHandler {
     }
 
     ServiceController<?> installContainerConfigurationService(ServiceTarget target,
-            String containerName, String defaultCache, boolean statistics, ModuleIdentifier moduleId, String stack, Transport transportConfig,
+            String containerName, String defaultCache, boolean statistics, ModuleIdentifier moduleId, String stack, Transport transportConfig, Authorization authorizationConfig,
             String transportExecutor, String listenerExecutor, String evictionExecutor, String replicationQueueExecutor,
             ServiceVerificationHandler verificationHandler) {
 
         final ServiceName configServiceName = EmbeddedCacheManagerConfigurationService.getServiceName(containerName);
-        final EmbeddedCacheManagerDependencies dependencies = new EmbeddedCacheManagerDependencies(transportConfig);
+        final EmbeddedCacheManagerDependencies dependencies = new EmbeddedCacheManagerDependencies(transportConfig, authorizationConfig);
         final Service<EmbeddedCacheManagerConfiguration> service = new EmbeddedCacheManagerConfigurationService(containerName, defaultCache, statistics, moduleId, dependencies);
         final ServiceBuilder<EmbeddedCacheManagerConfiguration> configBuilder = target.addService(configServiceName, service)
                 .addDependency(Services.JBOSS_SERVICE_MODULE_LOADER, ModuleLoader.class, dependencies.getModuleLoaderInjector())
@@ -315,10 +342,12 @@ public class CacheContainerAdd extends AbstractAddStepHandler {
         private final InjectedValue<ScheduledExecutorService> evictionExecutor = new InjectedValue<ScheduledExecutorService>();
         private final InjectedValue<ScheduledExecutorService> replicationQueueExecutor = new InjectedValue<ScheduledExecutorService>();
         private final EmbeddedCacheManagerConfigurationService.TransportConfiguration transport;
+        private final EmbeddedCacheManagerConfigurationService.AuthorizationConfiguration authorization;
         private final InjectedValue<ModuleLoader> moduleLoader = new InjectedValue<ModuleLoader>();
 
-        EmbeddedCacheManagerDependencies(EmbeddedCacheManagerConfigurationService.TransportConfiguration transport) {
+        EmbeddedCacheManagerDependencies(EmbeddedCacheManagerConfigurationService.TransportConfiguration transport, EmbeddedCacheManagerConfigurationService.AuthorizationConfiguration authorization) {
             this.transport = transport;
+            this.authorization = authorization;
         }
 
         Injector<MBeanServer> getMBeanServerInjector() {
@@ -344,6 +373,11 @@ public class CacheContainerAdd extends AbstractAddStepHandler {
         @Override
         public EmbeddedCacheManagerConfigurationService.TransportConfiguration getTransportConfiguration() {
             return this.transport;
+        }
+
+        @Override
+        public AuthorizationConfiguration getAuthorizationConfiguration() {
+            return this.authorization;
         }
 
         @Override
@@ -413,6 +447,29 @@ public class CacheContainerAdd extends AbstractAddStepHandler {
         @Override
         public Long getLockTimeout() {
             return this.lockTimeout;
+        }
+    }
+
+    static class Authorization implements EmbeddedCacheManagerConfigurationService.AuthorizationConfiguration {
+        private String principalMapper;
+        private Map<String, List<String>> roles = new HashMap<String, List<String>>();
+
+        public void setPrincipalMapper(String principalMapper) {
+            this.principalMapper = principalMapper;
+        }
+
+        public void setRoles(Map<String, List<String>> roles) {
+            this.roles = roles;
+        }
+
+        @Override
+        public String getPrincipalMapper() {
+            return principalMapper;
+        }
+
+        @Override
+        public Map<String, List<String>> getRoles() {
+            return roles;
         }
     }
 }

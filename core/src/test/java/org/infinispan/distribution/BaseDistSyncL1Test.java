@@ -10,6 +10,7 @@ import org.infinispan.interceptors.distribution.L1WriteSynchronizer;
 import org.infinispan.statetransfer.StateTransferLock;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.CheckPoint;
+import org.infinispan.test.fwk.CleanupAfterMethod;
 import org.infinispan.transaction.TransactionMode;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.junit.Assert;
@@ -50,6 +51,10 @@ public abstract class BaseDistSyncL1Test extends BaseDistFunctionalTest<Object, 
 
    protected IsolationLevel isolationLevel = IsolationLevel.READ_COMMITTED;
 
+   public BaseDistSyncL1Test() {
+      cleanup = CleanupPhase.AFTER_METHOD;
+   }
+
    @Override
    protected ConfigurationBuilder buildConfiguration() {
       ConfigurationBuilder builder = super.buildConfiguration();
@@ -80,7 +85,7 @@ public abstract class BaseDistSyncL1Test extends BaseDistFunctionalTest<Object, 
 
    protected abstract Class<? extends CommandInterceptor> getL1InterceptorClass();
 
-   protected void assertL1StateOnLocalWrite(Cache<?,?> cache, Cache<?, ?> updatingCache, Object key, Object valueWrite) {
+   protected <K> void assertL1StateOnLocalWrite(Cache<? super K,?> cache, Cache<?, ?> updatingCache, K key, Object valueWrite) {
       // Default just assumes it invalidated the cache
       assertIsNotInL1(cache, key);
    }

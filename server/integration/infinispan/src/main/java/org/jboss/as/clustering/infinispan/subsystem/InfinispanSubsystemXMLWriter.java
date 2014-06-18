@@ -26,6 +26,9 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
+import org.infinispan.security.impl.ClusterRoleMapper;
+import org.infinispan.security.impl.CommonNameRoleMapper;
+import org.infinispan.security.impl.IdentityRoleMapper;
 import org.jboss.as.controller.persistence.SubsystemMarshallingContext;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
@@ -60,7 +63,7 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
                 writer.writeAttribute(Attribute.NAME.getLocalName(), containerName);
                 // AS7-3488 make default-cache a non required attribute
                 // this.writeRequired(writer, Attribute.DEFAULT_CACHE, container, ModelKeys.DEFAULT_CACHE);
-                this.writeAliases(writer, Attribute.ALIASES, container, ModelKeys.ALIASES);
+                this.writeListAsAttribute(writer, Attribute.ALIASES, container, ModelKeys.ALIASES);
                 this.writeOptional(writer, Attribute.DEFAULT_CACHE, container, ModelKeys.DEFAULT_CACHE);
                 this.writeOptional(writer, Attribute.EVICTION_EXECUTOR, container, ModelKeys.EVICTION_EXECUTOR);
                 this.writeOptional(writer, Attribute.JNDI_NAME, container, ModelKeys.JNDI_NAME);
@@ -78,6 +81,42 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
                     this.writeOptional(writer, Attribute.EXECUTOR, transport, ModelKeys.EXECUTOR);
                     this.writeOptional(writer, Attribute.LOCK_TIMEOUT, transport, ModelKeys.LOCK_TIMEOUT);
                     this.writeOptional(writer, Attribute.STRICT_PEER_TO_PEER, transport, ModelKeys.STRICT_PEER_TO_PEER);
+                    writer.writeEndElement();
+                }
+
+                if (container.hasDefined(ModelKeys.SECURITY)) {
+                    writer.writeStartElement(Element.SECURITY.getLocalName());
+                    ModelNode security = container.get(ModelKeys.SECURITY, ModelKeys.SECURITY_NAME);
+                    if (security.hasDefined(ModelKeys.AUTHORIZATION)) {
+                        writer.writeStartElement(Element.AUTHORIZATION.getLocalName());
+                        ModelNode authorization = security.get(ModelKeys.AUTHORIZATION, ModelKeys.AUTHORIZATION_NAME);
+                        if (authorization.hasDefined(ModelKeys.MAPPER)) {
+                            String mapper = authorization.get(ModelKeys.MAPPER).asString();
+                            if (CommonNameRoleMapper.class.getName().equals(mapper)) {
+                                writer.writeEmptyElement(Element.COMMON_NAME_ROLE_MAPPER.getLocalName());
+                            } else if (ClusterRoleMapper.class.getName().equals(mapper)) {
+                                writer.writeEmptyElement(Element.CLUSTER_ROLE_MAPPER.getLocalName());
+                            } else if (IdentityRoleMapper.class.getName().equals(mapper)) {
+                                writer.writeEmptyElement(Element.IDENTITY_ROLE_MAPPER.getLocalName());
+                            } else {
+                                writer.writeStartElement(Element.CUSTOM_ROLE_MAPPER.getLocalName());
+                                writer.writeAttribute(Attribute.CLASS.getLocalName(), mapper);
+                                writer.writeEndElement();
+                            }
+                        }
+
+                        ModelNode roles = authorization.get(ModelKeys.ROLE);
+                        for(ModelNode roleNode : roles.asList()) {
+                            ModelNode role = roleNode.get(0);
+                            writer.writeStartElement(Element.ROLE.getLocalName());
+                            AuthorizationRoleResource.NAME.marshallAsAttribute(role, writer);
+                            this.writeListAsAttribute(writer, Attribute.PERMISSIONS, role, ModelKeys.PERMISSIONS);
+                            writer.writeEndElement();
+                        }
+
+                        writer.writeEndElement();
+                    }
+
                     writer.writeEndElement();
                 }
 
@@ -228,6 +267,20 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
             writer.writeEndElement();
         }
 
+        if (cache.hasDefined(ModelKeys.SECURITY)) {
+            writer.writeStartElement(Element.SECURITY.getLocalName());
+            ModelNode security = cache.get(ModelKeys.SECURITY, ModelKeys.SECURITY_NAME);
+            if (security.hasDefined(ModelKeys.AUTHORIZATION)) {
+                writer.writeStartElement(Element.AUTHORIZATION.getLocalName());
+                ModelNode authorization = security.get(ModelKeys.AUTHORIZATION, ModelKeys.AUTHORIZATION_NAME);
+                CacheAuthorizationResource.ENABLED.marshallAsAttribute(authorization, writer);
+                this.writeListAsAttribute(writer, Attribute.ROLES, authorization, ModelKeys.ROLES);
+                writer.writeEndElement();
+            }
+
+            writer.writeEndElement();
+        }
+
         if (cache.get(ModelKeys.LOADER).isDefined()) {
             for (Property clusterLoaderEntry : cache.get(ModelKeys.LOADER).asPropertyList()) {
                 ModelNode loader = clusterLoaderEntry.getValue();
@@ -300,8 +353,7 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
                 ModelNode name = new ModelNode();
                 name.get(ModelKeys.NAME).set(stringKeyedJDBCStoreEntry.getName());
                 StringKeyedJDBCStoreResource.NAME.marshallAsAttribute(name, false, writer);
-                this.writeRequired(writer, Attribute.DATASOURCE, store, ModelKeys.DATASOURCE);
-                this.writeStoreAttributes(writer, store);
+                this.writeJdbcStoreAttributes(writer, store);
                 this.writeStoreWriteBehind(writer, store);
                 this.writeStoreProperties(writer, store);
                 this.writeJDBCStoreTable(writer, Element.STRING_KEYED_TABLE, store, ModelKeys.STRING_KEYED_TABLE);
@@ -317,8 +369,7 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
                 ModelNode name = new ModelNode();
                 name.get(ModelKeys.NAME).set(binaryKeyedJDBCStoreEntry.getName());
                 BinaryKeyedJDBCStoreResource.NAME.marshallAsAttribute(name, false, writer);
-                this.writeRequired(writer, Attribute.DATASOURCE, store, ModelKeys.DATASOURCE);
-                this.writeStoreAttributes(writer, store);
+                this.writeJdbcStoreAttributes(writer, store);
                 this.writeStoreWriteBehind(writer, store);
                 this.writeStoreProperties(writer, store);
                 this.writeJDBCStoreTable(writer, Element.BINARY_KEYED_TABLE, store, ModelKeys.BINARY_KEYED_TABLE);
@@ -334,8 +385,7 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
                 ModelNode name = new ModelNode();
                 name.get(ModelKeys.NAME).set(mixedKeyedJDBCStoreEntry.getName());
                 MixedKeyedJDBCStoreResource.NAME.marshallAsAttribute(name, false, writer);
-                this.writeRequired(writer, Attribute.DATASOURCE, store, ModelKeys.DATASOURCE);
-                this.writeStoreAttributes(writer, store);
+                this.writeJdbcStoreAttributes(writer, store);
                 this.writeStoreWriteBehind(writer, store);
                 this.writeStoreProperties(writer, store);
                 this.writeJDBCStoreTable(writer, Element.STRING_KEYED_TABLE, store, ModelKeys.STRING_KEYED_TABLE);
@@ -439,6 +489,10 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
             for (Property levelDbStoreEntry : cache.get(ModelKeys.LEVELDB_STORE).asPropertyList()) {
                 ModelNode store = levelDbStoreEntry.getValue();
                 writer.writeStartElement(Element.LEVELDB_STORE.getLocalName());
+                // write identifier before other attributes
+                ModelNode name = new ModelNode();
+                name.get(ModelKeys.NAME).set(levelDbStoreEntry.getName());
+                LevelDBStoreResource.NAME.marshallAsAttribute(name, false, writer);
                 this.writeOptional(writer, Attribute.RELATIVE_TO, store, ModelKeys.RELATIVE_TO);
                 this.writeOptional(writer, Attribute.PATH, store, ModelKeys.PATH);
                 this.writeOptional(writer, Attribute.BLOCK_SIZE, store, ModelKeys.BLOCK_SIZE);
@@ -448,21 +502,22 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
                 this.writeStoreExpiration(writer, store);
                 this.writeStoreCompression(writer, store);
                 this.writeStoreImplementation(writer, store);
+                this.writeStoreProperties(writer, store);
                 writer.writeEndElement();
             }
         }
 
     }
 
-    private void writeAliases(XMLExtendedStreamWriter writer, Attribute attribute, ModelNode container, String key) throws XMLStreamException {
-        if (container.hasDefined(key)) {
-            StringBuffer result = new StringBuffer() ;
-            ModelNode aliases = container.get(key);
-            if (aliases.isDefined() && aliases.getType() == ModelType.LIST) {
-                List<ModelNode> aliasesList = aliases.asList();
-                for (int i = 0; i < aliasesList.size(); i++) {
-                    result.append(aliasesList.get(i).asString());
-                    if (i < aliasesList.size()-1) {
+    private void writeListAsAttribute(XMLExtendedStreamWriter writer, Attribute attribute, ModelNode node, String key) throws XMLStreamException {
+        if (node.hasDefined(key)) {
+            StringBuilder result = new StringBuilder() ;
+            ModelNode list = node.get(key);
+            if (list.isDefined() && list.getType() == ModelType.LIST) {
+                List<ModelNode> nodeList = list.asList();
+                for (int i = 0; i < nodeList.size(); i++) {
+                    result.append(nodeList.get(i).asString());
+                    if (i < nodeList.size()-1) {
                         result.append(" ");
                     }
                 }
@@ -498,6 +553,12 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
     private void writeLoaderAttributes(XMLExtendedStreamWriter writer, ModelNode store) throws XMLStreamException {
         this.writeOptional(writer, Attribute.SHARED, store, ModelKeys.SHARED);
         this.writeOptional(writer, Attribute.PRELOAD, store, ModelKeys.PRELOAD);
+    }
+
+    private void writeJdbcStoreAttributes(XMLExtendedStreamWriter writer, ModelNode store) throws XMLStreamException {
+        this.writeRequired(writer, Attribute.DATASOURCE, store, ModelKeys.DATASOURCE);
+        this.writeOptional(writer, Attribute.DIALECT, store, ModelKeys.DIALECT);
+        this.writeStoreAttributes(writer, store);
     }
 
     private void writeStoreAttributes(XMLExtendedStreamWriter writer, ModelNode store) throws XMLStreamException {
@@ -562,7 +623,7 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
         if (store.get(ModelKeys.IMPLEMENTATION, ModelKeys.IMPLEMENTATION_NAME).isDefined()) {
             ModelNode implementation = store.get(ModelKeys.IMPLEMENTATION, ModelKeys.IMPLEMENTATION_NAME);
             writer.writeStartElement(Element.IMPLEMENTATION.getLocalName());
-            this.writeOptional(writer, Attribute.TYPE, implementation, ModelKeys.TYPE);
+            this.writeOptional(writer, Attribute.TYPE, implementation, ModelKeys.IMPLEMENTATION);
             writer.writeEndElement();
         }
     }

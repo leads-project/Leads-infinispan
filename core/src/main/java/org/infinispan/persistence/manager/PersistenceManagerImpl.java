@@ -7,27 +7,26 @@ import org.infinispan.commons.io.ByteBufferFactory;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.Util;
 import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.configuration.cache.CustomStoreConfiguration;
 import org.infinispan.configuration.cache.StoreConfiguration;
 import org.infinispan.container.entries.ImmortalCacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
-import org.infinispan.context.InvocationContextFactory;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.interceptors.CacheLoaderInterceptor;
 import org.infinispan.interceptors.CacheWriterInterceptor;
 import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.marshall.core.MarshalledEntryFactory;
-import org.infinispan.metadata.InternalMetadataImpl;
 import org.infinispan.metadata.Metadata;
+import org.infinispan.metadata.impl.InternalMetadataImpl;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
-import org.infinispan.persistence.spi.LocalOnlyCacheLoader;
-import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.InitializationContextImpl;
 import org.infinispan.persistence.async.AdvancedAsyncCacheLoader;
 import org.infinispan.persistence.async.AdvancedAsyncCacheWriter;
@@ -38,6 +37,8 @@ import org.infinispan.persistence.spi.AdvancedCacheLoader;
 import org.infinispan.persistence.spi.AdvancedCacheWriter;
 import org.infinispan.persistence.spi.CacheLoader;
 import org.infinispan.persistence.spi.CacheWriter;
+import org.infinispan.persistence.spi.LocalOnlyCacheLoader;
+import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.support.AdvancedSingletonCacheWriter;
 import org.infinispan.persistence.support.DelegatingCacheLoader;
 import org.infinispan.persistence.support.DelegatingCacheWriter;
@@ -49,6 +50,7 @@ import org.infinispan.util.logging.LogFactory;
 
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
+
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -407,13 +409,32 @@ public class PersistenceManagerImpl implements PersistenceManager {
    }
 
    @Override
-   public void processOnAllStores(AdvancedCacheLoader.KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task,
+   public void processOnAllStores(KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task,
                                   boolean fetchValue, boolean fetchMetadata) {
+      processOnAllStores(persistenceExecutor, keyFilter, task, fetchValue, fetchMetadata);
+   }
+
+   @Override
+   public void processOnAllStores(Executor executor, KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task, boolean fetchValue, boolean fetchMetadata) {
+      processOnAllStores(executor, keyFilter, task, fetchValue, fetchMetadata, false);
+   }
+
+   @Override
+   public void processOnAllStores(KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task,
+                                  boolean fetchValue, boolean fetchMetadata, boolean skipSharedStore) {
+      processOnAllStores(persistenceExecutor, keyFilter, task, fetchValue, fetchMetadata, skipSharedStore);
+   }
+
+   @Override
+   public void processOnAllStores(Executor executor, KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task, boolean fetchValue, boolean fetchMetadata, boolean skipSharedStore) {
       storesMutex.readLock().lock();
       try {
          for (CacheLoader loader : loaders) {
+            if (skipSharedStore && configMap.get(loader).shared())
+               continue;
+
             if (loader instanceof AdvancedCacheLoader) {
-               ((AdvancedCacheLoader) loader).process(keyFilter, task, persistenceExecutor, fetchValue, fetchMetadata);
+               ((AdvancedCacheLoader) loader).process(keyFilter, task, executor, fetchValue, fetchMetadata);
             }
          }
       } finally {
@@ -503,10 +524,18 @@ public class PersistenceManagerImpl implements PersistenceManager {
    private void createLoadersAndWriters() {
       for (StoreConfiguration cfg : configuration.persistence().stores()) {
          ConfigurationFor annotation = cfg.getClass().getAnnotation(ConfigurationFor.class);
+         Class classAnnotation = null;
          if (annotation == null) {
+            if (cfg instanceof CustomStoreConfiguration) {
+               classAnnotation = ((CustomStoreConfiguration)cfg).customStoreClass();
+            }
+         } else {
+            classAnnotation = annotation.value();
+         }
+         if (classAnnotation == null) {
             throw log.loaderConfigurationDoesNotSpecifyLoaderClass(cfg.getClass().getName());
          }
-         Object instance = Util.getInstance(annotation.value());
+         Object instance = Util.getInstance(classAnnotation);
          CacheWriter writer = instance instanceof CacheWriter ? (CacheWriter) instance : null;
          CacheLoader loader = instance instanceof CacheLoader ? (CacheLoader) instance : null;
 

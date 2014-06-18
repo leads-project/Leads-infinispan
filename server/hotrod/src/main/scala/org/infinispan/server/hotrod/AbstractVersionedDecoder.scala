@@ -1,11 +1,13 @@
 package org.infinispan.server.hotrod
 
-import org.infinispan.AdvancedCache
 import org.infinispan.stats.Stats
 import org.infinispan.server.core.{QueryFacade, RequestParameters}
 import org.infinispan.server.core.transport.NettyTransport
 import org.infinispan.container.entries.CacheEntry
 import io.netty.buffer.ByteBuf
+import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration
+import io.netty.channel.ChannelHandlerContext
+import io.netty.channel.Channel
 
 /**
  * This class represents the work to be done by a decoder of a particular Hot Rod protocol version.
@@ -48,23 +50,22 @@ abstract class AbstractVersionedDecoder {
    /**
     * Create a response for get a request.
     */
-   def createGetResponse(header: HotRodHeader, entry: CacheEntry): AnyRef
+   def createGetResponse(header: HotRodHeader, entry: CacheEntry[Array[Byte], Array[Byte]]): AnyRef
 
    /**
     * Handle a protocol specific header reading.
     */
-   def customReadHeader(header: HotRodHeader, buffer: ByteBuf, cache: AdvancedCache[Array[Byte], Array[Byte]]): AnyRef
+   def customReadHeader(header: HotRodHeader, buffer: ByteBuf, cache: Cache, server: HotRodServer, ctx: ChannelHandlerContext): AnyRef
 
    /**
     * Handle a protocol specific key reading.
     */
-   def customReadKey(header: HotRodHeader, buffer: ByteBuf, cache: AdvancedCache[Array[Byte], Array[Byte]],
-           queryFacades: Seq[QueryFacade]): AnyRef
+   def customReadKey(header: HotRodHeader, buffer: ByteBuf, cache: Cache, server: HotRodServer, ch: Channel): AnyRef
 
    /**
     * Handle a protocol specific value reading.
     */
-   def customReadValue(header: HotRodHeader, buffer: ByteBuf, cache: AdvancedCache[Array[Byte], Array[Byte]]): AnyRef
+   def customReadValue(header: HotRodHeader, buffer: ByteBuf, cache: Cache): AnyRef
 
    /**
     * Create a response for the stats command.
@@ -79,6 +80,6 @@ abstract class AbstractVersionedDecoder {
    /**
     * Get an optimized cache instance depending on the operation parameters.
     */
-   def getOptimizedCache(h: HotRodHeader, c: AdvancedCache[Array[Byte], Array[Byte]]): AdvancedCache[Array[Byte], Array[Byte]]
+   def getOptimizedCache(h: HotRodHeader, c: Cache): Cache
 
 }

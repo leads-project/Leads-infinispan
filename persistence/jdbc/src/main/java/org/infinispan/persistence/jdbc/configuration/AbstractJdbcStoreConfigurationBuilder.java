@@ -2,11 +2,13 @@ package org.infinispan.persistence.jdbc.configuration;
 
 import java.lang.reflect.Constructor;
 
+import org.infinispan.commons.configuration.Builder;
 import org.infinispan.commons.configuration.ConfigurationUtils;
 import org.infinispan.commons.logging.LogFactory;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.configuration.cache.AbstractStoreConfigurationBuilder;
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
+import org.infinispan.persistence.jdbc.Dialect;
 import org.infinispan.persistence.jdbc.connectionfactory.ConnectionFactory;
 import org.infinispan.persistence.jdbc.logging.Log;
 
@@ -16,6 +18,7 @@ public abstract class AbstractJdbcStoreConfigurationBuilder<T extends AbstractJd
    private static final Log log = LogFactory.getLog(AbstractJdbcStoreConfigurationBuilder.class, Log.class);
    protected ConnectionFactoryConfigurationBuilder<ConnectionFactoryConfiguration> connectionFactory;
    protected boolean manageConnectionFactory = true;
+   protected Dialect dialect;
 
    public AbstractJdbcStoreConfigurationBuilder(PersistenceConfigurationBuilder builder) {
       super(builder);
@@ -69,6 +72,11 @@ public abstract class AbstractJdbcStoreConfigurationBuilder<T extends AbstractJd
       return self();
    }
 
+   public S dialect(Dialect dialect) {
+      this.dialect = dialect;
+      return self();
+   }
+
    @Override
    public void validate() {
       super.validate();
@@ -79,27 +87,14 @@ public abstract class AbstractJdbcStoreConfigurationBuilder<T extends AbstractJd
       }
    }
 
-   /*
-    * TODO: we should really be using inheritance here, but because of a javac bug it won't let me
-    * invoke super.read() from subclasses complaining that abstract methods cannot be invoked. Will
-    * open a bug and add the ID here
-    */
-   protected S readInternal(AbstractJdbcStoreConfiguration template) {
+   @Override
+   public Builder<?> read(T template) {
       Class<? extends ConnectionFactoryConfigurationBuilder<?>> cfb = (Class<? extends ConnectionFactoryConfigurationBuilder<?>>) ConfigurationUtils.builderFor(template.connectionFactory());
       connectionFactory(cfb);
       connectionFactory.read(template.connectionFactory());
       manageConnectionFactory = template.manageConnectionFactory();
+      dialect = template.dialect();
 
-      // AbstractStore-specific configuration
-      fetchPersistentState = template.fetchPersistentState();
-      ignoreModifications = template.ignoreModifications();
-      properties = template.properties();
-      purgeOnStartup = template.purgeOnStartup();
-      this.async.read(template.async());
-      this.singletonStore.read(template.singletonStore());
-      this.preload = template.preload();
-      this.shared = template.shared();
-
-      return self();
+      return super.read(template);
    }
 }

@@ -5,9 +5,11 @@ import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.DefaultDataContainer;
 import org.infinispan.container.InternalEntryFactoryImpl;
+import org.infinispan.eviction.ActivationManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -17,6 +19,8 @@ import java.io.InputStream;
 import java.util.Collection;
 
 import static org.infinispan.test.AbstractInfinispanTest.TIME_SERVICE;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 
 @Test(testName = "config.DataContainerTest", groups = "functional")
 public class DataContainerTest {
@@ -25,7 +29,9 @@ public class DataContainerTest {
    public void testDefault() throws IOException {
       String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
               "<infinispan>" +
-              "<default><dataContainer /></default>" +
+              "<cache-container name=\"1\" default-cache=\"default-cache\">" +
+              "<local-cache name=\"default-cache\" />" +
+              "</cache-container>" +
               "</infinispan>";
 
       InputStream stream = new ByteArrayInputStream(xml.getBytes());
@@ -47,11 +53,15 @@ public class DataContainerTest {
    @Test
    public void testCustomDataContainerClass() throws IOException {
       String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-              "<infinispan>" +
-              "<default><dataContainer class=\"" + QueryableDataContainer.class.getName() + "\">" +
-              "<properties><property name=\"foo\" value=\"bar\" /></properties>" +
-           	  "</dataContainer></default>" +
-              "</infinispan>";
+            "<infinispan>" +
+            "<cache-container name=\"1\" default-cache=\"default-cache\">" +
+            "<local-cache name=\"default-cache\">" +
+            "  <data-container class=\"org.infinispan.configuration.QueryableDataContainer\">" +
+            "     <property name=\"foo\">bar</property>" +
+            "  </data-container>" +
+            "</local-cache>" +
+            "</cache-container>" +
+            "</infinispan>";
 
       InputStream stream = new ByteArrayInputStream(xml.getBytes());
       EmbeddedCacheManager cm = TestCacheManagerFactory.fromStream(stream);
@@ -59,7 +69,9 @@ public class DataContainerTest {
          AdvancedCache<Object, Object> cache = cm.getCache().getAdvancedCache();
 
          DataContainer ddc = DefaultDataContainer.unBoundedDataContainer(cache.getCacheConfiguration().locking().concurrencyLevel());
-         ((DefaultDataContainer) ddc).initialize(null, null,new InternalEntryFactoryImpl(), null, null, TIME_SERVICE);
+         ActivationManager activationManager = mock(ActivationManager.class);
+         doNothing().when(activationManager).activate(Mockito.anyObject());
+         ((DefaultDataContainer) ddc).initialize(null, null,new InternalEntryFactoryImpl(), activationManager, null, TIME_SERVICE);
          QueryableDataContainer.setDelegate(ddc);
 
          // Verify that the default is correctly established
@@ -92,7 +104,9 @@ public class DataContainerTest {
          AdvancedCache<Object, Object> cache = cm.getCache().getAdvancedCache();
 
          DataContainer ddc = DefaultDataContainer.unBoundedDataContainer(cache.getCacheConfiguration().locking().concurrencyLevel());
-         ((DefaultDataContainer) ddc).initialize(null, null,new InternalEntryFactoryImpl(), null, null, TIME_SERVICE);
+         ActivationManager activationManager = mock(ActivationManager.class);
+         doNothing().when(activationManager).activate(Mockito.anyObject());
+         ((DefaultDataContainer) ddc).initialize(null, null,new InternalEntryFactoryImpl(), activationManager, null, TIME_SERVICE);
          QueryableDataContainer.setDelegate(ddc);
 
          // Verify that the config is correct

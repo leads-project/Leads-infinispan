@@ -27,6 +27,7 @@ import javax.transaction.xa.XAResource;
 import org.infinispan.Cache;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.server.infinispan.SecurityActions;
 import org.jboss.logging.Logger;
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceName;
@@ -75,8 +76,7 @@ public class CacheService<K, V> implements Service<Cache<K, V>> {
     public void start(StartContext context) {
         EmbeddedCacheManager container = this.dependencies.getCacheContainer();
 
-        this.cache = container.getCache(this.name);
-        this.cache.start();
+        this.cache = SecurityActions.startCache(container, this.name);
 
         XAResourceRecoveryRegistry recoveryRegistry = this.dependencies.getRecoveryRegistry();
         if (recoveryRegistry != null) {

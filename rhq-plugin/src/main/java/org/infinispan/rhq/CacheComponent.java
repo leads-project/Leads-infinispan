@@ -36,54 +36,19 @@ import static org.infinispan.rhq.RhqUtil.constructNumericMeasure;
 public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent> {
    private static final Log log = LogFactory.getLog(CacheComponent.class);
 
-   private ResourceContext<CacheManagerComponent> context;
    private String cacheManagerName;
    private String cacheName;
-
-   /**
-    * Return availability of this resource
-    *
-    * @see org.rhq.core.pluginapi.inventory.ResourceComponent#getAvailability()
-    */
-   @Override
-   public AvailabilityType getAvailability() {
-      boolean trace = log.isTraceEnabled();
-      EmsConnection conn = getConnection();
-      try {
-         conn.refresh();
-         EmsBean bean = queryCacheBean();
-         if (bean != null && bean.getAttribute("CacheStatus").getValue().equals("RUNNING")) {
-            bean.refreshAttributes();
-            if (trace) log.trace("Cache "+cacheName+" within "+cacheManagerName+" cache manager is running and attributes could be refreshed, so it's up.");
-            return AvailabilityType.UP;
-         }
-         if (trace) log.trace("Cache status for "+cacheName+" within "+cacheManagerName+" cache manager is anything other than running, so it's down.");
-         return AvailabilityType.DOWN;
-      } catch (Exception e) {
-         if (trace) log.trace("There was an exception checking availability, so cache status is down.", e);
-         return AvailabilityType.DOWN;
-      }
-   }
 
    /**
     * Start the resource connection
     */
    @Override
    public void start(ResourceContext<CacheManagerComponent> context) {
-      this.context = context;
-      this.cacheManagerName = context.getParentResourceComponent().context.getResourceKey();
+      this.cacheManagerName = context.getParentResourceComponent().getResourceContext().getResourceKey();
       this.cacheName = context.getResourceKey();
       if (log.isTraceEnabled())
          log.trace("Start cache component for cache manager "+cacheManagerName+" with cache key "+cacheName);
-   }
-
-   /**
-    * Tear down the rescource connection
-    *
-    * @see org.rhq.core.pluginapi.inventory.ResourceComponent#stop()
-    */
-   @Override
-   public void stop() {
+      super.start(context);
    }
 
    /**
@@ -96,11 +61,16 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
    public void getValues(MeasurementReport report, Set<MeasurementScheduleRequest> metrics) {
       boolean trace = log.isTraceEnabled();
       if (trace) log.trace("Get values metrics");
+      EmsConnection conn = getEmsConnection();
+      // First query them all so we don't have to do find them individually
+      conn.queryBeans(namedCacheComponentPattern(cacheManagerName, cacheName, "*"));
       for (MeasurementScheduleRequest req : metrics) {
          if (trace) log.trace("Inspect metric " + req);
          String metric = req.getName();
          try {
-            EmsBean bean = queryComponentBean(metric);
+            String metricBeanName = namedCacheComponentPattern(cacheManagerName, cacheName,
+                                                               metric.substring(0, metric.indexOf(".")));
+            EmsBean bean = conn.getBean(metricBeanName);
             if (bean != null) {
                if (trace) log.trace("Retrieved mbean with name "+ bean.getBeanName());
                bean.refreshAttributes();
@@ -142,7 +112,7 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
    /**
     * Invoke operations on the Cache MBean instance
     *
-    * @param fullOpName       Name of the operation
+    * @param fullName       Name of the operation
     * @param parameters       Parameters of the Operation
     * @return OperationResult object if successful
     * @throws Exception       If operation was not successful
@@ -152,7 +122,7 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
       boolean trace = log.isTraceEnabled();
       int paramSep = fullName.indexOf('|');
       String fullOpName = paramSep < 0 ? fullName : fullName.substring(0, paramSep);
-      EmsBean bean = queryComponentBean(fullOpName);
+      EmsBean bean = queryComponentBean(getConnection(), fullOpName);
       String opName = fullOpName.substring(fullOpName.indexOf(".") + 1);
       EmsOperation ops = bean.getOperation(opName);
       Collection<PropertySimple> simples = parameters.getSimpleProperties().values();
@@ -175,7 +145,7 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
    }
 
    private EmsConnection getConnection() {
-      return context.getParentResourceComponent().getEmsConnection();
+      return getResourceContext().getParentResourceComponent().getEmsConnection();
    }
 
    private String getSingleComponentPattern(String cacheManagerName, String cacheName, String componentName) {
@@ -187,17 +157,12 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
             + ",name=" + cacheName;
    }
 
-   private EmsBean queryCacheBean() {
-      return queryBean("Cache");
-   }
-
-   private EmsBean queryComponentBean(String name) {
+   private EmsBean queryComponentBean(EmsConnection conn, String name) {
       String componentName = name.substring(0, name.indexOf("."));
-      return queryBean(componentName);
+      return queryBean(conn, componentName);
    }
 
-   private EmsBean queryBean(String componentName) {
-      EmsConnection conn = getConnection();
+   private EmsBean queryBean(EmsConnection conn, String componentName) {
       String pattern = getSingleComponentPattern(cacheManagerName, cacheName, componentName);
       if (log.isTraceEnabled()) log.trace("Pattern to query is " + pattern);
       ObjectNameQueryUtility queryUtility = new ObjectNameQueryUtility(pattern);
@@ -216,5 +181,10 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
    protected static boolean isCacheComponent(EmsBean bean, String componentName) {
       EmsBeanName beanName = bean.getBeanName();
       return "Cache".equals(beanName.getKeyProperty("type")) && componentName.equals(beanName.getKeyProperty("component"));
+   }
+
+   @Override
+   protected EmsBean loadBean() {
+      return getEmsConnection().getBean(namedCacheComponentPattern(cacheManagerName, cacheName, "Cache"));
    }
 }

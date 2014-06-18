@@ -8,9 +8,11 @@ import org.infinispan.transaction.TransactionProtocol;
 import org.infinispan.transaction.lookup.GenericTransactionManagerLookup;
 import org.infinispan.transaction.lookup.TransactionManagerLookup;
 import org.infinispan.transaction.lookup.TransactionSynchronizationRegistryLookup;
+
 import javax.transaction.Synchronization;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
+
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -26,7 +28,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    private boolean eagerLockingSingleNode = false;
    LockingMode lockingMode = LockingMode.OPTIMISTIC;
    private boolean syncCommitPhase = true;
-   private boolean syncRollbackPhase = false;
+   private boolean syncRollbackPhase = true;
    private TransactionManagerLookup transactionManagerLookup = new GenericTransactionManagerLookup();
    private TransactionSynchronizationRegistryLookup transactionSynchronizationRegistryLookup;
    TransactionMode transactionMode = null;
@@ -35,7 +37,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    private final RecoveryConfigurationBuilder recovery;
    private boolean use1PcForAutoCommitTransactions = false;
    private long reaperWakeUpInterval = 1000;
-   private long completedTxTimeout = 15000;
+   private long completedTxTimeout = 60000;
    private TransactionProtocol transactionProtocol = TransactionProtocol.DEFAULT;
 
 
@@ -102,7 +104,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
     * Configures whether the cache uses optimistic or pessimistic locking. If the cache is not
     * transactional then the locking mode is ignored.
     *
-    * @see org.infinispan.config.Configuration#isTransactionalCache()
+    * @see org.infinispan.configuration.cache.TransactionConfiguration#transactionMode()
     */
    public TransactionConfigurationBuilder lockingMode(LockingMode lockingMode) {
       this.lockingMode = lockingMode;
@@ -113,10 +115,8 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
     * If true, the cluster-wide commit phase in two-phase commit (2PC) transactions will be
     * synchronous, so Infinispan will wait for responses from all nodes to which the commit was
     * sent. Otherwise, the commit phase will be asynchronous. Keeping it as false improves
-    * performance of 2PC transactions, since any remote failures are trapped during the prepare
-    * phase anyway and appropriate rollbacks are issued.
-    * <p/>
-    * This configuration property may be adjusted at runtime
+    * performance of 2PC transactions, but it can lead to inconsistencies when a backup owner
+    * only commits the transaction after the primary owner released the lock.
     */
    public TransactionConfigurationBuilder syncCommitPhase(boolean b) {
       this.syncCommitPhase = b;
@@ -135,11 +135,10 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    /**
     * If true, the cluster-wide rollback phase in two-phase commit (2PC) transactions will be
     * synchronous, so Infinispan will wait for responses from all nodes to which the rollback was
-    * sent. Otherwise, the rollback phase will be asynchronous. Keeping it as false improves
-    * performance of 2PC transactions.
-    * <p />
+    * sent. Otherwise, the rollback phase will be asynchronous.
     *
-    * This configuration property may be adjusted at runtime.
+    * Keeping it as false can lead to inconsistencies when a transaction is rolled back because of
+    * a commit timeout, as a backup owner could commit the transaction after the primary released the lock.
     */
    public TransactionConfigurationBuilder syncRollbackPhase(boolean b) {
       this.syncRollbackPhase = b;
@@ -174,14 +173,13 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    }
 
    /**
-    * Only has effect for DIST mode and when useEagerLocking is set to true. When this is enabled,
-    * then only one node is locked in the cluster, disregarding numOwners config. On the opposite,
-    * if this is false, then on all cache.lock() calls numOwners RPCs are being performed. The node
-    * that gets locked is the main data owner, i.e. the node where data would reside if
-    * numOwners==1. If the node where the lock resides crashes, then the transaction is marked for
-    * rollback - data is in a consistent state, no fault tolerance.
-    * <p />
-    * Note: Starting with infinispan 5.1 eager locking is replaced with pessimistic locking and can
+    * Prevents more than one transaction being written to a key by enforcing cluster-wide locks
+    * on each write operation. Infinispan attempts to obtain locks on specified cache keys across
+    * all nodes in a cluster. All locks are released during the commit or rollback phase.
+    * This configuration might be used when a high contention on keys is occurring, resulting in
+    * inefficiencies and unexpected roll back operations.
+    *
+    * @deprecated Starting with Infinispan 5.1 eager locking is replaced with pessimistic locking and can
     * be enforced by setting transaction's locking mode to PESSIMISTIC.
     */
    @Deprecated
@@ -246,7 +244,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    }
 
    /**
-    * The duration (millis) in which to keep information about the completion of a transaction. Defaults to 3000.
+    * The duration (millis) in which to keep information about the completion of a transaction. Defaults to 60000.
     */
    public TransactionConfigurationBuilder completedTxTimeout(long timeout) {
       this.completedTxTimeout = timeout;

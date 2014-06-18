@@ -13,6 +13,7 @@ import org.infinispan.configuration.cache.SingletonStoreConfiguration;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextFactory;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
 import org.infinispan.persistence.manager.PersistenceManager;
@@ -259,18 +260,6 @@ public class UnnecessaryLoadingTest extends SingleCacheManagerTest {
       @Override
       public CountingStoreConfiguration create() {
          return new CountingStoreConfiguration(purgeOnStartup, fetchPersistentState, ignoreModifications, async.create(), singletonStore.create(), preload, shared, properties);
-      }
-
-      @Override
-      public Builder<?> read(CountingStoreConfiguration template) {
-         // AbstractStore-specific configuration
-         fetchPersistentState = template.fetchPersistentState();
-         ignoreModifications = template.ignoreModifications();
-         properties = template.properties();
-         purgeOnStartup = template.purgeOnStartup();
-         async.read(template.async());
-         singletonStore.read(template.singletonStore());
-         return this;
       }
 
       @Override

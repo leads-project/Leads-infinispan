@@ -18,8 +18,8 @@ import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.InvocationContextFactory;
 import org.infinispan.distribution.L1Manager;
 import org.infinispan.distribution.TestAddress;
-import org.infinispan.distribution.ch.DefaultConsistentHash;
-import org.infinispan.distribution.ch.DefaultConsistentHashFactory;
+import org.infinispan.distribution.ch.impl.DefaultConsistentHash;
+import org.infinispan.distribution.ch.impl.DefaultConsistentHashFactory;
 import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
@@ -33,9 +33,9 @@ import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.test.AbstractInfinispanTest;
 import org.infinispan.topology.CacheTopology;
-import org.infinispan.transaction.LocalTransaction;
-import org.infinispan.transaction.RemoteTransaction;
-import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.impl.LocalTransaction;
+import org.infinispan.transaction.impl.RemoteTransaction;
+import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
 import org.infinispan.util.concurrent.BlockingTaskAwareExecutorService;
 import org.infinispan.util.concurrent.IsolationLevel;
@@ -118,6 +118,7 @@ public class StateConsumerTest extends AbstractInfinispanTest {
       DefaultConsistentHash ch1 = chf.create(new MurmurHash3(), 2, 40, members1, null);
       final DefaultConsistentHash ch2 = chf.updateMembers(ch1, members2, null);
       DefaultConsistentHash ch3 = chf.rebalance(ch2);
+      DefaultConsistentHash ch23 = chf.union(ch2, ch3);
 
       log.debug(ch1);
       log.debug(ch2);
@@ -222,7 +223,7 @@ public class StateConsumerTest extends AbstractInfinispanTest {
       assertFalse(stateConsumer.hasActiveTransfers());
 
       // start a rebalance
-      stateConsumer.onTopologyUpdate(new CacheTopology(2, ch2, ch3), true);
+      stateConsumer.onTopologyUpdate(new CacheTopology(2, ch2, ch3, ch23), true);
       assertTrue(stateConsumer.hasActiveTransfers());
 
       // check that all segments have been requested
@@ -247,7 +248,7 @@ public class StateConsumerTest extends AbstractInfinispanTest {
 
       // restart the rebalance
       requestedSegments.clear();
-      stateConsumer.onTopologyUpdate(new CacheTopology(4, ch2, ch3), true);
+      stateConsumer.onTopologyUpdate(new CacheTopology(4, ch2, ch3, ch23), true);
       assertTrue(stateConsumer.hasActiveTransfers());
       assertEquals(flatRequestedSegments, newSegments);
 

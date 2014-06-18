@@ -1,8 +1,6 @@
 package org.infinispan.security.impl;
 
-import java.security.AccessController;
 import java.security.Principal;
-import java.util.concurrent.TimeUnit;
 
 import javax.security.auth.Subject;
 
@@ -13,6 +11,7 @@ import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.configuration.global.GlobalSecurityConfiguration;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.registry.ClusterRegistry;
+import org.infinispan.security.AuditContext;
 import org.infinispan.security.AuthorizationManager;
 import org.infinispan.security.AuthorizationPermission;
 
@@ -27,8 +26,7 @@ import org.infinispan.security.AuthorizationPermission;
 public class AuthorizationManagerImpl implements AuthorizationManager {
    private GlobalSecurityConfiguration globalConfiguration;
    private AuthorizationConfiguration configuration;
-   private ClusterRegistry<String, Subject, Integer> subjectRoleMaskCache;
-   private String authCacheScope;
+   private AuthorizationHelper authzHelper;
 
    public AuthorizationManagerImpl() {
    }
@@ -38,18 +36,11 @@ public class AuthorizationManagerImpl implements AuthorizationManager {
          ClusterRegistry<String, Subject, Integer> clusterRegistry) {
       this.globalConfiguration = globalConfiguration.security();
       this.configuration = configuration.security().authorization();
-      this.subjectRoleMaskCache = clusterRegistry;
-      authCacheScope = String.format("%s_%s", AuthorizationManager.class.getName(), cache.getName());
+      this.authzHelper = new AuthorizationHelper(this.globalConfiguration, AuditContext.CACHE, cache.getName(), clusterRegistry);
    }
 
    @Override
    public void checkPermission(AuthorizationPermission perm) {
-      Subject subject = Subject.getSubject(AccessController.getContext());
-      Integer subjectMask = (subject == null) ? Integer.valueOf(0) : null; //ISPN-4056 subjectRoleMaskCache.get(authCacheScope, subject);
-      if (subjectMask == null) {
-         subjectMask = AuthorizationHelper.computeSubjectRoleMask(subject, globalConfiguration, configuration);
-         //ISPN-4056 subjectRoleMaskCache.put(authCacheScope, subject, subjectMask, globalConfiguration.securityCacheTimeout(), TimeUnit.MILLISECONDS);
-      }
-      AuthorizationHelper.checkPermission(subject, subjectMask, perm);
+      authzHelper.checkPermission(configuration, perm);
    }
 }

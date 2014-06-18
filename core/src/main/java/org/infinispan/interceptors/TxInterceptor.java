@@ -8,7 +8,10 @@ import javax.transaction.Transaction;
 
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
+import org.infinispan.commands.read.EntrySetCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
+import org.infinispan.commands.read.KeySetCommand;
+import org.infinispan.commands.read.ValuesCommand;
 import org.infinispan.commands.tx.AbstractTransactionBoundaryCommand;
 import org.infinispan.commands.tx.CommitCommand;
 import org.infinispan.commands.tx.PrepareCommand;
@@ -34,10 +37,10 @@ import org.infinispan.jmx.annotations.ManagedAttribute;
 import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.jmx.annotations.MeasurementType;
 import org.infinispan.remoting.rpc.RpcManager;
-import org.infinispan.transaction.LocalTransaction;
-import org.infinispan.transaction.RemoteTransaction;
-import org.infinispan.transaction.TransactionCoordinator;
-import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.impl.LocalTransaction;
+import org.infinispan.transaction.impl.RemoteTransaction;
+import org.infinispan.transaction.impl.TransactionCoordinator;
+import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.recovery.RecoverableTransactionIdentifier;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
@@ -107,7 +110,7 @@ public class TxInterceptor extends CommandInterceptor {
       try {
          return invokeNextInterceptor(ctx, command);
       } finally {
-         if (!ctx.isOriginLocal() && !ctx.skipTransactionCompleteCheck()) {
+         if (!ctx.isOriginLocal()) {
             //It is possible to receive a prepare or lock control command from a node that crashed. If that's the case rollback
             //the transaction forcefully in order to cleanup resources.
             boolean originatorMissing = !rpcManager.getTransport().getMembers().contains(command.getOrigin());
@@ -138,10 +141,21 @@ public class TxInterceptor extends CommandInterceptor {
 
    @Override
    public Object visitCommitCommand(TxInvocationContext ctx, CommitCommand command) throws Throwable {
+      GlobalTransaction gtx = ctx.getGlobalTransaction();
+      // TODO The local origin check is needed for CommitFailsTest, but it doesn't appear correct to roll back an in-doubt tx
+      if (!ctx.isOriginLocal()) {
+         if (txTable.isTransactionCompleted(gtx)) {
+            log.tracef("Transaction %s already completed, skipping commit", gtx);
+            return null;
+         } else {
+            txTable.markTransactionCompleted(gtx);
+         }
+      }
+
       if (this.statisticsEnabled) commits.incrementAndGet();
       Object result = invokeNextInterceptor(ctx, command);
       if (!ctx.isOriginLocal() || isTotalOrder) {
-         txTable.remoteTransactionCommitted(ctx.getGlobalTransaction(), false);
+         txTable.remoteTransactionCommitted(gtx, false);
       }
       return result;
    }
@@ -149,6 +163,7 @@ public class TxInterceptor extends CommandInterceptor {
    @Override
    public Object visitRollbackCommand(TxInvocationContext ctx, RollbackCommand command) throws Throwable {
       if (this.statisticsEnabled) rollbacks.incrementAndGet();
+      // The transaction was marked as completed in RollbackCommand.prepare()
       if (!ctx.isOriginLocal() || isTotalOrder) {
          txTable.remoteTransactionRollback(command.getGlobalTransaction());
       }
@@ -203,6 +218,21 @@ public class TxInterceptor extends CommandInterceptor {
    @Override
    public Object visitPutMapCommand(InvocationContext ctx, PutMapCommand command) throws Throwable {
       return enlistWriteAndInvokeNext(ctx, command);
+   }
+
+   @Override
+   public Object visitKeySetCommand(InvocationContext ctx, KeySetCommand command) throws Throwable {
+      return enlistReadAndInvokeNext(ctx, command);
+   }
+
+   @Override
+   public Object visitValuesCommand(InvocationContext ctx, ValuesCommand command) throws Throwable {
+      return enlistReadAndInvokeNext(ctx, command);
+   }
+
+   @Override
+   public Object visitEntrySetCommand(InvocationContext ctx, EntrySetCommand command) throws Throwable {
+      return enlistReadAndInvokeNext(ctx, command);
    }
 
    @Override

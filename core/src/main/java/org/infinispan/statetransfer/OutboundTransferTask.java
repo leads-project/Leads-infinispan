@@ -8,7 +8,7 @@ import org.infinispan.container.DataContainer;
 import org.infinispan.container.InternalEntryFactory;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.distribution.ch.ConsistentHash;
-import org.infinispan.persistence.CollectionKeyFilter;
+import org.infinispan.filter.CollectionKeyFilter;
 import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.persistence.spi.AdvancedCacheLoader;
 import org.infinispan.marshall.core.MarshalledEntry;
@@ -54,7 +54,7 @@ public class OutboundTransferTask implements Runnable {
 
    private final ConsistentHash readCh;
 
-   private final DataContainer dataContainer;
+   private final DataContainer<Object, Object> dataContainer;
 
    private final PersistenceManager persistenceManager;
 
@@ -262,6 +262,7 @@ public class OutboundTransferTask implements Runnable {
     */
    public void cancel() {
       if (runnableFuture != null && !runnableFuture.isCancelled()) {
+         if (trace) log.tracef("Cancelling outbound transfer of segments %s of cache %s to node %s", segments, cacheName, destination);
          runnableFuture.cancel(true);
       }
    }

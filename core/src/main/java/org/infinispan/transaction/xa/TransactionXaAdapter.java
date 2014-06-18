@@ -4,9 +4,9 @@ import org.infinispan.commands.CommandsFactory;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.remoting.rpc.RpcManager;
-import org.infinispan.transaction.AbstractEnlistmentAdapter;
-import org.infinispan.transaction.TransactionCoordinator;
-import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.impl.AbstractEnlistmentAdapter;
+import org.infinispan.transaction.impl.TransactionCoordinator;
+import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
 import org.infinispan.transaction.xa.recovery.SerializableXid;
 import org.infinispan.util.logging.Log;
@@ -151,7 +151,9 @@ public class TransactionXaAdapter extends AbstractEnlistmentAdapter implements X
          }
       } catch (Exception e) {
          log.warnExceptionRemovingRecovery(e);
-         throw new XAException(XAException.XAER_RMERR);
+         XAException xe = new XAException(XAException.XAER_RMERR);
+         xe.initCause(e);
+         throw xe;
       }
    }
 

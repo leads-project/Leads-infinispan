@@ -9,6 +9,7 @@ import org.infinispan.factories.scopes.Scopes;
 import org.infinispan.notifications.ClassLoaderAwareFilteringListenable;
 import org.infinispan.notifications.ClassLoaderAwareListenable;
 import org.infinispan.notifications.FilteringListenable;
+import org.infinispan.topology.CacheTopology;
 import org.infinispan.transaction.xa.GlobalTransaction;
 
 import java.util.Collection;
@@ -20,37 +21,37 @@ import java.util.Collection;
  * @since 4.0
  */
 @Scope(Scopes.NAMED_CACHE)
-public interface CacheNotifier extends ClassLoaderAwareFilteringListenable, ClassLoaderAwareListenable {
+public interface CacheNotifier<K, V> extends ClassLoaderAwareFilteringListenable<K, V>, ClassLoaderAwareListenable {
 
    /**
     * Notifies all registered listeners of a CacheEntryCreated event.
     */
-   void notifyCacheEntryCreated(Object key, Object value, boolean pre,
+   void notifyCacheEntryCreated(K key, V value, boolean pre,
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
     * Notifies all registered listeners of a CacheEntryModified event.
     */
-   void notifyCacheEntryModified(Object key, Object value,
+   void notifyCacheEntryModified(K key, V value,
          boolean created, boolean pre, InvocationContext ctx,
          FlagAffectedCommand command);
 
    /**
     * Notifies all registered listeners of a CacheEntryRemoved event.
     */
-   void notifyCacheEntryRemoved(Object key, Object value, Object oldValue,
+   void notifyCacheEntryRemoved(K key, V value, V oldValue,
          boolean pre, InvocationContext ctx, FlagAffectedCommand command);
 
    /**
     * Notifies all registered listeners of a CacheEntryVisited event.
     */
-   void notifyCacheEntryVisited(Object key, Object value, boolean pre,
+   void notifyCacheEntryVisited(K key, V value, boolean pre,
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
     * Notifies all registered listeners of a CacheEntriesEvicted event.
     */
-   void notifyCacheEntriesEvicted(Collection<InternalCacheEntry> entries,
+   void notifyCacheEntriesEvicted(Collection<InternalCacheEntry<? extends K, ? extends V>> entries,
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
@@ -59,31 +60,31 @@ public interface CacheNotifier extends ClassLoaderAwareFilteringListenable, Clas
     * @param value value evicted
     * @param ctx context
     */
-   void notifyCacheEntryEvicted(Object key, Object value,
+   void notifyCacheEntryEvicted(K key, V value,
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
     * Notifies all registered listeners of a CacheEntryInvalidated event.
     */
-   void notifyCacheEntryInvalidated(Object key, Object value, boolean pre,
+   void notifyCacheEntryInvalidated(K key, V value, boolean pre,
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
     * Notifies all registered listeners of a CacheEntryLoaded event.
     */
-   void notifyCacheEntryLoaded(Object key, Object value, boolean pre,
+   void notifyCacheEntryLoaded(K key, V value, boolean pre,
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
     * Notifies all registered listeners of a CacheEntryActivated event.
     */
-   void notifyCacheEntryActivated(Object key, Object value, boolean pre,
+   void notifyCacheEntryActivated(K key, V value, boolean pre,
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
     * Notifies all registered listeners of a CacheEntryPassivated event.
     */
-   void notifyCacheEntryPassivated(Object key, Object value, boolean pre,
+   void notifyCacheEntryPassivated(K key, V value, boolean pre,
          InvocationContext ctx, FlagAffectedCommand command);
 
    /**
@@ -101,8 +102,8 @@ public interface CacheNotifier extends ClassLoaderAwareFilteringListenable, Clas
     */
    void notifyTransactionRegistered(GlobalTransaction globalTransaction, boolean isOriginLocal);
 
-   void notifyDataRehashed(ConsistentHash oldCH, ConsistentHash newCH, int newTopologyId, boolean pre);
+   void notifyDataRehashed(ConsistentHash oldCH, ConsistentHash newCH, ConsistentHash unionCH, int newTopologyId, boolean pre);
 
-   void notifyTopologyChanged(ConsistentHash oldConsistentHash, ConsistentHash newConsistentHash, int newTopologyId, boolean pre);
+   void notifyTopologyChanged(CacheTopology oldTopology, CacheTopology newTopology, int newTopologyId, boolean pre);
 
 }

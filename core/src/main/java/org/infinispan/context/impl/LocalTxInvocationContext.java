@@ -1,11 +1,12 @@
 package org.infinispan.context.impl;
 
 import org.infinispan.remoting.transport.Address;
-import org.infinispan.transaction.LocalTransaction;
+import org.infinispan.transaction.impl.LocalTransaction;
 
 import javax.transaction.Status;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
+
 import java.util.Collection;
 
 /**
@@ -57,17 +58,6 @@ public class LocalTxInvocationContext extends AbstractTxInvocationContext<LocalT
 
    public final Collection<Address> getRemoteLocksAcquired() {
       return getCacheTransaction().getRemoteLocksAcquired();
-   }
-
-   @Override
-   public final void skipTransactionCompleteCheck(boolean skip) {
-      //no-op
-   }
-
-   @Override
-   public final boolean skipTransactionCompleteCheck() {
-      //no-op. the check is only performed in remote transactions
-      return true;
    }
 
    @Override

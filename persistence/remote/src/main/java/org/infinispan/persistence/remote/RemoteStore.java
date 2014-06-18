@@ -10,11 +10,13 @@ import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
 import org.infinispan.client.hotrod.configuration.ExhaustedAction;
 import org.infinispan.client.hotrod.impl.ConfigurationProperties;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.commons.configuration.ConfiguredBy;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.commons.util.Util;
 import org.infinispan.container.InternalEntryFactory;
 import org.infinispan.container.versioning.NumericVersion;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.TaskContextImpl;
 import org.infinispan.persistence.remote.configuration.ConnectionPoolConfiguration;
@@ -27,8 +29,8 @@ import org.infinispan.persistence.spi.InitializationContext;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.metadata.InternalMetadata;
-import org.infinispan.metadata.InternalMetadataImpl;
 import org.infinispan.metadata.Metadata;
+import org.infinispan.metadata.impl.InternalMetadataImpl;
 import org.infinispan.util.logging.LogFactory;
 
 import java.util.concurrent.Executor;
@@ -50,6 +52,7 @@ import java.util.concurrent.TimeUnit;
  * @since 4.1
  */
 @ThreadSafe
+@ConfiguredBy(RemoteStoreConfiguration.class)
 public class RemoteStore implements AdvancedLoadWriteStore {
 
    private static final Log log = LogFactory.getLog(RemoteStore.class, Log.class);
@@ -74,7 +77,7 @@ public class RemoteStore implements AdvancedLoadWriteStore {
    public void start() throws PersistenceException {
       final Marshaller marshaller;
       if (configuration.marshaller() != null) {
-         marshaller = Util.getInstance(configuration.marshaller(), ctx.getCache().getCacheConfiguration().classLoader());
+         marshaller = Util.getInstance(configuration.marshaller(), ctx.getCache().getAdvancedCache().getClassLoader());
       } else if (configuration.hotRodWrapping()) {
          marshaller = new HotRodEntryMarshaller(ctx.getByteBufferFactory());
       } else if (configuration.rawValues()) {
@@ -131,7 +134,7 @@ public class RemoteStore implements AdvancedLoadWriteStore {
       for (Object key : remoteCache.keySet()) {
          if (taskContext.isStopped())
             break;
-         if (filter == null || filter.shouldLoadKey(key)) {
+         if (filter == null || filter.accept(key)) {
             try {
                MarshalledEntry marshalledEntry = load(key);
                if (marshalledEntry != null) {

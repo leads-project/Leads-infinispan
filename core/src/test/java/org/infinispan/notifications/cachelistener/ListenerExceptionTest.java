@@ -12,6 +12,7 @@ import org.infinispan.remoting.transport.jgroups.SuspectException;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.testng.annotations.Test;
 
+import javax.transaction.HeuristicRollbackException;
 import javax.transaction.RollbackException;
 import java.lang.reflect.Method;
 
@@ -89,7 +90,7 @@ public class ListenerExceptionTest extends MultipleCacheManagersTest {
          if (isInjectInPre)
             assertExpectedException(cause, cause instanceof SuspectException);
          else
-            assertExpectedException(cause, cause instanceof RollbackException);
+            assertExpectedException(cause, cause instanceof RollbackException || cause instanceof HeuristicRollbackException);
 
          // Expected, now try to simulate a failover
          listener.injectFailure = false;
@@ -105,7 +106,7 @@ public class ListenerExceptionTest extends MultipleCacheManagersTest {
 
    /**
     * If it is used asynchronous listener all callbacks are made in separate thread. Exceptions are only logged, not
-    * thrown. See {@link org.infinispan.notifications.AbstractListenerImpl} invoke() method logic
+    * thrown. See {@link org.infinispan.notifications.impl.AbstractListenerImpl} invoke() method logic
     */
    private void doCallsWithExcepListAsync(Method m, boolean isInjectInPre,
                                           FailureLocation failLoc) {

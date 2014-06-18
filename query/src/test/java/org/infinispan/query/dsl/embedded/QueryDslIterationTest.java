@@ -8,9 +8,11 @@ import org.infinispan.query.dsl.QueryBuilder;
 import org.infinispan.query.dsl.QueryFactory;
 import org.infinispan.query.dsl.SortOrder;
 import org.infinispan.query.dsl.embedded.sample_domain_model.User;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.testng.AssertJUnit.assertEquals;
@@ -52,6 +54,11 @@ public class QueryDslIterationTest extends AbstractQueryDslTest {
       cache.put("user_" + user2.getId(), user2);
       cache.put("user_" + user3.getId(), user3);
       cache.put("user_" + user4.getId(), user4);
+   }
+
+   @AfterMethod
+   protected void cleanCache() {
+      cache.clear();
    }
 
    public void testOrderByAsc() throws Exception {

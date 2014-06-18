@@ -1,6 +1,8 @@
 package org.infinispan.client.hotrod;
 
-import java.net.SocketTimeoutException;
+import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
+import static org.testng.AssertJUnit.assertTrue;
+import static org.testng.AssertJUnit.fail;
 
 import javax.net.ssl.SSLException;
 
@@ -10,16 +12,13 @@ import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.server.hotrod.configuration.HotRodServerConfigurationBuilder;
+import org.infinispan.server.hotrod.test.HotRodTestingUtil;
 import org.infinispan.test.SingleCacheManagerTest;
+import org.infinispan.test.fwk.CleanupAfterMethod;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
-
-import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
-import static org.testng.AssertJUnit.assertTrue;
-import static org.testng.AssertJUnit.fail;
 
 /**
  * @author Adrian Brock
@@ -27,6 +26,7 @@ import static org.testng.AssertJUnit.fail;
  * @since 5.3
  */
 @Test(testName = "client.hotrod.SslTest", groups = "functional")
+@CleanupAfterMethod
 public class SslTest extends SingleCacheManagerTest {
 
    private static final Log log = LogFactory.getLog(SslTest.class);
@@ -47,7 +47,7 @@ public class SslTest extends SingleCacheManagerTest {
 
    private void initServerAndClient(boolean sslServer, boolean sslClient) {
       hotrodServer = new HotRodServer();
-      HotRodServerConfigurationBuilder serverBuilder = new HotRodServerConfigurationBuilder();
+      HotRodServerConfigurationBuilder serverBuilder = HotRodTestingUtil.getDefaultHotRodConfiguration();
 
       ClassLoader tccl = Thread.currentThread().getContextClassLoader();
       String keyStoreFileName = tccl.getResource("keystore.jks").getPath();
@@ -69,22 +69,24 @@ public class SslTest extends SingleCacheManagerTest {
             .socketTimeout(3000)
          .connectionPool()
             .maxActive(1)
-         .ssl()
-            .enabled(sslClient)
-            .keyStoreFileName(keyStoreFileName)
-            .keyStorePassword("secret".toCharArray())
-            .trustStoreFileName(trustStoreFileName)
-            .trustStorePassword("secret".toCharArray())
+         .security()
+            .ssl()
+               .enabled(sslClient)
+               .keyStoreFileName(keyStoreFileName)
+               .keyStorePassword("secret".toCharArray())
+               .trustStoreFileName(trustStoreFileName)
+               .trustStorePassword("secret".toCharArray())
           .connectionPool()
              .timeBetweenEvictionRuns(2000);
       remoteCacheManager = new RemoteCacheManager(clientBuilder.build());
       defaultRemote = remoteCacheManager.getCache();
    }
 
-   @AfterMethod
-   public void testDestroyRemoteCacheFactory() {
+   @Override
+   protected void teardown() {
       HotRodClientTestingUtil.killRemoteCacheManager(remoteCacheManager);
       HotRodClientTestingUtil.killServers(hotrodServer);
+      super.teardown();
    }
 
    public void testSSLServerSSLClient() throws Exception {

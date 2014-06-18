@@ -21,22 +21,28 @@
  */
 package org.jboss.as.clustering.infinispan.subsystem;
 
-import java.util.ServiceLoader;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import javax.management.MBeanServer;
 
+import org.infinispan.commons.util.ServiceFinder;
+import org.infinispan.configuration.global.GlobalAuthorizationConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalJmxStatisticsConfigurationBuilder;
+import org.infinispan.configuration.global.GlobalRoleConfigurationBuilder;
 import org.infinispan.configuration.global.ShutdownHookBehavior;
 import org.infinispan.configuration.global.TransportConfigurationBuilder;
 import org.infinispan.marshall.core.Ids;
-import org.jboss.as.clustering.infinispan.ChannelProvider;
+import org.infinispan.security.PrincipalRoleMapper;
+import org.jboss.as.clustering.infinispan.ChannelTransport;
+import org.infinispan.security.impl.ClusterRoleMapper;
 import org.jboss.as.clustering.infinispan.MBeanServerProvider;
-import org.jboss.as.clustering.infinispan.ManagedExecutorFactory;
-import org.jboss.as.clustering.infinispan.ManagedScheduledExecutorFactory;
+import org.jboss.as.clustering.infinispan.ThreadPoolExecutorFactories;
 import org.jboss.as.clustering.infinispan.io.SimpleExternalizer;
 import org.jboss.as.clustering.jgroups.ChannelFactory;
 import org.jboss.as.clustering.jgroups.subsystem.ChannelService;
@@ -65,9 +71,15 @@ public class EmbeddedCacheManagerConfigurationService implements Service<Embedde
         boolean isStrictPeerToPeer();
     }
 
+    interface AuthorizationConfiguration {
+        String getPrincipalMapper();
+        Map<String, List<String>> getRoles();
+    }
+
     interface Dependencies {
         ModuleLoader getModuleLoader();
         TransportConfiguration getTransportConfiguration();
+        AuthorizationConfiguration getAuthorizationConfiguration();
         MBeanServer getMBeanServer();
         Executor getListenerExecutor();
         ScheduledExecutorService getEvictionExecutor();
@@ -120,11 +132,12 @@ public class EmbeddedCacheManagerConfigurationService implements Service<Embedde
         GlobalConfigurationBuilder builder = new GlobalConfigurationBuilder();
         ModuleLoader moduleLoader = this.dependencies.getModuleLoader();
         builder.serialization().classResolver(ModularClassResolver.getInstance(moduleLoader));
+        ClassLoader loader = null;
         try {
-            ClassLoader loader = (this.moduleId != null) ? moduleLoader.loadModule(this.moduleId).getClassLoader() : EmbeddedCacheManagerConfiguration.class.getClassLoader();
+            loader = (this.moduleId != null) ? moduleLoader.loadModule(this.moduleId).getClassLoader() : EmbeddedCacheManagerConfiguration.class.getClassLoader();
             builder.classLoader(loader);
             int id = Ids.MAX_ID;
-            for (SimpleExternalizer<?> externalizer: ServiceLoader.load(SimpleExternalizer.class, loader)) {
+            for (SimpleExternalizer<?> externalizer: ServiceFinder.load(SimpleExternalizer.class, loader)) {
                 builder.serialization().addAdvancedExternalizer(id++, externalizer);
             }
         } catch (ModuleLoadException e) {
@@ -136,13 +149,11 @@ public class EmbeddedCacheManagerConfigurationService implements Service<Embedde
         TransportConfigurationBuilder transportBuilder = builder.transport();
 
         if (transport != null) {
-            ChannelProvider.init(transportBuilder, ChannelService.getServiceName(this.name));
+            transportBuilder.transport(new ChannelTransport(context.getController().getServiceContainer(), ChannelService.getServiceName(this.name)));
             Long timeout = transport.getLockTimeout();
             if (timeout != null) {
                 transportBuilder.distributedSyncTimeout(timeout.longValue());
             }
-            boolean strictPeerToPeer = transport.isStrictPeerToPeer();
-            transportBuilder.strictPeerToPeer(strictPeerToPeer);
             // Topology is retrieved from the channel
             org.jboss.as.clustering.jgroups.TransportConfiguration.Topology topology = transport.getChannelFactory().getProtocolStackConfiguration().getTransport().getTopology();
             if (topology != null) {
@@ -163,21 +174,47 @@ public class EmbeddedCacheManagerConfigurationService implements Service<Embedde
 
             Executor executor = transport.getExecutor();
             if (executor != null) {
-                builder.asyncTransportExecutor().factory(new ManagedExecutorFactory(executor));
+                builder.transport().transportThreadPool().threadPoolFactory(
+                      ThreadPoolExecutorFactories.mkManagedExecutorFactory(executor));
+            }
+        }
+
+        AuthorizationConfiguration authorization = this.dependencies.getAuthorizationConfiguration();
+        GlobalAuthorizationConfigurationBuilder authorizationBuilder = builder.security().authorization();
+
+        if (authorization != null) {
+            authorizationBuilder.enable();
+            if (authorization.getPrincipalMapper() != null) {
+                try {
+                    authorizationBuilder.principalRoleMapper(Class.forName(authorization.getPrincipalMapper(), true, loader).asSubclass(PrincipalRoleMapper.class).newInstance());
+                } catch (Exception e) {
+                    throw new StartException(e);
+                }
+            } else {
+                authorizationBuilder.principalRoleMapper(new ClusterRoleMapper());
+            }
+            for(Entry<String, List<String>> role : authorization.getRoles().entrySet()) {
+                GlobalRoleConfigurationBuilder roleBuilder = authorizationBuilder.role(role.getKey());
+                for(String perm : role.getValue()) {
+                    roleBuilder.permission(perm);
+                }
             }
         }
 
         Executor listenerExecutor = this.dependencies.getListenerExecutor();
         if (listenerExecutor != null) {
-            builder.asyncListenerExecutor().factory(new ManagedExecutorFactory(listenerExecutor));
+            builder.listenerThreadPool().threadPoolFactory(
+                  ThreadPoolExecutorFactories.mkManagedExecutorFactory(listenerExecutor));
         }
         ScheduledExecutorService evictionExecutor = this.dependencies.getEvictionExecutor();
         if (evictionExecutor != null) {
-            builder.evictionScheduledExecutor().factory(new ManagedScheduledExecutorFactory(evictionExecutor));
+            builder.evictionThreadPool().threadPoolFactory(
+                  ThreadPoolExecutorFactories.mkManagedScheduledExecutorFactory(evictionExecutor));
         }
         ScheduledExecutorService replicationQueueExecutor = this.dependencies.getReplicationQueueExecutor();
         if (replicationQueueExecutor != null) {
-            builder.replicationQueueScheduledExecutor().factory(new ManagedScheduledExecutorFactory(replicationQueueExecutor));
+            builder.replicationQueueThreadPool().threadPoolFactory(
+                  ThreadPoolExecutorFactories.mkManagedScheduledExecutorFactory(replicationQueueExecutor));
         }
 
         GlobalJmxStatisticsConfigurationBuilder jmxBuilder = builder.globalJmxStatistics().cacheManagerName(this.name);

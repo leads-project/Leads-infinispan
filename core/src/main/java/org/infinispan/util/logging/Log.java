@@ -14,7 +14,7 @@ import org.infinispan.remoting.RemoteException;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.jgroups.SuspectException;
-import org.infinispan.transaction.LocalTransaction;
+import org.infinispan.transaction.impl.LocalTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.recovery.RecoveryAwareRemoteTransaction;
 import org.infinispan.transaction.xa.recovery.RecoveryAwareTransaction;
@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.channels.FileChannel;
+import java.security.Permission;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -316,24 +317,24 @@ public interface Log extends BasicLogger {
    void msgOrMsgBufferEmpty();
 
    @LogMessage(level = INFO)
-   @Message(value = "Starting JGroups Channel", id = 78)
-   void startingJGroupsChannel();
+   @Message(value = "Starting JGroups channel %s", id = 78)
+   void startingJGroupsChannel(String cluster);
 
    @LogMessage(level = INFO)
-   @Message(value = "Cache local address is %s, physical addresses are %s", id = 79)
-   void localAndPhysicalAddress(Address address, List<Address> physicalAddresses);
+   @Message(value = "Channel %s local address is %s, physical addresses are %s", id = 79)
+   void localAndPhysicalAddress(String cluster, Address address, List<Address> physicalAddresses);
 
    @LogMessage(level = INFO)
-   @Message(value = "Disconnecting JGroups Channel", id = 80)
-   void disconnectJGroups();
+   @Message(value = "Disconnecting JGroups channel %s", id = 80)
+   void disconnectJGroups(String cluster);
 
    @LogMessage(level = ERROR)
-   @Message(value = "Problem closing channel; setting it to null", id = 81)
-   void problemClosingChannel(@Cause Exception e);
+   @Message(value = "Problem closing channel %s; setting it to null", id = 81)
+   void problemClosingChannel(@Cause Exception e, String cluster);
 
    @LogMessage(level = INFO)
-   @Message(value = "Stopping the RpcDispatcher", id = 82)
-   void stoppingRpcDispatcher();
+   @Message(value = "Stopping the RpcDispatcher for channel %s", id = 82)
+   void stoppingRpcDispatcher(String cluster);
 
    @LogMessage(level = ERROR)
    @Message(value = "Class [%s] cannot be cast to JGroupsChannelLookup! Not using a channel lookup.", id = 83)
@@ -369,12 +370,12 @@ public interface Log extends BasicLogger {
    void channelNotSetUp();
 
    @LogMessage(level = INFO)
-   @Message(value = "Received new, MERGED cluster view: %s", id = 93)
-   void receivedMergedView(View newView);
+   @Message(value = "Received new, MERGED cluster view for channel %s: %s", id = 93)
+   void receivedMergedView(String cluster, View newView);
 
    @LogMessage(level = INFO)
-   @Message(value = "Received new cluster view: %s", id = 94)
-   void receivedClusterView(View newView);
+   @Message(value = "Received new cluster view for channel %s: %s", id = 94)
+   void receivedClusterView(String cluster, View newView);
 
    @LogMessage(level = ERROR)
    @Message(value = "Error while processing a prepare in a single-phase transaction", id = 97)
@@ -784,20 +785,12 @@ public interface Log extends BasicLogger {
    void noLiveOwnersFoundForSegment(int segmentId, String cacheName, Collection<Address> owners, Collection<Address> faultySources);
 
    @LogMessage(level = WARN)
-   @Message(value = "Failed to retrieve transactions for segments %s of cache %s from node %s (node will not be retried)", id=209)
+   @Message(value = "Failed to retrieve transactions for segments %s of cache %s from node %s", id=209)
    void failedToRetrieveTransactionsForSegments(Collection<Integer> segments, String cacheName, Address source, @Cause Exception e);
 
    @LogMessage(level = WARN)
    @Message(value = "Failed to request segments %s of cache %s from node %s (node will not be retried)", id=210)
    void failedToRequestSegments(Collection<Integer> segments, String cacheName, Address source, @Cause Throwable e);
-
-   @LogMessage(level = WARN)
-   @Message(value = "Transactions were requested by node %s with topology %d, older than the local topology (%d)", id=211)
-   void transactionsRequestedByNodeWithOlderTopology(Address node, int requestTopologyId, int localTopologyId);
-
-   @LogMessage(level = WARN)
-   @Message(value = "Segments were requested by node %s with topology %d, older than the local topology (%d)", id=212)
-   void segmentsRequestedByNodeWithOlderTopology(Address node, int requestTopologyId, int localTopologyId);
 
    @LogMessage(level = ERROR)
    @Message(value = "Unable to load %s from any of the following classloaders: %s", id=213)
@@ -1077,4 +1070,44 @@ public interface Log extends BasicLogger {
    @LogMessage(level = WARN)
    @Message(value = "Unable to apply X-Site state chunk.", id = 291)
    void unableToApplyXSiteState(@Cause Throwable cause);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Unrecognized attribute %s.  Please check your configuration.  Ignoring!!", id = 292)
+   void unrecognizedAttribute(String property);
+
+   @LogMessage(level = INFO)
+   @Message(value = "Ignoring XML attribute %s, please remove from configuration file", id = 293)
+   void ignoreXmlAttribute(Object attribute);
+
+   @LogMessage(level = INFO)
+   @Message(value = "Ignoring XML element %s, please remove from configuration file", id = 294)
+   void ignoreXmlElement(Object element);
+
+   @Message(value = "No thread pool with name %s found", id = 295)
+   CacheConfigurationException undefinedThreadPoolName(String name);
+
+   @Message(value = "Attempt to add a %s permission to a SecurityPermissionCollection", id = 296)
+   IllegalArgumentException invalidPermission(Permission permission);
+
+   @Message(value = "Attempt to add a permission to a read-only SecurityPermissionCollection", id = 297)
+   SecurityException readOnlyPermissionCollection();
+
+   @LogMessage(level = DEBUG)
+   @Message(value = "Using internal security checker", id = 298)
+   void authorizationEnabledWithoutSecurityManager();
+
+   @Message(value = "Unable to acquire lock after %s for key %s and requestor %s. Lock is held by %s, while request came from %s", id = 299)
+   TimeoutException unableToAcquireLock(String timeout, Object key, Object requestor, Object owner, Address origin);
+
+   @LogMessage(level = WARN)
+   @Message(value = "There was an exception while processing retrieval of entry values", id = 300)
+   void exceptionProcessingEntryRetrievalValues(@Cause Throwable cause);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Iterator response for identifier %s encountered unexpected exception", id = 301)
+   void exceptionProcessingIteratorResponse(UUID identifier, @Cause Throwable cause);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Issue when retrieving transactions from %s, response was %s", id = 302)
+   void unsuccessfulResponseRetrievingTransactionsForSegments(Address address, Response response);
 }

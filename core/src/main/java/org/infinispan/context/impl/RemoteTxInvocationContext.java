@@ -1,6 +1,6 @@
 package org.infinispan.context.impl;
 
-import org.infinispan.transaction.RemoteTransaction;
+import org.infinispan.transaction.impl.RemoteTransaction;
 
 import javax.transaction.Transaction;
 
@@ -52,15 +52,5 @@ public class RemoteTxInvocationContext extends AbstractTxInvocationContext<Remot
    @Override
    public final int hashCode() {
       return getCacheTransaction().hashCode();
-   }
-
-   @Override
-   public final void skipTransactionCompleteCheck(boolean skip) {
-      getCacheTransaction().skipTransactionCompleteCheck(skip);
-   }
-
-   @Override
-   public final boolean skipTransactionCompleteCheck() {
-      return getCacheTransaction().skipTransactionCompleteCheck();
    }
 }

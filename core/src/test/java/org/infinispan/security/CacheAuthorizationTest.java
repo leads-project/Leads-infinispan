@@ -22,36 +22,44 @@ import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.infinispan.transaction.LockingMode;
-import org.testng.annotations.BeforeClass;
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
 import org.testng.annotations.Test;
 
 @Test(groups = "functional", testName = "security.SingleCacheManagerTest")
 public class CacheAuthorizationTest extends SingleCacheManagerTest {
-   Map<AuthorizationPermission, Subject> subjects;
+   static final Log log = LogFactory.getLog(CacheAuthorizationTest.class);
+   static final Subject ADMIN;
+   static final Map<AuthorizationPermission, Subject> SUBJECTS;
 
-   @BeforeClass
-   void initializeSubjects() {      // Initialize one subject per permission
-      subjects = new HashMap<AuthorizationPermission, Subject>(AuthorizationPermission.values().length);
+   static {      // Initialize one subject per permission
+      SUBJECTS = new HashMap<AuthorizationPermission, Subject>(AuthorizationPermission.values().length);
       for (AuthorizationPermission perm : AuthorizationPermission.values()) {
-         subjects.put(perm, TestingUtil.makeSubject(perm.toString() + "_user", perm.toString()));
+         SUBJECTS.put(perm, TestingUtil.makeSubject(perm.toString() + "_user", perm.toString()));
       }
+      ADMIN = SUBJECTS.get(AuthorizationPermission.ALL);
    }
 
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
-      GlobalConfigurationBuilder global = new GlobalConfigurationBuilder();
-      GlobalAuthorizationConfigurationBuilder globalRoles = global.security().authorization()
+      final GlobalConfigurationBuilder global = new GlobalConfigurationBuilder();
+      GlobalAuthorizationConfigurationBuilder globalRoles = global.security().authorization().enable()
             .principalRoleMapper(new IdentityRoleMapper());
-      ConfigurationBuilder config = TestCacheManagerFactory.getDefaultCacheConfiguration(true);
+      final ConfigurationBuilder config = TestCacheManagerFactory.getDefaultCacheConfiguration(true);
       config.transaction().lockingMode(LockingMode.PESSIMISTIC);
       config.invocationBatching().enable();
-      AuthorizationConfigurationBuilder authConfig = config.security().enable().authorization();
+      AuthorizationConfigurationBuilder authConfig = config.security().authorization().enable();
 
       for (AuthorizationPermission perm : AuthorizationPermission.values()) {
          globalRoles.role(perm.toString()).permission(perm);
          authConfig.role(perm.toString());
       }
-      return TestCacheManagerFactory.createCacheManager(global, config);
+      return Security.doAs(ADMIN, new PrivilegedAction<EmbeddedCacheManager>() {
+         @Override
+         public EmbeddedCacheManager run() {
+            return TestCacheManagerFactory.createCacheManager(global, config);
+         }
+      });
    }
 
    @Override
@@ -61,7 +69,7 @@ public class CacheAuthorizationTest extends SingleCacheManagerTest {
 
    @Override
    protected void teardown() {
-      Subject.doAs(subjects.get(AuthorizationPermission.ALL), new PrivilegedAction<Void>() {
+      Security.doAs(ADMIN, new PrivilegedAction<Void>() {
          @Override
          public Void run() {
             CacheAuthorizationTest.super.teardown();
@@ -72,7 +80,7 @@ public class CacheAuthorizationTest extends SingleCacheManagerTest {
 
    @Override
    protected void clearContent() {
-      Subject.doAs(subjects.get(AuthorizationPermission.ALL), new PrivilegedAction<Void>() {
+      Security.doAs(ADMIN, new PrivilegedAction<Void>() {
          @Override
          public Void run() {
             cacheManager.getCache().clear();
@@ -84,20 +92,24 @@ public class CacheAuthorizationTest extends SingleCacheManagerTest {
    public void testAllCombinations() throws Exception {
       Method[] allMethods = SecureCache.class.getMethods();
       Set<String> methodNames = new HashSet<String>();
+   collectmethods:
       for (Method m : allMethods) {
          StringBuilder s = new StringBuilder("test");
          String name = m.getName();
          s.append(name.substring(0, 1).toUpperCase());
          s.append(name.substring(1));
          for (Class<?> p : m.getParameterTypes()) {
+            Package pkg = p.getPackage();
+            if (pkg != null && pkg.getName().startsWith("java.util.function"))
+               continue collectmethods; // Skip methods which use interfaces introduced in JDK8
             s.append("_");
             s.append(p.getSimpleName().replaceAll("\\[\\]", "Array"));
          }
          methodNames.add(s.toString());
       }
       final SecureCacheTestDriver driver = new SecureCacheTestDriver();
-      final SecureCache<String, String> cache = (SecureCache<String, String>) Subject.doAs(
-            subjects.get(AuthorizationPermission.ALL), new PrivilegedAction<Cache<String, String>>() {
+      final SecureCache<String, String> cache = (SecureCache<String, String>) Security.doAs(
+            ADMIN, new PrivilegedAction<Cache<String, String>>() {
                @Override
                public Cache<String, String> run() {
                   return cacheManager.getCache();
@@ -113,11 +125,14 @@ public class CacheAuthorizationTest extends SingleCacheManagerTest {
                      methodName, driver.getClass().getName()));
             }
             final AuthorizationPermission expectedPerm = annotation.value();
-            System.out.printf("Method: %s ", methodName);
             for (final AuthorizationPermission perm : AuthorizationPermission.values()) {
                if (perm == AuthorizationPermission.NONE)
                   continue;// Skip
-               System.out.printf(" %s", perm.toString());
+               if (annotation.needsSecurityManager() && System.getSecurityManager() == null) {
+                  log.debugf("Method %s (skipped, needs SecurityManager)", methodName);
+                  break;
+               }
+               log.debugf("Method %s > %s", methodName, perm.toString());
                if (expectedPerm == AuthorizationPermission.NONE) {
                   try {
                      method.invoke(driver, cache);
@@ -125,13 +140,12 @@ public class CacheAuthorizationTest extends SingleCacheManagerTest {
                      throw new Exception(String.format("Unexpected SecurityException while invoking %s with permission %s", methodName, perm.toString() ), e);
                   }
                } else {
-                  Subject.doAs(subjects.get(perm), new PrivilegedExceptionAction<Void>() {
-
+                  Security.doAs(SUBJECTS.get(perm), new PrivilegedExceptionAction<Void>() {
                      @Override
                      public Void run() throws Exception {
                         try {
                            method.invoke(driver, cache);
-                           if (perm != expectedPerm && perm != AuthorizationPermission.ALL) {
+                           if (!perm.implies(expectedPerm)) {
                               throw new Exception(String.format("Expected SecurityException while invoking %s with permission %s",
                                     methodName, perm.toString()));
                            }
@@ -139,7 +153,7 @@ public class CacheAuthorizationTest extends SingleCacheManagerTest {
                         } catch (InvocationTargetException e) {
                            Throwable cause = e.getCause();
                            if (cause instanceof SecurityException) {
-                              if (perm == expectedPerm && perm != AuthorizationPermission.ALL) {
+                              if (perm.implies(expectedPerm)) {
                                  throw new Exception(String.format("Unexpected SecurityException while invoking %s with permission %s", methodName, perm.toString() ), e);
                               } else {
                                  // We were expecting a security exception
@@ -151,8 +165,6 @@ public class CacheAuthorizationTest extends SingleCacheManagerTest {
                   });
                }
             }
-            System.out.println();
-
          } catch (NoSuchMethodException e) {
             throw new Exception(
                   String.format(

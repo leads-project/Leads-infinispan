@@ -1,4 +1,4 @@
-        <subsystem xmlns="urn:infinispan:server:core:6.0" >
+        <subsystem xmlns="urn:infinispan:server:core:7.0" >
             <cache-container 
                 name="security"
                 default-cache="default">
@@ -8,7 +8,6 @@
                     batching="false"
                     >
                     <locking 
-                        isolation="NONE"
                         acquire-timeout="20000" 
                         concurrency-level="500" 
                         striping="false" />

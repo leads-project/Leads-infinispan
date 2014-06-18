@@ -7,6 +7,7 @@ import java.io.InputStream;
 
 import org.infinispan.configuration.cache.StoreConfiguration;
 import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.persistence.jdbc.Dialect;
 import org.infinispan.test.AbstractInfinispanTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
@@ -17,7 +18,7 @@ import static org.testng.AssertJUnit.*;
 @Test(groups = "unit", testName = "persistence.jdbc.configuration.XmlFileParsingTest")
 public class XmlFileParsingTest extends AbstractInfinispanTest {
 
-   private EmbeddedCacheManager cacheManager;
+   protected EmbeddedCacheManager cacheManager;
 
    @AfterMethod
    public void cleanup() {
@@ -26,19 +27,21 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
 
    public void testStringKeyedJdbcStore() throws Exception {
       String config = INFINISPAN_START_TAG +
-            "   <default>\n" +
+            "   <cache-container default-cache=\"default\">\n" +
+            "      <local-cache name=\"default\">\n" +
             "     <persistence>\n" +
-            "       <stringKeyedJdbcStore xmlns=\"urn:infinispan:config:jdbc:6.0\" key2StringMapper=\"DummyKey2StringMapper\" preload=\"true\" shared=\"true\">\n" +
-            "         <connectionPool connectionUrl=\"jdbc:h2:mem:infinispan;DB_CLOSE_DELAY=-1\" username=\"dbuser\" password=\"dbpass\" driverClass=\"org.h2.Driver\"/>\n" +
-            "         <stringKeyedTable prefix=\"entry\" fetchSize=\"34\" batchSize=\"128\" >\n" +
-            "           <idColumn name=\"id\" type=\"VARCHAR\" />\n" +
-            "           <dataColumn name=\"datum\" type=\"BINARY\" />\n" +
-            "           <timestampColumn name=\"version\" type=\"BIGINT\" />\n" +
-            "         </stringKeyedTable>\n" +
-            "         <async enabled=\"true\" />\n" +
-            "       </stringKeyedJdbcStore>\n" +
+            "       <string-keyed-jdbc-store xmlns=\"urn:infinispan:config:store:jdbc:7.0\" key-to-string-mapper=\"DummyKey2StringMapper\" shared=\"true\" " +
+            "                                preload=\"true\" read-only=\"true\" fetch-state=\"true\" purge=\"true\" singleton=\"false\" dialect=\"H2\">\n" +
+            "         <connection-pool connection-url=\"jdbc:h2:mem:infinispan;DB_CLOSE_DELAY=-1\" username=\"dbuser\" password=\"dbpass\" driver=\"org.h2.Driver\"/>\n" +
+            "         <string-keyed-table prefix=\"entry\" fetch-size=\"34\" batch-size=\"128\" >\n" +
+            "           <id-column name=\"id\" type=\"VARCHAR\" />\n" +
+            "           <data-column name=\"datum\" type=\"BINARY\" />\n" +
+            "           <timestamp-column name=\"version\" type=\"BIGINT\" />\n" +
+            "         </string-keyed-table>\n" +
+            "         <write-behind />\n" +
+            "       </string-keyed-jdbc-store>\n" +
             "     </persistence>\n" +
-            "   </default>\n" +
+            "   </local-cache></cache-container>\n" +
             TestingUtil.INFINISPAN_END_TAG;
 
       JdbcStringBasedStoreConfiguration store = (JdbcStringBasedStoreConfiguration) buildCacheManagerWithCacheStore(config);
@@ -50,28 +53,33 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       assertEquals("DummyKey2StringMapper", store.key2StringMapper());
       assertTrue(store.shared());
       assertTrue(store.preload());
+      assertEquals(Dialect.H2, store.dialect());
       PooledConnectionFactoryConfiguration connectionFactory = (PooledConnectionFactoryConfiguration) store.connectionFactory();
       assertEquals("jdbc:h2:mem:infinispan;DB_CLOSE_DELAY=-1", connectionFactory.connectionUrl());
       assertEquals("org.h2.Driver", connectionFactory.driverClass());
       assertEquals("dbuser", connectionFactory.username());
       assertEquals("dbpass", connectionFactory.password());
+      assertTrue(store.ignoreModifications());
+      assertTrue(store.fetchPersistentState());
+      assertTrue(store.purgeOnStartup());
+      assertFalse(store.singletonStore().enabled());
    }
 
    public void testBinaryKeyedJdbcStore() throws Exception {
       String config = INFINISPAN_START_TAG +
-            "   <default>\n" +
+            "   <cache-container default-cache=\"default\">\n" +
+            "      <local-cache name=\"default\">\n" +
             "     <persistence>\n" +
-            "       <binaryKeyedJdbcStore xmlns=\"urn:infinispan:config:jdbc:6.0\" ignoreModifications=\"true\">\n" +
-            "         <simpleConnection connectionUrl=\"jdbc:h2:mem:infinispan;DB_CLOSE_DELAY=-1\" username=\"dbuser\" password=\"dbpass\" driverClass=\"org.h2.Driver\"/>\n" +
-            "         <binaryKeyedTable prefix=\"bucket\" fetchSize=\"34\" batchSize=\"128\">\n" +
-            "           <idColumn name=\"id\" type=\"BINARY\" />\n" +
-            "           <dataColumn name=\"datum\" type=\"BINARY\" />\n" +
-            "           <timestampColumn name=\"version\" type=\"BIGINT\" />\n" +
-            "         </binaryKeyedTable>\n" +
-            "         <singleton enabled=\"true\" />\n" +
-            "       </binaryKeyedJdbcStore>\n" +
+            "       <binary-keyed-jdbc-store xmlns=\"urn:infinispan:config:store:jdbc:7.0\" read-only=\"true\" singleton=\"true\" dialect=\"H2\">\n" +
+            "         <simple-connection connection-url=\"jdbc:h2:mem:infinispan;DB_CLOSE_DELAY=-1\" username=\"dbuser\" password=\"dbpass\" driver=\"org.h2.Driver\"/>\n" +
+            "         <binary-keyed-table prefix=\"bucket\" fetch-size=\"34\" batch-size=\"128\">\n" +
+            "           <id-column name=\"id\" type=\"BINARY\" />\n" +
+            "           <data-column name=\"datum\" type=\"BINARY\" />\n" +
+            "           <timestamp-column name=\"version\" type=\"BIGINT\" />\n" +
+            "         </binary-keyed-table>\n" +
+            "       </binary-keyed-jdbc-store>\n" +
             "     </persistence>\n" +
-            "   </default>\n" +
+            "   </local-cache></cache-container>\n" +
             TestingUtil.INFINISPAN_END_TAG;
 
       JdbcBinaryStoreConfiguration store = (JdbcBinaryStoreConfiguration) buildCacheManagerWithCacheStore(config);
@@ -82,6 +90,7 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       assertEquals("BINARY", store.table().dataColumnType());
       assertEquals("version", store.table().timestampColumnName());
       assertTrue(store.singletonStore().enabled());
+      assertEquals(Dialect.H2, store.dialect());
       SimpleConnectionFactoryConfiguration connectionFactory = (SimpleConnectionFactoryConfiguration) store.connectionFactory();
       assertEquals("jdbc:h2:mem:infinispan;DB_CLOSE_DELAY=-1", connectionFactory.connectionUrl());
       assertEquals("org.h2.Driver", connectionFactory.driverClass());
@@ -91,25 +100,25 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
 
    public void testMixedKeyedJdbcStore() throws Exception {
       String config = INFINISPAN_START_TAG +
-            "   <default>\n" +
+            "   <cache-container default-cache=\"default\">\n" +
+            "      <local-cache name=\"default\">\n" +
             "     <persistence>\n" +
-            "       <mixedKeyedJdbcStore xmlns=\"urn:infinispan:config:jdbc:6.0\" key2StringMapper=\"DummyKey2StringMapper\">\n" +
-            "         <dataSource jndiUrl=\"java:MyDataSource\" />\n" +
-            "         <stringKeyedTable prefix=\"entry\" fetchSize=\"34\" batchSize=\"128\">\n" +
-            "           <idColumn name=\"id\" type=\"VARCHAR\" />\n" +
-            "           <dataColumn name=\"datum\" type=\"BINARY\" />\n" +
-            "           <timestampColumn name=\"version\" type=\"BIGINT\" />\n" +
-            "         </stringKeyedTable>\n" +
-            "         <binaryKeyedTable prefix=\"bucket\" fetchSize=\"44\" batchSize=\"256\">\n" +
-            "           <idColumn name=\"id\" type=\"BINARY\" />\n" +
-            "           <dataColumn name=\"datum\" type=\"BINARY\" />\n" +
-            "           <timestampColumn name=\"version\" type=\"BIGINT\" />\n" +
-            "         </binaryKeyedTable>\n" +
-            "         <async enabled=\"true\" />\n" +
-            "         <singleton enabled=\"true\" />\n" +
-            "       </mixedKeyedJdbcStore>\n" +
+            "       <mixed-keyed-jdbc-store xmlns=\"urn:infinispan:config:store:jdbc:7.0\" key-to-string-mapper=\"DummyKey2StringMapper\" singleton=\"true\" dialect=\"H2\">\n" +
+            "         <data-source jndi-url=\"java:MyDataSource\" />\n" +
+            "         <string-keyed-table prefix=\"entry\" fetch-size=\"34\" batch-size=\"128\">\n" +
+            "           <id-column name=\"id\" type=\"VARCHAR\" />\n" +
+            "           <data-column name=\"datum\" type=\"BINARY\" />\n" +
+            "           <timestamp-column name=\"version\" type=\"BIGINT\" />\n" +
+            "         </string-keyed-table>\n" +
+            "         <binary-keyed-table prefix=\"bucket\" fetch-size=\"44\" batch-size=\"256\">\n" +
+            "           <id-column name=\"id\" type=\"BINARY\" />\n" +
+            "           <data-column name=\"datum\" type=\"BINARY\" />\n" +
+            "           <timestamp-column name=\"version\" type=\"BIGINT\" />\n" +
+            "         </binary-keyed-table>\n" +
+            "         <write-behind />\n" +
+            "       </mixed-keyed-jdbc-store>\n" +
             "     </persistence>\n" +
-            "   </default>\n" +
+            "   </local-cache></cache-container>\n" +
             TestingUtil.INFINISPAN_END_TAG;
 
       JdbcMixedStoreConfiguration store = (JdbcMixedStoreConfiguration) buildCacheManagerWithCacheStore(config);
@@ -125,6 +134,7 @@ public class XmlFileParsingTest extends AbstractInfinispanTest {
       assertEquals(44, store.binaryTable().fetchSize());
       assertEquals("BINARY", store.binaryTable().dataColumnType());
       assertEquals("version", store.binaryTable().timestampColumnName());
+      assertEquals(Dialect.H2, store.dialect());
 
       assertTrue(store.async().enabled());
       assertTrue(store.singletonStore().enabled());

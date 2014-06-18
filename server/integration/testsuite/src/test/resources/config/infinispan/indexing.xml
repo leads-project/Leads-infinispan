@@ -1,4 +1,4 @@
-        <subsystem xmlns="urn:infinispan:server:core:6.0" >
+        <subsystem xmlns="urn:infinispan:server:core:7.0" >
             <cache-container 
                 name="local"
                 default-cache="testcache">
@@ -24,6 +24,12 @@
                       <property name="hibernate.search.indexing_strategy">manual</property>
                       <property name="hibernate.search.jmx_enabled">true</property>
                    </indexing>
+                </local-cache>
+                <local-cache
+                    name="notindexed"
+                    start="EAGER"
+                    batching="false">
+                    <transaction mode="NONE" />
                 </local-cache>
             </cache-container>
             <cache-container name="security"/>

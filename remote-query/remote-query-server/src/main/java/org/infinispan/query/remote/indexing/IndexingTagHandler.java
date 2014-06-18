@@ -7,6 +7,7 @@ import org.hibernate.search.annotations.Store;
 import org.hibernate.search.bridge.LuceneOptions;
 import org.hibernate.search.engine.impl.LuceneOptionsImpl;
 import org.hibernate.search.engine.metadata.impl.DocumentFieldMetadata;
+import org.infinispan.protostream.MessageContext;
 import org.infinispan.protostream.TagHandler;
 import org.infinispan.query.remote.QueryFacadeImpl;
 
@@ -27,20 +28,20 @@ class IndexingTagHandler implements TagHandler {
    private static final LuceneOptions NOT_STORED_NOT_ANALYZED = new LuceneOptionsImpl(
          new DocumentFieldMetadata.Builder(null, Store.NO, Field.Index.NOT_ANALYZED, Field.TermVector.NO)
                .boost(1.0F)
-               .build());
+               .build(), 1.0F, 1.0F);
 
    private static final LuceneOptions STORED_NOT_ANALYZED = new LuceneOptionsImpl(
          new DocumentFieldMetadata.Builder(null, Store.YES, Field.Index.NOT_ANALYZED, Field.TermVector.NO)
                .boost(1.0F)
-               .build());
+               .build(), 1.0F, 1.0F);
 
    private final Document document;
 
-   private ReadMessageContext messageContext;
+   private MessageContext<MessageContext> messageContext;
 
    public IndexingTagHandler(Descriptors.Descriptor messageDescriptor, Document document) {
       this.document = document;
-      this.messageContext = new ReadMessageContext(null, null, messageDescriptor);
+      this.messageContext = new MessageContext<MessageContext>(null, null, messageDescriptor);
    }
 
    @Override
@@ -81,7 +82,9 @@ class IndexingTagHandler implements TagHandler {
          case SINT32:
          case SINT64:
          case ENUM:
-            luceneOptions.addNumericFieldToDocument(fn, value, document);
+            if (!value.equals(QueryFacadeImpl.NULL_TOKEN)) {
+               luceneOptions.addNumericFieldToDocument(fn, value, document);
+            }
             break;
          case BOOL:
             luceneOptions.addNumericFieldToDocument(fn, ((Boolean) value) ? TRUE_INT : FALSE_INT, document);
@@ -129,7 +132,7 @@ class IndexingTagHandler implements TagHandler {
    }
 
    private void pushContext(String fieldName, Descriptors.Descriptor messageDescriptor) {
-      messageContext = new ReadMessageContext(messageContext, fieldName, messageDescriptor);
+      messageContext = new MessageContext<MessageContext>(messageContext, fieldName, messageDescriptor);
    }
 
    private void popContext() {

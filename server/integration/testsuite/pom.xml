@@ -1,5 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd" xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd"
+         xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -23,8 +24,8 @@
             <artifactId>arquillian-junit-container</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.jboss.as</groupId>
-            <artifactId>jboss-as-arquillian-container-managed</artifactId>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-arquillian-container-managed</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>org.jboss.logmanager</groupId>
@@ -108,6 +109,17 @@
             <artifactId>infinispan-remote-query-client</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.infinispan</groupId>
+            <artifactId>infinispan-security-integrationtests</artifactId>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.directory.server</groupId>
+            <artifactId>apacheds-all</artifactId> 
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.iq80.leveldb</groupId>
             <artifactId>leveldb</artifactId>
             <scope>test</scope>
@@ -118,13 +130,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.jboss.as</groupId>
-            <artifactId>jboss-as-controller</artifactId>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-controller</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.jboss.as</groupId>
-            <artifactId>jboss-as-controller-client</artifactId>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-controller-client</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -187,50 +199,101 @@
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+        </dependency>
     </dependencies>
 
     <properties>
-        
+        <h2.server.ip>127.0.0.1</h2.server.ip>
+        <h2.server.address>tcp://${h2.server.ip}:9092</h2.server.address>
+        <database>h2</database>
+        <driver.dir>${project.build.directory}/test-libs</driver.dir>
+        <driver.jar>h2.jar</driver.jar>
+        <driver.class>org.h2.jdbcx.JdbcDataSource</driver.class>
+
+        <connection.url>jdbc:h2:${h2.server.address}/mem:test;DB_CLOSE_DELAY=-1</connection.url>
+        <connection.url.other>jdbc:h2:${h2.server.address}/mem:test_other;DB_CLOSE_DELAY=-1</connection.url.other>
+
+        <password>sa</password>
+        <username>sa</username>
+
+        <password.other>sa</password.other>
+        <username.other>sa</username.other>
+
         <ispnserver.project.dir>${basedir}/..</ispnserver.project.dir>
         <server.build.dist>${ispnserver.project.dir}/build/target/infinispan-server-${project.version}</server.build.dist>
+
         <server1.dist>${basedir}/target/server/node1</server1.dist>
         <server2.dist>${basedir}/target/server/node2</server2.dist>
         <server3.dist>${basedir}/target/server/node3</server3.dist>
         <server.old.dist>${basedir}/target/server/node_old</server.old.dist>
+        <server2.old.dist>${basedir}/target/server/node2_old</server2.old.dist>
+        <server3.old.dist>${basedir}/target/server/node3_old</server3.old.dist>
+
+        <old.server.schema.version>6.1</old.server.schema.version>
+        <new.server.schema.version>7.0</new.server.schema.version>
+
         <server.jvm>${env.JAVA_HOME}</server.jvm>
         <resources.dir>${basedir}/src/test/resources</resources.dir>
+
         <jvm.memory.args>-Xmx512m -XX:MaxPermSize=128m</jvm.memory.args>
         <jvm.x64.args></jvm.x64.args>
         <default.transport.stack>udp</default.transport.stack>
         <transport.stack>-Djboss.default.jgroups.stack=${default.transport.stack}</transport.stack>
-        
+
         <jvm.ip.stack>-Djava.net.preferIPv4Stack=true</jvm.ip.stack>
+        <node0.ip>127.0.0.1</node0.ip>
+        <node1.ip>127.0.0.1</node1.ip>
+        <node2.ip>127.0.0.1</node2.ip>
+        <node3.ip>127.0.0.1</node3.ip>
+        <mcast.ip>234.99.54.14</mcast.ip> <!-- Default multicast address. -->
+        <jvm.ip.stack>-Djava.net.preferIPv4Stack=true -Djava.net.preferIPv6Addresses=false -Djboss.default.multicast.address=${mcast.ip}</jvm.ip.stack>
         <server.jvm.args>${jvm.ip.stack} ${jvm.memory.args} ${transport.stack} ${jvm.x64.args}</server.jvm.args>
         <log4j.configuration>log4j.xml</log4j.configuration>
-        <suite.manual.unstable.phase>none</suite.manual.unstable.phase>
-        <suite.manual.phase>test</suite.manual.phase>
+        <suite.manual.phase>integration-test</suite.manual.phase>
         <suite.rollups.manual.phase>none</suite.rollups.manual.phase>
-        <suite.client.local.phase>test</suite.client.local.phase>
-        <suite.client.dist.phase>test</suite.client.dist.phase>
-        <suite.client.repl.phase>test</suite.client.repl.phase>
+        <suite.client.local.phase>integration-test</suite.client.local.phase>
+        <suite.client.dist.phase>integration-test</suite.client.dist.phase>
+        <suite.client.repl.phase>integration-test</suite.client.repl.phase>
+        <suite.security.phase>none</suite.security.phase>
+
         <suite.manual.include>**/*.java</suite.manual.include>
-        <suite.manual.exclude.groups>org.infinispan.server.test.category.ClientLocal,org.infinispan.server.test.category.ClientClustered,org.infinispan.server.test.category.RollingUpgrades,org.infinispan.server.test.category.UnstableTest,org.infinispan.server.test.category.Osgi</suite.manual.exclude.groups>
+        <suite.manual.exclude.groups>
+            org.infinispan.server.test.category.ClientLocal,org.infinispan.server.test.category.ClientClustered,org.infinispan.server.test.category.RollingUpgrades,org.infinispan.server.test.category.Unstable,org.infinispan.server.test.category.Osgi,
+            org.infinispan.server.test.category.Security
+        </suite.manual.exclude.groups>
         <suite.client.local.config>testsuite/standalone-default-local.xml</suite.client.local.config>
         <suite.client.dist.config>testsuite/clustered-default-dist.xml</suite.client.dist.config>
         <suite.client.repl.config>testsuite/clustered-default-repl.xml</suite.client.repl.config>
         <groups.client.local>org.infinispan.server.test.category.ClientLocal</groups.client.local>
         <groups.client.clustered>org.infinispan.server.test.category.ClientClustered</groups.client.clustered>
+        <groups.security>org.infinispan.server.test.category.Security</groups.security>
+        <groups.unstable>org.infinispan.server.test.category.Unstable,org.infinispan.server.test.category.UnstableClientLocal,org.infinispan.server.test.category.UnstableClientClustered</groups.unstable>
     </properties>
 
     <build>
         <testResources>
-         <testResource>
-            <directory>${project.basedir}/src/test/resources</directory>
-            <filtering>true</filtering>
-            <includes>
-               <include>**/*</include>
-            </includes>
-         </testResource>
+            <testResource>
+                <directory>${project.basedir}/src/test/resources</directory>
+                <filtering>true</filtering>
+                <excludes>
+                    <exclude>*.jks</exclude>
+                    <exclude>*.keystore</exclude>
+                    <exclude>*.keytab</exclude>
+                </excludes>
+            </testResource>
+            <testResource>
+                <directory>${project.basedir}/src/test/resources</directory>
+                <filtering>false</filtering>
+                <includes>
+                    <include>*.jks</include>
+                    <include>*.keystore</include>
+                    <include>*.keytab</include>
+                </includes>
+            </testResource>
         </testResources>
         <plugins>
             <plugin>
@@ -258,6 +321,31 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-test-libs</id>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/test-libs</outputDirectory>
+                            <stripVersion>true</stripVersion>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.h2database</groupId>
+                                    <artifactId>h2</artifactId>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
                     <execution>
@@ -268,10 +356,94 @@
                         <phase>generate-resources</phase>
                         <configuration>
                             <target>
-                                <property name="test_classpath" refid="maven.test.classpath" />
-                                <ant antfile="build-testsuite.xml" inheritRefs="true">
-                                    <target name="create-all-distros" />
+                                <ant antfile="build-testsuite.xml" inheritRefs="true" target="create-all-distros">
+                                    <!--redefine uses properties to be propagated to ant build file, should be plugin bug-->
+                                    <property name="test_classpath" refid="maven.test.classpath"/>
+
+                                    <property name="database" value="${database}"/>
+                                    <property name="driver.dir" value="${driver.dir}"/>
+                                    <property name="driver.jar" value="${driver.jar}"/>
+                                    <property name="driver.class" value="${driver.class}"/>
+
+                                    <property name="connection.url" value="${connection.url}"/>
+                                    <property name="connection.url.other" value="${connection.url.other}"/>
+
+                                    <property name="password" value="${password}"/>
+                                    <property name="username" value="${username}"/>
+
+                                    <property name="password.other" value="${password.other}"/>
+                                    <property name="username.other" value="${username.other}"/>
+
+                                    <property name="new.server.schema.version" value="${new.server.schema.version}"/>
                                 </ant>
+                                <!-- It happens when you do not specify namespaces in the XSLT templates for the newly added nodes
+                                     then the IBM jdk transformation is adding empty namespace there - not possible to influence this
+                                     behaviour by any environmental property - this is a bit workaround for it -->
+                                <echo message="Removing empty xmlns attributes (xmlns='') which IBM JDK could produce" />
+                                <replace dir="target" value="">
+                                    <include name="server/node*/standalone/configuration/**/*.xml"/>
+                                    <replacetoken><![CDATA[xmlns=""]]></replacetoken>
+                                </replace>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <!-- we need to start a special H2 TCP server because we need to be able to connect to it with a
+                    specific jdbc connection and verify what is in the DB, this is not possible with default
+                    H2 setting -->
+                    <execution>
+                        <id>check-h2-db-property</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target name="setup-h2" description="Verify if H2 TCP server will be running">
+                                <condition property="run.h2.server">
+                                    <equals arg1="${database}" arg2="h2"/>
+                                </condition>
+                                <first id="first.h2.jar">
+                                    <fileset dir="${server1.dist}/modules" includes="**/h2-*.jar" />
+                                </first>
+                                <echo>Run H2 TCP server?: ${run.h2.server}</echo>
+                            </target>
+                            <exportAntProperties>true</exportAntProperties>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>start-h2-tcp-server</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target name="start-h2" description="Starts Java H2 processes" if="run.h2.server">
+                                <echo>Starting H2 TCP server!</echo>
+                                <echo>H2 jar: ${driver.dir}/${driver.jar}</echo>
+                                <java classpath="${driver.dir}/${driver.jar}"
+                                      classname="org.h2.tools.Server"
+                                      fork="true" spawn="true">
+                                    <!--do not use forking here because surefire JVM fails and H2 running process is not killed-->
+                                    <arg line="-tcp -tcpPort 9092 -tcpAllowOthers"/>
+                                    <jvmarg value="-Dh2.bindAddress=${h2.server.ip}"/>
+                                </java>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <!-- stop previously started H2 server -->
+                    <execution>
+                        <id>stop-h2-tcp-server</id>
+                        <phase>post-integration-test</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target name="stop-h2" description="Stops Java H2 processes" if="run.h2.server">
+                                <echo>Stopping H2 TCP server!</echo>
+                                <echo>H2 jar: ${driver.dir}/${driver.jar}</echo>
+                                <java classpath="${driver.dir}/${driver.jar}"
+                                      classname="org.h2.tools.Server">
+                                    <arg line="-tcpShutdown ${h2.server.address} -tcpShutdownForce"/>
+                                </java>
                             </target>
                         </configuration>
                     </execution>
@@ -281,13 +453,24 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <skipTests>true</skipTests>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
                     <forkMode>once</forkMode>
-                    <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
+                    <excludedGroups>${groups.unstable}</excludedGroups>
                     <systemPropertyVariables>
                         <server1.dist>${server1.dist}</server1.dist>
                         <server2.dist>${server2.dist}</server2.dist>
                         <server3.dist>${server3.dist}</server3.dist>
                         <server.old.dist>${server.old.dist}</server.old.dist>
+                        <server2.old.dist>${server2.old.dist}</server2.old.dist>
+                        <server3.old.dist>${server3.old.dist}</server3.old.dist>
+                        <old.server.schema.version>${old.server.schema.version}</old.server.schema.version>
+                        <new.server.schema.version>${new.server.schema.version}</new.server.schema.version>
                         <server.jvm>${server.jvm}</server.jvm>
                         <server.jvm.args>${server.jvm.args}</server.jvm.args>
                         <log4j.configuration>${log4j.configuration}</log4j.configuration>
@@ -297,28 +480,44 @@
                         <suite.client.repl.config>${suite.client.repl.config}</suite.client.repl.config>
                         <resources.dir>${project.build.directory}/test-classes</resources.dir>
                         <version.karaf>${version.karaf}</version.karaf>
+
+                        <!--redefine jdbc properties-->
+                        <database>${database}</database>
+                        <driver.dir>${driver.dir}</driver.dir>
+                        <driver.jar>${driver.jar}</driver.jar>
+                        <driver.class>${driver.class}</driver.class>
+
+                        <connection.url>${connection.url}</connection.url>
+                        <connection.url.other>${connection.url.other}</connection.url.other>
+
+                        <username>${username}</username>
+                        <password>${password}</password>
+
+                        <username.other>${username.other}</username.other>
+                        <password.other>${password.other}</password.other>
+
+                        <!--add for testing rebalancing-->
+                        <node0.ip>${node0.ip}</node0.ip>
+                        <node1.ip>${node1.ip}</node1.ip>
+                        <node2.ip>${node2.ip}</node2.ip>
                     </systemPropertyVariables>
+                    <!--add jdbc driver to classpath-->
+                    <additionalClasspathElements>
+                        <element>${driver.dir}/${driver.jar}</element>
+                    </additionalClasspathElements>
                     <properties>
                         <property>
                             <name>listener</name>
                             <value>org.infinispan.server.test.util.TestsuiteListener</value>
                         </property>
                     </properties>
-                    <testFailureIgnore>true</testFailureIgnore>
                 </configuration>
                 <executions>
-                    <execution>
-                        <id>default-test</id>
-                        <goals>
-                            <goal>test</goal>
-                        </goals>
-                        <phase>none</phase>
-                    </execution>
                     <execution>
                         <id>suite-manual</id>
                         <phase>${suite.manual.phase}</phase>
                         <goals>
-                            <goal>test</goal>
+                            <goal>integration-test</goal>
                         </goals>
                         <configuration>
                             <includes>
@@ -335,11 +534,12 @@
                         <id>suite-rollups-manual</id>
                         <phase>${suite.rollups.manual.phase}</phase>
                         <goals>
-                            <goal>test</goal>
+                            <goal>integration-test</goal>
                         </goals>
                         <configuration>
+                            <reportNameSuffix>${old.server.schema.version}-to-${new.server.schema.version}</reportNameSuffix>
                             <groups>org.infinispan.server.test.category.RollingUpgrades</groups>
-                            <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
+                            <excludedGroups>${groups.unstable}</excludedGroups>
                             <systemPropertyVariables>
                                 <arquillian.launch>suite-rollups-manual</arquillian.launch>
                             </systemPropertyVariables>
@@ -349,12 +549,12 @@
                         <id>suite-client-local</id>
                         <phase>${suite.client.local.phase}</phase>
                         <goals>
-                            <goal>test</goal>
+                            <goal>integration-test</goal>
                         </goals>
                         <configuration>
                             <reportNameSuffix>localmode-${default.transport.stack}</reportNameSuffix>
                             <groups>${groups.client.local}</groups>
-                            <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
+                            <excludedGroups>${groups.unstable}</excludedGroups>
                             <systemPropertyVariables>
                                 <clustering.mode>local</clustering.mode>
                                 <arquillian.launch>suite-client-local</arquillian.launch>
@@ -365,12 +565,12 @@
                         <id>suite-client-dist</id>
                         <phase>${suite.client.dist.phase}</phase>
                         <goals>
-                            <goal>test</goal>
+                            <goal>integration-test</goal>
                         </goals>
                         <configuration>
                             <reportNameSuffix>distmode-${default.transport.stack}</reportNameSuffix>
                             <groups>${groups.client.clustered}</groups>
-                            <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
+                            <excludedGroups>${groups.unstable}</excludedGroups>
                             <systemPropertyVariables>
                                 <clustering.mode>dist</clustering.mode>
                                 <arquillian.launch>suite-client-dist</arquillian.launch>
@@ -381,12 +581,12 @@
                         <id>suite-client-repl</id>
                         <phase>${suite.client.repl.phase}</phase>
                         <goals>
-                            <goal>test</goal>
+                            <goal>integration-test</goal>
                         </goals>
                         <configuration>
                             <reportNameSuffix>replmode-${default.transport.stack}</reportNameSuffix>
                             <groups>${groups.client.clustered}</groups>
-                            <excludedGroups>org.infinispan.server.test.category.UnstableTest</excludedGroups>
+                            <excludedGroups>${groups.unstable}</excludedGroups>
                             <systemPropertyVariables>
                                 <clustering.mode>repl</clustering.mode>
                                 <arquillian.launch>suite-client-repl</arquillian.launch>
@@ -394,22 +594,76 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>suite-manual-unstable</id>
-                        <phase>${suite.manual.unstable.phase}</phase>
+                        <id>suite-security</id>
+                        <phase>${suite.security.phase}</phase>
                         <goals>
-                            <goal>test</goal>
+                            <goal>integration-test</goal>
                         </goals>
                         <configuration>
-                            <groups combine.self="override">org.infinispan.server.test.category.UnstableTest</groups>
-                            <excludedGroups combine.self="override"></excludedGroups>
+                            <groups>${groups.security}</groups>
                             <systemPropertyVariables>
-                                <arquillian.launch>suite-manual</arquillian.launch>
+                                <arquillian.launch>${suite.security.arquillian}</arquillian.launch>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
+        <pluginManagement>
+           <plugins>
+              <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+              <plugin>
+                 <groupId>org.eclipse.m2e</groupId>
+                 <artifactId>lifecycle-mapping</artifactId>
+                 <version>1.0.0</version>
+                 <configuration>
+                    <lifecycleMappingMetadata>
+                       <pluginExecutions>
+                          <pluginExecution>
+                             <pluginExecutionFilter>
+                                <groupId>org.apache.maven.plugins</groupId>
+                                <artifactId>maven-antrun-plugin</artifactId>
+                                <versionRange>[1.7,)</versionRange>
+                                <goals>
+                                   <goal>run</goal>
+                                </goals>
+                             </pluginExecutionFilter>
+                             <action>
+                                <ignore></ignore>
+                             </action>
+                          </pluginExecution>
+                          <pluginExecution>
+                             <pluginExecutionFilter>
+                                <groupId>org.apache.maven.plugins</groupId>
+                                <artifactId>maven-dependency-plugin</artifactId>
+                                <versionRange>[2.6,)</versionRange>
+                                <goals>
+                                   <goal>copy</goal>
+                                </goals>
+                             </pluginExecutionFilter>
+                             <action>
+                                <ignore></ignore>
+                             </action>
+                          </pluginExecution>
+                          <pluginExecution>
+                             <pluginExecutionFilter>
+                                <groupId>org.apache.servicemix.tooling</groupId>
+                                <artifactId>depends-maven-plugin</artifactId>
+                                <versionRange>[1.2,)</versionRange>
+                                <goals>
+                                   <goal>generate-depends-file</goal>
+                                </goals>
+                             </pluginExecutionFilter>
+                             <action>
+                                <ignore></ignore>
+                             </action>
+                          </pluginExecution>
+                       </pluginExecutions>
+                    </lifecycleMappingMetadata>
+                 </configuration>
+              </plugin>
+           </plugins>
+        </pluginManagement>
     </build>
 
     <profiles>
@@ -417,16 +671,16 @@
             <id>suite.client</id>
             <properties>
                 <suite.manual.phase>none</suite.manual.phase>
-                <suite.client.local.phase>test</suite.client.local.phase>
-                <suite.client.dist.phase>test</suite.client.dist.phase>
-                <suite.client.repl.phase>test</suite.client.repl.phase>
+                <suite.client.local.phase>integration-test</suite.client.local.phase>
+                <suite.client.dist.phase>integration-test</suite.client.dist.phase>
+                <suite.client.repl.phase>integration-test</suite.client.repl.phase>
             </properties>
         </profile>
         <profile>
             <id>suite.client.local</id>
             <properties>
                 <suite.manual.phase>none</suite.manual.phase>
-                <suite.client.local.phase>test</suite.client.local.phase>
+                <suite.client.local.phase>integration-test</suite.client.local.phase>
                 <suite.client.dist.phase>none</suite.client.dist.phase>
                 <suite.client.repl.phase>none</suite.client.repl.phase>
             </properties>
@@ -436,7 +690,7 @@
             <properties>
                 <suite.manual.phase>none</suite.manual.phase>
                 <suite.client.local.phase>none</suite.client.local.phase>
-                <suite.client.dist.phase>test</suite.client.dist.phase>
+                <suite.client.dist.phase>integration-test</suite.client.dist.phase>
                 <suite.client.repl.phase>none</suite.client.repl.phase>
             </properties>
         </profile>
@@ -446,23 +700,33 @@
                 <suite.manual.phase>none</suite.manual.phase>
                 <suite.client.local.phase>none</suite.client.local.phase>
                 <suite.client.dist.phase>none</suite.client.dist.phase>
-                <suite.client.repl.phase>test</suite.client.repl.phase>
+                <suite.client.repl.phase>integration-test</suite.client.repl.phase>
             </properties>
         </profile>
         <profile>
             <id>suite.examples</id>
             <properties>
-                <suite.manual.phase>test</suite.manual.phase>
+                <suite.manual.phase>integration-test</suite.manual.phase>
                 <suite.client.local.phase>none</suite.client.local.phase>
                 <suite.client.dist.phase>none</suite.client.dist.phase>
                 <suite.client.repl.phase>none</suite.client.repl.phase>
-                <suite.manual.include>org/infinispan/server/test/configs/ExampleConfigsTest.java</suite.manual.include>
+                <suite.manual.include>org/infinispan/server/test/configs/ExampleConfigsIT.java</suite.manual.include>
+            </properties>
+        </profile>
+        <profile>
+            <id>suite.query</id>
+            <properties>
+                <suite.manual.phase>integration-test</suite.manual.phase>
+                <suite.client.local.phase>none</suite.client.local.phase>
+                <suite.client.dist.phase>none</suite.client.dist.phase>
+                <suite.client.repl.phase>none</suite.client.repl.phase>
+                <suite.manual.include>**/query/*.java</suite.manual.include>
             </properties>
         </profile>
         <profile>
             <id>suite.others</id>
             <properties>
-                <suite.manual.phase>test</suite.manual.phase>
+                <suite.manual.phase>integration-test</suite.manual.phase>
                 <suite.client.local.phase>none</suite.client.local.phase>
                 <suite.client.dist.phase>none</suite.client.dist.phase>
                 <suite.client.repl.phase>none</suite.client.repl.phase>
@@ -471,9 +735,9 @@
         <profile>
             <id>suite.leveldb-client</id>
             <properties>
-                <suite.client.local.phase>test</suite.client.local.phase>
-                <suite.client.dist.phase>test</suite.client.dist.phase>
-                <suite.client.repl.phase>test</suite.client.repl.phase>
+                <suite.client.local.phase>integration-test</suite.client.local.phase>
+                <suite.client.dist.phase>integration-test</suite.client.dist.phase>
+                <suite.client.repl.phase>integration-test</suite.client.repl.phase>
                 <suite.client.local.config>testsuite/standalone-leveldb-local.xml</suite.client.local.config>
                 <suite.client.dist.config>testsuite/clustered-leveldb-dist.xml</suite.client.dist.config>
                 <suite.client.repl.config>testsuite/clustered-leveldb-repl.xml</suite.client.repl.config>
@@ -482,7 +746,7 @@
         <profile>
             <id>suite.cachestore</id>
             <properties>
-                <suite.manual.phase>test</suite.manual.phase>
+                <suite.manual.phase>integration-test</suite.manual.phase>
                 <suite.manual.include.groups>org.infinispan.server.test.category.CacheStore</suite.manual.include.groups>
                 <suite.client.local.phase>none</suite.client.local.phase>
                 <suite.client.dist.phase>none</suite.client.dist.phase>
@@ -493,7 +757,7 @@
             <id>suite.rolling.upgrades</id>
             <properties>
                 <suite.manual.phase>none</suite.manual.phase>
-                <suite.rollups.manual.phase>test</suite.rollups.manual.phase>
+                <suite.rollups.manual.phase>integration-test</suite.rollups.manual.phase>
                 <suite.client.local.phase>none</suite.client.local.phase>
                 <suite.client.dist.phase>none</suite.client.dist.phase>
                 <suite.client.repl.phase>none</suite.client.repl.phase>
@@ -503,9 +767,9 @@
             <id>client.rest</id>
             <properties>
                 <suite.manual.phase>none</suite.manual.phase>
-                <suite.client.local.phase>test</suite.client.local.phase>
-                <suite.client.dist.phase>test</suite.client.dist.phase>
-                <suite.client.repl.phase>test</suite.client.repl.phase>
+                <suite.client.local.phase>integration-test</suite.client.local.phase>
+                <suite.client.dist.phase>integration-test</suite.client.dist.phase>
+                <suite.client.repl.phase>integration-test</suite.client.repl.phase>
                 <groups.client.local>org.infinispan.server.test.category.RESTLocal</groups.client.local>
                 <groups.client.clustered>org.infinispan.server.test.category.RESTClustered</groups.client.clustered>
             </properties>
@@ -514,9 +778,9 @@
             <id>client.hotrod</id>
             <properties>
                 <suite.manual.phase>none</suite.manual.phase>
-                <suite.client.local.phase>test</suite.client.local.phase>
-                <suite.client.dist.phase>test</suite.client.dist.phase>
-                <suite.client.repl.phase>test</suite.client.repl.phase>
+                <suite.client.local.phase>integration-test</suite.client.local.phase>
+                <suite.client.dist.phase>integration-test</suite.client.dist.phase>
+                <suite.client.repl.phase>integration-test</suite.client.repl.phase>
                 <groups.client.local>org.infinispan.server.test.category.HotRodLocal</groups.client.local>
                 <groups.client.clustered>org.infinispan.server.test.category.HotRodClustered</groups.client.clustered>
             </properties>
@@ -525,32 +789,129 @@
             <id>client.memcached</id>
             <properties>
                 <suite.manual.phase>none</suite.manual.phase>
-                <suite.client.local.phase>test</suite.client.local.phase>
-                <suite.client.dist.phase>test</suite.client.dist.phase>
-                <suite.client.repl.phase>test</suite.client.repl.phase>
+                <suite.client.local.phase>integration-test</suite.client.local.phase>
+                <suite.client.dist.phase>integration-test</suite.client.dist.phase>
+                <suite.client.repl.phase>integration-test</suite.client.repl.phase>
                 <groups.client.local>org.infinispan.server.test.category.MemcachedLocal</groups.client.local>
                 <groups.client.clustered>org.infinispan.server.test.category.MemcachedClustered</groups.client.clustered>
             </properties>
         </profile>
         <profile>
+            <id>suite.security</id>
+            <properties>
+                <suite.manual.phase>none</suite.manual.phase>
+                <suite.client.local.phase>none</suite.client.local.phase>
+                <suite.client.dist.phase>none</suite.client.dist.phase>
+                <suite.client.repl.phase>none</suite.client.repl.phase>
+                <suite.security.phase>integration-test</suite.security.phase>
+                <suite.security.arquillian>suite-security</suite.security.arquillian>
+            </properties>
+        </profile>
+        <profile>
+            <id>suite.security.manual</id>
+            <properties>
+                <suite.manual.phase>none</suite.manual.phase>
+                <suite.client.local.phase>none</suite.client.local.phase>
+                <suite.client.dist.phase>none</suite.client.dist.phase>
+                <suite.client.repl.phase>none</suite.client.repl.phase>
+                <suite.security.phase>integration-test</suite.security.phase>
+                <suite.security.arquillian>suite-security-manual</suite.security.arquillian>
+            </properties>
+        </profile>
+        <profile>
             <id>client.hotrod.osgi</id>
             <properties>
-                <suite.manual.phase>test</suite.manual.phase>
+                <suite.manual.phase>integration-test</suite.manual.phase>
                 <suite.client.local.phase>none</suite.client.local.phase>
                 <suite.client.dist.phase>none</suite.client.dist.phase>
                 <suite.client.repl.phase>none</suite.client.repl.phase>
                 <suite.manual.exclude.groups></suite.manual.exclude.groups>
                 <suite.manual.include.groups>org.infinispan.server.test.category.Osgi</suite.manual.include.groups>
-                <suite.manual.include>org/infinispan/server/test/client/hotrod/osgi/RemoteCacheOsgiTest.java</suite.manual.include>
+                <suite.manual.include>org/infinispan/server/test/client/hotrod/osgi/RemoteCacheOsgiIT.java</suite.manual.include>
             </properties>
             <build>
                 <plugins>
-                    <!-- Register Protofile on the server before the test starts.
-                         TODO: Do it directly from the test. The remoting-jmx implementation for
-                         JMX is normally loaded via ServiceLoader and this is not working out-of-box in OSGi. -->
                     <plugin>
                         <artifactId>maven-antrun-plugin</artifactId>
                         <executions>
+                            <execution>
+                                <id>infinispan-server-startup</id>
+                                <phase>generate-test-resources</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <exec executable="bash" osfamily="unix" spawn="true">
+                                            <arg line="${server1.dist}/bin/standalone.sh -c testsuite/standalone-with-indexing.xml"/>
+                                            <env key="JAVA_OPTS" value="${server.jvm.args} -Djboss.socket.binding.port-offset=0 -Djboss.node.name=jdg"/>
+                                        </exec>
+                                        <exec executable="${server1.dist}/bin/standalone.bat" osfamily="windows" spawn="true">
+                                            <arg line="-c testsuite/standalone-with-indexing.xml"/>
+                                            <env key="JAVA_OPTS" value="${server.jvm.args} -Djboss.socket.binding.port-offset=0 -Djboss.node.name=jdg"/>
+                                        </exec>
+                                        <echo>Waiting for Infinispan server to start</echo>
+                                        <waitfor maxwait="15" maxwaitunit="second" checkevery="1" checkeveryunit="second">
+                                            <and>
+                                                <socket server="127.0.0.1" port="9990"/>
+                                                <socket server="127.0.0.1" port="11222"/>
+                                            </and>
+                                        </waitfor>
+                                        <echo message="Infinispan server started"/>
+                                    </target>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>infinispan-server-shutdown</id>
+                                <phase>post-integration-test</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <exec executable="${server.jvm}/bin/jps" output="jps.pid" osfamily="unix"/>
+                                        <loadfile srcfile="jps.pid" property="pid" failonerror="false">
+                                            <filterchain>
+                                                <linecontains>
+                                                    <contains value="jboss-modules.jar"/>
+                                                </linecontains>
+                                                <tokenfilter>
+                                                    <deletecharacters chars="jboss-modules.jar"/>
+                                                    <ignoreblank/>
+                                                </tokenfilter>
+                                                <striplinebreaks/>
+                                            </filterchain>
+                                        </loadfile>
+                                        <exec executable="netstat" output="jps.pid" osfamily="windows">
+                                            <arg line="-aon"/>
+                                        </exec>
+                                        <loadfile srcfile="jps.pid" property="pid" failonerror="false">
+                                            <filterchain>
+                                                <linecontains>
+                                                    <contains value="LISTENING"/>
+                                                    <contains value=":11222"/>
+                                                </linecontains>
+                                                <tokenfilter>
+                                                    <replaceregex pattern=".*LISTENING([ \t]+)([0-9]+)" replace="\2" flags="gi"/>
+                                                    <ignoreblank/>
+                                                </tokenfilter>
+                                                <striplinebreaks/>
+                                            </filterchain>
+                                        </loadfile>
+                                        <echo message="Killing Infinispan server with PID - ${pid}"/>
+                                        <exec executable="kill" osfamily="unix">
+                                            <arg line="-9 ${pid}"/>
+                                        </exec>
+                                        <exec executable="taskkill" osfamily="windows">
+                                            <arg line="/F /T /PID ${pid}"/>
+                                        </exec>
+                                        <delete file="jps.pid"/>
+                                    </target>
+                                </configuration>
+                            </execution>
+                            <!-- Register Protofile on the server before the test starts.
+                                 TODO: Do it directly from the test. The remoting-jmx implementation for
+                                 JMX is normally loaded via ServiceLoader and this is not working out-of-box in OSGi. -->
                             <execution>
                                 <id>register-protofile-with-server</id>
                                 <goals>
@@ -562,10 +923,10 @@
                                         <property name="test_classpath" refid="maven.test.classpath"/>
                                         <java classname="org.infinispan.server.test.util.ProtofileRegistrar"
                                               fork="false"
-                                              failonerror="true" >
+                                              failonerror="true">
                                             <arg value="/sample_bank_account/bank.protobin"/>
                                             <arg value="localhost"/>
-                                            <arg value="9999"/>
+                                            <arg value="9990"/>
                                             <classpath>
                                                 <pathelement path="${project.build.directory}/test-classes"/>
                                                 <pathelement path="${test_classpath}"/>
@@ -579,32 +940,46 @@
                 </plugins>
             </build>
         </profile>
+
         <profile>
-            <id>testsuite-jdk6</id>
+            <id>ipv6</id>
+            <activation>
+                <property><name>ts.ipv6</name></property>
+            </activation>
             <properties>
-                <server.jvm>${env.JAVA_HOME_16}</server.jvm>
+                <!-- Override IPv4 defaults from the top. -->
+                <h2.server.ip>[::1]</h2.server.ip>
+                <!--<h2.server.address>tcp://${h2.server.ip}:9092</h2.server.address>-->
+
+                <node0.ip>[::1]</node0.ip>
+                <node1.ip>[::1]</node1.ip>
+                <node2.ip>[::1]</node2.ip>
+                <mcast.ip>[ff01::1]</mcast.ip>      <!-- ff01::1  is IPv6 Node-Local scope mcast addr. -->
+                <jvm.ip.stack>-Djava.net.preferIPv4Stack=false -Djava.net.preferIPv6Addresses=true -Djboss.default.multicast.address=${mcast.ip}</jvm.ip.stack>
             </properties>
+        </profile>
+
+        <profile>
+            <id>test-unstable</id>
+            <properties>
+                <groups.unstable></groups.unstable>
+                <suite.manual.exclude.groups></suite.manual.exclude.groups>
+                <suite.manual.include.groups>org.infinispan.server.test.category.Unstable</suite.manual.include.groups>
+                <groups.client.local>org.infinispan.server.test.category.UnstableClientLocal</groups.client.local>
+                <groups.client.clustered>org.infinispan.server.test.category.UnstableClientClustered</groups.client.clustered>
+            </properties>
+            <!-- don't fail if there are no unstable tests (applies to all surefire executions) -->
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
                         <configuration>
-                            <jvm>${env.JAVA_HOME_16}/bin/java</jvm>
+                            <failIfNoTests>false</failIfNoTests>
                         </configuration>
                     </plugin>
                 </plugins>
             </build>
-        </profile>
-        <profile>
-            <id>test-unstable</id>
-            <properties>
-                <suite.manual.phase>none</suite.manual.phase>
-                <suite.client.local.phase>none</suite.client.local.phase>
-                <suite.client.dist.phase>none</suite.client.dist.phase>
-                <suite.client.repl.phase>none</suite.client.repl.phase>
-                <suite.manual.unstable.phase>test</suite.manual.unstable.phase>
-            </properties>
         </profile>
     </profiles>
 </project>

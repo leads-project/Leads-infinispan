@@ -22,8 +22,8 @@ import org.infinispan.notifications.cachelistener.event.TopologyChangedEvent;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.topology.CacheTopology;
-import org.infinispan.transaction.LocalTransaction;
-import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.impl.LocalTransaction;
+import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.transaction.xa.CacheTransaction;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -99,9 +99,7 @@ public class StateProviderImpl implements StateProvider {
 
       timeout = configuration.clustering().stateTransfer().timeout();
 
-      // ignore chunk sizes <= 0
-      int chunkSize = configuration.clustering().stateTransfer().chunkSize();
-      this.chunkSize = chunkSize > 0 ? chunkSize : Integer.MAX_VALUE;
+      this.chunkSize = configuration.clustering().stateTransfer().chunkSize();
    }
 
    public boolean isStateTransferInProgress() {
@@ -202,9 +200,11 @@ public class StateProviderImpl implements StateProvider {
       int currentTopologyId = cacheTopology != null ? cacheTopology.getTopologyId() : -1;
       if (requestTopologyId < currentTopologyId) {
          if (isReqForTransactions)
-            log.transactionsRequestedByNodeWithOlderTopology(destination, requestTopologyId, currentTopologyId);
+            log.debugf("Transactions were requested by node %s with topology %d, older than the local topology (%d)",
+                  destination, requestTopologyId, currentTopologyId);
          else
-            log.segmentsRequestedByNodeWithOlderTopology(destination, requestTopologyId, currentTopologyId);
+            log.debugf("Segments were requested by node %s with topology %d, older than the local topology (%d)",
+                  destination, requestTopologyId, currentTopologyId);
       } else if (requestTopologyId > currentTopologyId) {
          if (trace) {
             log.tracef("%s were requested by node %s with topology %d, greater than the local " +
@@ -283,7 +283,7 @@ public class StateProviderImpl implements StateProvider {
       final CacheTopology cacheTopology = getCacheTopology(requestTopologyId, destination, false);
 
       // the destination node must already have an InboundTransferTask waiting for these segments
-      OutboundTransferTask outboundTransfer = new OutboundTransferTask(destination, segments, chunkSize, cacheTopology.getTopologyId(),
+      OutboundTransferTask outboundTransfer = new OutboundTransferTask(destination, segments, chunkSize, requestTopologyId,
             cacheTopology.getReadConsistentHash(), this, dataContainer, persistenceManager, rpcManager, commandsFactory, entryFactory, timeout, cacheName);
       addTransfer(outboundTransfer);
       outboundTransfer.execute(executorService);

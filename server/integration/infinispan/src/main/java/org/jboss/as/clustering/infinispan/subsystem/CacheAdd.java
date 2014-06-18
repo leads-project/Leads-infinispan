@@ -22,16 +22,38 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import javax.transaction.TransactionManager;
+import javax.transaction.TransactionSynchronizationRegistry;
+
 import org.infinispan.Cache;
+import org.infinispan.commons.configuration.BuiltBy;
+import org.infinispan.commons.configuration.ConfiguredBy;
 import org.infinispan.commons.marshall.Marshaller;
+import org.infinispan.commons.util.FileLookup;
 import org.infinispan.commons.util.TypedProperties;
-import org.infinispan.compatibility.adaptor52x.Adaptor52xStoreConfigurationBuilder;
+import org.infinispan.configuration.cache.AuthorizationConfigurationBuilder;
 import org.infinispan.configuration.cache.BackupConfiguration.BackupStrategy;
 import org.infinispan.configuration.cache.BackupFailurePolicy;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ClusterLoaderConfigurationBuilder;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.CustomStoreConfigurationBuilder;
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
 import org.infinispan.configuration.cache.SingleFileStoreConfigurationBuilder;
 import org.infinispan.configuration.cache.SitesConfigurationBuilder;
@@ -40,6 +62,7 @@ import org.infinispan.configuration.parsing.ConfigurationBuilderHolder;
 import org.infinispan.configuration.parsing.ParserRegistry;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.persistence.jdbc.Dialect;
 import org.infinispan.persistence.jdbc.configuration.AbstractJdbcStoreConfigurationBuilder;
 import org.infinispan.persistence.jdbc.configuration.JdbcBinaryStoreConfigurationBuilder;
 import org.infinispan.persistence.jdbc.configuration.JdbcMixedStoreConfigurationBuilder;
@@ -87,23 +110,6 @@ import org.jboss.msc.service.ServiceTarget;
 import org.jboss.msc.value.InjectedValue;
 import org.jboss.msc.value.Value;
 import org.jboss.tm.XAResourceRecoveryRegistry;
-
-import javax.transaction.TransactionManager;
-import javax.transaction.TransactionSynchronizationRegistry;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
 /**
  * Base class for cache add handlers
@@ -164,7 +170,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
     private static URL find(String resource, ClassLoader... loaders) {
         for (ClassLoader loader : loaders) {
             if (loader != null) {
-                URL url = loader.getResource(resource);
+                URL url = new FileLookup().lookupFileLocation(resource, loader);
                 if (url != null) {
                     return url;
                 }
@@ -414,8 +420,11 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
         // locking is a child resource
         if (cache.hasDefined(ModelKeys.LOCKING) && cache.get(ModelKeys.LOCKING, ModelKeys.LOCKING_NAME).isDefined()) {
             ModelNode locking = cache.get(ModelKeys.LOCKING, ModelKeys.LOCKING_NAME);
-
-            final IsolationLevel isolationLevel = IsolationLevel.valueOf(LockingResource.ISOLATION.resolveModelAttribute(context, locking).asString());
+            
+            final IsolationLevel isolationLevel = IsolationLevel.READ_COMMITTED;
+            if (LockingResource.ISOLATION.resolveModelAttribute(context, locking).isDefined()) {  
+               log.warn("Ignoring XML attribute " + ModelKeys.ISOLATION + ", please remove from configuration file");
+            }
             final boolean striping = LockingResource.STRIPING.resolveModelAttribute(context, locking).asBoolean();
             final long acquireTimeout = LockingResource.ACQUIRE_TIMEOUT.resolveModelAttribute(context, locking).asLong();
             final int concurrencyLevel = LockingResource.CONCURRENCY_LEVEL.resolveModelAttribute(context, locking).asInt();
@@ -510,6 +519,20 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             }
         }
 
+        if (cache.hasDefined(ModelKeys.SECURITY) && cache.get(ModelKeys.SECURITY, ModelKeys.SECURITY_NAME).isDefined()) {
+            ModelNode securityModel = cache.get(ModelKeys.SECURITY, ModelKeys.SECURITY_NAME);
+
+            if (securityModel.hasDefined(ModelKeys.AUTHORIZATION) && securityModel.get(ModelKeys.AUTHORIZATION).hasDefined(ModelKeys.AUTHORIZATION_NAME)) {
+                ModelNode authzModel = securityModel.get(ModelKeys.AUTHORIZATION, ModelKeys.AUTHORIZATION_NAME);
+
+                AuthorizationConfigurationBuilder authzBuilder = builder.security().authorization();
+                authzBuilder.enabled(CacheAuthorizationResource.ENABLED.resolveModelAttribute(context, authzModel).asBoolean());
+                for(ModelNode role : CacheAuthorizationResource.ROLES.resolveModelAttribute(context, authzModel).asList()) {
+                    authzBuilder.role(role.asString());
+                }
+            }
+        }
+
         // loaders are a child resource
         for (String loaderKey : loaderKeys) {
             handleLoaderProperties(context, cache, loaderKey, containerName, builder, dependencies);
@@ -594,17 +617,37 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
         } else if (loaderKey.equals(ModelKeys.LOADER)) {
            String className = loader.require(ModelKeys.CLASS).asString();
            try {
-              org.infinispan.loaders.CacheLoader loaderInstance = (org.infinispan.loaders.CacheLoader) newInstance(className);
-              Adaptor52xStoreConfigurationBuilder scb = persistenceBuilder.addStore(Adaptor52xStoreConfigurationBuilder.class);
-              scb.loader(loaderInstance);
-              return scb;
+              Object instance = newInstance(className);
+              return handleStoreOrLoaderClass(className, persistenceBuilder);
            } catch (Exception e) {
-              throw InfinispanMessages.MESSAGES.invalidCacheLoader(e, className);
+              throw InfinispanMessages.MESSAGES.invalidCacheStore(e, className);
            }
         } else {
            throw new IllegalStateException();
         }
 
+    }
+
+    private StoreConfigurationBuilder handleStoreOrLoaderClass(String className,
+                                                               PersistenceConfigurationBuilder persistenceBuilder)
+          throws ClassNotFoundException {
+       Class<?> storeImplClass = CacheLoader.class.getClassLoader().loadClass(className);
+       ConfiguredBy annotation = storeImplClass.getAnnotation(ConfiguredBy.class);
+       Class<? extends StoreConfigurationBuilder> builderClass = null;
+       if (annotation != null) {
+          Class<?> configuredBy = annotation.value();
+          if (configuredBy != null) {
+             BuiltBy builtBy = configuredBy.getAnnotation(BuiltBy.class);
+             builderClass = builtBy.value().asSubclass(StoreConfigurationBuilder.class);
+          }
+       }
+       StoreConfigurationBuilder scb;
+       if (builderClass == null) {
+          scb = persistenceBuilder.addStore(CustomStoreConfigurationBuilder.class).customStoreClass(storeImplClass);
+       } else {
+          scb = persistenceBuilder.addStore(builderClass);
+       }
+       return scb;
     }
 
    private StoreConfigurationBuilder<?, ?> buildCacheStore(OperationContext context, PersistenceConfigurationBuilder persistenceBuilder, String containerName, ModelNode store, String storeKey, List<Dependency<?>> dependencies) throws OperationFailedException {
@@ -636,7 +679,10 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             dependencies.add(new Dependency<PathManager>(PathManagerService.SERVICE_NAME, PathManager.class, injector));
             return builder;
         } else if (storeKey.equals(ModelKeys.STRING_KEYED_JDBC_STORE) || storeKey.equals(ModelKeys.BINARY_KEYED_JDBC_STORE) || storeKey.equals(ModelKeys.MIXED_KEYED_JDBC_STORE)) {
-            final AbstractJdbcStoreConfigurationBuilder<?, ?> builder = this.buildJdbcStore(persistenceBuilder, context, store);
+            ModelNode dialectNode = BaseJDBCStoreResource.DIALECT.resolveModelAttribute(context, store);
+            Dialect dialect = dialectNode.isDefined() ? Dialect.valueOf(dialectNode.asString()) : null;
+
+            AbstractJdbcStoreConfigurationBuilder<?, ?> builder = buildJdbcStore(persistenceBuilder, context, store, dialect);
 
             final String datasource = BaseJDBCStoreResource.DATA_SOURCE.resolveModelAttribute(context, store).asString();
 
@@ -768,6 +814,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
                 if (store.hasDefined(ModelKeys.PATH)) {
                     builder.path(store.get(ModelKeys.PATH).asString());
                 }
+                builder.rawValues(true);
                 builder.metadataHelper(MimeMetadataHelper.class);
 
                 if (store.hasDefined(ModelKeys.CONNECTION_POOL)) {
@@ -796,17 +843,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
            String className = store.require(ModelKeys.CLASS).asString();
            try {
               Object instance = newInstance(className);
-              StoreConfigurationBuilder storeConfigurationBuilder;
-              if (instance instanceof org.infinispan.loaders.CacheLoader) { //5.2.x configuration
-                 Adaptor52xStoreConfigurationBuilder scb = persistenceBuilder.addStore(Adaptor52xStoreConfigurationBuilder.class);
-                 scb.loader((org.infinispan.loaders.CacheLoader) instance);
-                 storeConfigurationBuilder = scb;
-              } else {
-                 Class<?> storeImplClass = CacheLoader.class.getClassLoader().loadClass(className);
-                 Class<? extends StoreConfigurationBuilder> builderClass = StoreConfigurationBuilder.class.getClassLoader().loadClass(storeImplClass.getName() + "ConfigurationBuilder").asSubclass(StoreConfigurationBuilder.class);
-                 storeConfigurationBuilder = persistenceBuilder.addStore(builderClass);
-              }
-              return storeConfigurationBuilder;
+              return handleStoreOrLoaderClass(className, persistenceBuilder);
            } catch (Exception e) {
               throw InfinispanMessages.MESSAGES.invalidCacheStore(e, className);
            }
@@ -883,20 +920,23 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
       }
    }
 
-   private AbstractJdbcStoreConfigurationBuilder<?, ?> buildJdbcStore(PersistenceConfigurationBuilder loadersBuilder, OperationContext context, ModelNode store) throws OperationFailedException {
+   private AbstractJdbcStoreConfigurationBuilder<?, ?> buildJdbcStore(PersistenceConfigurationBuilder loadersBuilder, OperationContext context, ModelNode store, Dialect dialect) throws OperationFailedException {
         boolean useStringKeyedTable = store.hasDefined(ModelKeys.STRING_KEYED_TABLE);
         boolean useBinaryKeyedTable = store.hasDefined(ModelKeys.BINARY_KEYED_TABLE);
         if (useStringKeyedTable && !useBinaryKeyedTable) {
             JdbcStringBasedStoreConfigurationBuilder builder = loadersBuilder.addStore(JdbcStringBasedStoreConfigurationBuilder.class);
+            builder.dialect(dialect);
             this.buildStringKeyedTable(builder.table(), context, store.get(ModelKeys.STRING_KEYED_TABLE));
             return builder;
         } else if (useBinaryKeyedTable && !useStringKeyedTable) {
             JdbcBinaryStoreConfigurationBuilder builder = loadersBuilder.addStore(JdbcBinaryStoreConfigurationBuilder.class);
+            builder.dialect(dialect);
             this.buildBinaryKeyedTable(builder.table(), context, store.get(ModelKeys.BINARY_KEYED_TABLE));
             return builder;
         }
         // Else, use mixed mode
         JdbcMixedStoreConfigurationBuilder builder = loadersBuilder.addStore(JdbcMixedStoreConfigurationBuilder.class);
+        builder.dialect(dialect);
         this.buildStringKeyedTable(builder.stringTable(), context, store.get(ModelKeys.STRING_KEYED_TABLE));
         this.buildBinaryKeyedTable(builder.binaryTable(), context, store.get(ModelKeys.BINARY_KEYED_TABLE));
         return builder;

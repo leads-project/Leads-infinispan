@@ -5,7 +5,7 @@ Running the testsuite
 
 Running a subset of the testsuite
 ---------------------------------
-Subsets of the testsuite are specified by profiles that switch off running of certain test classes or the whole surefire plugin executions.
+Subsets of the testsuite are specified by profiles that switch off running of certain test classes or the whole failsafe plugin executions.
 Currently these subsets are predefined:
 
   -P suite.client                    (Client tests, all local/dist/repl cachemode)
@@ -13,10 +13,17 @@ Currently these subsets are predefined:
   -P suite.examples                  (Example config tests)
   -P suite.leveldb-client            (LevelDB cache store tests - the whole suite.client with leveldb configs)
   -P suite.cachestore                (Tests that use different cachestore configurations, remote, leveldb apod)
-  -P suite.rolling.upgrades          (Rolling upgrades specific tests, mandatory specification of: -Dzip.dist.old=path/to/old_distro.zip)
+
+  -P suite.rolling.upgrades          (Rolling upgrades specific tests, mandatory specification of: -Dzip.dist.old=path/to/old_distro.zip
+                                      NOTE: there are 2 properties defined with default values:
+                                      1) -Dold.server.schema.version=6.1 -- used for failsafe report suffix
+                                      2) -Dnew.server.schema.version=7.0 -- used to decide which snippet to use during
+                                          transformation of a configuration for new servers in the clustered scenario
+                                      Configuration snippets for new cluster are prepared for versions: 6.0, 6.1, 7.0)
 
   -P suite.others                    (Tests that do not belong to any of the suites above. Useful when running a single test that's outside
                                       of any pre-defined group)
+  -P suite.query                     (Query related tests, everything contained in the 'query' package)
 
 Running with specific server zip distribution
 ---------------------------------------------
@@ -26,16 +33,19 @@ If you specify -Dzip.dist=path/to/distro.zip the test server directories target/
 
 Running specific test 
 ---------------------
-When running only a specific test, it's important to realize that by default, there are multiple executions of the maven-surefire-plugin defined 
-and therefore the test might be executed multiple times even if it's specified via -Dtest= option. e.g.
+When running only a specific test, it's important to realize that by default, there are multiple executions of the maven-failsafe-plugin defined
+and therefore the test might be executed multiple times even if it's specified via -Dit.test= option. e.g.
 
-  mvn clean verify -Dtest=org/infinispan/server/test/client/hotrod/HotRodRemoteCacheTest#testPut
+  mvn clean verify -Dit.test=org/infinispan/server/test/client/hotrod/HotRodRemoteCacheIT#testPut
   will run the testPut method three times, each time in different clustering mode (local/dist/repl)
 
-so besides the -Dtest= directive it's useful to specify also the most specific suite for the given test:
+so besides the -Dit.test= directive it's useful to specify also the most specific suite for the given test:
 
-  mvn clean verify -P suite.client.local -Dtest=org/infinispan/server/test/client/hotrod/HotRodRemoteCacheTest#testPut
+  mvn clean verify -P suite.client.local -Dit.test=org/infinispan/server/test/client/hotrod/HotRodRemoteCacheIT#testPut
   will run the testPut method only once for the local cache mode.
+
+Also note that integration test classes need to be named ending "IT", not "TEST", as required by the maven-failsafe-plugin.
+
 
 Running tests for specific client 
 ---------------------------------
@@ -44,21 +54,10 @@ This is controlled by following profiles
   -P client.rest      (REST client)
   -P client.memcached (Memcached client)
   -P client.hotrod    (Hot Rod client)
-  -P client.hotrod.osgi    These tests require an Infinispan server to be started manually with the following
-  cache added to its configuration:
-
-  <local-cache name="indexed" start="EAGER">
-      <locking isolation="none" acquire-timeout="30000" concurrency-level="1000" striping="false"/>
-      <transaction mode="none"/>
-      <indexing index="all">
-          <property name="default.directory_provider">ram</property>
-          <property name="lucene_version">LUCENE_36</property>
-      </indexing>
-  </local-cache>
+  -P client.hotrod.osgi    These tests manage an Infinispan server through the maven-antrun-plugin.
 
   Tests for OSGi run by default in Karaf 2.3.3. A different version of Karaf may be specified via the command line:
   -Dversion.karaf=<version>
-
 
 
 Running client tests with TCP stack (UDP by default)

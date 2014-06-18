@@ -44,7 +44,7 @@ public class JPAQueryGenerator implements Visitor<String> {
          sb.append(' ');
       }
 
-      sb.append("FROM ").append(renderEntityName(baseQueryBuilder.getRootType())).append(' ').append(alias);
+      sb.append("FROM ").append(renderEntityName(baseQueryBuilder.getRootTypeName())).append(' ').append(alias);
 
       if (baseQueryBuilder.getFilterCondition() != null) {
          BaseCondition baseCondition = baseQueryBuilder.getFilterCondition().getRoot();
@@ -54,7 +54,6 @@ public class JPAQueryGenerator implements Visitor<String> {
          }
       }
 
-      //TODO the 'ORDER BY' clause is ignored by HQL parser anyway, see https://hibernate.atlassian.net/browse/HQLPARSER-24
       if (baseQueryBuilder.getSortCriteria() != null && !baseQueryBuilder.getSortCriteria().isEmpty()) {
          sb.append(" ORDER BY ");
          boolean isFirst = true;
@@ -71,8 +70,8 @@ public class JPAQueryGenerator implements Visitor<String> {
       return sb.toString();
    }
 
-   protected String renderEntityName(Class<?> rootType) {
-      return rootType.getName();
+   protected String renderEntityName(String rootType) {
+      return rootType;
    }
 
    protected <E extends Enum<E>> String renderEnum(E argument) {

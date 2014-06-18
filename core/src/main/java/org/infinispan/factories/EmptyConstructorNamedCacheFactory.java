@@ -14,14 +14,14 @@ import org.infinispan.context.InvocationContextFactory;
 import org.infinispan.context.NonTransactionalInvocationContextFactory;
 import org.infinispan.context.TransactionalInvocationContextFactory;
 import org.infinispan.distribution.L1Manager;
-import org.infinispan.distribution.L1ManagerImpl;
 import org.infinispan.distribution.RemoteValueRetrievedListener;
+import org.infinispan.distribution.impl.L1ManagerImpl;
 import org.infinispan.eviction.ActivationManager;
-import org.infinispan.eviction.ActivationManagerImpl;
 import org.infinispan.eviction.EvictionManager;
-import org.infinispan.eviction.EvictionManagerImpl;
 import org.infinispan.eviction.PassivationManager;
-import org.infinispan.eviction.PassivationManagerImpl;
+import org.infinispan.eviction.impl.ActivationManagerImpl;
+import org.infinispan.eviction.impl.EvictionManagerImpl;
+import org.infinispan.eviction.impl.PassivationManagerImpl;
 import org.infinispan.factories.annotations.DefaultFactoryFor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.marshall.core.MarshalledEntryFactory;
@@ -34,15 +34,10 @@ import org.infinispan.notifications.cachelistener.CacheNotifierImpl;
 import org.infinispan.statetransfer.CommitManager;
 import org.infinispan.statetransfer.StateTransferLock;
 import org.infinispan.statetransfer.StateTransferLockImpl;
-import org.infinispan.transaction.TransactionCoordinator;
+import org.infinispan.transaction.impl.TransactionCoordinator;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
 import org.infinispan.transaction.xa.TransactionFactory;
 import org.infinispan.transaction.xa.recovery.RecoveryAdminOperations;
-import org.infinispan.util.concurrent.locks.containers.LockContainer;
-import org.infinispan.util.concurrent.locks.containers.OwnableReentrantPerEntryLockContainer;
-import org.infinispan.util.concurrent.locks.containers.OwnableReentrantStripedLockContainer;
-import org.infinispan.util.concurrent.locks.containers.ReentrantPerEntryLockContainer;
-import org.infinispan.util.concurrent.locks.containers.ReentrantStripedLockContainer;
 import org.infinispan.xsite.BackupSender;
 import org.infinispan.xsite.BackupSenderImpl;
 import org.infinispan.xsite.statetransfer.XSiteStateConsumer;
@@ -66,8 +61,7 @@ import static org.infinispan.commons.util.Util.getInstance;
                               PassivationManager.class, ActivationManager.class,
                               BatchContainer.class, EvictionManager.class,
                               TransactionCoordinator.class, RecoveryAdminOperations.class, StateTransferLock.class,
-                              ClusteringDependentLogic.class, LockContainer.class,
-                              L1Manager.class, TransactionFactory.class, BackupSender.class,
+                              ClusteringDependentLogic.class, L1Manager.class, TransactionFactory.class, BackupSender.class,
                               TotalOrderManager.class, ByteBufferFactory.class, MarshalledEntryFactory.class,
                               RemoteValueRetrievedListener.class, InvocationContextFactory.class, CommitManager.class,
                               XSiteStateTransferManager.class, XSiteStateConsumer.class, XSiteStateProvider.class})
@@ -116,14 +110,6 @@ public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheCompone
             return (T) new StateTransferLockImpl();
          } else if (componentType.equals(EvictionManager.class)) {
             return (T) new EvictionManagerImpl();
-         } else if (componentType.equals(LockContainer.class)) {
-            boolean  notTransactional = !isTransactional;
-            LockContainer<?> lockContainer = configuration.locking().useLockStriping() ?
-                  notTransactional ? new ReentrantStripedLockContainer(configuration.locking().concurrencyLevel())
-                        : new OwnableReentrantStripedLockContainer(configuration.locking().concurrencyLevel()) :
-                  notTransactional ? new ReentrantPerEntryLockContainer(configuration.locking().concurrencyLevel())
-                        : new OwnableReentrantPerEntryLockContainer(configuration.locking().concurrencyLevel());
-            return (T) lockContainer;
          } else if (componentType.equals(L1Manager.class)) {
             return (T) new L1ManagerImpl();
          } else if (componentType.equals(TransactionFactory.class)) {

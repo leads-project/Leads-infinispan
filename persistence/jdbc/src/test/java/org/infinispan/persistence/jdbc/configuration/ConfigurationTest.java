@@ -1,9 +1,14 @@
 package org.infinispan.persistence.jdbc.configuration;
 
+import static org.testng.AssertJUnit.assertTrue;
+import static org.testng.AssertJUnit.assertFalse;
+import static org.testng.AssertJUnit.assertEquals;
+import java.util.Properties;
+
 import org.h2.Driver;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.persistence.jdbc.DatabaseType;
+import org.infinispan.persistence.jdbc.Dialect;
 import org.testng.annotations.Test;
 
 @Test(groups = "unit", testName = "persistence.jdbc.configuration.ConfigurationTest")
@@ -86,7 +91,7 @@ public class ConfigurationTest {
          .lockConcurrencyLevel(32)
          .fetchSize(50)
          .batchSize(50)
-         .databaseType(DatabaseType.H2);
+         .dialect(Dialect.H2);
       mixedBuilder.async().enable();
 
       mixedBuilder.binaryTable()
@@ -121,7 +126,7 @@ public class ConfigurationTest {
       assert store.stringTable().timestampColumnType().equals("BIGINT");
       assert store.batchSize() == 50;
       assert store.fetchSize() == 50;
-      assert store.databaseType() == DatabaseType.H2;
+      assert store.dialect() == Dialect.H2;
       assert store.fetchPersistentState();
       assert store.lockConcurrencyLevel() == 32;
       assert store.async().enabled();
@@ -192,4 +197,47 @@ public class ConfigurationTest {
       assert store2.fetchPersistentState();
       assert store2.async().enabled();
    }
+
+   public void testTableProperties() {
+      Properties props = new Properties();
+      props.put("createOnStart", "false");
+      props.put("dropOnExit", "true");
+
+      ConfigurationBuilder b = new ConfigurationBuilder();
+      b.persistence().addStore(JdbcStringBasedStoreConfigurationBuilder.class)
+         .connectionPool().connectionUrl(JDBC_URL)
+         .withProperties(props);
+      Configuration stringConfiguration = b.build();
+
+      JdbcStringBasedStoreConfiguration stringStoreConfiguration = (JdbcStringBasedStoreConfiguration) stringConfiguration.persistence().stores().get(0);
+      verifyTableManipulation(stringStoreConfiguration.table());
+
+      b = new ConfigurationBuilder();
+      b.persistence().addStore(JdbcBinaryStoreConfigurationBuilder.class)
+         .connectionPool().connectionUrl(JDBC_URL)
+         .withProperties(props);
+
+      Configuration binaryConfiguration = b.build();
+
+      JdbcBinaryStoreConfiguration binaryStoreConfiguration = (JdbcBinaryStoreConfiguration) binaryConfiguration.persistence().stores().get(0);
+      verifyTableManipulation(binaryStoreConfiguration.table());
+
+      b = new ConfigurationBuilder();
+      b.persistence().addStore(JdbcMixedStoreConfigurationBuilder.class)
+         .stringTable().tableNamePrefix("STRINGS_")
+         .binaryTable().tableNamePrefix("BINARY_")
+         .connectionPool().connectionUrl(JDBC_URL)
+         .withProperties(props);
+      Configuration mixedConfiguration = b.build();
+
+      JdbcMixedStoreConfiguration mixedStoreConfiguration = (JdbcMixedStoreConfiguration) mixedConfiguration.persistence().stores().get(0);
+      verifyTableManipulation(mixedStoreConfiguration.binaryTable());
+      verifyTableManipulation(mixedStoreConfiguration.stringTable());
+   }
+
+   private void verifyTableManipulation(TableManipulationConfiguration table) {
+      assertFalse(table.createOnStart());
+      assertTrue(table.dropOnExit());
+   }
+
 }

@@ -1,6 +1,6 @@
 package org.infinispan.container.entries;
 
-import org.infinispan.atomic.AtomicHashMap;
+import org.infinispan.atomic.impl.AtomicHashMap;
 import org.infinispan.commons.util.Util;
 import org.infinispan.container.DataContainer;
 import org.infinispan.metadata.Metadata;
@@ -154,7 +154,9 @@ public class ReadCommittedEntry implements MVCCEntry {
             if (isRemoved() && !isEvicted()) ahm.markRemoved(true);
          }
 
-         if (isRemoved()) {
+         if (isEvicted()) {
+            container.evict(key);
+         } else if (isRemoved()) {
             container.remove(key);
          } else if (value != null) {
             // Can't just rely on the entry's metadata because it could have

@@ -1,8 +1,12 @@
 package org.infinispan.persistence.jdbc.configuration;
 
+import java.util.Map;
+import java.util.Properties;
+
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
-import org.infinispan.persistence.jdbc.DatabaseType;
+import org.infinispan.configuration.parsing.XmlConfigHelper;
+import org.infinispan.persistence.jdbc.Dialect;
 import org.infinispan.persistence.jdbc.TableManipulation;
 import org.infinispan.persistence.keymappers.DefaultTwoWayKey2StringMapper;
 import org.infinispan.persistence.keymappers.Key2StringMapper;
@@ -19,7 +23,6 @@ public class JdbcMixedStoreConfigurationBuilder extends AbstractJdbcStoreConfigu
    private final MixedTableManipulationConfigurationBuilder binaryTable;
    private final MixedTableManipulationConfigurationBuilder stringTable;
    private String key2StringMapper = DefaultTwoWayKey2StringMapper.class.getName();
-   private DatabaseType databaseType;
    private int batchSize = TableManipulation.DEFAULT_BATCH_SIZE;
    private int fetchSize = TableManipulation.DEFAULT_FETCH_SIZE;
 
@@ -58,16 +61,6 @@ public class JdbcMixedStoreConfigurationBuilder extends AbstractJdbcStoreConfigu
    }
 
    /**
-    * Specifies the type of the underlying database. If unspecified the database type will be
-    * determined automatically
-    */
-   public JdbcMixedStoreConfigurationBuilder databaseType(DatabaseType databaseType) {
-      this.databaseType = databaseType;
-      return this;
-   }
-
-
-   /**
     * Allows configuration of table-specific parameters such as column names and types for the table
     * used to store entries with binary keys
     */
@@ -83,6 +76,16 @@ public class JdbcMixedStoreConfigurationBuilder extends AbstractJdbcStoreConfigu
    @Override
    public MixedTableManipulationConfigurationBuilder stringTable() {
       return stringTable;
+   }
+
+   @Override
+   public JdbcMixedStoreConfigurationBuilder withProperties(Properties props) {
+      Map<Object, Object> unrecognized = XmlConfigHelper.setValues(this, props, false, false);
+      XmlConfigHelper.setValues(binaryTable, unrecognized, false, false);
+      unrecognized = XmlConfigHelper.setValues(stringTable, unrecognized, false, false);
+      XmlConfigHelper.showUnrecognizedAttributes(unrecognized);
+      this.properties = props;
+      return this;
    }
 
    /**
@@ -107,6 +110,7 @@ public class JdbcMixedStoreConfigurationBuilder extends AbstractJdbcStoreConfigu
 
    @Override
    public void validate() {
+      super.validate();
       if (binaryTable.tableNamePrefix.equals(stringTable.tableNamePrefix))
          throw new CacheConfigurationException("There cannot be the same tableNamePrefix on both the binary and " +
                "String tables.");
@@ -125,26 +129,20 @@ public class JdbcMixedStoreConfigurationBuilder extends AbstractJdbcStoreConfigu
 
    @Override
    public JdbcMixedStoreConfiguration create() {
-      if (databaseType != null) {
-         if (stringTable.databaseType == null)
-            stringTable.databaseType(databaseType);
-         if (binaryTable.databaseType == null)
-            binaryTable.databaseType(databaseType);
-      }
       return new JdbcMixedStoreConfiguration(purgeOnStartup, fetchPersistentState, ignoreModifications, async.create(),
                                              singletonStore.create(), preload, shared, properties, connectionFactory.create(), manageConnectionFactory,
-                                             batchSize, fetchSize, databaseType, binaryTable.create(), stringTable.create(), key2StringMapper, lockConcurrencyLevel, lockAcquisitionTimeout);
+                                             batchSize, fetchSize, dialect, binaryTable.create(), stringTable.create(), key2StringMapper, lockConcurrencyLevel, lockAcquisitionTimeout);
    }
 
    @Override
    public JdbcMixedStoreConfigurationBuilder read(JdbcMixedStoreConfiguration template) {
-      super.readInternal(template);
+      super.read(template);
+
       this.binaryTable.read(template.binaryTable());
       this.stringTable.read(template.stringTable());
       this.key2StringMapper = template.key2StringMapper();
       this.batchSize = template.batchSize();
       this.fetchSize = template.fetchSize();
-      this.databaseType = template.databaseType();
       this.lockAcquisitionTimeout = template.lockAcquisitionTimeout();
       this.lockConcurrencyLevel = template.lockConcurrencyLevel();
       return this;

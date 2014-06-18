@@ -1,13 +1,13 @@
 package org.infinispan.container;
 
 import net.jcip.annotations.ThreadSafe;
-
+import org.infinispan.commons.equivalence.AnyEquivalence;
+import org.infinispan.commons.equivalence.Equivalence;
 import org.infinispan.commons.logging.Log;
 import org.infinispan.commons.logging.LogFactory;
-import org.infinispan.metadata.Metadata;
-import org.infinispan.commons.equivalence.Equivalence;
 import org.infinispan.commons.util.CollectionFactory;
 import org.infinispan.commons.util.concurrent.ParallelIterableMap;
+import org.infinispan.commons.util.concurrent.jdk8backported.EquivalentConcurrentHashMapV8;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.eviction.ActivationManager;
 import org.infinispan.eviction.EvictionManager;
@@ -15,8 +15,10 @@ import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.eviction.EvictionThreadPolicy;
 import org.infinispan.eviction.PassivationManager;
 import org.infinispan.factories.annotations.Inject;
+import org.infinispan.filter.KeyFilter;
+import org.infinispan.metadata.Metadata;
+import org.infinispan.filter.KeyValueFilter;
 import org.infinispan.persistence.manager.PersistenceManager;
-import org.infinispan.persistence.spi.AdvancedCacheLoader;
 import org.infinispan.util.CoreImmutables;
 import org.infinispan.util.TimeService;
 import org.infinispan.util.concurrent.BoundedConcurrentHashMap;
@@ -44,14 +46,15 @@ import java.util.concurrent.ConcurrentMap;
  * @since 4.0
  */
 @ThreadSafe
-public class DefaultDataContainer implements DataContainer {
+public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
 
    private static final Log log = LogFactory.getLog(DefaultDataContainer.class);
    private static final boolean trace = log.isTraceEnabled();
 
-   final protected ConcurrentMap<Object, InternalCacheEntry> entries;
+   private final ConcurrentMap<K, InternalCacheEntry<K, V>> entries;
+   private final DefaultEvictionListener evictionListener;
+   private final ExtendedMap<K, V> extendedMap;
    protected InternalEntryFactory entryFactory;
-   final protected DefaultEvictionListener evictionListener;
    private EvictionManager evictionManager;
    private PassivationManager passivator;
    private ActivationManager activator;
@@ -62,18 +65,20 @@ public class DefaultDataContainer implements DataContainer {
       // If no comparing implementations passed, could fallback on JDK CHM
       entries = CollectionFactory.makeConcurrentParallelMap(128, concurrencyLevel);
       evictionListener = null;
+      extendedMap = new EquivalentConcurrentExtendedMap();
    }
 
    public DefaultDataContainer(int concurrencyLevel,
-         Equivalence keyEq, Equivalence valueEq) {
+         Equivalence<? super K> keyEq) {
       // If at least one comparing implementation give, use ComparingCHMv8
-      entries = CollectionFactory.makeConcurrentParallelMap(128, concurrencyLevel, keyEq, valueEq);
+      entries = CollectionFactory.makeConcurrentParallelMap(128, concurrencyLevel, keyEq, AnyEquivalence.getInstance());
       evictionListener = null;
+      extendedMap = new EquivalentConcurrentExtendedMap();
    }
 
    protected DefaultDataContainer(int concurrencyLevel, int maxEntries,
          EvictionStrategy strategy, EvictionThreadPolicy policy,
-         Equivalence keyEquivalence, Equivalence valueEquivalence) {
+         Equivalence<? super K> keyEquivalence) {
       // translate eviction policy and strategy
       switch (policy) {
          case PIGGYBACK:
@@ -98,14 +103,14 @@ public class DefaultDataContainer implements DataContainer {
             throw new IllegalArgumentException("No such eviction strategy " + strategy);
       }
 
-      entries = new BoundedConcurrentHashMap<Object, InternalCacheEntry>(
-            maxEntries, concurrencyLevel, eviction, evictionListener,
-            keyEquivalence, valueEquivalence);
+      entries = new BoundedConcurrentHashMap<K, InternalCacheEntry<K, V>>(maxEntries, concurrencyLevel, eviction, evictionListener,
+                                                                          keyEquivalence, AnyEquivalence.getInstance());
+      extendedMap = new BoundedConcurrentExtendedMap();
    }
 
    @Inject
    public void initialize(EvictionManager evictionManager, PassivationManager passivator,
-         InternalEntryFactory entryFactory, ActivationManager activator, PersistenceManager clm, TimeService timeService) {
+                          InternalEntryFactory entryFactory, ActivationManager activator, PersistenceManager clm, TimeService timeService) {
       this.evictionManager = evictionManager;
       this.passivator = passivator;
       this.entryFactory = entryFactory;
@@ -114,16 +119,16 @@ public class DefaultDataContainer implements DataContainer {
       this.timeService = timeService;
    }
 
-   public static DataContainer boundedDataContainer(int concurrencyLevel, int maxEntries,
+   public static <K, V> DataContainer<K, V> boundedDataContainer(int concurrencyLevel, int maxEntries,
             EvictionStrategy strategy, EvictionThreadPolicy policy,
-            Equivalence keyEquivalence, Equivalence valueEquivalence) {
+            Equivalence<? super K> keyEquivalence) {
       return new DefaultDataContainer(concurrencyLevel, maxEntries, strategy,
-            policy, keyEquivalence, valueEquivalence);
+            policy, keyEquivalence);
    }
 
-   public static DataContainer unBoundedDataContainer(int concurrencyLevel,
-         Equivalence keyEquivalence, Equivalence valueEquivalence) {
-      return new DefaultDataContainer(concurrencyLevel, keyEquivalence, valueEquivalence);
+   public static <K, V> DataContainer<K, V> unBoundedDataContainer(int concurrencyLevel,
+         Equivalence<? super K> keyEquivalence) {
+      return new DefaultDataContainer(concurrencyLevel, keyEquivalence);
    }
 
    public static DataContainer unBoundedDataContainer(int concurrencyLevel) {
@@ -131,13 +136,13 @@ public class DefaultDataContainer implements DataContainer {
    }
 
    @Override
-   public InternalCacheEntry peek(Object key) {
+   public InternalCacheEntry<K, V> peek(Object key) {
       return entries.get(key);
    }
 
    @Override
-   public InternalCacheEntry get(Object k) {
-      InternalCacheEntry e = peek(k);
+   public InternalCacheEntry<K, V> get(Object k) {
+      InternalCacheEntry<K, V> e = peek(k);
       if (e != null && e.canExpire()) {
          long currentTimeMillis = timeService.wallClockTime();
          if (e.isExpired(currentTimeMillis)) {
@@ -151,16 +156,14 @@ public class DefaultDataContainer implements DataContainer {
    }
 
    @Override
-   public void put(Object k, Object v, Metadata metadata) {
-      InternalCacheEntry e = entries.get(k);
+   public void put(K k, V v, Metadata metadata) {
+      InternalCacheEntry<K, V> e = entries.get(k);
+
+      if (trace) {
+         log.tracef("Creating new ICE for writing. Existing=%s, metadata=%s, new value=%s", e, metadata, v);
+      }
       if (e != null) {
-         e.setValue(v);
-         InternalCacheEntry original = e;
-         e = entryFactory.update(e, metadata);
-         // we have the same instance. So we need to reincarnate, if mortal.
-         if (isMortalEntry(e) && original == e) {
-            e.reincarnate(timeService.wallClockTime());
-         }
+         e = entryFactory.update(e, v, metadata);
       } else {
          // this is a brand-new entry
          e = entryFactory.create(k, v, metadata);
@@ -169,16 +172,12 @@ public class DefaultDataContainer implements DataContainer {
       if (trace)
          log.tracef("Store %s in container", e);
 
-      entries.put(k, e);
-   }
-
-   private boolean isMortalEntry(InternalCacheEntry e) {
-      return e.getLifespan() > 0;
+      extendedMap.putAndActivate(e);
    }
 
    @Override
    public boolean containsKey(Object k) {
-      InternalCacheEntry ice = peek(k);
+      InternalCacheEntry<K, V> ice = peek(k);
       if (ice != null && ice.canExpire() && ice.isExpired(timeService.wallClockTime())) {
          entries.remove(k);
          ice = null;
@@ -187,8 +186,8 @@ public class DefaultDataContainer implements DataContainer {
    }
 
    @Override
-   public InternalCacheEntry remove(Object k) {
-      InternalCacheEntry e = entries.remove(k);
+   public InternalCacheEntry<K, V> remove(Object k) {
+      InternalCacheEntry<K, V> e = entries.remove(k);
       return e == null || (e.canExpire() && e.isExpired(timeService.wallClockTime())) ? null : e;
    }
 
@@ -199,28 +198,29 @@ public class DefaultDataContainer implements DataContainer {
 
    @Override
    public void clear() {
+      log.tracef("Clearing data container");
       entries.clear();
    }
 
    @Override
-   public Set<Object> keySet() {
+   public Set<K> keySet() {
       return Collections.unmodifiableSet(entries.keySet());
    }
 
    @Override
-   public Collection<Object> values() {
+   public Collection<V> values() {
       return new Values();
    }
 
    @Override
-   public Set<InternalCacheEntry> entrySet() {
+   public Set<InternalCacheEntry<K, V>> entrySet() {
       return new EntrySet();
    }
 
    @Override
    public void purgeExpired() {
       long currentTimeMillis = timeService.wallClockTime();
-      for (Iterator<InternalCacheEntry> purgeCandidates = entries.values().iterator(); purgeCandidates.hasNext();) {
+      for (Iterator<InternalCacheEntry<K, V>> purgeCandidates = entries.values().iterator(); purgeCandidates.hasNext();) {
          InternalCacheEntry e = purgeCandidates.next();
          if (e.isExpired(currentTimeMillis)) {
             purgeCandidates.remove();
@@ -229,14 +229,24 @@ public class DefaultDataContainer implements DataContainer {
    }
 
    @Override
-   public Iterator<InternalCacheEntry> iterator() {
+   public void evict(K key) {
+      extendedMap.evict(key);
+   }
+
+   @Override
+   public void compute(K key, ComputeAction<K, V> action) {
+      extendedMap.compute(key, action);
+   }
+
+   @Override
+   public Iterator<InternalCacheEntry<K, V>> iterator() {
       return new EntryIterator(entries.values().iterator());
    }
 
-   private final class DefaultEvictionListener implements EvictionListener<Object, InternalCacheEntry> {
+   private final class DefaultEvictionListener implements EvictionListener<K, InternalCacheEntry<K, V>> {
 
       @Override
-      public void onEntryEviction(Map<Object, InternalCacheEntry> evicted) {
+      public void onEntryEviction(Map<K, InternalCacheEntry<K, V>> evicted) {
          evictionManager.onEntryEviction(evicted);
       }
 
@@ -257,25 +267,25 @@ public class DefaultDataContainer implements DataContainer {
       }
    }
 
-   private static class ImmutableEntryIterator extends EntryIterator {
-      ImmutableEntryIterator(Iterator<InternalCacheEntry> it){
+   private static class ImmutableEntryIterator<K, V> extends EntryIterator<K, V> {
+      ImmutableEntryIterator(Iterator<InternalCacheEntry<K, V>> it){
          super(it);
       }
 
       @Override
-      public InternalCacheEntry next() {
+      public InternalCacheEntry<K, V> next() {
          return CoreImmutables.immutableInternalCacheEntry(super.next());
       }
    }
 
-   public static class EntryIterator implements Iterator<InternalCacheEntry> {
+   public static class EntryIterator<K, V> implements Iterator<InternalCacheEntry<K, V>> {
 
-      private final Iterator<InternalCacheEntry> it;
+      private final Iterator<InternalCacheEntry<K, V>> it;
 
-      EntryIterator(Iterator<InternalCacheEntry> it){this.it=it;}
+      EntryIterator(Iterator<InternalCacheEntry<K, V>> it){this.it=it;}
 
       @Override
-      public InternalCacheEntry next() {
+      public InternalCacheEntry<K, V> next() {
          return it.next();
       }
 
@@ -294,7 +304,7 @@ public class DefaultDataContainer implements DataContainer {
     * Minimal implementation needed for unmodifiable Set
     *
     */
-   private class EntrySet extends AbstractSet<InternalCacheEntry> {
+   private class EntrySet extends AbstractSet<InternalCacheEntry<K, V>> {
 
       @Override
       public boolean contains(Object o) {
@@ -312,7 +322,7 @@ public class DefaultDataContainer implements DataContainer {
       }
 
       @Override
-      public Iterator<InternalCacheEntry> iterator() {
+      public Iterator<InternalCacheEntry<K, V>> iterator() {
          return new ImmutableEntryIterator(entries.values().iterator());
       }
 
@@ -331,9 +341,9 @@ public class DefaultDataContainer implements DataContainer {
     * Minimal implementation needed for unmodifiable Collection
     *
     */
-   private class Values extends AbstractCollection<Object> {
+   private class Values extends AbstractCollection<V> {
       @Override
-      public Iterator<Object> iterator() {
+      public Iterator<V> iterator() {
          return new ValueIterator(entries.values().iterator());
       }
 
@@ -343,10 +353,10 @@ public class DefaultDataContainer implements DataContainer {
       }
    }
 
-   private static class ValueIterator implements Iterator<Object> {
-      Iterator<InternalCacheEntry> currentIterator;
+   private static class ValueIterator<K, V> implements Iterator<V> {
+      Iterator<InternalCacheEntry<K, V>> currentIterator;
 
-      private ValueIterator(Iterator<InternalCacheEntry> it) {
+      private ValueIterator(Iterator<InternalCacheEntry<K, V>> it) {
          currentIterator = it;
       }
 
@@ -361,30 +371,154 @@ public class DefaultDataContainer implements DataContainer {
       }
 
       @Override
-      public Object next() {
+      public V next() {
          return currentIterator.next().getValue();
       }
    }
 
    @Override
-   public <K> void executeTask(final AdvancedCacheLoader.KeyFilter<K> filter, final ParallelIterableMap.KeyValueAction<Object, InternalCacheEntry> action) throws InterruptedException{
+   public void executeTask(final KeyFilter<? super K> filter,
+                               final ParallelIterableMap.KeyValueAction<? super K, InternalCacheEntry<? super K, ? super V>> action) throws InterruptedException{
       if (filter == null)
          throw new IllegalArgumentException("No filter specified");
       if (action == null)
          throw new IllegalArgumentException("No action specified");
 
-      ParallelIterableMap<Object, InternalCacheEntry> map = (ParallelIterableMap<Object, InternalCacheEntry>) entries;
-      map.forEach(512, new ParallelIterableMap.KeyValueAction<Object, InternalCacheEntry>() {
+      ParallelIterableMap<K, InternalCacheEntry<K, V>> map = (ParallelIterableMap<K, InternalCacheEntry<K, V>>) entries;
+      map.forEach(512, new ParallelIterableMap.KeyValueAction<K, InternalCacheEntry<K, V>>() {
          @Override
-         public void apply(Object key, InternalCacheEntry value) {            
-            if (filter.shouldLoadKey((K)key)) {
-               action.apply((K)key, value);
+         public void apply(K key, InternalCacheEntry<K, V> value) {
+            if (filter.accept(key)) {
+               action.apply(key, value);
             }
          }
       });
       //TODO figure out the way how to do interruption better (during iteration)
       if(Thread.currentThread().isInterrupted()){
          throw new InterruptedException();
+      }
+   }
+
+   @Override
+   public void executeTask(final KeyValueFilter<? super K, ? super V> filter,
+                           final ParallelIterableMap.KeyValueAction<? super K, InternalCacheEntry<? super K, ? super V>> action) throws InterruptedException {
+      if (filter == null)
+         throw new IllegalArgumentException("No filter specified");
+      if (action == null)
+         throw new IllegalArgumentException("No action specified");
+
+      ParallelIterableMap<K, InternalCacheEntry<K, V>> map = (ParallelIterableMap<K, InternalCacheEntry<K, V>>) entries;
+      map.forEach(512, new ParallelIterableMap.KeyValueAction<K, InternalCacheEntry<K, V>>() {
+         @Override
+         public void apply(K key, InternalCacheEntry<K, V> value) {
+            if (filter.accept(key, value.getValue(), value.getMetadata())) {
+               action.apply(key, value);
+            }
+         }
+      });
+      //TODO figure out the way how to do interruption better (during iteration)
+      if(Thread.currentThread().isInterrupted()){
+         throw new InterruptedException();
+      }
+   }
+
+   /**
+    * Atomic logic to activate/passivate entries. This is dependent of the {@code ConcurrentMap} implementation.
+    */
+   private static interface ExtendedMap<K, V> {
+      void evict(K key);
+
+      void compute(K key, ComputeAction<K, V> action);
+
+      void putAndActivate(InternalCacheEntry<K, V> newEntry);
+   }
+
+   private class EquivalentConcurrentExtendedMap implements ExtendedMap<K, V> {
+      @Override
+      public void evict(K key) {
+         ((EquivalentConcurrentHashMapV8<K, InternalCacheEntry<K, V>>) entries)
+               .computeIfPresent(key, new EquivalentConcurrentHashMapV8.BiFun<K, InternalCacheEntry<K, V>, InternalCacheEntry<K, V>>() {
+                  @Override
+                  public InternalCacheEntry<K, V> apply(K o, InternalCacheEntry<K, V> entry) {
+                     passivator.passivate(entry);
+                     return null;
+                  }
+               });
+      }
+
+      @Override
+      public void compute(K key, final ComputeAction<K, V> action) {
+         ((EquivalentConcurrentHashMapV8<K, InternalCacheEntry<K, V>>) entries)
+               .compute(key, new EquivalentConcurrentHashMapV8.BiFun<K, InternalCacheEntry<K, V>, InternalCacheEntry<K, V>>() {
+                  @Override
+                  public InternalCacheEntry<K, V> apply(K key, InternalCacheEntry<K, V> oldEntry) {
+                     InternalCacheEntry<K, V> newEntry = action.compute(key, oldEntry, entryFactory);
+                     if (newEntry == oldEntry) {
+                        return oldEntry;
+                     } else if (newEntry == null) {
+                        return null;
+                     }
+                     if (oldEntry == null) {
+                        //new entry. need to activate the key.
+                        activator.activate(key);
+                     }
+                     if (trace)
+                        log.tracef("Store %s in container", newEntry);
+                     return newEntry;
+                  }
+               });
+      }
+
+      @Override
+      public void putAndActivate(final InternalCacheEntry<K, V> newEntry) {
+         ((EquivalentConcurrentHashMapV8<K, InternalCacheEntry<K, V>>) entries)
+               .compute(newEntry.getKey(), new EquivalentConcurrentHashMapV8.BiFun<K, InternalCacheEntry<K, V>, InternalCacheEntry<K, V>>() {
+                  @Override
+                  public InternalCacheEntry<K, V> apply(K key, InternalCacheEntry<K, V> entry) {
+                     if (entry == null) {
+                        //entry does not exists before. we need to activate it.
+                        activator.activate(key);
+                     }
+
+                     return newEntry;
+                  }
+               });
+      }
+   }
+
+   private class BoundedConcurrentExtendedMap implements ExtendedMap<K, V> {
+      @Override
+      public void evict(K key) {
+         ((BoundedConcurrentHashMap<Object, InternalCacheEntry<K, V>>) entries).evict(key);
+      }
+
+      @Override
+      public void compute(K key, final ComputeAction<K, V> action) {
+         final BoundedConcurrentHashMap<K, InternalCacheEntry<K, V>> boundedMap =
+               ((BoundedConcurrentHashMap<K, InternalCacheEntry<K, V>>) entries);
+         boundedMap.lock(key);
+         try {
+            InternalCacheEntry<K, V> oldEntry = boundedMap.get(key);
+            InternalCacheEntry<K, V> newEntry = action.compute(key, oldEntry, entryFactory);
+            if (oldEntry == newEntry) {
+               return;
+            } else if (newEntry == null) {
+               boundedMap.remove(key);
+               return;
+            }
+            if (trace)
+               log.tracef("Store %s in container", newEntry);
+            //put already activate the entry if it is new.
+            boundedMap.put(key, newEntry);
+         } finally {
+            boundedMap.unlock(key);
+         }
+      }
+
+      @Override
+      public void putAndActivate(InternalCacheEntry<K, V> newEntry) {
+         //put already activate the entry if it is new.
+         entries.put(newEntry.getKey(), newEntry);
       }
    }
 }

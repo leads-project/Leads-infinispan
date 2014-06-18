@@ -1,6 +1,9 @@
 package org.infinispan.server.hotrod.logging;
 
+import java.util.Set;
+
 import org.infinispan.commons.CacheConfigurationException;
+import org.infinispan.notifications.cachelistener.event.Event;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.jboss.logging.annotations.Cause;
 import org.jboss.logging.annotations.LogMessage;
@@ -36,5 +39,20 @@ public interface JavaLog extends org.infinispan.util.logging.Log {
 
    @Message(value = "Isolation level must be READ_COMMITTED or lower: '%s'", id = 6004)
    CacheConfigurationException invalidIsolationLevel(IsolationLevel isolationLevel);
+
+   @Message(value = "Cannot enable authentication without specifying a ServerAuthenticationProvider", id = 6005)
+   CacheConfigurationException serverAuthenticationProvider();
+
+   @Message(value = "The specified allowedMechs [%s] contains mechs which are unsupported by the underlying factories [%s]", id = 6006)
+   CacheConfigurationException invalidAllowedMechs(Set<String> allowedMechs, Set<String> allMechs);
+
+   @Message(value = "The requested operation is invalid", id = 6007)
+   UnsupportedOperationException invalidOperation();
+
+   @Message(value = "A serverName must be specified when enabling authentication", id = 6008)
+   CacheConfigurationException missingServerName();
+
+   @Message(value = "Event not handled by current Hot Rod event implementation: '%s'", id = 6009)
+   IllegalStateException unexpectedEvent(Event e);
 
 }

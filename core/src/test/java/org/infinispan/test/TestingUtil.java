@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.security.Principal;
@@ -38,7 +39,7 @@ import javax.transaction.TransactionManager;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
-import org.infinispan.CacheImpl;
+import org.infinispan.cache.impl.CacheImpl;
 import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.container.DataContainer;
@@ -46,11 +47,11 @@ import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
 import org.infinispan.context.InvocationContext;
-import org.infinispan.context.InvocationContextContainer;
 import org.infinispan.context.InvocationContextFactory;
 import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.factories.KnownComponentNames;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.jmx.PerThreadMBeanServerLookup;
@@ -71,17 +72,20 @@ import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.InfinispanCollections;
 import org.infinispan.marshall.core.ExternalizerTable;
 import org.infinispan.metadata.EmbeddedMetadata;
-import org.infinispan.metadata.InternalMetadataImpl;
 import org.infinispan.metadata.Metadata;
+import org.infinispan.metadata.impl.InternalMetadataImpl;
+import org.infinispan.registry.ClusterRegistry;
+import org.infinispan.registry.impl.ClusterRegistryImpl;
 import org.infinispan.remoting.ReplicationQueue;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
+import org.infinispan.security.impl.SecureCacheImpl;
 import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.topology.CacheTopology;
 import org.infinispan.topology.DefaultRebalancePolicy;
 import org.infinispan.topology.RebalancePolicy;
-import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.util.concurrent.WithinThreadExecutor;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.infinispan.util.logging.Log;
@@ -97,6 +101,10 @@ public class TestingUtil {
    private static final Random random = new Random();
    public static final String TEST_PATH = "infinispanTempFiles";
    public static final String INFINISPAN_START_TAG = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<infinispan\n" +
+         "      xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
+         "      xsi:schemaLocation=\"urn:infinispan:config:7.0 http://www.infinispan.org/schemas/infinispan-config-7.0.xsd\"\n" +
+         "      xmlns=\"urn:infinispan:config:7.0\">";
+   public static final String INFINISPAN_START_TAG_60 = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<infinispan\n" +
          "      xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
          "      xsi:schemaLocation=\"urn:infinispan:config:6.0 http://www.infinispan.org/schemas/infinispan-config-6.0.xsd\"\n" +
          "      xmlns=\"urn:infinispan:config:6.0\">";
@@ -177,6 +185,9 @@ public class TestingUtil {
       final int REHASH_TIMEOUT_SECONDS = 180; //Needs to be rather large to prevent sporadic failures on CI
       final long giveup = System.nanoTime() + TimeUnit.SECONDS.toNanos(REHASH_TIMEOUT_SECONDS);
       for (Cache c : caches) {
+         if (c instanceof SecureCacheImpl) {
+            c = (Cache) extractField(SecureCacheImpl.class, c, "delegate");
+         }
          StateTransferManager stateTransferManager = extractComponent(c, StateTransferManager.class);
          DefaultRebalancePolicy rebalancePolicy = (DefaultRebalancePolicy) TestingUtil.extractGlobalComponent(c.getCacheManager(), RebalancePolicy.class);
          Address cacheAddress = c.getAdvancedCache().getRpcManager().getAddress();
@@ -628,6 +639,10 @@ public class TestingUtil {
 
          if (!cacheContainer.getStatus().allowInvocations()) return;
 
+         Cache<?, ?> registryCache = cacheContainer.getCache(ClusterRegistryImpl.GLOBAL_REGISTRY_CACHE_NAME, false);
+         if (registryCache != null && registryCache.getStatus().allowInvocations()) {
+            runningCaches.add(registryCache);
+         }
          for (Cache cache : runningCaches) {
             clearReplicationQueues(cache);
             clearCacheLoader(cache);
@@ -679,9 +694,9 @@ public class TestingUtil {
       persistenceManager.clearAllStores(false);
    }
 
-   public static <K, V> List<CacheLoader> cachestores(List<Cache<K, V>> caches) {
-      List<CacheLoader> l = new LinkedList<CacheLoader>();
-      for (Cache<?, ?> c: caches)
+   public static <K, V> List<CacheLoader<K, V>> cachestores(List<Cache<K, V>> caches) {
+      List<CacheLoader<K, V>> l = new LinkedList<CacheLoader<K, V>>();
+      for (Cache<K, V> c: caches)
          l.add(TestingUtil.getFirstLoader(c));
       return l;
    }
@@ -1023,19 +1038,19 @@ public class TestingUtil {
       return builder.toString();
    }
 
-   public static Set getInternalKeys(Cache cache) {
-      DataContainer dataContainer = TestingUtil.extractComponent(cache, DataContainer.class);
-      Set keys = new HashSet();
-      for (CacheEntry entry : dataContainer) {
+   public static <K> Set<K> getInternalKeys(Cache<K, ?> cache) {
+      DataContainer<K, ?> dataContainer = TestingUtil.extractComponent(cache, DataContainer.class);
+      Set<K> keys = new HashSet<K>();
+      for (CacheEntry<K, ?> entry : dataContainer) {
          keys.add(entry.getKey());
       }
       return keys;
    }
 
-   public static Collection getInternalValues(Cache cache) {
-      DataContainer dataContainer = TestingUtil.extractComponent(cache, DataContainer.class);
-      Collection values = new ArrayList();
-      for (CacheEntry entry : dataContainer) {
+   public static <V> Collection<V> getInternalValues(Cache<?, V> cache) {
+      DataContainer<?, V> dataContainer = TestingUtil.extractComponent(cache, DataContainer.class);
+      Collection<V> values = new ArrayList<V>();
+      for (CacheEntry<?, V> entry : dataContainer) {
          values.add(entry.getValue());
       }
       return values;
@@ -1293,13 +1308,13 @@ public class TestingUtil {
    }
 
 
-   public static CacheLoader getFirstLoader(Cache cache) {
+   public static <K, V> CacheLoader<K, V> getFirstLoader(Cache<K, V> cache) {
       PersistenceManagerImpl persistenceManager = (PersistenceManagerImpl) extractComponent(cache, PersistenceManager.class);
       return persistenceManager.getAllLoaders().get(0);
    }
 
    @SuppressWarnings("unchecked")
-   public static <T extends CacheWriter> T getFirstWriter(Cache cache) {
+   public static <T extends CacheWriter<K, V>, K, V> T getFirstWriter(Cache<K, V> cache) {
       PersistenceManagerImpl persistenceManager = (PersistenceManagerImpl) extractComponent(cache, PersistenceManager.class);
       return (T) persistenceManager.getAllWriters().get(0);
    }
@@ -1308,7 +1323,7 @@ public class TestingUtil {
       return cache.getAdvancedCache().getComponentRegistry().getCacheMarshaller();
    }
 
-   public static Set<MarshalledEntry> allEntries(AdvancedLoadWriteStore cl, AdvancedCacheLoader.KeyFilter filter) {
+   public static Set<MarshalledEntry> allEntries(AdvancedLoadWriteStore cl, KeyFilter filter) {
       final Set<MarshalledEntry> result = new HashSet<MarshalledEntry>();
       cl.process(filter, new AdvancedCacheLoader.CacheLoaderTask() {
          @Override
@@ -1378,7 +1393,7 @@ public class TestingUtil {
       return new Subject(true, set, InfinispanCollections.emptySet(), InfinispanCollections.emptySet());
    }
 
-   public static class TestPrincipal implements Principal {
+   public static class TestPrincipal implements Principal, Serializable {
       String name;
 
       public TestPrincipal(String name) {

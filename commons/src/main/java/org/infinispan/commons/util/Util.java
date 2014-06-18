@@ -55,7 +55,7 @@ public final class Util {
     * Current Java vendor. This variable is later used to differentiate LRU implementations
     * for different java vendors.
     */
-   private static final String javaVendor = SysPropertyActions.getProperty("java.vendor", "");
+   private static final String javaVendor = SecurityActions.getProperty("java.vendor", "");
 
    /**
     * <p>
@@ -86,11 +86,29 @@ public final class Util {
       }
    }
 
+   /**
+    * Tries to determine if the code is running in an OSGi context.
+    * 
+    * @return true if an OSGi context is detected
+    */
+   public static boolean isOSGiContext() {
+      ClassLoader cl = Util.class.getClassLoader();
+      boolean result = false;
+      try {
+         result = cl instanceof org.osgi.framework.BundleReference;
+      } catch (NoClassDefFoundError ex) {
+         // OSGi bundle not on the classpath. Ignore.
+      }
+      return result;
+   }
+
    public static ClassLoader[] getClassLoaders(ClassLoader appClassLoader) {
       return new ClassLoader[] {
             appClassLoader,  // User defined classes
+            OsgiClassLoader.getInstance(), // OSGi bundle context needs to be on top of TCCL, system CL, etc.
             Util.class.getClassLoader(), // Infinispan classes (not always on TCCL [modular env])
-            ClassLoader.getSystemClassLoader() // Used when load time instrumentation is in effect
+            ClassLoader.getSystemClassLoader(), // Used when load time instrumentation is in effect
+            Thread.currentThread().getContextClassLoader() //Used by jboss-as stuff
             };
    }
 
@@ -419,6 +437,10 @@ public final class Util {
       }
    }
 
+   public static String printArray(byte[] array) {
+      return printArray(array, false);
+   }
+
    public static String printArray(byte[] array, boolean withHash) {
       if (array == null) return "null";
 
@@ -646,6 +668,15 @@ public final class Util {
    public static int getNormalizedHash(Object object, Hash hashFct) {
       // make sure no negative numbers are involved.
       return hashFct.hash(object) & Integer.MAX_VALUE;
+   }
+
+   /**
+    * Returns the size of each segment, given a number of segments.
+    * @param numSegments number of segments required
+    * @return the size of each segment
+    */
+   public static int getSegmentSize(int numSegments) {
+      return (int)Math.ceil((float)Integer.MAX_VALUE / numSegments);
    }
 
    public static boolean isIBMJavaVendor() {

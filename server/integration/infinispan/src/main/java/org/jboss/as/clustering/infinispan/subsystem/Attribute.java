@@ -27,7 +27,6 @@ import javax.xml.XMLConstants;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.hibernate.search.stat.Statistics;
 import org.jboss.as.controller.AttributeDefinition;
 
 /**
@@ -43,6 +42,7 @@ public enum Attribute {
     ALIASES(ModelKeys.ALIASES),
     APPEND_CACHE_NAME_TO_PATH(ModelKeys.APPEND_CACHE_NAME_TO_PATH),
     ASYNC_MARSHALLING(ModelKeys.ASYNC_MARSHALLING),
+    AUDIT_LOGGER(ModelKeys.AUDIT_LOGGER),
     AWAIT_INITIAL_TRANSFER(ModelKeys.AWAIT_INITIAL_TRANSFER),
     BACKUP_FAILURE_POLICY(ModelKeys.BACKUP_FAILURE_POLICY),
     BATCH_SIZE(ModelKeys.BATCH_SIZE),
@@ -61,6 +61,7 @@ public enum Attribute {
     DATASOURCE(ModelKeys.DATASOURCE),
     DEFAULT_CACHE(ModelKeys.DEFAULT_CACHE),
     @Deprecated DEFAULT_CACHE_CONTAINER("default-cache-container"),
+    DIALECT(ModelKeys.DIALECT),
     @Deprecated EAGER_LOCKING("eager-locking"),
     ENABLED(ModelKeys.ENABLED),
     EVICTION_EXECUTOR(ModelKeys.EVICTION_EXECUTOR),
@@ -81,6 +82,7 @@ public enum Attribute {
     LOCK_TIMEOUT(ModelKeys.LOCK_TIMEOUT),
     LOCKING(ModelKeys.LOCKING),
     MACHINE(ModelKeys.MACHINE),
+    MAPPER(ModelKeys.MAPPER),
     MARSHALLER(ModelKeys.MARSHALLER),
     MAX_CONNECTIONS_PER_HOST(ModelKeys.MAX_CONNECTIONS_PER_HOST),
     MAX_ENTRIES(ModelKeys.MAX_ENTRIES),
@@ -95,6 +97,7 @@ public enum Attribute {
     OWNERS(ModelKeys.OWNERS),
     PASSIVATION(ModelKeys.PASSIVATION),
     PATH(ModelKeys.PATH),
+    PERMISSIONS(ModelKeys.PERMISSIONS),
     PREFIX(ModelKeys.PREFIX),
     PRELOAD(ModelKeys.PRELOAD),
     PURGE(ModelKeys.PURGE),
@@ -106,6 +109,7 @@ public enum Attribute {
     RELATIVE_TO(ModelKeys.RELATIVE_TO),
     REMOTE_TIMEOUT(ModelKeys.REMOTE_TIMEOUT),
     REPLICATION_QUEUE_EXECUTOR(ModelKeys.REPLICATION_QUEUE_EXECUTOR),
+    ROLES(ModelKeys.ROLES),
     SEGMENTS(ModelKeys.SEGMENTS),
     SHARED(ModelKeys.SHARED),
     SHUTDOWN_TIMEOUT(ModelKeys.SHUTDOWN_TIMEOUT),
@@ -125,7 +129,7 @@ public enum Attribute {
     THREAD_POOL_SIZE(ModelKeys.THREAD_POOL_SIZE),
     TIMEOUT(ModelKeys.TIMEOUT),
     TYPE(ModelKeys.TYPE),
-    @Deprecated VIRTUAL_NODES("virtual-nodes"),
+    @Deprecated VIRTUAL_NODES("virtual-nodes")
     ;
 
     private final String name;

@@ -4,19 +4,22 @@ import logging.Log
 import org.infinispan.server.core.Operation._
 import HotRodOperation._
 import OperationStatus._
-import org.infinispan.AdvancedCache
 import org.infinispan.stats.Stats
 import org.infinispan.server.core._
 import collection.mutable
 import collection.immutable
 import org.infinispan.util.concurrent.TimeoutException
 import java.io.IOException
-import org.infinispan.context.Flag.IGNORE_RETURN_VALUES
+import org.infinispan.context.Flag._
 import org.infinispan.server.core.transport.ExtendedByteBuf._
 import transport.NettyTransport
-import org.infinispan.container.entries.{CacheEntry, InternalCacheEntry}
+import org.infinispan.container.entries.CacheEntry
 import org.infinispan.container.versioning.NumericVersion
 import io.netty.buffer.ByteBuf
+import scala.Some
+import org.infinispan.server.hotrod.configuration.HotRodServerConfiguration
+import io.netty.channel.ChannelHandlerContext
+import io.netty.channel.Channel
 
 /**
  * HotRod protocol decoder specific for specification version 1.0.
@@ -134,7 +137,7 @@ object Decoder10 extends AbstractVersionedDecoder with ServerConstants with Log 
          new Response(h.version, h.messageId, h.cacheName, h.clientIntel, op, st, h.topologyId)
    }
 
-   override def createGetResponse(h: HotRodHeader, entry: CacheEntry): AnyRef = {
+   override def createGetResponse(h: HotRodHeader, entry: CacheEntry[Array[Byte], Array[Byte]]): AnyRef = {
       val op = h.op
       if (entry != null && op == GetRequest)
          new GetResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
@@ -154,12 +157,11 @@ object Decoder10 extends AbstractVersionedDecoder with ServerConstants with Log 
                h.topologyId, None, 0)
    }
 
-   override def customReadHeader(h: HotRodHeader, buffer: ByteBuf,
-           cache: AdvancedCache[Array[Byte], Array[Byte]]): AnyRef = {
+   override def customReadHeader(h: HotRodHeader, buffer: ByteBuf, cache: Cache, server: HotRodServer, ctx: ChannelHandlerContext): AnyRef = {
       h.op match {
          case ClearRequest => {
             // Get an optimised cache in case we can make the operation more efficient
-            getOptimizedCache(h, cache).clear()
+            cache.clear()
             new Response(h.version, h.messageId, h.cacheName, h.clientIntel,
                          ClearResponse, Success, h.topologyId)
          }
@@ -168,8 +170,7 @@ object Decoder10 extends AbstractVersionedDecoder with ServerConstants with Log 
       }
    }
 
-   override def customReadKey(h: HotRodHeader, buffer: ByteBuf,
-           cache: AdvancedCache[Array[Byte], Array[Byte]], queryFacades: Seq[QueryFacade]): AnyRef = {
+   override def customReadKey(h: HotRodHeader, buffer: ByteBuf, cache: Cache, server: HotRodServer, ch: Channel): AnyRef = {
       h.op match {
          case RemoveIfUnmodifiedRequest => {
             val k = readKey(buffer)
@@ -219,20 +220,19 @@ object Decoder10 extends AbstractVersionedDecoder with ServerConstants with Log 
          }
          case QueryRequest => {
             val query = readRangedBytes(buffer)
-            val result = queryFacades.head.query(cache, query)
+            val result = server.getQueryFacades.head.query(cache, query)
             new QueryResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
                h.topologyId, result)
          }
       }
    }
 
-   def getKeyMetadata(h: HotRodHeader, k: Array[Byte],
-           cache: AdvancedCache[Array[Byte], Array[Byte]]): GetWithMetadataResponse = {
+   def getKeyMetadata(h: HotRodHeader, k: Array[Byte], cache: Cache): GetWithMetadataResponse = {
       val ce = cache.getAdvancedCache.getCacheEntry(k)
       if (ce != null) {
          val ice = ce.asInstanceOf[InternalCacheEntry]
          val entryVersion = ice.getMetadata.version().asInstanceOf[NumericVersion]
-         val v = ce.getValue.asInstanceOf[Array[Byte]]
+         val v = ce.getValue
          val lifespan = if (ice.getLifespan < 0) -1 else (ice.getLifespan / 1000).toInt
          val maxIdle = if (ice.getMaxIdle < 0) -1 else (ice.getMaxIdle / 1000).toInt
          new GetWithMetadataResponse(h.version, h.messageId, h.cacheName,
@@ -245,8 +245,7 @@ object Decoder10 extends AbstractVersionedDecoder with ServerConstants with Log 
       }
    }
 
-   override def customReadValue(header: HotRodHeader, buffer: ByteBuf,
-           cache: AdvancedCache[Array[Byte], Array[Byte]]): AnyRef = null
+   override def customReadValue(header: HotRodHeader, buffer: ByteBuf, cache: Cache): AnyRef = null
 
    override def createStatsResponse(h: HotRodHeader, cacheStats: Stats, t: NettyTransport): AnyRef = {
       val stats = mutable.Map.empty[String, String]
@@ -279,62 +278,17 @@ object Decoder10 extends AbstractVersionedDecoder with ServerConstants with Log 
       }
    }
 
-   override def getOptimizedCache(h: HotRodHeader,
-           c: AdvancedCache[Array[Byte], Array[Byte]]): AdvancedCache[Array[Byte], Array[Byte]] = {
+   override def getOptimizedCache(h: HotRodHeader, c: Cache): Cache = {
+      var optCache = c
       if (!hasFlag(h, ForceReturnPreviousValue)) {
-         c.getAdvancedCache.withFlags(IGNORE_RETURN_VALUES)
-      } else {
-         c
+         h.op match {
+            case PutRequest =>
+            case PutIfAbsentRequest =>
+               optCache = optCache.withFlags(IGNORE_RETURN_VALUES)
+            case _ =>
+         }
       }
+      optCache
    }
 
-   def toResponse(request: Enumeration#Value): OperationResponse = {
-      request match {
-         case PutRequest => PutResponse
-         case GetRequest => GetResponse
-         case PutIfAbsentRequest => PutIfAbsentResponse
-         case ReplaceRequest => ReplaceResponse
-         case ReplaceIfUnmodifiedRequest => ReplaceIfUnmodifiedResponse
-         case RemoveRequest => RemoveResponse
-         case RemoveIfUnmodifiedRequest => RemoveIfUnmodifiedResponse
-         case ContainsKeyRequest => ContainsKeyResponse
-         case GetWithVersionRequest => GetWithVersionResponse
-         case ClearRequest => ClearResponse
-         case StatsRequest => StatsResponse
-         case PingRequest => PingResponse
-         case BulkGetRequest => BulkGetResponse
-         case GetWithMetadataRequest => GetWithMetadataResponse
-         case BulkGetKeysRequest => BulkGetKeysResponse
-      }
-   }
-
-}
-
-object OperationResponse extends Enumeration {
-   type OperationResponse = Enumeration#Value
-   val PutResponse = Value(0x02)
-   val GetResponse = Value(0x04)
-   val PutIfAbsentResponse = Value(0x06)
-   val ReplaceResponse = Value(0x08)
-   val ReplaceIfUnmodifiedResponse = Value(0x0A)
-   val RemoveResponse = Value(0x0C)
-   val RemoveIfUnmodifiedResponse = Value(0x0E)
-   val ContainsKeyResponse = Value(0x10)
-   val GetWithVersionResponse = Value(0x12)
-   val ClearResponse = Value(0x14)
-   val StatsResponse = Value(0x16)
-   val PingResponse = Value(0x18)
-   val BulkGetResponse = Value(0x1A)
-   val GetWithMetadataResponse = Value(0x1C)
-   val BulkGetKeysResponse = Value(0x1E)
-   val QueryResponse = Value(0x20)
-   val ErrorResponse = Value(0x50)
-}
-
-object ProtocolFlag extends Enumeration {
-   type ProtocolFlag = Enumeration#Value
-   val NoFlag = Value
-   val ForceReturnPreviousValue = Value(0x01)
-   val DefaultLifespan = Value(0x02)
-   val DefaultMaxIdle = Value(0x04)
 }

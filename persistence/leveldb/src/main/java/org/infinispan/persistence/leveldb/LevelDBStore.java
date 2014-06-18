@@ -1,8 +1,10 @@
 package org.infinispan.persistence.leveldb;
 
 import org.infinispan.commons.CacheConfigurationException;
+import org.infinispan.commons.configuration.ConfiguredBy;
 import org.infinispan.commons.util.Util;
 import org.infinispan.executors.ExecutorAllCompletionService;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.metadata.InternalMetadata;
 import org.infinispan.persistence.spi.PersistenceException;
@@ -33,6 +35,7 @@ import java.util.concurrent.CompletionService;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
+@ConfiguredBy(LevelDBStoreConfiguration.class)
 public class LevelDBStore implements AdvancedLoadWriteStore {
    private static final Log log = LogFactory.getLog(LevelDBStore.class, Log.class);
 
@@ -287,7 +290,7 @@ public class LevelDBStore implements AdvancedLoadWriteStore {
                for (Map.Entry<byte[], byte[]> entry : batch) {
                   if (taskContext.isStopped()) {break;}
                   Object key = unmarshall(entry.getKey());
-                  if (filter == null || filter.shouldLoadKey(key)) {
+                  if (filter == null || filter.accept(key)) {
                      MarshalledEntry unmarshall = (MarshalledEntry) unmarshall(entry.getValue());
                      boolean isExpired = unmarshall.getMetadata() != null && unmarshall.getMetadata().isExpired(now);
                      if (!isExpired) {

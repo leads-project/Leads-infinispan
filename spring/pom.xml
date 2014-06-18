@@ -91,7 +91,7 @@
          <optional>true</optional>
          <exclusions>
             <exclusion>
-               <groupId>org.apache.hadoop</groupId>
+               <groupId>org.apache.avro</groupId>
                <artifactId>avro</artifactId>
             </exclusion>
          </exclusions>
@@ -121,12 +121,7 @@
       </dependency>
       <dependency>
          <groupId>org.jboss.marshalling</groupId>
-         <artifactId>jboss-marshalling</artifactId>
-         <scope>runtime</scope>
-      </dependency>
-      <dependency>
-         <groupId>org.jboss.marshalling</groupId>
-         <artifactId>jboss-marshalling-river</artifactId>
+         <artifactId>jboss-marshalling-osgi</artifactId>
          <scope>runtime</scope>
       </dependency>
 

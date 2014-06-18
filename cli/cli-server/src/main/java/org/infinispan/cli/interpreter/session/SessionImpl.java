@@ -6,7 +6,7 @@ import javax.transaction.TransactionManager;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
-import org.infinispan.api.BasicCacheContainer;
+import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.cli.interpreter.codec.Codec;
 import org.infinispan.cli.interpreter.codec.CodecException;
 import org.infinispan.cli.interpreter.codec.CodecRegistry;
@@ -131,7 +131,8 @@ public class SessionImpl implements Session {
    }
 
    private void resetCache(final Cache<Object, Object> cache) {
-      if (cache.getCacheConfiguration().invocationBatching().enabled()) {
+      Configuration configuration = SecurityActions.getCacheConfiguration(cache.getAdvancedCache());
+      if (configuration.invocationBatching().enabled()) {
          cache.endBatch(false);
       }
       TransactionManager tm = cache.getAdvancedCache().getTransactionManager();

@@ -15,7 +15,7 @@ import java.io.File;
 import java.io.InputStream;
 
 import static org.infinispan.test.TestingUtil.*;
-import static org.testng.AssertJUnit.*;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Single file cache store functional test.
@@ -50,11 +50,14 @@ public class SingleFileStoreFunctionalTest extends BaseStoreFunctionalTest {
 
    public void testParsingEmptyElement() throws Exception {
       String config = INFINISPAN_START_TAG_NO_SCHEMA +
-            "<default>\n" +
-            "<persistence passivation=\"false\"> \n" +
-            "<singleFile shared=\"false\" preload=\"true\"/> \n" +
-            "</persistence>\n" +
-            "</default>\n" + INFINISPAN_END_TAG;
+            "<cache-container default-cache=\"default\">" +
+            "   <local-cache name=\"default\">\n" +
+            "      <persistence passivation=\"false\"> \n" +
+            "         <file-store shared=\"false\" preload=\"true\"/> \n" +
+            "      </persistence>\n" +
+            "   </local-cache>\n" +
+            "</cache-container>" +
+            INFINISPAN_END_TAG;
       InputStream is = new ByteArrayInputStream(config.getBytes());
       withCacheManager(new CacheManagerCallable(TestCacheManagerFactory.fromStream(is)) {
          @Override
@@ -67,16 +70,19 @@ public class SingleFileStoreFunctionalTest extends BaseStoreFunctionalTest {
             assertEquals(-1, cacheLoader.getConfiguration().maxEntries());
          }
       });
+      TestingUtil.recursiveFileRemove("Infinispan-SingleFileStore");
    }
 
    public void testParsingElement() throws Exception {
       String config = INFINISPAN_START_TAG_NO_SCHEMA +
-            "<default>\n" +
-            "<eviction maxEntries=\"100\"/>" +
-            "<persistence passivation=\"false\"> \n" +
-            "<singleFile maxEntries=\"100\" shared=\"false\" preload=\"true\" location=\"other-location\"/> \n" +
-            "</persistence>\n" +
-            "</default>\n" + INFINISPAN_END_TAG;
+            "<cache-container default-cache=\"default\">" +
+            "   <local-cache name=\"default\">\n" +
+            "      <persistence passivation=\"false\"> \n" +
+            "         <file-store path=\"other-location\" max-entries=\"100\" shared=\"false\" preload=\"true\" fragmentation-factor=\"0.75\"/> \n" +
+            "      </persistence>\n" +
+            "   </local-cache>\n" +
+            "</cache-container>" +
+            INFINISPAN_END_TAG;
       InputStream is = new ByteArrayInputStream(config.getBytes());
       withCacheManager(new CacheManagerCallable(TestCacheManagerFactory.fromStream(is)) {
          @Override
@@ -87,8 +93,10 @@ public class SingleFileStoreFunctionalTest extends BaseStoreFunctionalTest {
             SingleFileStore store = (SingleFileStore) TestingUtil.getFirstLoader(cache);
             assertEquals("other-location", store.getConfiguration().location());
             assertEquals(100, store.getConfiguration().maxEntries());
+            assertEquals(0.75f, store.getConfiguration().fragmentationFactor(), 0f);
          }
       });
+      TestingUtil.recursiveFileRemove("other-location");
    }
 
 }

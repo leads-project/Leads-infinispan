@@ -27,6 +27,7 @@
       <module>query-dsl</module>
       <module>remote-query/remote-query-client</module>
       <module>remote-query/remote-query-server</module>
+      <module>object-filter</module>
       <module>tree</module>
       <module>lucene</module>
       <module>lucene/lucene-directory</module>
@@ -34,6 +35,7 @@
       <module>lucene/lucene-v3</module>
       <module>persistence</module>
       <module>persistence/jdbc</module>
+      <module>persistence/jpa</module>
       <module>persistence/remote</module>
       <module>persistence/cli</module>
       <module>persistence/leveldb</module>
@@ -59,18 +61,19 @@
       <module>demos/nearcache</module>
       <module>demos/nearcache-client</module>
       <module>cdi/extension</module>
-      <module>as-modules</module>
-      <module>integrationtests/luceneintegration</module>
-      <module>integrationtests/as-integration</module>
-      <module>integrationtests/compatibility-mode-it</module>
-      <module>integrationtests/cdi-jcache-it</module>
       <module>jcache</module>
-      <module>compatibility52x</module>
-      <module>compatibility52x/adaptor52x</module>
-      <module>compatibility52x/custom52x-store</module>
-      <module>compatibility52x/cli-migrator52x</module>
       <module>server/integration</module>
        <module>atomic-factory</module>
+      <module>as-modules/embedded</module>
+      <module>as-modules/client</module>
+      <module>integrationtests/as-integration-embedded</module>
+      <module>integrationtests/as-integration-client</module>
+      <module>integrationtests/as-lucene-directory</module>
+      <module>integrationtests/compatibility-mode-it</module>
+      <module>integrationtests/cdi-jcache-it</module>
+      <module>integrationtests/security-it</module>
+      <module>integrationtests/security-manager-it</module>
+      <module>integrationtests/osgi</module>
    </modules>
 
    <profiles>
@@ -89,6 +92,13 @@
                            <goal>aggregate</goal>
                         </goals>
                         <configuration>
+                           <doclet>org.infinispan.tools.doclet.PublicAPI</doclet>
+                           <docletArtifact>
+                              <groupId>org.infinispan</groupId>
+                              <artifactId>infinispan-tools</artifactId>
+                              <version>${project.version}</version>
+                           </docletArtifact>
+                           <doctitle>Infinispan ${project.version} API</doctitle>
                            <quiet>true</quiet>
                            <!-- In case anyone needs to trace javadoc issues
                            <additionalJOption>-J-Xrunjdwp:transport=dt_socket,address=8787,server=y,suspend=y</additionalJOption>
@@ -97,7 +107,7 @@
                            <javadocDirectory>${basedir}/src/javadoc</javadocDirectory>
                            <docfilessubdirs>true</docfilessubdirs>
                            <links>
-                              <link>http://docs.oracle.com/javase/6/docs/api/</link>
+                              <link>http://docs.oracle.com/javase/7/docs/api/</link>
                               <link>http://docs.oracle.com/javaee/5/api/</link>
                            </links>
                            <footer><![CDATA[

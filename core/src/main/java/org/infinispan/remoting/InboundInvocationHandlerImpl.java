@@ -30,7 +30,7 @@ import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.ResponseGenerator;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.Transport;
-import org.infinispan.transaction.TotalOrderRemoteTransactionState;
+import org.infinispan.transaction.impl.TotalOrderRemoteTransactionState;
 import org.infinispan.transaction.totalorder.TotalOrderLatch;
 import org.infinispan.transaction.totalorder.TotalOrderManager;
 import org.infinispan.util.concurrent.BlockingRunnable;
@@ -172,6 +172,7 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                      if (trace) log.tracef("Ignoring command sent before the local node was a member " +
                            "(command topology id is %d)", commandTopologyId);
                      reply(response, null);
+                     return;
                   }
                   Response resp;
                   try {
@@ -193,6 +194,7 @@ public class InboundInvocationHandlerImpl implements InboundInvocationHandler {
                if (trace) log.tracef("Ignoring command sent before the local node was a member " +
                      "(command topology id is %d)", commandTopologyId);
                reply(response, null);
+               return;
             }
 
             Response resp = handleInternal(cmd, cr);

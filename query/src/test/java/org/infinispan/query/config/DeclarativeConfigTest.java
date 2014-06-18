@@ -1,6 +1,6 @@
 package org.infinispan.query.config;
 
-import org.apache.lucene.queryParser.ParseException;
+import org.apache.lucene.queryparser.classic.ParseException;
 import org.hibernate.search.engine.spi.EntityIndexBinding;
 import org.hibernate.search.indexes.impl.DirectoryBasedIndexManager;
 import org.hibernate.search.indexes.spi.IndexManager;
@@ -29,14 +29,14 @@ public class DeclarativeConfigTest extends SingleCacheManagerTest {
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
       String config = TestingUtil.INFINISPAN_START_TAG + "\n" +
-            "   <default>\n" +
-            "      <indexing enabled=\"true\" indexLocalOnly=\"true\">\n" +
-            "         <properties>\n" +
-            "            <property name=\"default.directory_provider\" value=\"ram\" />\n" +
-            "            <property name=\"lucene_version\" value=\"LUCENE_CURRENT\" />\n" +
-            "         </properties>\n" +
+            "<cache-container default-cache=\"default\">" +
+            "   <local-cache name=\"default\">\n" +
+            "      <indexing index=\"LOCAL\">\n" +
+            "            <property name=\"default.directory_provider\">ram</property>\n" +
             "      </indexing>\n" +
-            "   </default>\n" + TestingUtil.INFINISPAN_END_TAG;
+            "   </local-cache>\n" +
+            "</cache-container>" +
+            TestingUtil.INFINISPAN_END_TAG;
       System.out.println("Using test configuration:\n\n" + config + "\n");
       InputStream is = new ByteArrayInputStream(config.getBytes());
       try {

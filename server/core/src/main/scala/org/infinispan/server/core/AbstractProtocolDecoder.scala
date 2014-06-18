@@ -20,6 +20,14 @@ import io.netty.buffer.{Unpooled, ByteBuf}
 import java.util
 import io.netty.util.CharsetUtil
 import java.net.SocketAddress
+import javax.security.auth.Subject
+import java.security.PrivilegedExceptionAction
+import org.infinispan.configuration.cache.Configuration
+import org.infinispan.factories.ComponentRegistry
+import org.infinispan.remoting.rpc.RpcManager
+import org.infinispan.manager.EmbeddedCacheManager
+import java.security.PrivilegedAction
+import org.infinispan.security.Security
 
 /**
  * Common abstract decoder for Memcached and Hot Rod protocols.
@@ -27,7 +35,7 @@ import java.net.SocketAddress
  * @author Galder Zamarreño
  * @since 4.1
  */
-abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
+abstract class AbstractProtocolDecoder[K, V](secure: Boolean, transport: NettyTransport)
       extends ReplayingDecoder[DecoderState](DECODE_HEADER) with ChannelOutboundHandler with ServerConstants with Log {
    import AbstractProtocolDecoder._
 
@@ -41,38 +49,87 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
    protected var key: K = null.asInstanceOf[K]
    protected var rawValue: Array[Byte] = null.asInstanceOf[Array[Byte]]
    protected var cache: AdvancedCache[K, V] = null
+   protected var cacheConfiguration: Configuration = null
    protected var defaultLifespanTime: Long = _
    protected var defaultMaxIdleTime: Long = _
+   var subject: Subject = ANONYMOUS
 
-
-  def decode(ctx: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
-    val ch = ctx.channel
-    try {
-      if (isTrace) // To aid debugging
-        trace("Decode using instance @%x", System.identityHashCode(this))
-      state match {
-        case DECODE_HEADER => decodeHeader(ch, in, state)
-        case DECODE_KEY => decodeKey(ch, in, state)
-        case DECODE_PARAMETERS => decodeParameters(ch, in, state)
-        case DECODE_VALUE => decodeValue(ch, in, state)
+   def decode(ctx: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
+      if (secure) {
+         secureDecodeDispatch(ctx, in, out)
+      } else {
+         decodeDispatch(ctx, in, out)
       }
-    } catch {
-      case e: Exception => {
-        val (serverException, isClientError) = createServerException(e, in)
-        // If decode returns an exception, decode won't be called again so,
-        // we need to fire the exception explicitly so that requests can
-        // carry on being processed on same connection after a client error
-        if (isClientError) {
-          ctx.pipeline.fireExceptionCaught(serverException)
-        } else {
-          throw serverException
-        }
-      }
-      case t: Throwable => throw t
-    }
-  }
+   }
 
-  private def decodeHeader(ch: Channel, buffer: ByteBuf, state: DecoderState): AnyRef = {
+   private def decodeDispatch(ctx: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
+      try {
+         if (isTrace) // To aid debugging
+            trace("Decode using instance @%x", System.identityHashCode(this))
+         state match {
+            case DECODE_HEADER => decodeHeader(ctx, in, state, out)
+            case DECODE_KEY => decodeKey(ctx, in, state)
+            case DECODE_PARAMETERS => decodeParameters(ctx, in, state)
+            case DECODE_VALUE => decodeValue(ctx, in, state)
+         }
+      } catch {
+         case e: Exception => {
+            val (serverException, isClientError) = createServerException(e, in)
+            // If decode returns an exception, decode won't be called again so,
+            // we need to fire the exception explicitly so that requests can
+            // carry on being processed on same connection after a client error
+            if (isClientError) {
+               ctx.pipeline.fireExceptionCaught(serverException)
+            } else {
+               throw serverException
+            }
+         }
+         case t: Throwable => throw t
+      }
+   }
+
+   private def secureDecodeDispatch(ctx: ChannelHandlerContext, in: ByteBuf, out: util.List[AnyRef]): Unit = {
+      try {
+         if (isTrace) // To aid debugging
+            trace("Decode using instance @%x", System.identityHashCode(this))
+         state match {
+            case DECODE_HEADER => decodeHeader(ctx, in, state, out)
+            case DECODE_KEY =>
+               Security.doAs(subject, new PrivilegedExceptionAction[Unit] {
+                  def run: Unit = {
+                     decodeKey(ctx, in, state)
+                  }
+               })
+            case DECODE_PARAMETERS =>
+               Security.doAs(subject, new PrivilegedExceptionAction[Unit] {
+                  def run: Unit = {
+                     decodeParameters(ctx, in, state)
+                  }
+               })
+            case DECODE_VALUE =>
+               Security.doAs(subject, new PrivilegedExceptionAction[Unit] {
+                  def run: Unit = {
+                     decodeValue(ctx, in, state)
+                  }
+               })
+         }
+      } catch {
+         case e: Exception => {
+            val (serverException, isClientError) = createServerException(e, in)
+            // If decode returns an exception, decode won't be called again so,
+            // we need to fire the exception explicitly so that requests can
+            // carry on being processed on same connection after a client error
+            if (isClientError) {
+               ctx.pipeline.fireExceptionCaught(serverException)
+            } else {
+               throw serverException
+            }
+         }
+         case t: Throwable => throw t
+      }
+   }
+
+   private def decodeHeader(ctx: ChannelHandlerContext, buffer: ByteBuf, state: DecoderState, out: util.List[AnyRef]): AnyRef = {
       header = createHeader
       val endOfOp = readHeader(buffer, header)
       if (endOfOp == None) {
@@ -80,21 +137,28 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
          // It can happen with Hot Rod if the header is completely corrupted
          return null
       }
-
+      val ch = ctx.channel
       cache = getCache.getAdvancedCache
-      defaultLifespanTime = cache.getCacheConfiguration.expiration().lifespan()
-      defaultMaxIdleTime = cache.getCacheConfiguration.expiration().maxIdle()
+      cacheConfiguration = getCacheConfiguration
+      defaultLifespanTime = cacheConfiguration.expiration().lifespan()
+      defaultMaxIdleTime = cacheConfiguration.expiration().maxIdle()
       if (endOfOp.get) {
-         header.op match {
+         val message = header.op match {
             case StatsRequest => writeResponse(ch, createStatsResponse)
-            case _ => customDecodeHeader(ch, buffer)
+            case _ => customDecodeHeader(ctx, buffer)
          }
+         message match {
+            case pr: PartialResponse => pr.buffer.map(out.add(_))
+            case _ => null
+         }
+         null
       } else {
          checkpointTo(DECODE_KEY)
       }
    }
 
-   private def decodeKey(ch: Channel, buffer: ByteBuf, state: DecoderState): AnyRef = {
+   private def decodeKey(ctx: ChannelHandlerContext, buffer: ByteBuf, state: DecoderState): AnyRef = {
+      val ch = ctx.channel
       header.op match {
          // Get, put and remove are the most typical operations, so they're first
          case GetRequest => writeResponse(ch, get(buffer))
@@ -103,7 +167,7 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
          case GetWithVersionRequest => writeResponse(ch, get(buffer))
          case PutIfAbsentRequest | ReplaceRequest | ReplaceIfUnmodifiedRequest =>
             handleModification(ch, buffer)
-         case _ => customDecodeKey(ch, buffer)
+         case _ => customDecodeKey(ctx, buffer)
       }
    }
 
@@ -119,7 +183,8 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
    }
 
 
-   private def decodeParameters(ch: Channel, buffer: ByteBuf, state: DecoderState): AnyRef = {
+   private def decodeParameters(ctx: ChannelHandlerContext, buffer: ByteBuf, state: DecoderState): AnyRef = {
+      val ch = ctx.channel
       val endOfOp = readParameters(ch, buffer)
       if (!endOfOp && params.valueLength > 0) {
          // Create value holder and checkpoint only if there's more to read
@@ -127,13 +192,14 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
          checkpointTo(DECODE_VALUE)
       } else if (params.valueLength == 0){
          rawValue = Array.empty
-         decodeValue(ch, buffer, state)
+         decodeValue(ctx, buffer, state)
       } else {
-         decodeValue(ch, buffer, state)
+         decodeValue(ctx, buffer, state)
       }
    }
 
-   private def decodeValue(ch: Channel, buffer: ByteBuf, state: DecoderState): AnyRef = {
+   private def decodeValue(ctx: ChannelHandlerContext, buffer: ByteBuf, state: DecoderState): AnyRef = {
+      val ch = ctx.channel
       val ret = header.op match {
          case PutRequest | PutIfAbsentRequest | ReplaceRequest | ReplaceIfUnmodifiedRequest  => {
             readValue(buffer)
@@ -145,7 +211,7 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
             }
          }
          case RemoveRequest => remove
-         case _ => customDecodeValue(ch, buffer)
+         case _ => customDecodeValue(ctx, buffer)
       }
       writeResponse(ch, ret)
    }
@@ -162,6 +228,7 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
                }
                case a: Array[Byte] => ch.writeAndFlush(wrappedBuffer(a))
                case cs: CharSequence => ch.writeAndFlush(Unpooled.copiedBuffer(cs, CharsetUtil.UTF_8))
+               case pr: PartialResponse => return pr
                case _ => ch.writeAndFlush(response)
             }
          }
@@ -182,7 +249,7 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
 
    private def put: AnyRef = {
       // Get an optimised cache in case we can make the operation more efficient
-      val prev = getOptimizedCache(cache).put(key, createValue(), buildMetadata())
+      val prev = cache.put(key, createValue(), buildMetadata())
       createSuccessResponse(prev)
    }
 
@@ -203,12 +270,14 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
       metadata.build()
    }
 
-   protected def getOptimizedCache(c: AdvancedCache[K, V]): AdvancedCache[K, V] = c
+   override def actualReadableBytes(): Int = {
+      super.actualReadableBytes()
+   }
 
    private def putIfAbsent: AnyRef = {
       var prev = cache.get(key)
       if (prev == null) { // Generate new version only if key not present
-         prev = getOptimizedCache(cache).putIfAbsent(key, createValue(), buildMetadata())
+         prev = cache.putIfAbsent(key, createValue(), buildMetadata())
       }
       if (prev == null)
          createSuccessResponse(prev)
@@ -295,6 +364,10 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
 
    protected def getCache: Cache[K, V]
 
+   protected def getCacheConfiguration: Configuration
+
+   protected def getCacheRegistry: ComponentRegistry
+
    /**
     * Returns the key read along with a boolean indicating whether the
     * end of the operation was found or not. This allows client to
@@ -315,31 +388,31 @@ abstract class AbstractProtocolDecoder[K, V](transport: NettyTransport)
 
    protected def createNotExistResponse: AnyRef
 
-   protected def createGetResponse(k: K, entry: CacheEntry): AnyRef
+   protected def createGetResponse(k: K, entry: CacheEntry[K, V]): AnyRef
 
-   protected def createMultiGetResponse(pairs: Map[K, CacheEntry]): AnyRef
+   protected def createMultiGetResponse(pairs: Map[K, CacheEntry[K, V]]): AnyRef
 
    protected def createErrorResponse(t: Throwable): AnyRef
 
    protected def createStatsResponse: AnyRef
 
-   protected def customDecodeHeader(ch: Channel, buffer: ByteBuf): AnyRef
+   protected def customDecodeHeader(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef
 
-   protected def customDecodeKey(ch: Channel, buffer: ByteBuf): AnyRef
+   protected def customDecodeKey(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef
 
-   protected def customDecodeValue(ch: Channel, buffer: ByteBuf): AnyRef
+   protected def customDecodeValue(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef
 
    protected def createServerException(e: Exception, b: ByteBuf): (Exception, Boolean)
 
    protected def generateVersion(cache: Cache[K, V]): EntryVersion = {
-      val registry = cache.getAdvancedCache.getComponentRegistry
+      val registry = getCacheRegistry
       val cacheVersionGenerator = registry.getComponent(classOf[VersionGenerator])
       if (cacheVersionGenerator == null) {
          // It could be null, for example when not running in compatibility mode.
          // The reason for that is that if no other component depends on the
          // version generator, the factory does not get invoked.
          val newVersionGenerator = new NumericVersionGenerator()
-                 .clustered(cache.getAdvancedCache.getRpcManager != null)
+                 .clustered(registry.getComponent(classOf[RpcManager]) != null)
          registry.registerComponent(newVersionGenerator, classOf[VersionGenerator])
          newVersionGenerator.generateNew()
       } else {
@@ -426,3 +499,5 @@ class RequestParameters(val valueLength: Int, val lifespan: Int, val maxIdle: In
 }
 
 class UnknownOperationException(reason: String) extends StreamCorruptedException(reason)
+
+class PartialResponse(val buffer: Option[ByteBuf])

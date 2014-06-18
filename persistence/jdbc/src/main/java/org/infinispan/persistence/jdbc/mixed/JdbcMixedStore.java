@@ -1,6 +1,8 @@
 package org.infinispan.persistence.jdbc.mixed;
 
+import org.infinispan.commons.configuration.ConfiguredBy;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.jdbc.binary.JdbcBinaryStore;
 import org.infinispan.persistence.jdbc.configuration.ConnectionFactoryConfiguration;
@@ -43,6 +45,7 @@ import java.util.concurrent.Executor;
  * @see org.infinispan.persistence.jdbc.binary.JdbcBinaryStore
  * @see org.infinispan.persistence.jdbc.stringbased.JdbcStringBasedStore
  */
+@ConfiguredBy(JdbcMixedStoreConfiguration.class)
 public class JdbcMixedStore implements AdvancedLoadWriteStore {
 
    private static final Log log = LogFactory.getLog(JdbcMixedStore.class);

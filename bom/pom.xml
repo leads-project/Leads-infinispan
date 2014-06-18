@@ -53,20 +53,20 @@
 
    <properties>
       <!-- Versions for dependencies -->
-      <version.protostream>1.0.0.Final</version.protostream>
+      <version.protostream>1.0.2.Final</version.protostream>
       <version.protobuf>2.5.0</version.protobuf>
       <version.aesh>0.33.7</version.aesh>
       <version.antlr>3.4</version.antlr>
       <version.commons.pool>1.6</version.commons.pool>
       <version.gnu.getopt>1.0.13</version.gnu.getopt>
-      <version.hibernate.search>4.5.0.Final</version.hibernate.search>
-      <version.jboss.marshalling>1.4.2.Final</version.jboss.marshalling>
+      <version.hibernate.search>5.0.0.Alpha4</version.hibernate.search>
+      <version.jboss.marshalling>1.4.4.Final</version.jboss.marshalling>
       <version.jboss.logging>3.1.2.GA</version.jboss.logging>
-      <version.jgroups>3.5.0.Alpha1</version.jgroups>
+      <version.jgroups>3.5.0.Beta7</version.jgroups>
       <version.json>20090211</version.json>
       <version.jta>1.0.1.Final</version.jta>
-      <version.netty>4.0.15.Final</version.netty>
-      <version.osgi>4.3.0</version.osgi>
+      <version.netty>4.0.18.Final</version.netty>
+      <version.osgi>4.3.1</version.osgi>
       <version.rhq>4.4.0</version.rhq>
       <version.scala>2.10.2</version.scala>
       <version.xstream>1.4.7</version.xstream>
@@ -95,7 +95,17 @@
          </dependency>
          <dependency>
             <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-cachestore-jpa</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>infinispan-cachestore-remote</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-cachestore-rest</artifactId>
             <version>${project.version}</version>
          </dependency>
          <dependency>
@@ -130,16 +140,6 @@
          </dependency>
          <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>infinispan-custom52x-store</artifactId>
-            <version>${project.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>infinispan-adaptor52x</artifactId>
-            <version>${project.version}</version>
-         </dependency>
-         <dependency>
-            <groupId>${project.groupId}</groupId>
             <artifactId>infinispan-lucene-directory</artifactId>
             <version>${project.version}</version>
          </dependency>
@@ -161,6 +161,11 @@
          <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>infinispan-query-dsl</artifactId>
+            <version>${project.version}</version>
+         </dependency>
+         <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-objectfilter</artifactId>
             <version>${project.version}</version>
          </dependency>
          <dependency>
@@ -232,12 +237,7 @@
          </dependency>
          <dependency>
             <groupId>org.jboss.marshalling</groupId>
-            <artifactId>jboss-marshalling</artifactId>
-            <version>${version.jboss.marshalling}</version>
-         </dependency>
-         <dependency>
-            <groupId>org.jboss.marshalling</groupId>
-            <artifactId>jboss-marshalling-river</artifactId>
+            <artifactId>jboss-marshalling-osgi</artifactId>
             <version>${version.jboss.marshalling}</version>
          </dependency>
          <dependency>
@@ -258,6 +258,11 @@
          <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>org.osgi.core</artifactId>
+            <version>${version.osgi}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.compendium</artifactId>
             <version>${version.osgi}</version>
          </dependency>
          <!-- Infinispan RHQ module dependencies -->
@@ -301,6 +306,11 @@
          <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-search-infinispan</artifactId>
+            <version>${version.hibernate.search}</version>
+         </dependency>
+         <dependency>
+            <groupId>org.hibernate</groupId>
+            <artifactId>hibernate-search-serialization-avro</artifactId>
             <version>${version.hibernate.search}</version>
          </dependency>
          <!-- Infinispan Remote Query module dependencies -->

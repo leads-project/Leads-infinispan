@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLContext;
 
 import org.infinispan.client.hotrod.configuration.Configuration;
+import org.infinispan.client.hotrod.event.ClientListenerNotifier;
 import org.infinispan.client.hotrod.impl.consistenthash.ConsistentHashFactory;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 
@@ -21,15 +22,20 @@ public interface TransportFactory {
 
    Transport getTransport(Set<SocketAddress> failedServers);
 
+   Transport getAddressTransport(SocketAddress server);
+
    void releaseTransport(Transport transport);
 
-   void start(Codec codec, Configuration configuration, AtomicInteger topologyId);
+   void start(Codec codec, Configuration configuration, AtomicInteger topologyId, ClientListenerNotifier listenerNotifier);
 
    void updateServers(Collection<SocketAddress> newServers);
 
    void destroy();
 
+   @Deprecated
    void updateHashFunction(Map<SocketAddress, Set<Integer>> servers2Hash, int numKeyOwners, short hashFunctionVersion, int hashSpace);
+
+   void updateHashFunction(SocketAddress[][] segmentOwners, int numSegments, short hashFunctionVersion);
 
    ConsistentHashFactory getConsistentHashFactory();
 

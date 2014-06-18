@@ -2,11 +2,14 @@ package org.infinispan.persistence.dummy;
 
 import org.infinispan.Cache;
 import org.infinispan.commons.CacheException;
+import org.infinispan.commons.configuration.ConfiguredBy;
+import org.infinispan.commons.equivalence.ByteArrayEquivalence;
 import org.infinispan.commons.equivalence.Equivalence;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.InfinispanCollections;
 import org.infinispan.commons.util.Util;
 import org.infinispan.commons.util.concurrent.jdk8backported.EquivalentConcurrentHashMapV8;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.persistence.TaskContextImpl;
 import org.infinispan.metadata.InternalMetadata;
@@ -32,6 +35,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@ConfiguredBy(DummyInMemoryStoreConfiguration.class)
 public class DummyInMemoryStore implements AdvancedLoadWriteStore {
    private static final Log log = LogFactory.getLog(DummyInMemoryStore.class);
    private static final boolean trace = log.isTraceEnabled();
@@ -82,7 +86,7 @@ public class DummyInMemoryStore implements AdvancedLoadWriteStore {
          TestingUtil.sleepThread(100);
       }
       if (entry!= null) {
-         if (debug) log.debugf("Store %s in dummy map store@%s", entry, Util.hexIdHashCode(store));
+         if (debug) log.tracef("Store %s in dummy map store@%s", entry, Util.hexIdHashCode(store));
          configuration.failKey();
          store.put(entry.getKey(), serialize(entry));
       }
@@ -99,11 +103,11 @@ public class DummyInMemoryStore implements AdvancedLoadWriteStore {
    public boolean delete(Object key) {
       record("delete");
       if (store.remove(key) != null) {
-         if (debug) log.debugf("Removed %s from dummy store", key);
+         if (debug) log.tracef("Removed %s from dummy store", key);
          return true;
       }
 
-      if (debug) log.debugf("Key %s not present in store, so don't remove", key);
+      if (debug) log.tracef("Key %s not present in store, so don't remove", key);
       return false;
    }
 
@@ -130,7 +134,7 @@ public class DummyInMemoryStore implements AdvancedLoadWriteStore {
       if (me == null) return null;
       long now = System.currentTimeMillis();
       if (isExpired(me, now)) {
-         log.debugf("Key %s exists, but has expired.  Entry is %s", key, me);
+         log.tracef("Key %s exists, but has expired.  Entry is %s", key, me);
          store.remove(key);
          return null;
       }
@@ -144,15 +148,16 @@ public class DummyInMemoryStore implements AdvancedLoadWriteStore {
    @Override
    public void process(KeyFilter filter, CacheLoaderTask task, Executor executor, boolean fetchValue, boolean fetchMetadata) {
       record("process");
+      log.tracef("Processing entries in store %s with filter %s and callback %s", storeName, filter, task);
       final long currentTimeMillis = System.currentTimeMillis();
       TaskContext tx = new TaskContextImpl();
       for (Iterator<Map.Entry<Object, byte[]>> i = store.entrySet().iterator(); i.hasNext();) {
          Map.Entry<Object, byte[]> entry = i.next();
          if (tx.isStopped()) break;
-         if (filter == null || filter.shouldLoadKey(entry.getKey())) {
+         if (filter == null || filter.accept(entry.getKey())) {
             MarshalledEntry se = deserialize(entry.getKey(), entry.getValue());
             if (isExpired(se, currentTimeMillis)) {
-               log.debugf("Key %s exists, but has expired.  Entry is %s", entry.getKey(), se);
+               log.tracef("Key %s exists, but has expired.  Entry is %s", entry.getKey(), se);
                i.remove();
             } else {
                try {
@@ -172,7 +177,7 @@ public class DummyInMemoryStore implements AdvancedLoadWriteStore {
          return;
 
       Equivalence<Object> keyEq = cache.getCacheConfiguration().dataContainer().keyEquivalence();
-      Equivalence<byte[]> valueEq = cache.getCacheConfiguration().dataContainer().valueEquivalence();
+      Equivalence<byte[]> valueEq = ByteArrayEquivalence.INSTANCE;
       store = new EquivalentConcurrentHashMapV8<Object, byte[]>(keyEq, valueEq);
       stats = newStatsMap();
 
@@ -221,6 +226,10 @@ public class DummyInMemoryStore implements AdvancedLoadWriteStore {
 
    public boolean isEmpty() {
       return store.isEmpty();
+   }
+
+   public Set<Object> keySet() {
+      return store.keySet();
    }
 
    public Map<String, Integer> stats() {

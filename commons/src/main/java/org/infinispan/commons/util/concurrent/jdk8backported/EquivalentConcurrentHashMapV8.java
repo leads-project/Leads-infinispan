@@ -621,10 +621,10 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
     /* ---------------- Nodes -------------- */
 
    static class NodeEquivalence<K,V> {
-      final Equivalence<K> keyEq;
-      final Equivalence<V> valueEq;
+      final Equivalence<? super K> keyEq;
+      final Equivalence<? super V> valueEq;
 
-      NodeEquivalence(Equivalence<K> keyEq, Equivalence<V> valueEq) {
+      NodeEquivalence(Equivalence<? super K> keyEq, Equivalence<? super V> valueEq) {
          this.keyEq = keyEq;
          this.valueEq = valueEq;
       }
@@ -838,8 +838,8 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
    private transient ValuesView<K,V> values;
    private transient EntrySetView<K,V> entrySet;
 
-   Equivalence<K> keyEq;
-   Equivalence<V> valueEq;
+   Equivalence<? super K> keyEq;
+   Equivalence<? super V> valueEq;
    transient NodeEquivalence<K, V> nodeEq;
 
     /* ---------------- Public operations -------------- */
@@ -848,7 +848,7 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
     * Creates a new, empty map with the default initial table size (16).
     */
    public EquivalentConcurrentHashMapV8(
-         Equivalence<K> keyEquivalence, Equivalence<V> valueEquivalence) {
+         Equivalence<? super K> keyEquivalence, Equivalence<? super V> valueEquivalence) {
       this.keyEq = keyEquivalence; // EQUIVALENCE_MOD
       this.valueEq = valueEquivalence; // EQUIVALENCE_MOD
       this.nodeEq = new NodeEquivalence<K, V>(this.keyEq, this.valueEq); // EQUIVALENCE_MOD
@@ -865,7 +865,7 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
     * elements is negative
     */
    public EquivalentConcurrentHashMapV8(int initialCapacity,
-         Equivalence<K> keyEquivalence, Equivalence<V> valueEquivalence) {
+         Equivalence<? super K> keyEquivalence, Equivalence<? super V> valueEquivalence) {
       this(keyEquivalence, valueEquivalence); // EQUIVALENCE_MOD
       if (initialCapacity < 0)
          throw new IllegalArgumentException();
@@ -881,7 +881,7 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
     * @param m the map
     */
    public EquivalentConcurrentHashMapV8(Map<? extends K, ? extends V> m,
-         Equivalence<K> keyEquivalence, Equivalence<V> valueEquivalence) {
+         Equivalence<? super K> keyEquivalence, Equivalence<? super V> valueEquivalence) {
       this(keyEquivalence, valueEquivalence); // EQUIVALENCE_MOD
       this.sizeCtl = DEFAULT_CAPACITY;
       putAll(m);
@@ -903,7 +903,7 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
     * @since 1.6
     */
    public EquivalentConcurrentHashMapV8(int initialCapacity, float loadFactor,
-         Equivalence<K> keyEquivalence, Equivalence<V> valueEquivalence) {
+         Equivalence<? super K> keyEquivalence, Equivalence<? super V> valueEquivalence) {
       this(initialCapacity, loadFactor, 1, keyEquivalence, valueEquivalence); // EQUIVALENCE_MOD
    }
 
@@ -927,7 +927,7 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
     */
    public EquivalentConcurrentHashMapV8(int initialCapacity,
          float loadFactor, int concurrencyLevel,
-         Equivalence<K> keyEquivalence, Equivalence<V> valueEquivalence) {
+         Equivalence<? super K> keyEquivalence, Equivalence<? super V> valueEquivalence) {
       this(keyEquivalence, valueEquivalence); // EQUIVALENCE_MOD
       if (!(loadFactor > 0.0f) || initialCapacity < 0 || concurrencyLevel <= 0)
          throw new IllegalArgumentException();
@@ -1425,8 +1425,6 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
    @SuppressWarnings("unchecked")
    private void writeObject(java.io.ObjectOutputStream s)
          throws java.io.IOException {
-      s.writeObject(keyEq); // EQUIVALENCE_MOD
-      s.writeObject(valueEq); // EQUIVALENCE_MOD
       // For serialization compatibility
       // Emulate segment calculation from previous version of this class
       int sshift = 0;
@@ -1445,6 +1443,9 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
       s.putFields().put("segmentShift", segmentShift);
       s.putFields().put("segmentMask", segmentMask);
       s.writeFields();
+
+      s.writeObject(keyEq); // EQUIVALENCE_MOD
+      s.writeObject(valueEq); // EQUIVALENCE_MOD
 
       Node<K,V>[] t;
       if ((t = table) != null) {
@@ -1469,9 +1470,6 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
    @SuppressWarnings("unchecked")
    private void readObject(java.io.ObjectInputStream s)
          throws java.io.IOException, ClassNotFoundException {
-      keyEq = (Equivalence<K>) s.readObject();
-      valueEq = (Equivalence<V>) s.readObject();
-      nodeEq = new NodeEquivalence<K, V>(keyEq, valueEq);
       /*
        * To improve performance in typical cases, we create nodes
        * while reading, then place in table once size is known.
@@ -1481,6 +1479,11 @@ public class EquivalentConcurrentHashMapV8<K,V> extends AbstractMap<K,V>
        */
       sizeCtl = -1; // force exclusion for table construction
       s.defaultReadObject();
+
+      keyEq = (Equivalence<K>) s.readObject(); // EQUIVALENCE MOD
+      valueEq = (Equivalence<V>) s.readObject(); // EQUIVALENCE MOD
+      nodeEq = new NodeEquivalence<K, V>(keyEq, valueEq);
+
       long size = 0L;
       Node<K,V> p = null;
       for (;;) {

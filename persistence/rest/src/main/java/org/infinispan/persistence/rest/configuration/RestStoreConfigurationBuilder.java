@@ -25,6 +25,7 @@ public class RestStoreConfigurationBuilder extends AbstractStoreConfigurationBui
    private String host;
    private int port = 80;
    private boolean appendCacheNameToPath = false;
+   private boolean rawValues = false;
 
    public RestStoreConfigurationBuilder(PersistenceConfigurationBuilder builder) {
       super(builder);
@@ -91,14 +92,22 @@ public class RestStoreConfigurationBuilder extends AbstractStoreConfigurationBui
    }
 
    @Override
+   public RestStoreConfigurationBuilder rawValues(boolean rawValues) {
+      this.rawValues = rawValues;
+      return this;
+   }
+
+   @Override
    public RestStoreConfiguration create() {
       return new RestStoreConfiguration(purgeOnStartup, fetchPersistentState, ignoreModifications, async.create(),
                                              singletonStore.create(), preload, shared, properties, connectionPool.create(),
-                                             key2StringMapper, metadataHelper, host, port, path, appendCacheNameToPath);
+                                             key2StringMapper, metadataHelper, host, port, path, appendCacheNameToPath, rawValues);
    }
 
    @Override
    public RestStoreConfigurationBuilder read(RestStoreConfiguration template) {
+      super.read(template);
+
       this.connectionPool.read(template.connectionPool());
       this.host = template.host();
       this.port = template.port();
@@ -106,16 +115,8 @@ public class RestStoreConfigurationBuilder extends AbstractStoreConfigurationBui
       this.appendCacheNameToPath = template.appendCacheNameToPath();
       this.key2StringMapper = template.key2StringMapper();
       this.metadataHelper = template.metadataHelper();
+      this.rawValues = template.rawValues();
 
-      // AbstractStore-specific configuration
-      fetchPersistentState = template.fetchPersistentState();
-      ignoreModifications = template.ignoreModifications();
-      properties = template.properties();
-      purgeOnStartup = template.purgeOnStartup();
-      shared = template.shared();
-      preload = template.preload();
-      async.read(template.async());
-      singletonStore.read(template.singletonStore());
       return this;
    }
 

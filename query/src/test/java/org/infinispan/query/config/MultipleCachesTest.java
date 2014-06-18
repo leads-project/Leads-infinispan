@@ -6,7 +6,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.List;
 
-import org.apache.lucene.queryParser.ParseException;
+import org.apache.lucene.queryparser.classic.ParseException;
 import org.hibernate.search.engine.spi.SearchFactoryImplementor;
 import org.hibernate.search.indexes.impl.DirectoryBasedIndexManager;
 import org.hibernate.search.indexes.spi.IndexManager;
@@ -33,17 +33,18 @@ public class MultipleCachesTest extends SingleCacheManagerTest {
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
       String config = TestingUtil.INFINISPAN_START_TAG + "\n" +
-            "   <default>\n" +
-            "      <indexing enabled=\"false\" />\n" +
-            "   </default>\n" +
-            "   <namedCache name=\"indexingenabled\">\n" +
-            "      <indexing enabled=\"true\" >\n" +
-            "         <properties>\n" +
-            "            <property name=\"default.directory_provider\" value=\"ram\" />\n" +
-            "            <property name=\"lucene_version\" value=\"LUCENE_CURRENT\" />\n" +
-            "         </properties>\n" +
+            "<cache-container default-cache=\"default\">" +
+            "   <local-cache name=\"default\">\n" +
+            "      <indexing index=\"NONE\" />\n" +
+            "   </local-cache>\n" +
+            "   <local-cache name=\"indexingenabled\">\n" +
+            "      <indexing index=\"LOCAL\" >\n" +
+            "            <property name=\"default.directory_provider\">ram</property>\n" +
+            "            <property name=\"lucene_version\">LUCENE_CURRENT</property>\n" +
             "      </indexing>\n" +
-            "   </namedCache>\n" + TestingUtil.INFINISPAN_END_TAG;
+            "   </local-cache>\n" +
+            "</cache-container>"
+            + TestingUtil.INFINISPAN_END_TAG;
       System.out.println("Using test configuration:\n\n" + config + "\n");
       InputStream is = new ByteArrayInputStream(config.getBytes());
       final EmbeddedCacheManager cm;
@@ -97,7 +98,7 @@ public class MultipleCachesTest extends SingleCacheManagerTest {
 
       SearchManager queryFactory = Search.getSearchManager(indexedCache);
       SearchFactoryImplementor searchImpl = (SearchFactoryImplementor) queryFactory.getSearchFactory();
-      IndexManager[] indexManagers = searchImpl.getIndexBindingForEntity(Person.class).getIndexManagers();
+      IndexManager[] indexManagers = searchImpl.getIndexBinding(Person.class).getIndexManagers();
       assert indexManagers != null && indexManagers.length == 1;
       DirectoryBasedIndexManager directory = (DirectoryBasedIndexManager)indexManagers[0];
       DirectoryProvider directoryProvider = directory.getDirectoryProvider();

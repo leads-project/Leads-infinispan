@@ -6,10 +6,11 @@ import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.distribution.MagicKey;
+import org.infinispan.filter.CollectionKeyFilter;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.metadata.Metadata;
-import org.infinispan.notifications.Converter;
-import org.infinispan.notifications.KeyValueFilter;
+import org.infinispan.filter.Converter;
+import org.infinispan.filter.KeyValueFilter;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
@@ -18,8 +19,7 @@ import org.infinispan.notifications.cachelistener.annotation.CacheEntryRemoved;
 import org.infinispan.notifications.cachelistener.event.CacheEntryEvent;
 import org.infinispan.notifications.cachelistener.event.CacheEntryModifiedEvent;
 import org.infinispan.notifications.cachelistener.event.Event;
-import org.infinispan.notifications.cachelistener.filter.KeyFilterAsKeyValueFilter;
-import org.infinispan.notifications.cachelistener.filter.SimpleCollectionKeyFilter;
+import org.infinispan.filter.KeyFilterAsKeyValueFilter;
 import org.infinispan.notifications.cachemanagerlistener.CacheManagerNotifier;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.statetransfer.StateProvider;
@@ -236,7 +236,7 @@ public abstract class AbstractClusterListenerTest extends MultipleCacheManagersT
    protected void testSimpleFilter(Object key) {
       final String keyToFilterOut = "filter-me";
       testFilter(keyToFilterOut, key, null, new KeyFilterAsKeyValueFilter<Object, String>(
-            new SimpleCollectionKeyFilter(Collections.singleton(key))));
+            new CollectionKeyFilter(Collections.singleton(key), true)));
    }
 
    protected void testFilter(Object keyToFilterOut, Object keyToUse, Long lifespan, KeyValueFilter<? super Object, ? super String> filter) {
@@ -314,7 +314,8 @@ public abstract class AbstractClusterListenerTest extends MultipleCacheManagersT
       verifySimpleInsertion(cache0, key, FIRST_VALUE, null, clusterListener, FIRST_VALUE.substring(0, 2));
    }
 
-   protected void testConverter(Object key, String value, Object resultingValue, Long lifespan, Converter<?, ? super String, ?> converter) {
+   protected <C> void testConverter(Object key, String value, Object resultingValue, Long lifespan,
+                                    Converter<Object, ? super String, C> converter) {
       Cache<Object, String> cache0 = cache(0, CACHE_NAME);
 
       ClusterListener clusterListener = new ClusterListener();
@@ -371,7 +372,7 @@ public abstract class AbstractClusterListenerTest extends MultipleCacheManagersT
 
       ClusterListener clusterListener = new ClusterListener();
       cache0.addListener(clusterListener, new KeyFilterAsKeyValueFilter<Object, String>(
-            new SimpleCollectionKeyFilter<Object>(Collections.singleton(keyToFilter))), new StringTruncator(0, 3));
+            new CollectionKeyFilter<Object>(Collections.singleton(keyToFilter), true)), new StringTruncator(0, 3));
 
       log.info("Adding a new node ..");
       addClusterEnabledCacheManager(builderUsed);
@@ -537,7 +538,8 @@ public abstract class AbstractClusterListenerTest extends MultipleCacheManagersT
       cacheManagers.remove(0);
       log.info("Node 0 killed");
 
-      waitForClusterToForm(CACHE_NAME);
+      TestingUtil.blockUntilViewsReceived(10000, false, cacheManagers);
+      TestingUtil.waitForRehashToComplete(caches(CACHE_NAME));
 
       checkPoint.triggerForever("pre_cluster_listeners_invoked_" + cache0);
 
@@ -625,7 +627,8 @@ public abstract class AbstractClusterListenerTest extends MultipleCacheManagersT
       checkPoint.triggerForever("pre_view_listener_release_" + "manager1");
 
       // Now wait for cache3 to come up fully
-      waitForClusterToForm(CACHE_NAME);
+      TestingUtil.blockUntilViewsReceived(60000, false, cache1, cache2);
+      TestingUtil.waitForRehashToComplete(cache1, cache2);
 
       MagicKey key = new MagicKey(cache3);
       cache3.put(key, FIRST_VALUE);
@@ -788,13 +791,37 @@ public abstract class AbstractClusterListenerTest extends MultipleCacheManagersT
       checkPoint.triggerForever("post_cluster_listeners_release_" + cache0);
 
       // Now wait for cache3 to come up fully
-      waitForClusterToForm(CACHE_NAME);
+      TestingUtil.blockUntilViewsReceived(10000, false, cacheManagers);
+      TestingUtil.waitForRehashToComplete(caches(CACHE_NAME));
 
       Cache<Object, String> cache3 = future.get(10, TimeUnit.SECONDS);
 
       for (Object listener : cache3.getAdvancedCache().getListeners()) {
          assertFalse(listener instanceof RemoteClusterListener);
       }
+   }
+
+   @Test
+   public void testMemberLeavesThatClusterListenerNotNotified() {
+      Cache<Object, String> cache0 = cache(0, CACHE_NAME);
+      Cache<Object, String> cache1 = cache(1, CACHE_NAME);
+      Cache<Object, String> cache2 = cache(2, CACHE_NAME);
+
+      Object key = new MagicKey(cache1, cache2);
+      cache1.put(key, "some-key");
+
+      final ClusterListener clusterListener = new ClusterListener();
+      cache0.addListener(clusterListener);
+
+      log.info("Killing node 1 ..");
+      TestingUtil.killCacheManagers(manager(1));
+      cacheManagers.remove(1);
+      log.info("Node 1 killed");
+
+      TestingUtil.blockUntilViewsReceived(10000, false, cacheManagers);
+      TestingUtil.waitForRehashToComplete(caches(CACHE_NAME));
+
+      assertEquals(0, clusterListener.events.size());
    }
 
    protected void waitUntilListenerInstalled(final Cache<?, ?> cache, final CheckPoint checkPoint) {

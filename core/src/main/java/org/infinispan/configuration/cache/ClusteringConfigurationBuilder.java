@@ -35,7 +35,7 @@ public class ClusteringConfigurationBuilder extends AbstractConfigurationChildBu
       return this;
    }
 
-   CacheMode cacheMode() {
+   public CacheMode cacheMode() {
       return cacheMode;
    }
 
@@ -92,7 +92,7 @@ public class ClusteringConfigurationBuilder extends AbstractConfigurationChildBu
       hashConfigurationBuilder.validate();
       l1ConfigurationBuilder.validate();
       syncConfigurationBuilder.validate();
-
+      stateTransferConfigurationBuilder.validate();
    }
 
    @Override

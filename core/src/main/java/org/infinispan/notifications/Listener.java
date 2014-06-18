@@ -218,16 +218,25 @@ public @interface Listener {
     * Defines whether the annotated listener is clustered or not.
     * Important: Clustered listener can only be notified for @CacheEntryRemoved, @CacheEntryCreated and
     * @CacheEntryModified events.
+    * @return true if the expectation is that this listener is to be a cluster listener, as in it will receive
+    *         all notifications for data modifications
+    * @since 7.0
     */
    boolean clustered() default false;
 
    /**
     * If set to true then the entire existing state within the cluster is
     * evaluated. For existing matches of the value, an @CacheEntryCreated event is triggered against the listener
-    * during registration.  If this is a local listener only the current node state is evaluated.  Only in a cluster
-    * listener is the entire state sent back.
+    * during registration.  This is only supported if the listener is also
+    * {@link org.infinispan.notifications.Listener#clustered()}.
     * <p>
-    * <b>Currently this is not supported!</b>
+    * If using a distributed clustered cache it is possible to retrieve new events before the initial transfer is
+    * completed.  This is handled since only new events are queued until the segment it belongs to is completed
+    * for iteration.  This also will help reduce memory strain since a distributed clustered listener will need
+    * to eventually retrieve all values from the cache.
+    * @return true if the expectation is that when the listener is installed that all of the current data is sent
+    *         as new events to the listener before receiving new events
+    * @since 7.0
     **/
    boolean includeCurrentState() default false;
 }

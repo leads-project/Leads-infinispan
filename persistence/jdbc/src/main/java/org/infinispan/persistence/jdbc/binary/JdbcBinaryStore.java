@@ -1,9 +1,11 @@
 package org.infinispan.persistence.jdbc.binary;
 
+import org.infinispan.commons.configuration.ConfiguredBy;
 import org.infinispan.commons.equivalence.Equivalence;
 import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.executors.ExecutorAllCompletionService;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.metadata.InternalMetadata;
 import org.infinispan.persistence.spi.PersistenceException;
@@ -53,6 +55,7 @@ import java.util.concurrent.Executor;
  * @see org.infinispan.persistence.jdbc.configuration.JdbcBinaryStoreConfiguration
  * @see org.infinispan.persistence.jdbc.stringbased.JdbcStringBasedStore
  */
+@ConfiguredBy(JdbcBinaryStoreConfiguration.class)
 public class JdbcBinaryStore implements AdvancedLoadWriteStore {
 
    private static final Log log = LogFactory.getLog(JdbcBinaryStore.class, Log.class);
@@ -471,7 +474,7 @@ public class JdbcBinaryStore implements AdvancedLoadWriteStore {
          }
          conn = connectionFactory.getConnection();
          ps = conn.prepareStatement(sql);
-         ps.setInt(1, bucketId);
+         ps.setString(1, String.valueOf(bucketId));
          rs = ps.executeQuery();
          if (!rs.next()) {
             return null;
@@ -504,7 +507,7 @@ public class JdbcBinaryStore implements AdvancedLoadWriteStore {
 
    public void doConnectionFactoryInitialization(ConnectionFactory connectionFactory) {
       this.connectionFactory = connectionFactory;
-      this.tableManipulation = new TableManipulation(configuration.table());
+      this.tableManipulation = new TableManipulation(configuration.table(), configuration.dialect());
       tableManipulation.setCacheName(ctx.getCache().getName());
       tableManipulation.start(connectionFactory);
    }

@@ -1,6 +1,7 @@
 package org.infinispan.cdi.event.cache;
 
 import org.infinispan.Cache;
+import org.infinispan.metadata.Metadata;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryActivated;
 import org.infinispan.notifications.cachelistener.event.CacheEntryActivatedEvent;
@@ -52,6 +53,10 @@ public class CacheEntryActivatedAdapter<K, V> extends AbstractAdapter<CacheEntry
          return null;
       }
 
+      @Override
+      public Metadata getMetadata() {
+         return null;
+      }
    };
 
    @SuppressWarnings("serial")

@@ -5,6 +5,7 @@ import static org.infinispan.test.fwk.JGroupsConfigBuilder.getJGroupsConfig;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.AccessController;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -13,8 +14,9 @@ import java.util.concurrent.CountDownLatch;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLStreamException;
 
+import org.infinispan.commons.executors.BlockingThreadPoolExecutorFactory;
 import org.infinispan.commons.marshall.Marshaller;
-import org.infinispan.commons.util.FileLookupFactory;
+import org.infinispan.commons.util.FileLookup;
 import org.infinispan.commons.util.LegacyKeySupportSystemProperties;
 import org.infinispan.commons.util.Util;
 import org.infinispan.configuration.cache.CacheMode;
@@ -28,6 +30,8 @@ import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.remoting.transport.jgroups.JGroupsAddress;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
+import org.infinispan.security.Security;
+import org.infinispan.security.actions.GetCacheManagerStatusAction;
 import org.infinispan.transaction.TransactionMode;
 import org.infinispan.transaction.lookup.TransactionManagerLookup;
 import org.infinispan.util.logging.Log;
@@ -61,7 +65,17 @@ public class TestCacheManagerFactory {
       }
    };
 
-   private static DefaultCacheManager newDefaultCacheManager(boolean start, GlobalConfigurationBuilder gc, ConfigurationBuilder c, boolean keepJmxDomain) {
+   /**
+    * Note this method does not amend the global configuration to reduce overall resource footprint.  It is therefore
+    * suggested to use {@link org.infinispan.test.fwk.TestCacheManagerFactory#createClusteredCacheManager(org.infinispan.configuration.cache.ConfigurationBuilder, TransportFlags)}
+    * instead when this is needed
+    * @param start Whether to start this cache container
+    * @param gc The global configuration builder to use
+    * @param c The default configuration to use
+    * @param keepJmxDomain Whether or not the provided jmx domain should be used or if a unique one is generated
+    * @return The resultant cache manager that is created
+    */
+   public static EmbeddedCacheManager newDefaultCacheManager(boolean start, GlobalConfigurationBuilder gc, ConfigurationBuilder c, boolean keepJmxDomain) {
       if (!keepJmxDomain) {
          gc.globalJmxStatistics().jmxDomain("infinispan-" + UUID.randomUUID());
       }
@@ -81,7 +95,7 @@ public class TestCacheManagerFactory {
    }
 
    public static EmbeddedCacheManager fromXml(String xmlFile, boolean keepJmxDomainName) throws IOException {
-      InputStream is = FileLookupFactory.newInstance().lookupFileStrict(
+      InputStream is = new FileLookup().lookupFileStrict(
             xmlFile, Thread.currentThread().getContextClassLoader());
       return fromStream(is, keepJmxDomainName);
    }
@@ -97,10 +111,20 @@ public class TestCacheManagerFactory {
    }
 
    private static void markAsTransactional(boolean transactional, ConfigurationBuilder builder) {
-      builder.transaction().transactionMode(transactional ? TransactionMode.TRANSACTIONAL : TransactionMode.NON_TRANSACTIONAL);
-      if (transactional)
-         // Set volatile stores just in case...
-         JBossTransactionsUtils.setVolatileStores();
+      if (!transactional) {
+         builder.transaction().transactionMode(TransactionMode.NON_TRANSACTIONAL);
+      } else {
+         builder.transaction()
+            .transactionMode(TransactionMode.TRANSACTIONAL);
+         //Skip this step in OSGi. This operation requires internal packages of Arjuna. These are not exported from the Arjuna
+         //bundle in OSGi
+         if (!Util.isOSGiContext()) {
+            // Set volatile stores just in case...
+            JBossTransactionsUtils.setVolatileStores();
+            //automatically change default TM lookup to the desired one but only outside OSGi. In OSGi we need to use GenericTransactionManagerLookup
+            builder.transaction().transactionManagerLookup((TransactionManagerLookup) Util.getInstance(TransactionSetup.getManagerLookup(), TestCacheManagerFactory.class.getClassLoader()));
+         }
+      }
    }
 
    private static void updateTransactionSupport(boolean transactional, ConfigurationBuilder builder) {
@@ -328,12 +352,13 @@ public class TestCacheManagerFactory {
    }
 
    public static void minimizeThreads(GlobalConfigurationBuilder builder) {
-      builder.asyncTransportExecutor().addProperty("maxThreads", String.valueOf(MAX_ASYNC_EXEC_THREADS))
-            .addProperty("queueSize", String.valueOf(ASYNC_EXEC_QUEUE_SIZE))
-            .addProperty("keepAliveTime", String.valueOf(KEEP_ALIVE));
-      builder.remoteCommandsExecutor().addProperty("maxThreads", String.valueOf(MAX_REQ_EXEC_THREADS))
-            .addProperty("queueSize", String.valueOf(REQ_EXEC_QUEUE_SIZE))
-            .addProperty("keepAliveTime", String.valueOf(KEEP_ALIVE));
+      BlockingThreadPoolExecutorFactory executorFactory = new BlockingThreadPoolExecutorFactory(
+            MAX_ASYNC_EXEC_THREADS, MAX_ASYNC_EXEC_THREADS, ASYNC_EXEC_QUEUE_SIZE, KEEP_ALIVE);
+      builder.transport().transportThreadPool().threadPoolFactory(executorFactory);
+
+      executorFactory = new BlockingThreadPoolExecutorFactory(
+            MAX_REQ_EXEC_THREADS, MAX_REQ_EXEC_THREADS, REQ_EXEC_QUEUE_SIZE, KEEP_ALIVE);
+      builder.transport().remoteCommandThreadPool().threadPoolFactory(executorFactory);
    }
 
    public static void amendMarshaller(GlobalConfigurationBuilder builder) {
@@ -353,11 +378,6 @@ public class TestCacheManagerFactory {
 
    private static DefaultCacheManager newDefaultCacheManager(boolean start, GlobalConfigurationBuilder gc, ConfigurationBuilder c) {
       DefaultCacheManager defaultCacheManager = new DefaultCacheManager(gc.build(), c.build(), start);
-      return addThreadCacheManager(defaultCacheManager);
-   }
-
-   private static DefaultCacheManager newDefaultCacheManager(boolean start, ConfigurationBuilderHolder holder) {
-      DefaultCacheManager defaultCacheManager = new DefaultCacheManager(holder, start);
       return addThreadCacheManager(defaultCacheManager);
    }
 
@@ -385,6 +405,11 @@ public class TestCacheManagerFactory {
       return cm;
    }
 
+   private static DefaultCacheManager newDefaultCacheManager(boolean start, ConfigurationBuilderHolder holder) {
+      DefaultCacheManager defaultCacheManager = new DefaultCacheManager(holder, start);
+      return addThreadCacheManager(defaultCacheManager);
+   }
+
    public static void backgroundTestStarted(Object testInstance) {
       String fullName = testInstance.getClass().getName();
       String testName = testInstance.getClass().getSimpleName();
@@ -410,7 +435,7 @@ public class TestCacheManagerFactory {
       public void checkManagersClosed(String testName) {
          for (Map.Entry<EmbeddedCacheManager, Throwable> cmEntry : cacheManagers.entrySet()) {
             EmbeddedCacheManager key = cmEntry.getKey();
-            if (key.getStatus().allowInvocations()) {
+            if (isCacheInvocationsAllowed(key)) {
                String thName = Thread.currentThread().getName();
                String errorMessage = '\n' +
                      "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n" +
@@ -460,6 +485,15 @@ public class TestCacheManagerFactory {
          this.testName = null;
          Thread.currentThread().setName(oldThreadName);
          this.oldThreadName = null;
+      }
+   }
+
+   private static boolean isCacheInvocationsAllowed(EmbeddedCacheManager cacheManager) {
+      GetCacheManagerStatusAction action = new GetCacheManagerStatusAction(cacheManager);
+      if (System.getSecurityManager() != null) {
+         return AccessController.doPrivileged(action).allowInvocations();
+      } else {
+         return Security.doPrivileged(action).allowInvocations();
       }
    }
 

@@ -32,6 +32,9 @@ public class ModelKeys {
     static final String ALIASES = "aliases";
     static final String APPEND_CACHE_NAME_TO_PATH = "append-cache-name-to-path";
     static final String ASYNC_MARSHALLING = "async-marshalling";
+    static final String AUDIT_LOGGER = "audit-logger";
+    static final String AUTHORIZATION = "authorization";
+    static final String AUTHORIZATION_NAME = "AUTHORIZATION";
     static final String AWAIT_INITIAL_TRANSFER = "await-initial-transfer";
     static final String BACKUP = "backup";
     static final String BACKUP_FAILURE_POLICY = "failure-policy";
@@ -54,6 +57,8 @@ public class ModelKeys {
     static final String CLUSTER = "cluster";
     static final String CLUSTER_LOADER = "cluster-loader";
     static final String CLUSTER_LOADER_NAME = "CLUSTER_LOADER";
+    static final String CLUSTER_ROLE_MAPPER = "cluster-role-mapper";
+    static final String COMMON_NAME_ROLE_MAPPER = "common-name-role-mapper";
     static final String COMPATIBILITY = "compatibility";
     static final String COMPATIBILITY_NAME = "COMPATIBILITY";
     static final String COMPRESSION = "compression";
@@ -61,9 +66,11 @@ public class ModelKeys {
     static final String CONCURRENCY_LEVEL = "concurrency-level";
     static final String CONNECTION_POOL = "connection-pool";
     static final String CONNECTION_TIMEOUT = "connection-timeout";
+    static final String CUSTOM_ROLE_MAPPER = "custom-role-mapper";
     static final String DATA_COLUMN = "data-column";
     static final String DATASOURCE = "datasource";
     static final String DEFAULT_CACHE = "default-cache";
+    static final String DIALECT = "dialect";
     static final String DISTRIBUTED_CACHE = "distributed-cache";
     static final String ENABLED = "enabled";
     static final String ENTRY_TABLE = "entry-table";
@@ -80,6 +87,7 @@ public class ModelKeys {
     static final String FLUSH_LOCK_TIMEOUT = "flush-lock-timeout";
     static final String HOTROD_WRAPPING = "hotrod-wrapping";
     static final String ID_COLUMN = "id-column";
+    static final String IDENTITY_ROLE_MAPPER = "identity-role-mapper";
     static final String IMPLEMENTATION = "implementation";
     static final String IMPLEMENTATION_NAME = "IMPLEMENTATION";
     static final String INDEX = "index";
@@ -111,6 +119,7 @@ public class ModelKeys {
     static final String LOCKING = "locking";
     static final String LOCKING_NAME = "LOCKING";
     static final String MACHINE = "machine";
+    static final String MAPPER = "mapper";
     static final String MARSHALLER = "marshaller";
     static final String MAX_CONNECTIONS_PER_HOST = "max-connections-per-host";
     static final String MAX_ENTRIES = "max-entries";
@@ -124,6 +133,7 @@ public class ModelKeys {
     static final String OWNERS = "owners";
     static final String PASSIVATION = "passivation";
     static final String PATH = "path";
+    static final String PERMISSIONS = "permissions";
     static final String PREFIX = "prefix";
     static final String PRELOAD = "preload";
     static final String PROPERTY = "property";
@@ -145,6 +155,10 @@ public class ModelKeys {
     static final String REPLICATION_QUEUE_EXECUTOR = "replication-queue-executor";
     static final String REST_STORE = "rest-store";
     static final String REST_STORE_NAME = "REST_STORE";
+    static final String ROLE = "role";
+    static final String ROLES = "roles";
+    static final String SECURITY = "security";
+    static final String SECURITY_NAME = "SECURITY";
     static final String SEGMENTS = "segments";
     static final String CAPACITY_FACTOR = "capacity-factor";
     static final String SHARED = "shared";

@@ -14,8 +14,8 @@ import org.infinispan.query.dsl.embedded.sample_domain_model.Address;
 import org.infinispan.query.dsl.embedded.sample_domain_model.Transaction;
 import org.infinispan.query.dsl.embedded.sample_domain_model.User;
 import org.infinispan.test.MultipleCacheManagersTest;
-import org.infinispan.test.fwk.CleanupAfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.infinispan.test.fwk.CleanupAfterTest;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.text.DateFormat;
@@ -29,8 +29,6 @@ import java.util.List;
 import java.util.TimeZone;
 
 import static org.junit.Assert.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 /**
  * Verifies the functionality of Query DSL in clustered environment for ISPN directory provider.
@@ -38,7 +36,7 @@ import static org.junit.Assert.assertTrue;
  * @author Anna Manukyan
  */
 @Test(groups = "functional", testName = "query.dsl.embedded.ClusteredQueryDslConditionsTest")
-@CleanupAfterMethod
+@CleanupAfterTest
 public class ClusteredQueryDslConditionsTest extends MultipleCacheManagersTest {
 
    protected final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
@@ -46,6 +44,11 @@ public class ClusteredQueryDslConditionsTest extends MultipleCacheManagersTest {
 
    public ClusteredQueryDslConditionsTest() {
       DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("GMT"));
+   }
+
+   @Override
+   protected void clearContent() {
+       //Don't clear, this is destroying the index
    }
 
    @Override
@@ -64,7 +67,7 @@ public class ClusteredQueryDslConditionsTest extends MultipleCacheManagersTest {
             .enable()
             .indexLocalOnly(true)
             .addProperty("default.indexmanager", "org.infinispan.query.indexmanager.InfinispanIndexManager")
-            .addProperty("lucene_version", "LUCENE_36");
+            .addProperty("lucene_version", "LUCENE_48");
 
       cacheManagers.get(0).defineConfiguration("custom", cacheCfg.build());
       cacheManagers.get(1).defineConfiguration("custom", cacheCfg.build());
@@ -76,7 +79,7 @@ public class ClusteredQueryDslConditionsTest extends MultipleCacheManagersTest {
       return false;
    }
 
-   @BeforeMethod(alwaysRun = true)
+   @BeforeClass(alwaysRun = true)
    protected void populateCache() throws Exception {
       // create the test objects
       User user1 = new User();
@@ -854,7 +857,7 @@ public class ClusteredQueryDslConditionsTest extends MultipleCacheManagersTest {
       assertEquals("John", list.get(2).getName());
    }
 
-   public void testSampleDomainQuery4Wity2SortingOptions() throws Exception {
+   public void testSampleDomainQuery4With2SortingOptions() throws Exception {
       QueryFactory qf = Search.getSearchManager(cache2).getQueryFactory();
 
       // all users ordered descendingly by name
@@ -1100,6 +1103,7 @@ public class ClusteredQueryDslConditionsTest extends MultipleCacheManagersTest {
 
       // all transactions of account with id 2 which have an amount larger than 1600 or their description contains the word 'rent'
       Query q = qf.from(Transaction.class)
+            .orderBy("description", SortOrder.ASC)
             .having("accountId").eq(1)
             .and(qf.having("amount").gt(1600)
                        .or().having("description").like("%rent%")).toBuilder().build();

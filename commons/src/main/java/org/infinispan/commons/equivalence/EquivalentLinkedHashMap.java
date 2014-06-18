@@ -28,7 +28,7 @@ public class EquivalentLinkedHashMap<K, V> extends EquivalentHashMap<K, V> {
 
    public EquivalentLinkedHashMap(int initialCapacity, float loadFactor,
          IterationOrder iterationOrder,
-         Equivalence<K> keyEq, Equivalence<V> valueEq) {
+         Equivalence<? super K> keyEq, Equivalence<? super V> valueEq) {
       super(initialCapacity, loadFactor, keyEq, valueEq);
       this.iterationOrder = iterationOrder;
       addFirstEntry();
@@ -114,6 +114,13 @@ public class EquivalentLinkedHashMap<K, V> extends EquivalentHashMap<K, V> {
             addBefore(linkedMap.header);
          }
          return value;
+      }
+
+      @Override
+      protected V setValue(V value, EquivalentHashMap<K, V> map) {
+         V retValue = super.setValue(value, map);
+         recordAccess(map);
+         return retValue;
       }
    }
 

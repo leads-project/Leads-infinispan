@@ -1,4 +1,4 @@
-        <subsystem xmlns="urn:infinispan:server:core:6.0" >
+        <subsystem xmlns="urn:infinispan:server:core:7.0" >
             <cache-container 
                 name="local"
                 default-cache="memcachedCache">
@@ -8,7 +8,6 @@
                     batching="false"
                     >
                     <locking 
-                        isolation="READ_COMMITTED"
                         acquire-timeout="20000" 
                         concurrency-level="500" 
                         striping="false" />
@@ -23,7 +22,7 @@
                         fetch-state="false" 
                         passivation="true" 
                         preload="true" 
-                        purge="false">
+                        purge="false" name="MEMCACHED">
                         <remote-server outbound-socket-binding="remote-store-hotrod-server" />
                     </remote-store>                  
                 </local-cache>
@@ -34,7 +33,6 @@
                     batching="false"
                     >
                     <locking 
-                        isolation="READ_COMMITTED"
                         acquire-timeout="20000" 
                         concurrency-level="500" 
                         striping="false" />
@@ -49,7 +47,7 @@
                         fetch-state="false" 
                         passivation="true" 
                         preload="false" 
-                        purge="false">
+                        purge="false" name="HOTROD">
                         <remote-server outbound-socket-binding="remote-store-hotrod-server" />
                     </remote-store>                  
                 </local-cache>
@@ -60,7 +58,6 @@
                         batching="false"
                         >
                     <locking
-                            isolation="READ_COMMITTED"
                             acquire-timeout="20000"
                             concurrency-level="500"
                             striping="false" />
@@ -76,7 +73,7 @@
                             fetch-state="false"
                             passivation="true"
                             preload="true"
-                            purge="false">
+                            purge="false" name="READ_ONLY">
                         <remote-server outbound-socket-binding="remote-store-hotrod-server" />
                     </remote-store>
                 </local-cache>

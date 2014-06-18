@@ -3,8 +3,8 @@ package org.infinispan.distexec.mapreduce;
 import org.infinispan.Cache;
 import org.infinispan.commons.CacheException;
 import org.infinispan.configuration.cache.CacheMode;
+import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.test.MultipleCacheManagersTest;
-import org.testng.AssertJUnit;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -26,7 +26,7 @@ import static org.junit.Assert.assertTrue;
 @Test(groups = "functional", testName = "distexec.mapreduce.BaseWordCountMapReduceTest")
 public abstract class BaseWordCountMapReduceTest extends MultipleCacheManagersTest {
    
-   protected HashMap<String,Integer> counts = new HashMap<String, Integer>();   
+   protected static HashMap<String,Integer> counts = new HashMap<String, Integer>();
 
    public BaseWordCountMapReduceTest() {
       cleanup = CleanupPhase.AFTER_TEST;
@@ -46,7 +46,7 @@ public abstract class BaseWordCountMapReduceTest extends MultipleCacheManagersTe
       specifyWordCounts();
    }
 
-   protected void specifyWordCounts() {
+   protected static void specifyWordCounts() {
       counts.put("of", 2);
       counts.put("open", 1);
       counts.put("is", 6);
@@ -161,7 +161,22 @@ public abstract class BaseWordCountMapReduceTest extends MultipleCacheManagersTe
       Map<String, Integer> mapReduce = task.execute();
       verifyResults(mapReduce);
    }
-   
+
+   public void testInvokeMapReduceOnAllKeysWithResultCache() throws Exception {
+      String cacheName = "resultCache";
+      ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
+      defineConfigurationOnAllManagers(cacheName, builder);
+      try {
+         MapReduceTask<String, String, String, Integer> task = invokeMapReduce(null);
+         Cache c1 = cache(0, cacheName);
+         task.execute(c1);
+         verifyResults(c1);
+         c1.clear();
+      } finally {
+         removeCacheFromCluster(cacheName);
+      }
+   }
+
    public void testInvokeMapReduceOnEmptyKeys() throws Exception {
       MapReduceTask<String,String,String,Integer> task = invokeMapReduce(new String[] {});
       Map<String, Integer> mapReduce = task.execute();
@@ -182,8 +197,8 @@ public abstract class BaseWordCountMapReduceTest extends MultipleCacheManagersTe
       MapReduceTask<String,String,String,Integer> task2 = invokeMapReduce(null, false);
       Map<String, Integer> mapReduce2 = task2.execute();
 
-      AssertJUnit.assertEquals(mapReduce2.get("Infinispan"), mapReduce.get("Infinispan"));
-      AssertJUnit.assertEquals(mapReduce2.get("RedHat"), mapReduce.get("RedHat"));
+      assertEquals(mapReduce2.get("Infinispan"), mapReduce.get("Infinispan"));
+      assertEquals(mapReduce2.get("RedHat"), mapReduce.get("RedHat"));
    }
    
    /**
@@ -208,7 +223,22 @@ public abstract class BaseWordCountMapReduceTest extends MultipleCacheManagersTe
       Map<String, Integer> mapReduce = task.execute();
       assertPartialWordCount(countWords(mapReduce));
    }
-   
+
+   public void testInvokeMapReduceOnSubsetOfKeysWithResultCache() throws Exception {
+      String cacheName = "resultCache2";
+      ConfigurationBuilder builder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
+      defineConfigurationOnAllManagers(cacheName, builder);
+      try {
+         MapReduceTask<String, String, String, Integer> task = invokeMapReduce(new String[] { "1", "2", "3" });
+         task.execute(cacheName);
+         Cache c1 = cache(0, cacheName);
+         assertPartialWordCount(countWords(c1));
+         c1.clear();
+      } finally {
+         removeCacheFromCluster(cacheName);
+      }
+   }
+
    public void testInvokeMapReduceOnSubsetOfKeysAsync() throws Exception {
       MapReduceTask<String,String,String,Integer> task = invokeMapReduce(new String[]{"1", "2", "3"});
       Future<Map<String, Integer>> future = task.executeAsynchronously();

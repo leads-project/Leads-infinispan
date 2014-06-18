@@ -28,6 +28,8 @@ import org.infinispan.container.versioning.NumericVersion
 import org.infinispan.commons.CacheException
 import scala.Some
 import java.util
+import org.infinispan.factories.ComponentRegistry
+import org.infinispan.configuration.cache.Configuration
 
 /**
  * A Memcached protocol specific decoder
@@ -36,7 +38,7 @@ import java.util
  * @since 4.1
  */
 class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], scheduler: ScheduledExecutorService, transport: NettyTransport)
-      extends AbstractProtocolDecoder[String, Array[Byte]](transport) {
+      extends AbstractProtocolDecoder[String, Array[Byte]](false, transport) {
 
    cache =
       if (memcachedCache.getCacheConfiguration.compatibility().enabled())
@@ -104,7 +106,7 @@ class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], sched
    override protected def get(buffer: ByteBuf): AnyRef = {
       val keys = readKeys(buffer)
       if (keys.length > 1) {
-         val map = new mutable.HashMap[String, CacheEntry]()
+         val map = new mutable.HashMap[String, CacheEntry[String, Array[Byte]]]()
          for (k <- keys) {
             val entry = cache.getCacheEntry(checkKeyLength(k, endOfOp = true, buffer))
             if (entry != null)
@@ -258,7 +260,12 @@ class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], sched
 
    override def getCache: Cache[String, Array[Byte]] = cache
 
-   override protected def customDecodeHeader(ch: Channel, buffer: ByteBuf): AnyRef = {
+   override def getCacheConfiguration: Configuration = cache.getCacheConfiguration
+
+   override def getCacheRegistry: ComponentRegistry = cache.getComponentRegistry
+
+   override protected def customDecodeHeader(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef = {
+      val ch = ctx.channel
       header.op match {
          case FlushAllRequest => flushAll(buffer, ch, isReadParams = false) // Without params
          case VersionRequest => {
@@ -269,7 +276,8 @@ class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], sched
       }
    }
 
-   override protected def customDecodeKey(ch: Channel, buffer: ByteBuf): AnyRef = {
+   override protected def customDecodeKey(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef = {
+      val ch = ctx.channel
       header.op match {
          case AppendRequest | PrependRequest | IncrementRequest | DecrementRequest => {
             key = readKey(buffer)._1
@@ -279,7 +287,8 @@ class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], sched
       }
    }
 
-   override protected def customDecodeValue(ch: Channel, buffer: ByteBuf): AnyRef = {
+   override protected def customDecodeValue(ctx: ChannelHandlerContext, buffer: ByteBuf): AnyRef = {
+      val ch = ctx.channel
       val op = header.op
       op match {
          case AppendRequest | PrependRequest => {
@@ -405,7 +414,7 @@ class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], sched
          null
    }
 
-   override def createGetResponse(k: String, entry: CacheEntry): AnyRef = {
+   override def createGetResponse(k: String, entry: CacheEntry[String, Array[Byte]]): AnyRef = {
       if (entry != null) {
          header.op match {
             case GetRequest =>
@@ -418,7 +427,7 @@ class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], sched
          END
    }
 
-   override def createMultiGetResponse(pairs: Map[String, CacheEntry]): AnyRef = {
+   override def createMultiGetResponse(pairs: Map[String, CacheEntry[String, Array[Byte]]]): AnyRef = {
       val elements = new ListBuffer[ByteBuf]
       val op = header.op
       op match {
@@ -540,20 +549,20 @@ class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], sched
       buffer
    }
 
-   private def buildGetResponse(op: Enumeration#Value, k: String, entry: CacheEntry): ByteBuf = {
+   private def buildGetResponse(op: Enumeration#Value, k: String, entry: CacheEntry[String, Array[Byte]]): ByteBuf = {
       val buf = buildGetHeaderBegin(k, entry, 0)
-      writeGetHeaderData(entry.getValue.asInstanceOf[Array[Byte]], buf)
+      writeGetHeaderData(entry.getValue, buf)
    }
 
-   private def buildSingleGetResponse(k: String, entry: CacheEntry): ByteBuf = {
+   private def buildSingleGetResponse(k: String, entry: CacheEntry[String, Array[Byte]]): ByteBuf = {
       val buf = buildGetHeaderBegin(k, entry, END_SIZE)
-      writeGetHeaderData(entry.getValue.asInstanceOf[Array[Byte]], buf)
+      writeGetHeaderData(entry.getValue, buf)
       writeGetHeaderEnd(buf)
    }
 
-   private def buildGetHeaderBegin(k: String, entry: CacheEntry,
+   private def buildGetHeaderBegin(k: String, entry: CacheEntry[String, Array[Byte]],
            extraSpace: Int): ByteBuf = {
-      val data = entry.getValue.asInstanceOf[Array[Byte]]
+      val data = entry.getValue
       val dataSize = Integer.valueOf(data.length).toString.getBytes
       val key = k.getBytes
 
@@ -587,8 +596,8 @@ class MemcachedDecoder(memcachedCache: AdvancedCache[String, Array[Byte]], sched
       buf
    }
 
-   private def buildSingleGetWithVersionResponse(k: String, entry: CacheEntry): ByteBuf = {
-      val v = entry.getValue.asInstanceOf[Array[Byte]]
+   private def buildSingleGetWithVersionResponse(k: String, entry: CacheEntry[String, Array[Byte]]): ByteBuf = {
+      val v = entry.getValue
       // TODO: Would be nice for EntryVersion to allow retrieving the version itself...
       val version = entry.getMetadata.version().asInstanceOf[NumericVersion].getVersion.toString.getBytes
       val buf = buildGetHeaderBegin(k, entry, version.length + 1 + END_SIZE)

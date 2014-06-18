@@ -61,14 +61,13 @@ Configuration cacheConfig = new ConfigurationBuilder().loaders()
 [source,xml]
 ----
 
-<namedCache name="vehicleCache">
-	<loaders passivation="false" shared="true" preload="true">
-		<leveldbStore 
-			location="/tmp/leveldb/data"
-			expiredLocation="/tmp/leveldb/expired"
-		/>
-	</loaders>
-</namedCache>
+<local-cache name="vehicleCache">
+   <persistence>
+      <leveldb-store path="/tmp/leveldb/data">
+         <expiration path="/tmp/leveldb/expired"/>
+      </leveldb-store>
+   </persistence>
+</local-cache>
 
 ----
 
@@ -77,3 +76,4 @@ Configuration cacheConfig = new ConfigurationBuilder().loaders()
 Refer to the link:$$https://github.com/infinispan/infinispan/blob/master/cachestore/leveldb/src/test/java/org/infinispan/loaders/leveldb/config/ConfigurationTest.java$$[test case] for code samples in action. 
 
 Refer to link:$$https://github.com/infinispan/infinispan/blob/master/cachestore/leveldb/src/test/resources/config/leveldb-config-52.xml$$[test configurations] for configuration samples. 
+

@@ -12,7 +12,7 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.infinispan.test.fwk.TransportFlags;
-import org.infinispan.transaction.TransactionTable;
+import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.util.concurrent.locks.LockManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -23,6 +23,7 @@ import javax.transaction.RollbackException;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
+
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -197,7 +198,7 @@ public abstract class MultipleCacheManagersTest extends AbstractCacheTest {
    }
 
    protected void createCluster(GlobalConfigurationBuilder globalBuilder, ConfigurationBuilder builder, int count) {
-      for (int i = 0; i < count; i++) addClusterEnabledCacheManager(globalBuilder, builder);
+      for (int i = 0; i < count; i++) addClusterEnabledCacheManager(new GlobalConfigurationBuilder().read(globalBuilder.build()), builder);
    }
 
    protected void defineConfigurationOnAllManagers(String cacheName, ConfigurationBuilder b) {
@@ -349,6 +350,16 @@ public abstract class MultipleCacheManagersTest extends AbstractCacheTest {
       throw new IllegalArgumentException(a + " is not a valid cache manager address!");
    }
 
+   public int managerIndex(Address a) {
+      for (int i = 0; i < cacheManagers.size(); i++) {
+         EmbeddedCacheManager cm = cacheManagers.get(i);
+         if (cm.getAddress().equals(a)) {
+            return i;
+         }
+      }
+      throw new IllegalArgumentException(a + " is not a valid cache manager address!");
+   }
+
    protected <K, V> Cache<K, V> cache(int managerIndex, String cacheName) {
       return manager(managerIndex).getCache(cacheName);
    }
@@ -418,12 +429,21 @@ public abstract class MultipleCacheManagersTest extends AbstractCacheTest {
     * Kills the cache manager with the given index and waits for the new cluster to form.
     */
    protected void killMember(int cacheIndex) {
-      List<Cache<Object, Object>> caches = caches();
+      killMember(cacheIndex, null);
+   }
+
+   /**
+    * Kills the cache manager with the given index and waits for the new cluster to form using the provided cache
+    */
+   protected void killMember(int cacheIndex, String cacheName) {
+      List<Cache<Object, Object>> caches = caches(cacheName);
       caches.remove(cacheIndex);
       manager(cacheIndex).stop();
       cacheManagers.remove(cacheIndex);
-      TestingUtil.blockUntilViewsReceived(60000, false, caches);
-      TestingUtil.waitForRehashToComplete(caches);
+      if (caches.size() > 0) {
+         TestingUtil.blockUntilViewsReceived(60000, false, caches);
+         TestingUtil.waitForRehashToComplete(caches);
+      }
    }
 
    /**

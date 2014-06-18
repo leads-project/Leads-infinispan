@@ -1,6 +1,11 @@
 package org.infinispan.persistence.jdbc.configuration;
 
+import java.util.Map;
+import java.util.Properties;
+
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
+import org.infinispan.configuration.parsing.XmlConfigHelper;
+import org.infinispan.persistence.jdbc.Dialect;
 import org.infinispan.persistence.keymappers.DefaultTwoWayKey2StringMapper;
 import org.infinispan.persistence.keymappers.Key2StringMapper;
 import org.infinispan.commons.configuration.Builder;
@@ -52,21 +57,27 @@ public class JdbcStringBasedStoreConfigurationBuilder extends AbstractJdbcStoreC
    }
 
    @Override
-   public void validate() {
+   public JdbcStringBasedStoreConfigurationBuilder withProperties(Properties props) {
+      Map<Object, Object> unrecognized = XmlConfigHelper.setValues(this, props, false, false);
+      unrecognized = XmlConfigHelper.setValues(table, unrecognized, false, false);
+      XmlConfigHelper.showUnrecognizedAttributes(unrecognized);
+      this.properties = props;
+      return this;
    }
 
    @Override
    public JdbcStringBasedStoreConfiguration create() {
       ConnectionFactoryConfiguration cf = connectionFactory != null ? connectionFactory.create() : null;
       return new JdbcStringBasedStoreConfiguration(purgeOnStartup, fetchPersistentState, ignoreModifications, async.create(),
-                                                   singletonStore.create(), preload, shared, properties, cf, manageConnectionFactory, key2StringMapper, table.create());
+                                                   singletonStore.create(), preload, shared, properties, cf, manageConnectionFactory, key2StringMapper, table.create(), dialect);
    }
 
    @Override
    public Builder<?> read(JdbcStringBasedStoreConfiguration template) {
-      super.readInternal(template);
+      super.read(template);
       this.key2StringMapper = template.key2StringMapper();
       this.table.read(template.table());
+
       return this;
    }
 

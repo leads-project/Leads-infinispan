@@ -6,6 +6,7 @@ import org.infinispan.commons.util.TypedProperties;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+import org.jboss.logging.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -22,6 +23,7 @@ import javax.xml.transform.Source;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
+
 import java.beans.PropertyEditor;
 import java.beans.PropertyEditorManager;
 import java.io.ByteArrayInputStream;
@@ -29,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -384,9 +387,9 @@ public class XmlConfigHelper {
       return defaultValue;
    }
 
-   public static void setValues(Object target, Map<?, ?> attribs, boolean isXmlAttribs, boolean failOnMissingSetter) {
+   public static Map<Object, Object> setValues(Object target, Map<?, ?> attribs, boolean isXmlAttribs, boolean failOnMissingSetter) {
       Class<?> objectClass = target.getClass();
-
+      Map<Object, Object> ignoredAttribs = new HashMap<Object, Object>();
       // go thru simple string setters first.
       for (Map.Entry<?, ?> entry : attribs.entrySet()) {
          String propName = (String) entry.getKey();
@@ -446,8 +449,19 @@ public class XmlConfigHelper {
             }
          }
          // Skip hot rod properties ...
-         if (!setterFound && failOnMissingSetter && !propName.startsWith("infinispan.client.hotrod"))
-            throw new CacheConfigurationException("Couldn't find a setter named [" + setter + "] which takes a single parameter, for parameter " + propName + " on class [" + objectClass + "]");
+         if (!setterFound && !propName.startsWith("infinispan.client.hotrod"))
+            if (failOnMissingSetter) {
+               throw new CacheConfigurationException("Couldn't find a setter named [" + setter + "] which takes a single parameter, for parameter " + propName + " on class [" + objectClass + "]");
+            } else {
+               ignoredAttribs.put(propName, attribs.get(propName));
+            }
+      }
+      return ignoredAttribs;
+   }
+   
+   public static void showUnrecognizedAttributes(Map<Object, Object> attribs) {
+      for(Object propName : attribs.keySet()) {
+         log.unrecognizedAttribute((String) propName);
       }
    }
 

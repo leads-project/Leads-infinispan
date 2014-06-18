@@ -1,6 +1,7 @@
 package org.infinispan.persistence.rest;
 
 import net.jcip.annotations.ThreadSafe;
+
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.net.URLCodec;
 import org.apache.http.Header;
@@ -21,13 +22,15 @@ import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.params.HttpParams;
 import org.apache.http.util.EntityUtils;
+import org.infinispan.commons.configuration.ConfiguredBy;
 import org.infinispan.commons.util.Util;
 import org.infinispan.container.InternalEntryFactory;
 import org.infinispan.executors.ExecutorAllCompletionService;
+import org.infinispan.filter.KeyFilter;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.metadata.InternalMetadata;
-import org.infinispan.metadata.InternalMetadataImpl;
 import org.infinispan.metadata.Metadata;
+import org.infinispan.metadata.impl.InternalMetadataImpl;
 import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.TaskContextImpl;
 import org.infinispan.persistence.keymappers.MarshallingTwoWayKey2StringMapper;
@@ -59,6 +62,7 @@ import java.util.concurrent.TimeUnit;
  * @since 6.0
  */
 @ThreadSafe
+@ConfiguredBy(RestStoreConfiguration.class)
 public class RestStore implements AdvancedLoadWriteStore {
    private static final String MAX_IDLE_TIME_SECONDS = "maxIdleTimeSeconds";
    private static final String TIME_TO_LIVE_SECONDS = "timeToLiveSeconds";
@@ -71,7 +75,7 @@ public class RestStore implements AdvancedLoadWriteStore {
    private PoolingClientConnectionManager connectionManager;
    private String path;
    private MetadataHelper metadataHelper;
-   private URLCodec urlCodec = new URLCodec();
+   private final URLCodec urlCodec = new URLCodec();
    private InitializationContext ctx;
    private HttpHost httpHost;
 
@@ -136,20 +140,31 @@ public class RestStore implements AdvancedLoadWriteStore {
    }
 
    private byte[] marshall(String contentType, MarshalledEntry entry) throws IOException, InterruptedException {
-      if (contentType.startsWith("text/")) {
+      if (configuration.rawValues()) {
          return (byte[]) entry.getValue();
+      } else {
+         if (isTextContentType(contentType)) {
+            return (byte[]) entry.getValue();
+         }
+         return ctx.getMarshaller().objectToByteBuffer(entry.getValue());
       }
-      return ctx.getMarshaller().objectToByteBuffer(entry.getValue());
    }
 
    private Object unmarshall(String contentType, byte[] b) throws IOException, ClassNotFoundException {
-      if (contentType.startsWith("text/")) {
-         return new String(b); // TODO: use response header Content Encoding
+      if (configuration.rawValues()) {
+         return b;
       } else {
-         return ctx.getMarshaller().objectFromByteBuffer(b);
+         if (isTextContentType(contentType)) {
+            return new String(b); // TODO: use response header Content Encoding
+         } else {
+            return ctx.getMarshaller().objectFromByteBuffer(b);
+         }
       }
    }
 
+   private boolean isTextContentType(String contentType) {
+      return contentType.startsWith("text/") || "application/xml".equals(contentType) || "application/json".equals(contentType);
+   }
 
    @Override
    public void write(MarshalledEntry entry) {
@@ -261,7 +276,7 @@ public class RestStore implements AdvancedLoadWriteStore {
          Set<Object> entries = new HashSet<Object>(batchSize);
          for (String stringKey = reader.readLine(); stringKey != null; stringKey = reader.readLine()) {
             Object key = key2StringMapper.getKeyMapping(stringKey);
-            if (keyFilter == null || keyFilter.shouldLoadKey(key))
+            if (keyFilter == null || keyFilter.accept(key))
                entries.add(key);
             if (entries.size() == batchSize) {
                final Set<Object> batch = entries;
