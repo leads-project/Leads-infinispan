@@ -15,7 +15,43 @@
    <!-- This module declares components that either has lifecycle (@Start or @Stop) or uses @Inject to retrieve dependencies -->
    <properties>
       <module.skipComponentMetaDataProcessing>false</module.skipComponentMetaDataProcessing>
+       <avro.version>1.7.6</avro.version>
    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro-maven-plugin</artifactId>
+                <version>${avro.version}</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>schema</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirectory>${project.basedir}/src/test/resources</sourceDirectory>
+                            <outputDirectory>${project.basedir}/src/test/resources/</outputDirectory>
+                            <testSourceDirectory>${project.basedir}/src/test/resources</testSourceDirectory>
+                            <testsOutputDirectory>${project.basedir}/src/test/resources/</testsOutputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <configuration>
+                    <instructions>
+                        <Export-Package>
+                            ${project.groupId}.remote-query-server.*;version=${project.version};-split-package:=error
+                        </Export-Package>
+                    </instructions>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
    <dependencies>
       <dependency>
@@ -50,21 +86,31 @@
          <type>test-jar</type>
          <scope>test</scope>
       </dependency>
+
+       <dependency>
+           <groupId>org.apache.avro</groupId>
+           <artifactId>avro</artifactId>
+           <version>${avro.version}</version>
+       </dependency>
+
+       <dependency>
+           <groupId>org.apache.avro</groupId>
+           <artifactId>avro-maven-plugin</artifactId>
+           <version>${avro.version}</version>
+       </dependency>
+
+       <dependency>
+           <groupId>org.apache.avro</groupId>
+           <artifactId>avro-compiler</artifactId>
+           <version>${avro.version}</version>
+       </dependency>
+
+       <dependency>
+           <groupId>org.apache.avro</groupId>
+           <artifactId>avro-ipc</artifactId>
+           <version>${avro.version}</version>
+       </dependency>
+
    </dependencies>
 
-   <build>
-      <plugins>
-         <plugin>
-            <groupId>org.apache.felix</groupId>
-            <artifactId>maven-bundle-plugin</artifactId>
-            <configuration>
-               <instructions>
-                  <Export-Package>
-                     ${project.groupId}.remote-query-server.*;version=${project.version};-split-package:=error
-                  </Export-Package>
-               </instructions>
-            </configuration>
-         </plugin>
-      </plugins>
-   </build>
 </project>

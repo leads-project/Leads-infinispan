@@ -3,11 +3,7 @@ package org.infinispan.query.remote;
 import com.google.protobuf.Descriptors;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.marshall.AdvancedExternalizer;
-import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.configuration.cache.CustomInterceptorsConfigurationBuilder;
-import org.infinispan.configuration.cache.InterceptorConfiguration;
-import org.infinispan.configuration.cache.InterceptorConfigurationBuilder;
+import org.infinispan.configuration.cache.*;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.GlobalComponentRegistry;
@@ -25,6 +21,7 @@ import org.infinispan.objectfilter.impl.ProtobufMatcher;
 import org.infinispan.protostream.ProtobufUtil;
 import org.infinispan.protostream.SerializationContext;
 import org.infinispan.query.remote.client.MarshallerRegistration;
+import org.infinispan.query.remote.indexing.AvroExternalizer;
 import org.infinispan.query.remote.indexing.ProtobufValueWrapper;
 import org.infinispan.query.remote.indexing.RemoteValueWrapperInterceptor;
 import org.infinispan.query.remote.logging.Log;
@@ -63,6 +60,7 @@ public class LifecycleManager extends AbstractModuleLifecycle {
    public void cacheManagerStarting(GlobalComponentRegistry gcr, GlobalConfiguration globalCfg) {
       Map<Integer, AdvancedExternalizer<?>> externalizerMap = globalCfg.serialization().advancedExternalizers();
       externalizerMap.put(ExternalizerIds.PROTOBUF_VALUE_WRAPPER, new ProtobufValueWrapper.Externalizer());
+      externalizerMap.put(ExternalizerIds.AVRO_VALUE_WRAPPER, new AvroExternalizer());
    }
 
    @Override

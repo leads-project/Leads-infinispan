@@ -13,6 +13,9 @@
   <bean id="programmaticSearchMappingProviderImpl" class="org.infinispan.query.remote.ProgrammaticSearchMappingProviderImpl"/>
   <service ref="programmaticSearchMappingProviderImpl" interface="org.infinispan.query.spi.ProgrammaticSearchMappingProvider"/>
 
+   <bean id="avroSearchMappingProviderImpl" class="org.infinispan.query.remote.AvroSearchMappingProviderImpl"/>
+   <service ref="avroSearchMappingProviderImpl" interface="org.infinispan.query.spi.ProgrammaticSearchMappingProvider"/>
+
   <bean id="queryFacadeImpl" class="org.infinispan.query.remote.QueryFacadeImpl"/>
   <service ref="queryFacadeImpl" interface="org.infinispan.server.core.QueryFacade"/>
   
