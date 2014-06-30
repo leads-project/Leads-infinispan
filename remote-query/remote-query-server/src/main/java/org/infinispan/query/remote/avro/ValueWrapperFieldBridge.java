@@ -1,4 +1,4 @@
-package org.infinispan.query.remote.indexing;
+package org.infinispan.query.remote.avro;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -14,7 +14,7 @@ import org.hibernate.search.bridge.LuceneOptions;
  * @author otrack
  * @since 4.0
  */
-public class AvroValueWrapperFieldBridge implements FieldBridge{
+public class ValueWrapperFieldBridge implements FieldBridge{
     @Override
     public void set(String name, Object value, Document document, LuceneOptions luceneOptions) {
         GenericData.Record record = (GenericData.Record) value;

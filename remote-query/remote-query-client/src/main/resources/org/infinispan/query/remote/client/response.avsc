@@ -1,0 +1,10 @@
+{"namespace": "org.infinispan.query.remote.client.avro",
+ "type": "record",
+ "name": "Response",
+ "fields": [
+     {"name": "numResults", "type": "int"},
+     {"name": "projectionSize",  "type": "int"},
+     {"name": "results", "type": { "type": "array", "items": "bytes"}},
+     {"name": "totalResults", "type": "int"}
+ ]
+}

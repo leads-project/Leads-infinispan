@@ -1,4 +1,4 @@
-package org.infinispan.query.remote.indexing;
+package org.infinispan.query.remote.avro;
 
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
@@ -20,9 +20,9 @@ import java.util.Set;
  * @author otrack
  * @since 4.0
  */
-public class AvroExternalizer extends AbstractExternalizer<GenericData.Record> {
+public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.Record> {
 
-    public AvroExternalizer(){
+    public GenericRecordExternalizer(){
     }
 
     @Override

@@ -1,0 +1,9 @@
+{"namespace": "org.infinispan.query.remote.client.avro",
+ "type": "record",
+ "name": "Request",
+ "fields": [
+     {"name": "jpqlString", "type": "string"},
+     {"name": "startOffset",  "type": "int"},
+     {"name": "maxResult", "type": "int"}
+ ]
+}

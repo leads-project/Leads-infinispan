@@ -1,4 +1,4 @@
-package org.infinispan.query.remote;
+package org.infinispan.query.remote.avro;
 
 import org.apache.avro.generic.GenericData;
 import org.hibernate.search.annotations.Analyze;
@@ -15,7 +15,7 @@ import org.infinispan.query.spi.ProgrammaticSearchMappingProvider;
  * @author otrack
  * @since 4.0
  */
-public class AvroSearchMappingProviderImpl implements ProgrammaticSearchMappingProvider {
+public class SearchMappingProviderImpl implements ProgrammaticSearchMappingProvider {
     @Override
     public void defineMappings(Cache cache, SearchMapping searchMapping) {
         searchMapping.entity(GenericData.Record.class)
