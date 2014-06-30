@@ -37,6 +37,8 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
 
     @Override
     public String objectToString(Object object) {
+        if (object==null)
+            return "";
         return object.toString();
     }
 }
