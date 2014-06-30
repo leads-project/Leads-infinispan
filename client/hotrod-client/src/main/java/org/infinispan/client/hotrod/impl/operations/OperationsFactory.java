@@ -1,23 +1,19 @@
 package org.infinispan.client.hotrod.impl.operations;
 
 import net.jcip.annotations.Immutable;
-
 import org.infinispan.client.hotrod.Flag;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.event.ClientListenerNotifier;
+import org.infinispan.client.hotrod.impl.avro.AvroQueryOperation;
+import org.infinispan.client.hotrod.impl.avro.AvroRemoteQuery;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.protocol.HotRodConstants;
 import org.infinispan.client.hotrod.impl.query.RemoteQuery;
 import org.infinispan.client.hotrod.impl.transport.Transport;
 import org.infinispan.client.hotrod.impl.transport.TransportFactory;
-import org.infinispan.commons.util.InfinispanCollections;
 
-import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -187,6 +183,11 @@ public class OperationsFactory implements HotRodConstants {
       return new QueryOperation(
             codec, transportFactory, cacheNameBytes, topologyId, flags(), remoteQuery);
    }
+
+   public AvroQueryOperation newAvroQueryOperation(AvroRemoteQuery remoteQuery) {
+        return new AvroQueryOperation(
+                codec, transportFactory, cacheNameBytes, topologyId, flags(), remoteQuery);
+    }
 
    private Flag[] flags() {
       List<Flag> flags = this.flagsMap.get();

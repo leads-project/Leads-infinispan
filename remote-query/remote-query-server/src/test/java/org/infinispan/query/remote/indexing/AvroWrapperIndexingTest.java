@@ -12,7 +12,6 @@ import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
 import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
-import org.infinispan.transaction.TransactionMode;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -21,10 +20,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 /**
- * // TODO: Document this
+ * Unit test for Avro based indexation.
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre SUtra
+ * @since 7.0
  */
 @Test(groups = "functional", testName = "AvroWrapperIndexingTest")
 public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
@@ -32,7 +31,7 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
     @Override
     protected EmbeddedCacheManager createCacheManager() throws Exception {
         ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
-        cfg.transaction().transactionMode(TransactionMode.TRANSACTIONAL)
+        cfg.transaction()
                 .indexing().enable()
                 .addProperty("default.directory_provider", "ram")
                 .addProperty("lucene_version", "LUCENE_CURRENT");
@@ -64,6 +63,8 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
                 .ignoreAnalyzer()
                 .matching("Alice")
                 .createQuery();
+
+        System.out.println(luceneQuery.toString());
 
         List<Object> list = sm.getQuery(luceneQuery).list();
         System.out.println(list.get(0));

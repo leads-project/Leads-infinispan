@@ -7,10 +7,10 @@ package org.infinispan.query.remote.client.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class Request extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Request\",\"namespace\":\"org.infinispan.query.remote.client.avro\",\"fields\":[{\"name\":\"jpqlString\",\"type\":\"string\"},{\"name\":\"startOffset\",\"type\":\"int\"},{\"name\":\"maxResult\",\"type\":\"int\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Request\",\"namespace\":\"org.infinispan.query.remote.client.avro\",\"fields\":[{\"name\":\"jpqlString\",\"type\":\"string\"},{\"name\":\"startOffset\",\"type\":\"long\"},{\"name\":\"maxResult\",\"type\":\"int\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
   @Deprecated public java.lang.CharSequence jpqlString;
-  @Deprecated public int startOffset;
+  @Deprecated public long startOffset;
   @Deprecated public int maxResult;
 
   /**
@@ -23,7 +23,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * All-args constructor.
    */
-  public Request(java.lang.CharSequence jpqlString, java.lang.Integer startOffset, java.lang.Integer maxResult) {
+  public Request(java.lang.CharSequence jpqlString, java.lang.Long startOffset, java.lang.Integer maxResult) {
     this.jpqlString = jpqlString;
     this.startOffset = startOffset;
     this.maxResult = maxResult;
@@ -44,7 +44,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
     case 0: jpqlString = (java.lang.CharSequence)value$; break;
-    case 1: startOffset = (java.lang.Integer)value$; break;
+    case 1: startOffset = (java.lang.Long)value$; break;
     case 2: maxResult = (java.lang.Integer)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
@@ -68,7 +68,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * Gets the value of the 'startOffset' field.
    */
-  public java.lang.Integer getStartOffset() {
+  public java.lang.Long getStartOffset() {
     return startOffset;
   }
 
@@ -76,7 +76,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'startOffset' field.
    * @param value the value to set.
    */
-  public void setStartOffset(java.lang.Integer value) {
+  public void setStartOffset(java.lang.Long value) {
     this.startOffset = value;
   }
 
@@ -117,7 +117,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     implements org.apache.avro.data.RecordBuilder<Request> {
 
     private java.lang.CharSequence jpqlString;
-    private int startOffset;
+    private long startOffset;
     private int maxResult;
 
     /** Creates a new Builder */
@@ -185,12 +185,12 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'startOffset' field */
-    public java.lang.Integer getStartOffset() {
+    public java.lang.Long getStartOffset() {
       return startOffset;
     }
     
     /** Sets the value of the 'startOffset' field */
-    public org.infinispan.query.remote.client.avro.Request.Builder setStartOffset(int value) {
+    public org.infinispan.query.remote.client.avro.Request.Builder setStartOffset(long value) {
       validate(fields()[1], value);
       this.startOffset = value;
       fieldSetFlags()[1] = true;
@@ -237,7 +237,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
       try {
         Request record = new Request();
         record.jpqlString = fieldSetFlags()[0] ? this.jpqlString : (java.lang.CharSequence) defaultValue(fields()[0]);
-        record.startOffset = fieldSetFlags()[1] ? this.startOffset : (java.lang.Integer) defaultValue(fields()[1]);
+        record.startOffset = fieldSetFlags()[1] ? this.startOffset : (java.lang.Long) defaultValue(fields()[1]);
         record.maxResult = fieldSetFlags()[2] ? this.maxResult : (java.lang.Integer) defaultValue(fields()[2]);
         return record;
       } catch (Exception e) {

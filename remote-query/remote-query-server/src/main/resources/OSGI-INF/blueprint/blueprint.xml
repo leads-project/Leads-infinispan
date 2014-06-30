@@ -10,10 +10,10 @@
   <bean id="lifecycleManager" class="org.infinispan.query.remote.LifecycleManager"/>
   <service ref="lifecycleManager" interface="org.infinispan.lifecycle.ModuleLifecycle"/>
 
-  <bean id="programmaticSearchMappingProviderImpl" class="org.infinispan.query.remote.ProgrammaticSearchMappingProviderImpl"/>
-  <service ref="programmaticSearchMappingProviderImpl" interface="org.infinispan.query.spi.ProgrammaticSearchMappingProvider"/>
+  <!--<bean id="programmaticSearchMappingProviderImpl" class="org.infinispan.query.remote.ProgrammaticSearchMappingProviderImpl"/>-->
+  <!--<service ref="programmaticSearchMappingProviderImpl" interface="org.infinispan.query.spi.ProgrammaticSearchMappingProvider"/>-->
 
-   <bean id="avroSearchMappingProviderImpl" class="org.infinispan.query.remote.AvroSearchMappingProviderImpl"/>
+   <bean id="avroSearchMappingProviderImpl" class="org.infinispan.query.remote.avro.SearchMappingProviderImpl"/>
    <service ref="avroSearchMappingProviderImpl" interface="org.infinispan.query.spi.ProgrammaticSearchMappingProvider"/>
 
   <bean id="queryFacadeImpl" class="org.infinispan.query.remote.QueryFacadeImpl"/>

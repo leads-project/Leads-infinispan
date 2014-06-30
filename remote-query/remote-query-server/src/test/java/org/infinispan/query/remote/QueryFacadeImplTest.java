@@ -1,5 +1,6 @@
 package org.infinispan.query.remote;
 
+import org.infinispan.query.remote.avro.AvroQueryFacade;
 import org.infinispan.server.core.QueryFacade;
 import org.testng.annotations.Test;
 
@@ -26,6 +27,6 @@ public class QueryFacadeImplTest {
       }
 
       assertEquals(1, implementations.size());
-      assertEquals(QueryFacadeImpl.class, implementations.get(0).getClass());
+      assertEquals(AvroQueryFacade.class, implementations.get(0).getClass());
    }
 }

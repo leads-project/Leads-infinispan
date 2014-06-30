@@ -34,7 +34,7 @@
                             <sourceDirectory>${project.basedir}/src/test/resources</sourceDirectory>
                             <outputDirectory>${project.basedir}/src/test/resources/</outputDirectory>
                             <testSourceDirectory>${project.basedir}/src/test/resources</testSourceDirectory>
-                            <testsOutputDirectory>${project.basedir}/src/test/resources/</testsOutputDirectory>
+                            <testOutputDirectory>${project.basedir}/src/test/resources/</testOutputDirectory>
                         </configuration>
                     </execution>
                 </executions>

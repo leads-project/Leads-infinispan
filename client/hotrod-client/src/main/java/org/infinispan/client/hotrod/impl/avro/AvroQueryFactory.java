@@ -1,5 +1,6 @@
 package org.infinispan.client.hotrod.impl.avro;
 
+import org.apache.avro.generic.GenericData;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryBuilder;
@@ -21,12 +22,12 @@ public class AvroQueryFactory extends BaseQueryFactory<Query> {
 
     @Override
     public QueryBuilder<Query> from(Class entityType) {
-        return from(entityType.getName());
+        return from(GenericData.Record.class.getName());
     }
 
     @Override
     public QueryBuilder<Query> from(String entityType) {
-        return new AvroQueryBuilder(cache, entityType);
+        return new AvroQueryBuilder(cache, GenericData.Record.class.getName());
     }
 
 }

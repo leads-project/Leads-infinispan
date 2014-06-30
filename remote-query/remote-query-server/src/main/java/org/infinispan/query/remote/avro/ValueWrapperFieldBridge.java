@@ -5,8 +5,8 @@ import org.apache.avro.generic.GenericData;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
-import org.hibernate.search.bridge.FieldBridge;
 import org.hibernate.search.bridge.LuceneOptions;
+import org.hibernate.search.bridge.TwoWayFieldBridge;
 
 /**
  * // TODO: Document this
@@ -14,7 +14,7 @@ import org.hibernate.search.bridge.LuceneOptions;
  * @author otrack
  * @since 4.0
  */
-public class ValueWrapperFieldBridge implements FieldBridge{
+public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
     @Override
     public void set(String name, Object value, Document document, LuceneOptions luceneOptions) {
         GenericData.Record record = (GenericData.Record) value;
@@ -28,5 +28,15 @@ public class ValueWrapperFieldBridge implements FieldBridge{
             }
             document.add(stringField);
         }
+    }
+
+    @Override
+    public Object get(String name, Document document) {
+        return document.get(name);
+    }
+
+    @Override
+    public String objectToString(Object object) {
+        return object.toString();
     }
 }

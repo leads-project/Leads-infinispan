@@ -3,7 +3,7 @@
  "name": "Request",
  "fields": [
      {"name": "jpqlString", "type": "string"},
-     {"name": "startOffset",  "type": "int"},
+     {"name": "startOffset",  "type": "long"},
      {"name": "maxResult", "type": "int"}
  ]
 }

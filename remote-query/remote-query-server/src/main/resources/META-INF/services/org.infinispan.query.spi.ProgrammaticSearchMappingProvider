@@ -1,2 +1,1 @@
-org.infinispan.query.remote.ProgrammaticSearchMappingProviderImpl
-org.infinispan.query.remote.AvroSearchMappingProviderImpl
+org.infinispan.query.remote.avro.SearchMappingProviderImpl

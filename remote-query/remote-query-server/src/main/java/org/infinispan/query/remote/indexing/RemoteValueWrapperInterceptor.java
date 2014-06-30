@@ -1,10 +1,13 @@
 package org.infinispan.query.remote.indexing;
 
+import org.apache.avro.generic.GenericData;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.compat.TypeConverter;
 import org.infinispan.context.Flag;
 import org.infinispan.interceptors.compat.BaseTypeConverterInterceptor;
+import org.infinispan.query.remote.avro.GenericRecordExternalizer;
 
+import java.io.IOException;
 import java.util.Set;
 
 /**
@@ -66,18 +69,28 @@ public class RemoteValueWrapperInterceptor extends BaseTypeConverterInterceptor 
     */
    private static class ProtobufValueWrapperTypeConverter extends PassThroughTypeConverter {
 
+      GenericRecordExternalizer externalizer = new GenericRecordExternalizer();
+
       @Override
       public Object boxValue(Object value) {
          if (value instanceof byte[]) {
-            return new ProtobufValueWrapper((byte[]) value);
+             try{
+                 return externalizer.objectFromByteBuffer((byte[])value);
+             } catch (ClassNotFoundException | IOException e) {
+                 e.printStackTrace();
+             }
          }
          return value;
       }
 
       @Override
       public Object unboxValue(Object target) {
-         if (target instanceof ProtobufValueWrapper) {
-            return ((ProtobufValueWrapper) target).getBinary();
+         if (target instanceof GenericData.Record) {
+             try{
+                 return externalizer.objectToByteBuffer(target);
+             } catch (IOException | InterruptedException e) {
+                 e.printStackTrace();
+             }
          }
          return target;
       }

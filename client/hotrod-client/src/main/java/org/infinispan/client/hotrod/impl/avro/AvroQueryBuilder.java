@@ -1,5 +1,6 @@
 package org.infinispan.client.hotrod.impl.avro;
 
+import org.apache.avro.generic.GenericData;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
@@ -19,7 +20,7 @@ public class AvroQueryBuilder extends BaseQueryBuilder<Query> {
     private RemoteCacheImpl cache;
 
     public AvroQueryBuilder(RemoteCacheImpl c, String entityType) {
-        super(entityType);
+        super(GenericData.Record.class.getName());
         cache = c;
     }
 

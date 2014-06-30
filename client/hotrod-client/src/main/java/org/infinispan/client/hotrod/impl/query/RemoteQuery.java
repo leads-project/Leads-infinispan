@@ -18,17 +18,17 @@ import java.util.List;
  * @author anistor@redhat.com
  * @since 6.0
  */
-public final class RemoteQuery implements Query {
+public class RemoteQuery implements Query {
 
-   private final RemoteCacheImpl cache;
-   private final SerializationContext serializationContext;
+   protected final RemoteCacheImpl cache;
+   protected final SerializationContext serializationContext;
 
-   private final String jpqlString;
-   private final long startOffset; //todo can this really be long or it has to be int due to limitations in query module?
-   private final int maxResults;
+   protected final String jpqlString;
+   protected final long startOffset; //todo can this really be long or it has to be int due to limitations in query module?
+   protected final int maxResults;
 
-   private List results = null;
-   private int totalResults;
+   protected List results = null;
+   protected int totalResults;
 
    public RemoteQuery(RemoteCacheImpl cache, SerializationContext serializationContext,
                       String jpqlString, long startOffset, int maxResults) {
@@ -65,7 +65,7 @@ public final class RemoteQuery implements Query {
       return (List<T>) results;
    }
 
-   private List<Object> executeQuery() {
+   protected List<Object> executeQuery() {
       List<Object> results;
 
       QueryOperation op = cache.getOperationsFactory().newQueryOperation(this);

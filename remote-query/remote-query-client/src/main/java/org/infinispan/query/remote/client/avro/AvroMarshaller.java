@@ -4,8 +4,8 @@ import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.file.SeekableByteArrayInput;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.specific.SpecificDatumReader;
-import org.apache.avro.specific.SpecificDatumWriter;
 import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.commons.io.ByteBufferImpl;
 import org.infinispan.commons.marshall.AbstractMarshaller;
@@ -44,7 +44,7 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
             return marshaller.objectToBuffer(o);
         }else{
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            SpecificDatumWriter<T> writer = new SpecificDatumWriter<>(schema);
+            GenericDatumWriter<T> writer = new GenericDatumWriter<>(schema);
             DataFileWriter<T> dataFileWriter = new DataFileWriter<>(writer);
             dataFileWriter.create(schema,baos);
             dataFileWriter.append((T) o);
@@ -55,12 +55,16 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
 
     @Override
     public Object objectFromByteBuffer(byte[] buf, int offset, int length) throws IOException, ClassNotFoundException {
-        ByteArrayInputStream bais = new ByteArrayInputStream(buf, offset, length);
-        SpecificDatumReader<T> reader = new SpecificDatumReader<>(schema);
-        DataFileReader<T> dataFileReader = new DataFileReader<>(new SeekableByteArrayInput(buf),reader);
-        if(dataFileReader.hasNext())
-            return dataFileReader.next();
-        return null;
+        try{
+            ByteArrayInputStream bais = new ByteArrayInputStream(buf, offset, length);
+            SpecificDatumReader<T> reader = new SpecificDatumReader<>(schema);
+            DataFileReader<T> dataFileReader = new DataFileReader<>(new SeekableByteArrayInput(buf),reader);
+            if(dataFileReader.hasNext())
+                return dataFileReader.next();
+            return null;
+        } catch (IOException e) {
+            return marshaller.objectFromByteBuffer(buf, offset, length);
+        }
     }
 
     //

@@ -37,7 +37,7 @@ import static org.junit.Assert.assertNotNull;
  * @author otrack
  * @since 4.0
  */
-@Test(testName = "client.hotrod.query.HotRodNonIndexedQueryTest", groups = "functional")
+@Test(testName = "client.hotrod.avro.AvroIndexedQueryTest", groups = "functional")
 @CleanupAfterMethod
 public class AvroIndexedQueryTest extends SingleCacheManagerTest {
 
@@ -51,6 +51,9 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
     protected EmbeddedCacheManager createCacheManager() throws Exception {
         GlobalConfigurationBuilder gcb = new GlobalConfigurationBuilder().nonClusteredDefault();
         ConfigurationBuilder builder = getConfigurationBuilder();
+        builder.indexing().enable()
+                .addProperty("default.directory_provider", "ram")
+                .addProperty("lucene_version", "LUCENE_CURRENT");
         cacheManager = TestCacheManagerFactory.createCacheManager(gcb, new ConfigurationBuilder(), true);
         cacheManager.defineConfiguration(TEST_CACHE_NAME, builder.build());
         cache = cacheManager.getCache(TEST_CACHE_NAME);
@@ -173,7 +176,7 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
 
     private void assertUser(User user) {
         assertNotNull(user);
-        assertEquals("Tom", user.getName());
+        assertEquals("Tom", user.getName().toString());
     }
 }
 
