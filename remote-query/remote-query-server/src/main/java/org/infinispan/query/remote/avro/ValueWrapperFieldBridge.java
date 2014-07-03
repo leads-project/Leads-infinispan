@@ -15,6 +15,9 @@ import org.hibernate.search.bridge.TwoWayFieldBridge;
  * @since 4.0
  */
 public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
+
+    public static final String NULL="__null__";
+
     @Override
     public void set(String name, Object value, Document document, LuceneOptions luceneOptions) {
         GenericData.Record record = (GenericData.Record) value;
@@ -22,9 +25,15 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
         StringField stringField;
         for(Schema.Field field : schema.getFields()){
             if (record.get(field.name())!=null){
-                stringField = new StringField(field.name(),record.get(field.name()).toString(), Field.Store.NO);
+                stringField = new StringField(
+                        field.name(),
+                        record.get(field.name()).toString(),
+                        Field.Store.YES);
             }else{
-                stringField = new StringField(field.name(),"", Field.Store.NO);
+                stringField = new StringField(
+                        field.name(),
+                        NULL,
+                        Field.Store.YES);
             }
             document.add(stringField);
         }
@@ -32,13 +41,15 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
 
     @Override
     public Object get(String name, Document document) {
+        if (document.get(name).equals(NULL))
+            return null;
         return document.get(name);
     }
 
     @Override
     public String objectToString(Object object) {
         if (object==null)
-            return "";
+            return NULL;
         return object.toString();
     }
 }

@@ -7,12 +7,10 @@ package org.infinispan.query.remote.client.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class Response extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Response\",\"namespace\":\"org.infinispan.query.remote.client.avro\",\"fields\":[{\"name\":\"numResults\",\"type\":\"int\"},{\"name\":\"projectionSize\",\"type\":\"int\"},{\"name\":\"results\",\"type\":{\"type\":\"array\",\"items\":\"bytes\"}},{\"name\":\"totalResults\",\"type\":\"int\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Response\",\"namespace\":\"org.infinispan.query.remote.client.avro\",\"fields\":[{\"name\":\"numResults\",\"type\":\"int\"},{\"name\":\"results\",\"type\":{\"type\":\"array\",\"items\":\"bytes\"}}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
   @Deprecated public int numResults;
-  @Deprecated public int projectionSize;
   @Deprecated public java.util.List<java.nio.ByteBuffer> results;
-  @Deprecated public int totalResults;
 
   /**
    * Default constructor.  Note that this does not initialize fields
@@ -24,11 +22,9 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
   /**
    * All-args constructor.
    */
-  public Response(java.lang.Integer numResults, java.lang.Integer projectionSize, java.util.List<java.nio.ByteBuffer> results, java.lang.Integer totalResults) {
+  public Response(java.lang.Integer numResults, java.util.List<java.nio.ByteBuffer> results) {
     this.numResults = numResults;
-    this.projectionSize = projectionSize;
     this.results = results;
-    this.totalResults = totalResults;
   }
 
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
@@ -36,9 +32,7 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return numResults;
-    case 1: return projectionSize;
-    case 2: return results;
-    case 3: return totalResults;
+    case 1: return results;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -47,9 +41,7 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
     case 0: numResults = (java.lang.Integer)value$; break;
-    case 1: projectionSize = (java.lang.Integer)value$; break;
-    case 2: results = (java.util.List<java.nio.ByteBuffer>)value$; break;
-    case 3: totalResults = (java.lang.Integer)value$; break;
+    case 1: results = (java.util.List<java.nio.ByteBuffer>)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -70,21 +62,6 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
   }
 
   /**
-   * Gets the value of the 'projectionSize' field.
-   */
-  public java.lang.Integer getProjectionSize() {
-    return projectionSize;
-  }
-
-  /**
-   * Sets the value of the 'projectionSize' field.
-   * @param value the value to set.
-   */
-  public void setProjectionSize(java.lang.Integer value) {
-    this.projectionSize = value;
-  }
-
-  /**
    * Gets the value of the 'results' field.
    */
   public java.util.List<java.nio.ByteBuffer> getResults() {
@@ -97,21 +74,6 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
    */
   public void setResults(java.util.List<java.nio.ByteBuffer> value) {
     this.results = value;
-  }
-
-  /**
-   * Gets the value of the 'totalResults' field.
-   */
-  public java.lang.Integer getTotalResults() {
-    return totalResults;
-  }
-
-  /**
-   * Sets the value of the 'totalResults' field.
-   * @param value the value to set.
-   */
-  public void setTotalResults(java.lang.Integer value) {
-    this.totalResults = value;
   }
 
   /** Creates a new Response RecordBuilder */
@@ -136,9 +98,7 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
     implements org.apache.avro.data.RecordBuilder<Response> {
 
     private int numResults;
-    private int projectionSize;
     private java.util.List<java.nio.ByteBuffer> results;
-    private int totalResults;
 
     /** Creates a new Builder */
     private Builder() {
@@ -152,17 +112,9 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
         this.numResults = data().deepCopy(fields()[0].schema(), other.numResults);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.projectionSize)) {
-        this.projectionSize = data().deepCopy(fields()[1].schema(), other.projectionSize);
+      if (isValidValue(fields()[1], other.results)) {
+        this.results = data().deepCopy(fields()[1].schema(), other.results);
         fieldSetFlags()[1] = true;
-      }
-      if (isValidValue(fields()[2], other.results)) {
-        this.results = data().deepCopy(fields()[2].schema(), other.results);
-        fieldSetFlags()[2] = true;
-      }
-      if (isValidValue(fields()[3], other.totalResults)) {
-        this.totalResults = data().deepCopy(fields()[3].schema(), other.totalResults);
-        fieldSetFlags()[3] = true;
       }
     }
     
@@ -173,17 +125,9 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
         this.numResults = data().deepCopy(fields()[0].schema(), other.numResults);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.projectionSize)) {
-        this.projectionSize = data().deepCopy(fields()[1].schema(), other.projectionSize);
+      if (isValidValue(fields()[1], other.results)) {
+        this.results = data().deepCopy(fields()[1].schema(), other.results);
         fieldSetFlags()[1] = true;
-      }
-      if (isValidValue(fields()[2], other.results)) {
-        this.results = data().deepCopy(fields()[2].schema(), other.results);
-        fieldSetFlags()[2] = true;
-      }
-      if (isValidValue(fields()[3], other.totalResults)) {
-        this.totalResults = data().deepCopy(fields()[3].schema(), other.totalResults);
-        fieldSetFlags()[3] = true;
       }
     }
 
@@ -211,30 +155,6 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
       return this;
     }
 
-    /** Gets the value of the 'projectionSize' field */
-    public java.lang.Integer getProjectionSize() {
-      return projectionSize;
-    }
-    
-    /** Sets the value of the 'projectionSize' field */
-    public org.infinispan.query.remote.client.avro.Response.Builder setProjectionSize(int value) {
-      validate(fields()[1], value);
-      this.projectionSize = value;
-      fieldSetFlags()[1] = true;
-      return this; 
-    }
-    
-    /** Checks whether the 'projectionSize' field has been set */
-    public boolean hasProjectionSize() {
-      return fieldSetFlags()[1];
-    }
-    
-    /** Clears the value of the 'projectionSize' field */
-    public org.infinispan.query.remote.client.avro.Response.Builder clearProjectionSize() {
-      fieldSetFlags()[1] = false;
-      return this;
-    }
-
     /** Gets the value of the 'results' field */
     public java.util.List<java.nio.ByteBuffer> getResults() {
       return results;
@@ -242,45 +162,21 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
     
     /** Sets the value of the 'results' field */
     public org.infinispan.query.remote.client.avro.Response.Builder setResults(java.util.List<java.nio.ByteBuffer> value) {
-      validate(fields()[2], value);
+      validate(fields()[1], value);
       this.results = value;
-      fieldSetFlags()[2] = true;
+      fieldSetFlags()[1] = true;
       return this; 
     }
     
     /** Checks whether the 'results' field has been set */
     public boolean hasResults() {
-      return fieldSetFlags()[2];
+      return fieldSetFlags()[1];
     }
     
     /** Clears the value of the 'results' field */
     public org.infinispan.query.remote.client.avro.Response.Builder clearResults() {
       results = null;
-      fieldSetFlags()[2] = false;
-      return this;
-    }
-
-    /** Gets the value of the 'totalResults' field */
-    public java.lang.Integer getTotalResults() {
-      return totalResults;
-    }
-    
-    /** Sets the value of the 'totalResults' field */
-    public org.infinispan.query.remote.client.avro.Response.Builder setTotalResults(int value) {
-      validate(fields()[3], value);
-      this.totalResults = value;
-      fieldSetFlags()[3] = true;
-      return this; 
-    }
-    
-    /** Checks whether the 'totalResults' field has been set */
-    public boolean hasTotalResults() {
-      return fieldSetFlags()[3];
-    }
-    
-    /** Clears the value of the 'totalResults' field */
-    public org.infinispan.query.remote.client.avro.Response.Builder clearTotalResults() {
-      fieldSetFlags()[3] = false;
+      fieldSetFlags()[1] = false;
       return this;
     }
 
@@ -289,9 +185,7 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
       try {
         Response record = new Response();
         record.numResults = fieldSetFlags()[0] ? this.numResults : (java.lang.Integer) defaultValue(fields()[0]);
-        record.projectionSize = fieldSetFlags()[1] ? this.projectionSize : (java.lang.Integer) defaultValue(fields()[1]);
-        record.results = fieldSetFlags()[2] ? this.results : (java.util.List<java.nio.ByteBuffer>) defaultValue(fields()[2]);
-        record.totalResults = fieldSetFlags()[3] ? this.totalResults : (java.lang.Integer) defaultValue(fields()[3]);
+        record.results = fieldSetFlags()[1] ? this.results : (java.util.List<java.nio.ByteBuffer>) defaultValue(fields()[1]);
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);

@@ -1,11 +1,14 @@
 package org.infinispan.query.remote.avro;
 
 
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.lucene.search.Query;
 import org.hibernate.hql.QueryParser;
 import org.hibernate.hql.ast.spi.EntityNamesResolver;
 import org.hibernate.hql.lucene.LuceneProcessingChain;
+import org.hibernate.hql.lucene.LuceneQueryParsingResult;
 import org.hibernate.hql.lucene.spi.FieldBridgeProvider;
 import org.hibernate.search.bridge.FieldBridge;
 import org.hibernate.search.query.dsl.QueryBuilder;
@@ -64,18 +67,31 @@ public class AvroQueryFacade implements QueryFacade {
                         }
                     });
 
-            Query q = qp.parseQuery(request.getJpqlString().toString(),processingChain).getQuery();
-
+            LuceneQueryParsingResult parsingResult = qp.parseQuery(request.getJpqlString().toString(), processingChain);
+            Query q = parsingResult.getQuery();
             List<Object> list = sm.getQuery(q).list();
             List<ByteBuffer> results = new ArrayList<>();
-            for (Object o: list) {
-                results.add(ByteBuffer.wrap((byte[])o));
+            if (parsingResult.getProjections().size()==0){
+                for (Object o: list) {
+                    results.add(ByteBuffer.wrap((byte[])o));
+                }
+            }else{
+                for (Object o: list) {
+
+                    GenericData.Record record = (GenericData.Record) externalizer.objectFromByteBuffer((byte[])o);
+                    GenericRecordBuilder builder = new GenericRecordBuilder(record.getSchema());
+                    GenericData.Record copy = builder.build();
+                    for(Schema.Field f : record.getSchema().getFields()){
+                        if (parsingResult.getProjections().contains(f.name()))
+                            copy.put(f.name(),record.get(f.name()));
+                    }
+
+                    results.add(ByteBuffer.wrap(externalizer.objectToByteBuffer(copy)));
+                }
             }
 
             Response response = new Response();
-            response.setTotalResults(list.size());
             response.setNumResults(list.size());
-            response.setProjectionSize(0);
             response.setResults(results);
             return responseAvroMarshaller.objectToByteBuffer(response);
 

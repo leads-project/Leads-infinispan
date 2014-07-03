@@ -3,8 +3,6 @@
  "name": "Response",
  "fields": [
      {"name": "numResults", "type": "int"},
-     {"name": "projectionSize",  "type": "int"},
-     {"name": "results", "type": { "type": "array", "items": "bytes"}},
-     {"name": "totalResults", "type": "int"}
+     {"name": "results", "type": { "type": "array", "items": "bytes"}}
  ]
 }

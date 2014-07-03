@@ -1,6 +1,7 @@
-{"namespace": "example.avro",
+{
  "type": "record",
  "name": "User",
+ "namespace": "example.avro",
  "fields": [
      {"name": "name", "type": "string"},
      {"name": "favorite_number",  "type": ["int", "null"]},

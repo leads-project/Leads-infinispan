@@ -6,6 +6,7 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.specific.SpecificDatumReader;
+import org.apache.avro.util.Utf8;
 import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.commons.io.ByteBufferImpl;
 import org.infinispan.commons.marshall.AbstractMarshaller;
@@ -42,6 +43,8 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
     protected ByteBuffer objectToBuffer(Object o, int estimatedSize) throws IOException, InterruptedException {
         if (!isMarshallable(o)){
             return marshaller.objectToBuffer(o);
+        }else if (o instanceof Utf8){
+            return marshaller.objectToBuffer(o.toString());
         }else{
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             GenericDatumWriter<T> writer = new GenericDatumWriter<>(schema);

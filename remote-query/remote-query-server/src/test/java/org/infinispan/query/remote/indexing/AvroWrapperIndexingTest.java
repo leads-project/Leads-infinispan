@@ -67,8 +67,19 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
         System.out.println(luceneQuery.toString());
 
         List<Object> list = sm.getQuery(luceneQuery).list();
-        System.out.println(list.get(0));
         assertEquals(1, list.size());
+
+        luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
+                .get()
+                .range()
+                .onField("name")
+                .ignoreFieldBridge()
+                .ignoreAnalyzer()
+                .above("B")
+                .createQuery();
+
+        list = sm.getQuery(luceneQuery).list();
+        assertEquals(0, list.size());
 
     }
 

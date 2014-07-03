@@ -7,6 +7,7 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
+import org.apache.avro.util.Utf8;
 import org.infinispan.commons.marshall.AbstractExternalizer;
 import org.infinispan.marshall.core.JBossMarshaller;
 import org.infinispan.query.remote.ExternalizerIds;
@@ -63,6 +64,8 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
             writer.append(record);
             writer.close();
             return baos.toByteArray();
+        }else if (o instanceof Utf8){
+            return marshaller.objectToByteBuffer(o.toString());
         }else{
             return marshaller.objectToByteBuffer(o);
         }

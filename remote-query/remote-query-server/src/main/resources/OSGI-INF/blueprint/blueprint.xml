@@ -13,7 +13,7 @@
   <!--<bean id="programmaticSearchMappingProviderImpl" class="org.infinispan.query.remote.ProgrammaticSearchMappingProviderImpl"/>-->
   <!--<service ref="programmaticSearchMappingProviderImpl" interface="org.infinispan.query.spi.ProgrammaticSearchMappingProvider"/>-->
 
-   <bean id="avroSearchMappingProviderImpl" class="org.infinispan.query.remote.avro.SearchMappingProviderImpl"/>
+   <bean id="avroSearchMappingProviderImpl" class="org.infinispan.query.remote.example.avro.SearchMappingProviderImpl"/>
    <service ref="avroSearchMappingProviderImpl" interface="org.infinispan.query.spi.ProgrammaticSearchMappingProvider"/>
 
   <bean id="queryFacadeImpl" class="org.infinispan.query.remote.QueryFacadeImpl"/>
