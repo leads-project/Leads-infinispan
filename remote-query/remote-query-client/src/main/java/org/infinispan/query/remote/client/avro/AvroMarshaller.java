@@ -86,7 +86,13 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
     public boolean isMarshallable(Object o) {
         if (o==null)
             return false;
-        return clazz.isAssignableFrom(o.getClass());
+        try {
+            if (clazz.isAssignableFrom(o.getClass()) || Utf8.class.isAssignableFrom(o.getClass()))
+                return true;
+        } catch (Exception e) {
+            // ignore this
+        }
+        return false;
     }
 
 }
