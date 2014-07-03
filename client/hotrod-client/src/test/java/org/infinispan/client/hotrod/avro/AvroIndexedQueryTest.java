@@ -1,11 +1,11 @@
 package org.infinispan.client.hotrod.avro;
 
-import example.avro.User;
+import example.avro.Employee;
+import org.apache.avro.util.Utf8;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.Search;
 import org.infinispan.client.hotrod.TestHelper;
-import org.infinispan.client.hotrod.exceptions.HotRodClientException;
 import org.infinispan.commons.equivalence.ByteArrayEquivalence;
 import org.infinispan.commons.util.Util;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
@@ -41,11 +41,11 @@ import static org.junit.Assert.assertNotNull;
 @CleanupAfterMethod
 public class AvroIndexedQueryTest extends SingleCacheManagerTest {
 
-    public static final String TEST_CACHE_NAME = "userCache";
+    public static final String TEST_CACHE_NAME = "EmployeeCache";
 
     private HotRodServer hotRodServer;
     private RemoteCacheManager remoteCacheManager;
-    private RemoteCache<Integer, User> remoteCache;
+    private RemoteCache<Integer, Employee> remoteCache;
 
     @Override
     protected EmbeddedCacheManager createCacheManager() throws Exception {
@@ -62,7 +62,7 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
 
         org.infinispan.client.hotrod.configuration.ConfigurationBuilder clientBuilder = new org.infinispan.client.hotrod.configuration.ConfigurationBuilder();
         clientBuilder.addServer().host("127.0.0.1").port(hotRodServer.getPort());
-        clientBuilder.marshaller(new AvroMarshaller<User>(User.class));
+        clientBuilder.marshaller(new AvroMarshaller<Employee>(Employee.class));
         remoteCacheManager = new RemoteCacheManager(clientBuilder.build());
         remoteCache = remoteCacheManager.getCache(TEST_CACHE_NAME);
         return cacheManager;
@@ -93,90 +93,81 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
     }
 
     public void testAttributeQuery() throws Exception {
-        remoteCache.put(1, createUser1());
-        remoteCache.put(2, createUser2());
+        remoteCache.put(1, createEmployee1());
+        remoteCache.put(2, createEmployee2());
 
-        // get user back from remote cache and check its attributes
-        User fromCache = remoteCache.get(1);
-        assertUser(fromCache);
+        // get Employee back from remote cache and check its attributes
+        Employee fromCache = remoteCache.get(1);
+        assertEmployee(fromCache);
 
-        // get user back from remote cache via query and check its attributes
+        // get Employee back from remote cache via query and check its attributes
         QueryFactory qf = Search.getQueryFactory(remoteCache);
-        Query query = qf.from(User.class)
+        Query query = qf.from(Employee.class)
                 .having("name").eq("Tom").toBuilder()
                 .build();
-        List<User> list = query.list();
+        List<Employee> list = query.list();
         assertNotNull(list);
         assertEquals(1, list.size());
-        assertEquals(User.class, list.get(0).getClass());
-        assertUser(list.get(0));
+        assertEquals(Employee.class, list.get(0).getClass());
+        assertEmployee(list.get(0));
     }
 
     public void testEmbeddedAttributeQuery() throws Exception {
-        remoteCache.put(1, createUser1());
-        remoteCache.put(2, createUser2());
+        remoteCache.put(1, createEmployee1());
+        remoteCache.put(2, createEmployee2());
 
-        // get user back from remote cache via query and check its attributes
+        // get Employee back from remote cache via query and check its attributes
         QueryFactory qf = Search.getQueryFactory(remoteCache);
-        Query query = qf.from(User.class)
-                .having("addresses.postCode").eq("1234").toBuilder()
+        Query query = qf.from(Employee.class)
+                .having("favoriteColor").eq("Red").toBuilder()
                 .build();
-        List<User> list = query.list();
+        List<Employee> list = query.list();
         assertNotNull(list);
-        assertEquals(1, list.size());
-        assertEquals(User.class, list.get(0).getClass());
-        assertUser(list.get(0));
-    }
-
-    @Test(expectedExceptions = HotRodClientException.class)
-    public void testInvalidEmbeddedAttributeQuery() throws Exception {
-        QueryFactory qf = Search.getQueryFactory(remoteCache);
-
-        Query q = qf.from(User.class)
-                .setProjection("addresses").build();
-
-        //todo [anistor] it would be best if the problem would be detected early at build() instead at doing it at list()
-        q.list();
+        assertEquals(0, list.size());
     }
 
     public void testProjections() throws Exception {
-        remoteCache.put(1, createUser1());
-        remoteCache.put(2, createUser2());
+        remoteCache.put(1, createEmployee1());
+        remoteCache.put(2, createEmployee2());
 
-        // get user back from remote cache and check its attributes
-        User fromCache = remoteCache.get(1);
-        assertUser(fromCache);
+        // get Employee back from remote cache and check its attributes
+        Employee fromCache = remoteCache.get(1);
+        assertEmployee(fromCache);
 
-        // get user back from remote cache via query and check its attributes
+        // get Employee back from remote cache via query and check its attributes
         QueryFactory qf = Search.getQueryFactory(remoteCache);
-        Query query = qf.from(User.class)
-                .setProjection("name", "surname")
+        Query query = qf.from(Employee.class)
+                .setProjection("name")
                 .having("name").eq("Tom").toBuilder()
                 .build();
 
-        List<Object[]> list = query.list();
+        List<Employee> list = query.list();
         assertNotNull(list);
         assertEquals(1, list.size());
-        assertEquals(Object[].class, list.get(0).getClass());
-        assertEquals("Tom", list.get(0)[0]);
-        assertEquals("Cat", list.get(0)[1]);
+
+        Employee Employee = list.get(0);
+        assertEquals(new Utf8("Tom"), list.get(0).getName());
     }
 
-    private User createUser1() {
-        User user = new User();
-        user.setName("Tom");
-        return user;
+    private Employee createEmployee1() {
+        Employee Employee = new Employee();
+        Employee.setName("Tom");
+        Employee.setSsn("dazd");
+        Employee.setDateOfBirth((long) 1);
+        return Employee;
     }
 
-    private User createUser2() {
-        User user = new User();
-        user.setName("Adrian");
-        return user;
+    private Employee createEmployee2() {
+        Employee Employee = new Employee();
+        Employee.setName("Adrian");
+        Employee.setSsn("eadzzad");
+        Employee.setDateOfBirth((long) 2);
+        return Employee;
     }
 
-    private void assertUser(User user) {
-        assertNotNull(user);
-        assertEquals("Tom", user.getName().toString());
+    private void assertEmployee(Employee Employee) {
+        assertNotNull(Employee);
+        assertEquals("Tom", Employee.getName().toString());
     }
 }
 

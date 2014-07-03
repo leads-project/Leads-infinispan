@@ -48,7 +48,7 @@
          <scope>test</scope>
       </dependency>
 
-      <dependency>
+       <dependency>
          <groupId>${project.groupId}</groupId>
          <artifactId>infinispan-server-hotrod</artifactId>
          <scope>test</scope>
@@ -125,8 +125,8 @@
                      ${project.groupId}.client.hotrod.*;version=${project.version};-split-package:=error
                   </Export-Package>
                   <Import-Package>
-                     org.apache.avro.*;resolution:=optional,
-                     *
+                      org.apache.example.avro.*;resolution:=optional,
+                      *
                   </Import-Package>
                </instructions>
             </configuration>

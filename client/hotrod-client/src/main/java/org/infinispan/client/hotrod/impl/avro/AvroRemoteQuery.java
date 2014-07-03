@@ -7,7 +7,6 @@ import org.infinispan.query.remote.client.avro.Response;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -56,34 +55,15 @@ public class AvroRemoteQuery implements Query {
         List<Object> results;
         AvroQueryOperation op = cache.getOperationsFactory().newAvroQueryOperation(this);
         Response response = op.execute();
-        totalResults = (int) response.getTotalResults();
-        if (response.getProjectionSize() > 0) {
-            results = new ArrayList<Object>(response.getResults().size() / response.getProjectionSize());
-            Iterator<ByteBuffer> it = response.getResults().iterator();
-            while (it.hasNext()) {
-                Object[] row = new Object[response.getProjectionSize()];
-                for (int i = 0; i < response.getProjectionSize(); i++) {
-                    try {
-                        row[i] = cache.getRemoteCacheManager().getMarshaller().objectFromByteBuffer(it.next().array());
-                    } catch (IOException e) {
-                        e.printStackTrace();  // TODO: Customise this generated block
-                    } catch (ClassNotFoundException e) {
-                        e.printStackTrace();  // TODO: Customise this generated block
-                    }
-                }
-                results.add(row);
+        results = new ArrayList<>(response.getResults().size());
+        for (ByteBuffer byteBuffer : response.getResults()) {
+            try {
+                results.add(cache.getRemoteCacheManager().getMarshaller().objectFromByteBuffer(byteBuffer.array()));
+            } catch (IOException e) {
+                e.printStackTrace();  // TODO: Customise this generated block
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();  // TODO: Customise this generated block
             }
-        }else {
-                results = new ArrayList<Object>(response.getResults().size());
-                for (ByteBuffer byteBuffer : response.getResults()) {
-                    try {
-                        results.add(cache.getRemoteCacheManager().getMarshaller().objectFromByteBuffer(byteBuffer.array()));
-                    } catch (IOException e) {
-                        e.printStackTrace();  // TODO: Customise this generated block
-                    } catch (ClassNotFoundException e) {
-                        e.printStackTrace();  // TODO: Customise this generated block
-                    }
-                }
         }
         return results;
     }
