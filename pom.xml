@@ -63,7 +63,6 @@
       <module>cdi/extension</module>
       <module>jcache</module>
       <module>server/integration</module>
-       <module>atomic-factory</module>
       <module>as-modules/embedded</module>
       <module>as-modules/client</module>
       <module>integrationtests/as-integration-embedded</module>
@@ -74,6 +73,8 @@
       <module>integrationtests/security-it</module>
       <module>integrationtests/security-manager-it</module>
       <module>integrationtests/osgi</module>
+      <module>versioning</module>
+      <module>atomic-factory</module>
    </modules>
 
    <profiles>

@@ -48,15 +48,10 @@ class AtomicObjectCallFuture implements Future<Object> {
     }
 
     @Override
-    public Object get(){
+    public Object get() throws InterruptedException, ExecutionException {
         synchronized (this) {
-                while(state == 0){
-                    try {
-                        this.wait();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
+            if (state == 0)
+                this.wait();
         }
         return (state == -1) ? null : ret;
     }

@@ -26,6 +26,7 @@ import org.infinispan.interceptors.locking.ClusteringDependentLogic;
 import org.infinispan.iteration.impl.EntryRetriever;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.notifications.Listener;
+import org.infinispan.notifications.*;
 import org.infinispan.notifications.cachelistener.annotation.*;
 import org.infinispan.notifications.cachelistener.cluster.ClusterCacheNotifier;
 import org.infinispan.notifications.cachelistener.cluster.ClusterListenerRemoveCallable;
@@ -611,60 +612,55 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
          if (config.clustering().cacheMode().isInvalidation()) {
             throw new UnsupportedOperationException("Cluster listeners cannot be used with Invalidation Caches!");
          }
+
          clusterListenerIDs.put(listener, generatedId);
+
          EmbeddedCacheManager manager = cache.getCacheManager();
          Address ourAddress = manager.getAddress();
-
          List<Address> members = manager.getMembers();
+
          // If we are the only member don't even worry about sending listeners
-         if (members != null && members.size() > 1) {
-            DistributedExecutionCompletionService decs = new DistributedExecutionCompletionService(distExecutorService);
+         if (members.size() > 1) {
 
-            if (log.isTraceEnabled()) {
-               log.tracef("Replicating cluster listener to other nodes %s for cluster listener with id %s",
-                          members, generatedId);
-            }
-            Callable callable = new ClusterListenerReplicateCallable(generatedId, ourAddress, filter, converter);
-            for (Address member : members) {
-               if (!member.equals(ourAddress)) {
-                  decs.submit(member, callable);
-               }
-            }
+             int count = 0;
+             DistributedExecutionCompletionService decs = new DistributedExecutionCompletionService(distExecutorService);
+             Callable callable = new ClusterListenerReplicateCallable(generatedId, ourAddress, filter, converter);
 
-            for (int i = 0; i < members.size() - 1; ++i) {
-               try {
-                  decs.take().get();
-               } catch (InterruptedException e) {
-                  throw new CacheListenerException(e);
-               } catch (ExecutionException e) {
-                  throw new CacheListenerException(e);
-               }
-            }
+             if(listener instanceof KeySpecificListener){
+                 log.tracef("Partially replicating cluster listener with id %s",
+                         generatedId);
+                 Object key = ((KeySpecificListener)listener).key;
+                 for (Address member : members) {
+                     if ( !member.equals(ourAddress)
+                          && key !=  null
+                          && this.cache.getAdvancedCache().getDistributionManager().locate(key).contains(member) ){
+                         decs.submit(member, callable);
+                         count ++;
+                     }
+                 }
 
-            int extraCount = 0;
-            // If anyone else joined since we sent these we have to send the listeners again, since they may have queried
-            // before the other nodes got the new listener
-            List<Address> membersAfter = manager.getMembers();
-            for (Address member : membersAfter) {
-               if (!members.contains(member) && !member.equals(ourAddress)) {
-                  if (log.isTraceEnabled()) {
-                     log.tracef("Found additional node %s that joined during replication of cluster listener with id %s",
-                                member, generatedId);
-                  }
-                  extraCount++;
-                  decs.submit(member, callable);
-               }
-            }
+             }else{
+                log.tracef("Fully replicating cluster listener to other nodes %s for cluster listener with id %s",
+                           members, generatedId);
+                 count = members.size();
+                for (Address member : members) {
+                   if (!member.equals(ourAddress)) {
+                      decs.submit(member, callable);
+                   }
+                }
 
-            for (int i = 0; i < extraCount; ++i) {
-               try {
-                  decs.take().get();
-               } catch (InterruptedException e) {
-                  throw new CacheListenerException(e);
-               } catch (ExecutionException e) {
-                  throw new CacheListenerException(e);
-               }
-            }
+             }
+
+             for (int i = 0; i < count; ++i) {
+                 try {
+                     decs.take().get();
+                 } catch (InterruptedException e) {
+                     throw new CacheListenerException(e);
+                 } catch (ExecutionException e) {
+                     throw new CacheListenerException(e);
+                 }
+             }
+
          }
       }
 
@@ -1023,9 +1019,32 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
    @Override
    public void removeListener(Object listener) {
       super.removeListener(listener);
-      UUID id = clusterListenerIDs.remove(listener);
-      if (id != null) {
-         List<Future<?>> futures = distExecutorService.submitEverywhere(new ClusterListenerRemoveCallable(id));
+
+       UUID id = clusterListenerIDs.remove(listener);
+
+       if (id != null) {
+
+          List<Future<?>> futures;
+
+          if(listener instanceof KeySpecificListener){
+
+              EmbeddedCacheManager manager = cache.getCacheManager();
+              Address ourAddress = manager.getAddress();
+              Callable callable = new ClusterListenerRemoveCallable(id);
+              Object key = ((KeySpecificListener)listener).key;
+              futures = new ArrayList<Future<?>>();
+
+              for (Address member : manager.getMembers()) {
+                  if ( !member.equals(ourAddress)
+                          && key !=  null
+                          && this.cache.getAdvancedCache().getDistributionManager().locate(key).contains(member) ){
+                      futures.add(distExecutorService.submit(member, callable));
+                  }
+              }
+          }else{
+              futures = distExecutorService.submitEverywhere(new ClusterListenerRemoveCallable(id));
+          }
+
          for (Future<?> future : futures) {
             try {
                future.get();

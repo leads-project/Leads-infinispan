@@ -9,7 +9,7 @@ class AtomicObjectCallInvoke extends AtomicObjectCall{
     String method;
     Object[] arguments;
 
-    public AtomicObjectCallInvoke(int id, String m, Object[] args) {
+    public AtomicObjectCallInvoke(long id, String m, Object[] args) {
         super(id);
         method = m;
         arguments = args;
@@ -17,6 +17,10 @@ class AtomicObjectCallInvoke extends AtomicObjectCall{
 
     @Override
     public String toString(){
-        return method+ "( )";
+        String args = " ";
+        for(Object a : arguments){
+            args+=a.toString()+" ";
+        }
+        return super.toString()+"  - INV - "+method+ " ("+args+")";
     }
 }

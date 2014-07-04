@@ -1,6 +1,6 @@
 package org.infinispan.atomic;
 
-import org.infinispan.Cache;
+ import org.infinispan.Cache;
 import org.infinispan.InvalidCacheUsageException;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -8,8 +8,10 @@ import org.infinispan.util.logging.LogFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
+ import java.util.*;
+ import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 /**
@@ -22,26 +24,88 @@ public class AtomicObjectFactory {
     // CLASS FIELDS
     //
     private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
+    private static Map<Cache,AtomicObjectFactory> factories = new HashMap<Cache,AtomicObjectFactory>();
+    public synchronized static AtomicObjectFactory forCache(Cache cache){
+        if(!factories.containsKey(cache))
+            factories.put(cache, new AtomicObjectFactory(cache));
+        return factories.get(cache);
+    }
+    private static final int MAX_CONTAINERS=1000;// 0 means no limit
+    public static final Map<Class,List<Method>> updateMethods;
+    static{
+            updateMethods = new HashMap<Class,List<Method>>();
+        try {
+            updateMethods.put(List.class, new ArrayList<Method>());
+            updateMethods.get(List.class).add(List.class.getDeclaredMethod("add", Object.class));
+            updateMethods.get(List.class).add(List.class.getDeclaredMethod("add", int.class, Object.class));
+            updateMethods.get(List.class).add(List.class.getDeclaredMethod("addAll", Collection.class));
+            updateMethods.get(List.class).add(List.class.getDeclaredMethod("addAll", int.class, Collection.class));
+            updateMethods.put(Set.class, new ArrayList<Method>());
+            updateMethods.get(Set.class).add(Set.class.getDeclaredMethod("add", Object.class));
+            updateMethods.get(Set.class).add(Set.class.getDeclaredMethod("addAll", Collection.class));
+            updateMethods.put(Map.class, new ArrayList<Method>());
+            updateMethods.get(Map.class).add(Map.class.getDeclaredMethod("put", Object.class, Object.class));
+            updateMethods.get(Map.class).add(Map.class.getDeclaredMethod("putAll", Map.class));
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        }
+    };
+
+
 
     //
     // OBJECT FIELDS
     //
 	private Cache cache;
-	private Map<Object,AtomicObjectContainer> registeredContainers;
+	private Map<AtomicObjectContainerSignature,AtomicObjectContainer> registeredContainers;
+    private int maxSize;
+    private final ExecutorService evictionExecutor = Executors.newCachedThreadPool();
+
 
     /**
      *
-     * Return an AtomicObjectFactory.
+     * Returns an object factory built on top of cache <i>c</i> with a bounded amount <i>m</i> of
+     * containers in it. Upon the removal of a container, the object is stored persistently in the cache.
+     *
+     * @param c it must be synchronous.and transactional (with autoCommit set to true, its default value).
+     * @param m max amount of containers kept by this factory.
+     * @throws InvalidCacheUsageException
+     */
+    public AtomicObjectFactory(Cache<Object, Object> c, int m) throws InvalidCacheUsageException{
+        cache = c;
+        maxSize = m;
+        registeredContainers= new LinkedHashMap<AtomicObjectContainerSignature,AtomicObjectContainer>(){
+            @Override
+            protected boolean removeEldestEntry(final java.util.Map.Entry<AtomicObjectContainerSignature,AtomicObjectContainer> eldest) {
+                if(maxSize!=0 && this.size() >= maxSize){
+                    evictionExecutor.submit(new Callable<Void>() {
+                        @Override
+                        public Void call() throws IOException {
+                            try {
+                                log.debug("Disposing " + eldest.getValue().toString());
+                                eldest.getValue().dispose(true);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                            return null;
+                        }
+                    });
+                    return true;
+                }
+                return false;
+            }
+        };
+        log = LogFactory.getLog(this.getClass());
+    }
+
+    /**
+     *
+     * Return an AtomicObjectFactory built on top of cache <i>c</i>.
      *
      * @param c a cache,  it must be synchronous.and transactional (with autoCommit set to true, its default value).
      */
 	public AtomicObjectFactory(Cache<Object, Object> c) throws InvalidCacheUsageException{
-        if( ! c.getCacheConfiguration().clustering().cacheMode().isSynchronous()
-            || c.getAdvancedCache().getTransactionManager() == null )
-            throw new InvalidCacheUsageException("The cache must be synchronous and transactional.");
-		cache = c;
-        registeredContainers= new HashMap<Object,AtomicObjectContainer>();
-        log = LogFactory.getLog(this.getClass());
+        this(c,MAX_CONTAINERS);
 	}
 
 
@@ -77,7 +141,7 @@ public class AtomicObjectFactory {
      * @return an object of the class <i>clazz</i>
      * @throws InvalidCacheUsageException
      */
-    public synchronized <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization)
+    public <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization)
             throws InvalidCacheUsageException{
         return getInstanceOf(clazz, key, withReadOptimization, null, true);
     }
@@ -102,23 +166,45 @@ public class AtomicObjectFactory {
      * @return an object of the class <i>clazz</i>
      * @throws InvalidCacheUsageException
      */
-    public synchronized <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization, Method equalsMethod, boolean forceNew, Object ... initArgs)
+    public <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization, Method equalsMethod, boolean forceNew, Object ... initArgs)
             throws InvalidCacheUsageException{
 
-        if( !(clazz instanceof Serializable)){
+        if( !(Serializable.class.isAssignableFrom(clazz))){
             throw new InvalidCacheUsageException("The object must be serializable.");
         }
 
+        AtomicObjectContainerSignature signature = new AtomicObjectContainerSignature(clazz,key);
+        AtomicObjectContainer container;
+
         try{
-            if(!registeredContainers.containsKey(key)){
-                registeredContainers.put(key,new AtomicObjectContainer(cache, clazz, key, withReadOptimization, equalsMethod, forceNew,initArgs));
+
+            if( !registeredContainers.containsKey(signature) ){
+                List<Method> methods = Collections.EMPTY_LIST;
+                if (updateMethods.containsKey(clazz)) {
+                    methods = updateMethods.get(clazz);
+                } else if (AtomicObject.class.isAssignableFrom(clazz)) {
+                    methods = new ArrayList<Method>();
+                    for(Method m : clazz.getDeclaredMethods()){
+                        if (m.isAnnotationPresent(Update.class))
+                            methods.add(m);
+                    }
+                }
+                container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, forceNew,methods, initArgs);
+                synchronized (registeredContainers){
+                    if(registeredContainers.containsKey(signature)){
+                        container.dispose(false);
+                    }else{
+                        registeredContainers.put(signature, container);
+                    }
+                }
             }
+
         } catch (Exception e){
             e.printStackTrace();
             throw new InvalidCacheUsageException(e.getCause());
         }
 
-        return (T) registeredContainers.get(key).getProxy();
+        return (T) registeredContainers.get(signature).getProxy();
 
     }
 
@@ -130,37 +216,47 @@ public class AtomicObjectFactory {
      * @param key the key to use in order to store the object.
      * @param keepPersistent indicates that a persistent copy is stored in the cache or not.
      */
-    public synchronized void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
-            throws IOException, InvalidCacheUsageException {
-
-        AtomicObjectContainer container = registeredContainers.get(key);
-
-        if( container == null )
-            throw new InvalidCacheUsageException("The object does not exist.");
-
-        if( ! container.getClazz().equals(clazz) )
-            throw new InvalidCacheUsageException("The object is not of the right class.");
+    public void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
+            throws InvalidCacheUsageException {
+    	
+        AtomicObjectContainerSignature signature = new AtomicObjectContainerSignature(clazz,key);
+    	log.debug("Disposing "+signature);
+        AtomicObjectContainer container;
+        synchronized (registeredContainers){
+            container = registeredContainers.get(signature);
+            if( container == null )
+                return;
+            if( ! container.getClazz().equals(clazz) )
+                throw new InvalidCacheUsageException("The object is not of the right class.");
+            registeredContainers.remove(signature);
+        }
 
         try{
             container.dispose(keepPersistent);
         }catch (Exception e){
-            throw new InvalidCacheUsageException(e.getCause());
+            e.printStackTrace();
+            throw new InvalidCacheUsageException("");
         }
 
-        registeredContainers.remove(key);
-
     }
 
-    /**
-     * @return a hash value of the order in which the calls on all the atomic objects built by this factory were executed.
-     */
-    @Override
-    public int hashCode(){
-        int ret = 0;
-        for(AtomicObjectContainer c : registeredContainers.values())
-            ret += c.hashCode();
-        return ret;
+    //
+    // PRIVATE CLASS
+    //
 
+    private class EvictionTask implements Callable<Void> {
+
+        AtomicObjectContainer container;
+
+        public EvictionTask(AtomicObjectContainer c){
+            this.container = c;
+        }
+
+        @Override
+        public Void call() throws Exception {
+            return null;
+        }
     }
+
 
 }

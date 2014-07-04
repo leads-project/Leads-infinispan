@@ -6,7 +6,14 @@ package org.infinispan.atomic;
 * @since 6.0
 */
 class AtomicObjectCallRetrieve extends AtomicObjectCall{
-    public AtomicObjectCallRetrieve(int id) {
+    public AtomicObjectCallRetrieve(long id) {
         super(id);
     }
+
+    @Override
+    public String toString() {
+        return super.toString()+"(RET)";
+    }
+
+
 }
