@@ -179,17 +179,17 @@ public class AtomicObjectContainer extends KeySpecificListener {
         if (!registeredCalls.isEmpty())
             throw new IllegalAccessException();
 
-        if (listenerState==1)
+        if (listenerState==1){
             cache.removeListener(listener);
-        listenerState = -1;
-
-        if ( keepPersistent ) {
-            log.debug(" ... persisted");
-            GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
-            AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
-            byte[] bb = marshaller.objectToByteBuffer(persist);
-            cache.put(key, bb);
+            if ( keepPersistent ) {
+                log.debug(" ... persisted");
+                GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
+                AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
+                byte[] bb = marshaller.objectToByteBuffer(persist);
+                cache.put(key, bb);
+            }
         }
+        listenerState = -1;
 
     }
 
@@ -217,7 +217,7 @@ public class AtomicObjectContainer extends KeySpecificListener {
      * @return true if the operation is local
      * @throws InvocationTargetException
      * @throws IllegalAccessException
-     */
+     */                  ad
     private boolean handleInvocation(AtomicObjectCallInvoke invocation)
             throws InvocationTargetException, IllegalAccessException {
         Object ret = callObject(object, invocation.method, invocation.arguments);
