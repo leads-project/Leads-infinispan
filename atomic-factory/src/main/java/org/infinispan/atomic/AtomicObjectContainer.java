@@ -31,7 +31,7 @@ import java.util.concurrent.*;
  *  @since 6.0
  *
  */
-@Listener(sync = false, clustered = true, primaryOnly = true)
+@Listener(sync = true, clustered = true, primaryOnly = true)
 public class AtomicObjectContainer extends KeySpecificListener {
 
     //
@@ -217,7 +217,7 @@ public class AtomicObjectContainer extends KeySpecificListener {
      * @return true if the operation is local
      * @throws InvocationTargetException
      * @throws IllegalAccessException
-     */                  ad
+     */
     private boolean handleInvocation(AtomicObjectCallInvoke invocation)
             throws InvocationTargetException, IllegalAccessException {
         Object ret = callObject(object, invocation.method, invocation.arguments);
