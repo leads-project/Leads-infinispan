@@ -620,7 +620,7 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
          List<Address> members = manager.getMembers();
 
          // If we are the only member don't even worry about sending listeners
-         if (members.size() > 1) {
+         if (members!=null && members.size() > 1) {
 
              int count = 0;
              DistributedExecutionCompletionService decs = new DistributedExecutionCompletionService(distExecutorService);
