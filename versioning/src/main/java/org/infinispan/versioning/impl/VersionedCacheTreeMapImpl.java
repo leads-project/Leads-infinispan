@@ -27,7 +27,9 @@ public class VersionedCacheTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K
 
     @Override
     protected SortedMap<Version, V> versionMapGet(K key) {
-        return factory.getInstanceOf(TreeMap.class,key,true,null,false);
+        TreeMap<Version,V> treeMap = factory.getInstanceOf(TreeMap.class,key,true,null,false);
+        factory.disposeInstanceOf(TreeMap.class,key,true);
+        return treeMap;
     }
 
     @Override
@@ -61,9 +63,12 @@ public class VersionedCacheTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K
         return delegate.keySet();
     }
 
-        @Override
+    @Override
     public Collection<Version> get(K key, Version first, Version last) {
-        return factory.getInstanceOf(TreeMap.class,key,true,null,false).subMap(first, last).keySet();
+        TreeMap<Version,V> treeMap = factory.getInstanceOf(TreeMap.class, key, true, null, false);
+        Set<Version> result = (Set<Version>) treeMap.subMap(first, last).keySet();
+        factory.disposeInstanceOf(TreeMap.class,key,true);
+        return result;
     }
 
     @Override
@@ -73,4 +78,4 @@ public class VersionedCacheTreeMapImpl<K,V> extends VersionedCacheAbstractImpl<K
         factory.disposeInstanceOf(TreeMap.class,key,true);
     }
 
- }
+}
