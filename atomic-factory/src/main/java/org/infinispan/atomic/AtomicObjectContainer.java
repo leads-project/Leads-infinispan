@@ -76,13 +76,13 @@ public class AtomicObjectContainer extends KeySpecificListener {
     // PUBLIC METHODS
     //
 
-    public AtomicObjectContainer(final Cache c, final Class cl, final Object key, final boolean readOptimization,
+    public AtomicObjectContainer(final Cache c, final Class cl, final Object k, final boolean readOptimization,
                                  final boolean forceNew, final List<Method> methods, final Object ... initArgs)
             throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException {
 
         cache = c;
         clazz = cl;
-        this.key = key;
+        key = clazz.getSimpleName()+k.toString(); // to avoid collisions
 
         withReadOptimization = readOptimization;
         listenerState = 0;
@@ -117,7 +117,6 @@ public class AtomicObjectContainer extends KeySpecificListener {
                 byte[] bb = marshaller.objectToByteBuffer(invoke);
                 AtomicObjectCallFuture future = new AtomicObjectCallFuture();
                 registeredCalls.put(callID, future);
-                log.debug("Call " + invoke);
 
                 // 2.3 - call execution
                 cache.put(AtomicObjectContainer.this.key, bb);
@@ -172,17 +171,19 @@ public class AtomicObjectContainer extends KeySpecificListener {
 
     }
 
-    public synchronized void dispose(boolean keepPersistent) throws IOException, InterruptedException, IllegalAccessException {
+    public synchronized void dispose(boolean keepPersistent) throws IOException, InterruptedException{
 
-        log.debug("Disposing "+key+"["+clazz.getSimpleName()+"]");
+        log.debug("Disposing "+this);
 
-        if (!registeredCalls.isEmpty())
-            throw new IllegalAccessException();
+        if (!registeredCalls.isEmpty()){
+            log.warn("Cannot dispose "+this+" registeredCalls non-empty");
+            return;
+        }
 
         if (listenerState==1){
             cache.removeListener(listener);
             if ( keepPersistent ) {
-                log.debug(" ... persisted");
+                log.debug(this+" persisted");
                 GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
                 AtomicObjectCallPersist persist = new AtomicObjectCallPersist(0,object);
                 byte[] bb = marshaller.objectToByteBuffer(persist);

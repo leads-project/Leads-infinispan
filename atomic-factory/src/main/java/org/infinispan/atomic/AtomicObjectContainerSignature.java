@@ -10,24 +10,23 @@ public class AtomicObjectContainerSignature {
 
     private Class clazz;
     private Object key;
-    private int hash;
 
     public AtomicObjectContainerSignature(Class c, Object k){
         clazz = c;
         key = k;
-        hash = clazz.hashCode() + key.hashCode();
     }
 
     @Override
     public int hashCode(){
-        return hash;
+        return clazz.hashCode() + key.hashCode();
     }
 
     @Override
     public boolean equals(Object o){
         if (!(o instanceof AtomicObjectContainerSignature))
             return false;
-        return ((AtomicObjectContainerSignature)o).hash == this.hash;
+        return ((AtomicObjectContainerSignature)o).clazz.equals(this.clazz)
+                && ((AtomicObjectContainerSignature)o).key.equals(this.key);
     }
 
     @Override
