@@ -148,8 +148,30 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
     @Update
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
-        for(K k : map.keySet()){
-            doPut(k, map.get(k));
+        if (forest.isEmpty()){
+            TreeMap<K,V> treeMap = new TreeMap<K, V>(map);
+            int split = treeMap.size()/this.threshold;
+            K beg = treeMap.firstKey();
+            for(int i=0; i<split; i++){
+                TreeMap<K,V> sub = allocateTree(beg);
+                forest.put(beg,sub);
+                TreeMap<K,V> toAdd = new TreeMap<K, V>();
+                toAdd.put(beg,treeMap.get(beg));
+                int j=0;
+                for(K k : treeMap.tailMap(beg,false).keySet()){
+                    j++;
+                    toAdd.put(k,treeMap.get(k));
+                    if(j>threshold){
+                        beg = k;
+                        break;
+                    }
+                }
+                sub.putAll(toAdd);
+            }
+        }else{
+            for(K k : map.keySet()){
+                doPut(k, map.get(k));
+            }
         }
         unallocateTrees();
     }

@@ -31,24 +31,21 @@ public class AtomicObjectFactory {
         return factories.get(cache);
     }
     private static final int MAX_CONTAINERS=1000;// 0 means no limit
-    public static final Map<Class,List<Method>> updateMethods;
+    public static final Map<Class,List<String>> updateMethods;
     static{
-            updateMethods = new HashMap<Class,List<Method>>();
-        try {
-            updateMethods.put(List.class, new ArrayList<Method>());
-            updateMethods.get(List.class).add(List.class.getDeclaredMethod("add", Object.class));
-            updateMethods.get(List.class).add(List.class.getDeclaredMethod("add", int.class, Object.class));
-            updateMethods.get(List.class).add(List.class.getDeclaredMethod("addAll", Collection.class));
-            updateMethods.get(List.class).add(List.class.getDeclaredMethod("addAll", int.class, Collection.class));
-            updateMethods.put(Set.class, new ArrayList<Method>());
-            updateMethods.get(Set.class).add(Set.class.getDeclaredMethod("add", Object.class));
-            updateMethods.get(Set.class).add(Set.class.getDeclaredMethod("addAll", Collection.class));
-            updateMethods.put(Map.class, new ArrayList<Method>());
-            updateMethods.get(Map.class).add(Map.class.getDeclaredMethod("put", Object.class, Object.class));
-            updateMethods.get(Map.class).add(Map.class.getDeclaredMethod("putAll", Map.class));
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        }
+            updateMethods = new HashMap<Class,List<String>>();
+
+            updateMethods.put(List.class, new ArrayList<String>());
+            updateMethods.get(List.class).add("add");
+            updateMethods.get(List.class).add("addAll");
+
+            updateMethods.put(Set.class, new ArrayList<String>());
+            updateMethods.get(Set.class).add("add");
+            updateMethods.get(Set.class).add("addAll");
+
+            updateMethods.put(Map.class, new ArrayList<String>());
+            updateMethods.get(Map.class).add("put");
+            updateMethods.get(Map.class).add("putAll");
     };
 
 
@@ -83,7 +80,7 @@ public class AtomicObjectFactory {
                         public Void call() throws IOException {
                             try {
                                 log.debug("Disposing " + eldest.getValue().toString());
-                                eldest.getValue().dispose(true);
+                                eldest.getValue().dispose(false);
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
@@ -178,16 +175,38 @@ public class AtomicObjectFactory {
 
         try{
 
-            if( !registeredContainers.containsKey(signature) ){
-                List<Method> methods = Collections.EMPTY_LIST;
-                if (updateMethods.containsKey(clazz)) {
-                    methods = updateMethods.get(clazz);
-                } else if (AtomicObject.class.isAssignableFrom(clazz)) {
-                    methods = new ArrayList<Method>();
+            synchronized (registeredContainers){
+                container = registeredContainers.get(signature);
+            }
+
+            if( container==null){
+
+                List<String> methods = Collections.EMPTY_LIST;
+
+                if (AtomicObject.class.isAssignableFrom(clazz)) {
+
+                    methods = new ArrayList<String>();
                     for(Method m : clazz.getDeclaredMethods()){
                         if (m.isAnnotationPresent(Update.class))
-                            methods.add(m);
+                            methods.add(m.getName());
                     }
+
+                }else{
+
+                    for(Class c : updateMethods.keySet()){
+                        if (c.isAssignableFrom(clazz)) {
+                            methods = updateMethods.get(c);
+                            break;
+                        }
+                    }
+
+                    if (methods.isEmpty()) {
+                        methods = new ArrayList<String>();
+                        for(Method m : clazz.getDeclaredMethods()){
+                            methods.add(m.getName());
+                        }
+                    }
+
                 }
                 container = new AtomicObjectContainer(cache, clazz, key, withReadOptimization, forceNew,methods, initArgs);
                 synchronized (registeredContainers){
@@ -204,7 +223,7 @@ public class AtomicObjectFactory {
             throw new InvalidCacheUsageException(e.getCause());
         }
 
-        return (T) registeredContainers.get(signature).getProxy();
+        return (T) container.getProxy();
 
     }
 
@@ -235,7 +254,7 @@ public class AtomicObjectFactory {
             container.dispose(keepPersistent);
         }catch (Exception e){
             e.printStackTrace();
-            throw new InvalidCacheUsageException("");
+            throw new InvalidCacheUsageException("Error while disposing object "+key);
         }
 
     }
