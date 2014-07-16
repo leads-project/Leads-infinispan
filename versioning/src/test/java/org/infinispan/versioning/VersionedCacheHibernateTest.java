@@ -16,7 +16,7 @@ import java.util.Properties;
  * @since 7.0
  */
 
-@Test(testName = "versioning.VersionedCacheHibernateTest", enabled = false)
+@Test(groups = "functional", testName = "VersionedCacheHibernateTest")
 public class VersionedCacheHibernateTest extends VersionedCacheAbstractTest {
 
     @Override

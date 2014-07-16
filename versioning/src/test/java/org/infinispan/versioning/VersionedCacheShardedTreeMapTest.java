@@ -11,7 +11,7 @@ import org.testng.annotations.Test;
  * @author Pierre Suttra
  * @since 4.0
  */
-@Test(testName = "versioning.VersionedCacheShardedTreeMapTest", enabled = true)
+@Test(groups = "functional", testName = "VersionedCacheShardedTreeMapTest")
 public class VersionedCacheShardedTreeMapTest extends VersionedCacheAbstractTest {
 
     @Override

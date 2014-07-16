@@ -47,7 +47,7 @@ public abstract class VersionedCacheAbstractTest extends MultipleCacheManagersTe
             VersionGenerator generator,
             String name);
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void basicUsageTest() throws Exception {
         VersionGenerator generator = new VersionScalarGenerator();
         Cache cache = caches().iterator().next();
@@ -69,7 +69,7 @@ public abstract class VersionedCacheAbstractTest extends MultipleCacheManagersTe
 
     }
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void computeBaseLine() {
         Cache cache = cacheManagers.get(0).getCache("baseline");
         float avrg = 0;

@@ -12,7 +12,7 @@ import org.testng.annotations.Test;
  * @author Pierre Sutra
  * @since 7.0
  */
-@Test(testName = "versioning.VersionedHashMapTest", enabled = true)
+@Test(groups = "functional", testName = "VersionedCacheHashMapTest")
 public class VersionedCacheHashMapTest extends VersionedCacheAbstractTest {
 
     @Override

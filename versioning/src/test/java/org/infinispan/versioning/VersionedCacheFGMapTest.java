@@ -10,7 +10,7 @@ import org.testng.annotations.Test;
  * @author marcelo pasin, pierre sutra
  * @since 7.0
  */
-@Test(testName = "VersionedCacheFGMapTest", enabled = false)
+@Test(groups = "functional",testName = "VersionedCacheFGMapTest")
 public class VersionedCacheFGMapTest extends VersionedCacheAbstractTest {
 
     @Override
