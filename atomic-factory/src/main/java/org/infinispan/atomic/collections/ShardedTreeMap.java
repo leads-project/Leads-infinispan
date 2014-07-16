@@ -277,6 +277,16 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
 
     }
 
+    @Override
+    public boolean containsKey(Object o) {
+        for(K k : forest.keySet()){
+            allocateTree(k);
+            if(forest.get(k).containsKey(o))
+                return true;
+        }
+        return false;
+    }
+
     //
     // NOT YET IMPLEMENTED
     //
@@ -303,11 +313,6 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
 
     @Override
     public Set<Entry<K, V>> entrySet() {
-        throw new UnsupportedOperationException("to be implemented");
-    }
-
-    @Override
-    public boolean containsKey(Object o) {
         throw new UnsupportedOperationException("to be implemented");
     }
 
