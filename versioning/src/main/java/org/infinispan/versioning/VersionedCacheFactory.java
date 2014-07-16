@@ -71,10 +71,10 @@ public class VersionedCacheFactory {
             return new VersionedCacheDummyImpl<K, V>(cacheManager.getCache(cacheName), generator, cacheName);
         }
         case HASHMAP:{
-            return new VersionedCacheHashMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
+            return new VersionedCacheashMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
         }
 		case FGMAP: {
-		       return new VersionedCacheFGMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
+		       return new VersionedCacheFineGrainedHashMapImpl<K,V>(cacheManager.getCache(cacheName),generator,cacheName);
 		}
 		case TREEMAP:{
 			 return new VersionedCacheTreeMapImpl<K,V>(cacheManager.getCache(cacheName), generator, cacheName);

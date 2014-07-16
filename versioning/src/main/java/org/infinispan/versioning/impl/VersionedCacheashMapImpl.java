@@ -9,41 +9,42 @@ import org.jboss.logging.Logger;
 import java.util.*;
 
 /**
- * // TODO: Document this
  *
  * @author Pierre Sutra
- * @since 6.0
+ * @since 7.0
  */
-public class VersionedCacheTreeMapImpl<K,V> extends VersionedCacheSplitAbstractImpl<K,V> {
+public class VersionedCacheashMapImpl<K,V> extends VersionedCacheSplitAbstractImpl<K,V> {
 
     AtomicObjectFactory factory;
     Logger logger;
-    public VersionedCacheTreeMapImpl(Cache delegate, VersionGenerator generator, String name) {
+    Class mapClass;
+
+    public VersionedCacheashMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
         this.logger  = Logger.getLogger(this.getClass());
 
     }
-
     @Override
     protected SortedMap<Version, String> versionMapGet(K key) {
-        TreeMap<Version,String> treeMap = factory.getInstanceOf(TreeMap.class,key,true,null,false);
-        factory.disposeInstanceOf(TreeMap.class, key, true);
+        TreeMap<Version,String> treeMap = new TreeMap(factory.getInstanceOf(HashMap.class,key,true,null,false));
+        factory.disposeInstanceOf(HashMap.class, key, true);
         return treeMap;
     }
 
     @Override
     protected void versionMapPut(K key, String value, Version version) {
-        TreeMap<Version,String> treeMap = factory.getInstanceOf(TreeMap.class, key, true, null, false);
-        treeMap.put(version, value);
-        factory.disposeInstanceOf(TreeMap.class,key,true);
+        HashMap<Version,String> HashMap = factory.getInstanceOf(HashMap.class, key, true, null, false);
+        HashMap.put(version, value);
+        factory.disposeInstanceOf(HashMap.class,key,true);
     }
 
     @Override
     protected void versionMapPutAll(K key, Map<Version, String> map) {
-        TreeMap<Version,String> treeMap  = factory.getInstanceOf(TreeMap.class, key, true, null, false);
-        treeMap.putAll(map);
-        factory.disposeInstanceOf(TreeMap.class,key,true);
+        HashMap<Version,String> HashMap  = factory.getInstanceOf(HashMap.class, key, true, null, false);
+        HashMap.putAll(map);
+        factory.disposeInstanceOf(HashMap.class,key,true);
     }
 
 }
+

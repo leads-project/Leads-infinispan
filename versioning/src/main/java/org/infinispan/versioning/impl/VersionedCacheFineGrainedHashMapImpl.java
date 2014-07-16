@@ -16,11 +16,11 @@ import java.util.TreeMap;
  * @author Fábio André Coelho, Pierre Sutra
  * @since 4.0
  */
-public class VersionedCacheFGMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
+public class VersionedCacheFineGrainedHashMapImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 	
 	Logger logger;
 	
-    public VersionedCacheFGMapImpl(Cache delegate, VersionGenerator generator, String name) {
+    public VersionedCacheFineGrainedHashMapImpl(Cache delegate, VersionGenerator generator, String name) {
         super(delegate,generator,name);
         this.logger  = Logger.getLogger(this.getClass());
     }

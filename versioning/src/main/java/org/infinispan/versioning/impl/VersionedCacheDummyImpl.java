@@ -22,7 +22,7 @@ public class VersionedCacheDummyImpl<K,V> extends VersionedCacheAbstractImpl<K,V
     GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
 
     public VersionedCacheDummyImpl(Cache cache,
-                                  VersionGenerator generator, String cacheName) {
+                                   VersionGenerator generator, String cacheName) {
         super(cache, generator, cacheName);
     }
 
