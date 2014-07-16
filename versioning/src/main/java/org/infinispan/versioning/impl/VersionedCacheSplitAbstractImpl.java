@@ -135,13 +135,19 @@ public abstract class VersionedCacheSplitAbstractImpl<K,V> implements VersionedC
 
     @Override
     public void putAll(K k, Map<Version,V> map){
-        Map<Version, String> added = new HashMap<>(map.size());
+        Map<Version, String> versionsAdded = new HashMap<>(map.size());
+        Map<String, V> valuesAdded = new HashMap<>(map.size());
         for(Version v: map.keySet()){
             String versionedValueKey = versionedValueKey(k,v);
-            added.put(v, versionedValueKey);
-            delegate.put(versionedValueKey,map.get(v));
+            versionsAdded.put(v, versionedValueKey);
+            valuesAdded.put(versionedValueKey, map.get(v));
         }
-        versionMapPutAll(k, added);
+
+        for(Map.Entry e : valuesAdded.entrySet()){
+            delegate.put(e.getKey(),e.getValue());
+        }
+
+        versionMapPutAll(k, versionsAdded);
     }
 
     @Override

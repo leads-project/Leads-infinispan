@@ -2,7 +2,7 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.jgroups.org/schema/JGroups-3.2.xsd‎">
 
-   <TCP bind_addr="127.0.0.1" />
+   <UDP bind_addr="127.0.0.1" />
    <BPING dest="127.0.0.1" bind_port="36000" port_range="10"/>
    <MERGE2 max_interval="30000" min_interval="10000"/>
    <FD_SOCK/>

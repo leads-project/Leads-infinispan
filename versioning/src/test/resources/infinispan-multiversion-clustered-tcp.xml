@@ -1,22 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <infinispan
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xsi:schemaLocation="urn:infinispan:config:6.0 http://www.infinispan.org/schemas/infinispan-config-6.0.xsd"
-      xmlns="urn:infinispan:config:6.0">
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="urn:infinispan:config:7.0 http://www.infinispan.org/schemas/infinispan-config-7.0.xsd"
+        xmlns="urn:infinispan:config:7.0">
 
-   <global>
-      <globalJmxStatistics enabled="true" jmxDomain="Infinispan" />
-      <transport clusterName="clustered" nodeName="client">
-         <properties>
-            <property name="configurationFile" value="multiversion-jgroups-tcp.xml" />
-         </properties>
-      </transport>
-   </global>
+    <jgroups>
+        <stack-file name="external-file" path="multiversion-jgroups-tcp.xml"/>
+    </jgroups>
 
-   <namedCache name="default" >
-      <clustering mode="dist" />
-      <transaction transactionMode="TRANSACTIONAL"/>
-   </namedCache>
+    <cache-container default-cache="default">
+        <transport stack="external-file" />
+        <distributed-cache name="default" mode="SYNC">
+            <locking acquire-timeout="5000" striping="false" concurrency-level="1000"/>
+            <store-as-binary keys="false" values="false"/>
+            <transaction mode="NONE" />
+            <eviction strategy="NONE"/>
+            <expiration interval="-1"/>
+            <state-transfer timeout="60000" enabled="true"/>
+        </distributed-cache>
+    </cache-container>
 
 </infinispan>
