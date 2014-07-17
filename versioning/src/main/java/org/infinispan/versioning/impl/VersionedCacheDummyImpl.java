@@ -1,9 +1,12 @@
 package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
+import org.infinispan.commons.CacheException;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
 
 import java.io.IOException;
 import java.util.Map;
@@ -19,7 +22,9 @@ import java.util.TreeMap;
  */
 public class VersionedCacheDummyImpl<K,V> extends VersionedCacheAbstractImpl<K,V> {
 
-    GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
+    private static Log log = LogFactory.getLog(VersionedCacheDummyImpl.class);
+
+    private GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
 
     public VersionedCacheDummyImpl(Cache cache,
                                    VersionGenerator generator, String cacheName) {
@@ -71,27 +76,28 @@ public class VersionedCacheDummyImpl<K,V> extends VersionedCacheAbstractImpl<K,V
     // PRIVATE METHODS
 
     private TreeMap<Version,V> retrieveTreeMap(K key){
+
+        byte[] bb = (byte[]) delegate.get(key);
+
+        if(bb==null)
+            return null;
+
         try {
-            byte[] bb = (byte[]) delegate.get(key);
-            if(bb==null)
-                return null;
             return (TreeMap<Version,V>) marshaller.objectFromByteBuffer(bb);
-        } catch (Exception e) {
-            e.printStackTrace();  // TODO: Customise this generated block
+        } catch (IOException | ClassNotFoundException e) {
+            throw new CacheException(e);
         }
-        return null;
     }
 
     private void storeTreeMap(K k, TreeMap<Version, V> treeMap){
         try {
             byte[] bb = marshaller.objectToByteBuffer(treeMap);
+            log.debug("Executing put with "+((float)bb.length/(float)1000)+" KB.");
             delegate.put(k,bb);
-        } catch (IOException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
-        } catch (InterruptedException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
+            log.debug("Done.");
+        } catch (IOException | InterruptedException e) {
+            throw new CacheException(e);
         }
     }
-
 
 }
