@@ -39,7 +39,7 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
     }
 
     public ShardedTreeMap(Integer threshhold){
-        assert threshhold>1;
+        assert threshhold>=1;
         forest = new TreeMap<K, TreeMap<K,V>>();
         this.threshold = threshhold;
     }
