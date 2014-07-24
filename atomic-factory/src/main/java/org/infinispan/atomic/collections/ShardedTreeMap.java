@@ -24,7 +24,7 @@ import java.util.*;
  * @since 7.0
  *
  */
-public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
+public class ShardedTreeMap<K extends Comparable<K>,V> extends AtomicObject implements SortedMap<K, V>
 {
 
     private static Log log = LogFactory.getLog(ShardedTreeMap.class);
@@ -45,11 +45,13 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
     }
 
     @Override
-    public SortedMap<K, V> subMap(K v1, K v2) {
+    public SortedMap<K, V> subMap(K k, K k2) {
         SortedMap<K,V> result = new TreeMap<K, V>();
         for(K key : forest.keySet()){
+            if (key.compareTo(k2) > 0)
+                break;
             allocateTree(key);
-            result.putAll(forest.get(key).subMap(v1, v2));
+            result.putAll(forest.get(key).subMap(k, k2));
         }
         unallocateTrees();
         return result;
@@ -59,6 +61,8 @@ public class ShardedTreeMap<K,V> extends AtomicObject implements SortedMap<K, V>
     public SortedMap<K, V> headMap(K toKey) {
         SortedMap<K,V> result = new TreeMap<K, V>();
         for(K key : forest.keySet()){
+            if (key.compareTo(toKey) > 0)
+                break;
             allocateTree(key);
             result.putAll(forest.get(key).headMap(toKey));
         }

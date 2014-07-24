@@ -33,16 +33,18 @@ public class ShardedTreeMapTest extends MultipleCacheManagersTest {
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
         Cache cache = cacheManager.getCache();
         AtomicObjectFactory factory = new AtomicObjectFactory(cache);
-        SortedMap<Integer,Integer> map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,2);
+
+        SortedMap<Integer,Integer> map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,3);
         for(int i=0; i<NCALLS; i++) {
             map.put(i,i);
             map.get(i);
         }
         factory.disposeInstanceOf(ShardedTreeMap.class,"test",true);
-        map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,2);
+        map = factory.getInstanceOf(ShardedTreeMap.class,"test",false,null,false,3);
         int a = map.size();
         log.debug(a);
         assert map.size() == NCALLS;
+        assert map.subMap(0,NCALLS/2).size()==NCALLS/2;
 
     }
 
