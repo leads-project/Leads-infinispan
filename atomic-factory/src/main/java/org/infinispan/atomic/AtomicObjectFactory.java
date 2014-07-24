@@ -33,7 +33,7 @@ public class AtomicObjectFactory {
     private static final int MAX_CONTAINERS=1000;// 0 means no limit
     public static final Map<Class,List<String>> updateMethods;
     static{
-            updateMethods = new HashMap<Class,List<String>>();
+        updateMethods = new HashMap<Class,List<String>>();
 
             updateMethods.put(List.class, new ArrayList<String>());
             updateMethods.get(List.class).add("add");
