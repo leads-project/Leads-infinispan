@@ -26,11 +26,15 @@ public class VersionedCacheShardedTreeMapImpl<K,V> extends VersionedCacheSplitAb
         factory = new AtomicObjectFactory((Cache<Object, Object>) delegate);
     }
 
-            @Override
-    protected SortedMap<Version, String> versionMapGet(K key) {
-                ShardedTreeMap<Version,String> treeMap = factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false);
-        factory.disposeInstanceOf(ShardedTreeMap.class, key, true);
+    @Override
+    protected SortedMap<Version, String> versionMapGetStart(K key) {
+        ShardedTreeMap<Version,String> treeMap = factory.getInstanceOf(ShardedTreeMap.class,key,true,null,false);
         return treeMap;
+    }
+
+    @Override
+    protected void versionMapGetEnd(K key) {
+        factory.disposeInstanceOf(ShardedTreeMap.class, key, true);
     }
 
     @Override

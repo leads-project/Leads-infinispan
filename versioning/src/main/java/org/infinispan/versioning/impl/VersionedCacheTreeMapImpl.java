@@ -26,10 +26,14 @@ public class VersionedCacheTreeMapImpl<K,V> extends VersionedCacheSplitAbstractI
     }
 
     @Override
-    protected SortedMap<Version, String> versionMapGet(K key) {
+    protected SortedMap<Version, String> versionMapGetStart(K key) {
         TreeMap<Version,String> treeMap = factory.getInstanceOf(TreeMap.class,key,true,null,false);
-        factory.disposeInstanceOf(TreeMap.class, key, true);
         return treeMap;
+    }
+
+    @Override
+    protected void versionMapGetEnd(K key) {
+        factory.disposeInstanceOf(TreeMap.class, key, true);
     }
 
     @Override

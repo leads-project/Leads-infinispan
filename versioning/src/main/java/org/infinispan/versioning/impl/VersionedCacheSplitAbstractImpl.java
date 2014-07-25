@@ -27,6 +27,8 @@ public abstract class VersionedCacheSplitAbstractImpl<K,V> implements VersionedC
         this.name = name;
     }
 
+    // GET
+
     /**
      *
      * Return all the version between <i><first/i> and <i>last</i> exclusive.
@@ -38,78 +40,101 @@ public abstract class VersionedCacheSplitAbstractImpl<K,V> implements VersionedC
      */
     @Override
     public Collection<Version> get(K key, Version first, Version last) {
-        SortedMap<Version, String> map = versionMapGet(key);
-        if(map.isEmpty())
-            return Collections.EMPTY_LIST;
-        return map.subMap(first, last).keySet();
+        Collection<Version> ret = Collections.EMPTY_LIST;
+        SortedMap<Version, String> map = versionMapGetStart(key);
+        if (!map.isEmpty())
+            ret = map.subMap(first, last).keySet();
+        versionMapGetEnd(key);
+        return ret;
     }
 
     @Override
     public V get(K key, Version version) {
-        SortedMap<Version, String> map = versionMapGet(key);
-        if(!map.containsKey(version))
-            return null;
-        return retrieveVersionedValue(key,version);
+        V ret = null;
+        SortedMap<Version, String> map = versionMapGetStart(key);
+        if (map.containsKey(version))
+            ret = retrieveVersionedValue(key,version);
+        versionMapGetEnd(key);
+        return ret;
     }
 
     @Override
     public V getLatest(K key, Version upperBound) {
-        SortedMap<Version, String> map = versionMapGet(key);
-        if(map.isEmpty())
-            return null;
-        Version version = map.headMap(upperBound).lastKey();
-        return retrieveVersionedValue(key,version);
+        V ret = null;
+        SortedMap<Version, String> map = versionMapGetStart(key);
+        if (!map.isEmpty()) {
+            Version version = map.headMap(upperBound).lastKey();
+            ret = retrieveVersionedValue(key,version);
+        }
+        versionMapGetEnd(key);
+        return ret;
     }
 
     @Override
     public V getEarliest(K key, Version lowerBound) {
-        SortedMap<Version, String> map = versionMapGet(key);
-        if(map.isEmpty())
-            return null;
-        Version version = map.tailMap(lowerBound).firstKey();
-        return retrieveVersionedValue(key,version);
+        V ret = null;
+        SortedMap<Version, String> map = versionMapGetStart(key);
+        if (!map.isEmpty()){
+            Version version = map.tailMap(lowerBound).firstKey();
+            ret = retrieveVersionedValue(key,version);
+        }
+        versionMapGetEnd(key);
+        return ret;
     }
 
     @Override
     public Version getLatestVersion(K key) {
-        SortedMap<Version, String> map = versionMapGet(key);
-        if(map.isEmpty())
-            return null;
-        return map.lastKey();
+        Version ret = null;
+        SortedMap<Version, String> map = versionMapGetStart(key);
+        if (!map.isEmpty())
+            ret = map.lastKey();
+        versionMapGetEnd(key);
+        return ret;
     }
 
     @Override
     public Version getLatestVersion(K key, Version upperBound) {
-        SortedMap<Version, String> map = versionMapGet(key);
-        if(map.isEmpty())
-            return null;
-        return map.tailMap(upperBound).firstKey();
+        Version ret = null;
+        SortedMap<Version, String> map = versionMapGetStart(key);
+        if (!map.isEmpty())
+            ret = map.tailMap(upperBound).firstKey();
+        versionMapGetEnd(key);
+        return ret;
     }
 
     @Override
     public Version getEarliestVersion(K key) {
-        SortedMap<Version, String> map = versionMapGet(key);
-        if(map.isEmpty())
-            return null;
-        return map.firstKey();
+        Version ret = null;
+        SortedMap<Version, String> map = versionMapGetStart(key);
+        if (!map.isEmpty())
+            ret = map.firstKey();
+        versionMapGetEnd(key);
+        return ret;
     }
 
     @Override
     public Version getEarliestVersion(K key, Version lowerBound) {
-        SortedMap<Version, String> map = versionMapGet(key);
-        if(map.isEmpty())
-            return null;
-        return map.headMap(lowerBound).firstKey();
+        Version ret = null;
+        SortedMap<Version, String> map = versionMapGetStart(key);
+        if (!map.isEmpty())
+            ret = map.headMap(lowerBound).firstKey();
+        versionMapGetEnd(key);
+        return  ret;
     }
 
     @Override
     public V get(Object o) {
-        SortedMap<Version, String> map = versionMapGet((K) o);
-        if(map.isEmpty())
-            return null;
-        Version version = map.lastKey();
-        return retrieveVersionedValue((K)o,version);
+        V ret = null;
+        SortedMap<Version, String> map = versionMapGetStart((K) o);
+        if (!map.isEmpty()) {
+            Version version = map.lastKey();
+            ret = retrieveVersionedValue((K)o,version);
+        }
+        versionMapGetEnd((K)o);
+        return ret;
     }
+
+    // PUT
 
     @Override
     public V put(K key, V value) {
@@ -150,6 +175,8 @@ public abstract class VersionedCacheSplitAbstractImpl<K,V> implements VersionedC
         versionMapPutAll(k, versionsAdded);
     }
 
+    // OTHERS
+
     @Override
     public boolean containsKey(Object o) {
         return delegate.containsKey(o);
@@ -184,7 +211,9 @@ public abstract class VersionedCacheSplitAbstractImpl<K,V> implements VersionedC
     // ABSTRACT METHODS
     //
 
-    protected abstract SortedMap<Version,String> versionMapGet(K key);
+    protected abstract SortedMap<Version,String> versionMapGetStart(K key);
+
+    protected abstract void versionMapGetEnd(K key);
 
     protected abstract void versionMapPut(K key, String value, Version version);
 
