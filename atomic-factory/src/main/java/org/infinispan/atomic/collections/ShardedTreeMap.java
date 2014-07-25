@@ -96,11 +96,13 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends AtomicObject impl
     public K lastKey() {
         if(forest.isEmpty())
             return null;
-        allocateTree(forest.lastKey());
-        assert !forest.get(forest.lastKey()).isEmpty(): forest.toString();
-        K ret = forest.get(forest.lastKey()).lastKey();
+        K last = forest.lastKey();
+        allocateTree(last);
+        if (!forest.get(last).isEmpty()) {
+            last = forest.get(last).lastKey();
+        }
         unallocateTrees();
-        return ret;
+        return last;
     }
 
     @Override
@@ -155,21 +157,17 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends AtomicObject impl
         if (forest.isEmpty()){
             TreeMap<K,V> treeMap = new TreeMap<K, V>(map);
             int split = treeMap.size()/this.threshold+1;
-            if(split==0) split=1;
             K beg = treeMap.firstKey();
             for(int i=0; i<split; i++){
                 TreeMap<K,V> sub = allocateTree(beg);
                 forest.put(beg,sub);
                 TreeMap<K,V> toAdd = new TreeMap<K, V>();
-                toAdd.put(beg,treeMap.get(beg));
-                int j=0;
-                for(K k : treeMap.tailMap(beg,false).keySet()){
-                    j++;
-                    toAdd.put(k,treeMap.get(k));
-                    if(j>threshold){
+                for(K k : treeMap.tailMap(beg).keySet()){
+                    if(toAdd.size()==threshold){
                         beg = k;
                         break;
                     }
+                    toAdd.put(k,treeMap.get(k));
                 }
                 sub.putAll(toAdd);
             }

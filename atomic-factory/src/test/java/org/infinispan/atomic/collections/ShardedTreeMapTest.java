@@ -11,9 +11,7 @@ import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.SortedMap;
+import java.util.*;
 
 
 /**
@@ -25,7 +23,7 @@ import java.util.SortedMap;
 public class ShardedTreeMapTest extends MultipleCacheManagersTest {
 
     private static int NCALLS= 100;
-    private static int NCACHES = 5;
+    private static int NCACHES = 3;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     @Test(enabled = true)
@@ -45,6 +43,16 @@ public class ShardedTreeMapTest extends MultipleCacheManagersTest {
         log.debug(a);
         assert map.size() == NCALLS;
         assert map.subMap(0,NCALLS/2).size()==NCALLS/2;
+
+        SortedMap<Integer,Integer> map2 = factory.getInstanceOf(ShardedTreeMap.class,"test2",false,null,false,3);
+        Map<Integer,Integer> toAdd = new HashMap<Integer, Integer>();
+        for(int i=0; i<NCALLS; i++) {
+            toAdd.put(i, i);
+            toAdd.get(i);
+        }
+        map2.putAll(toAdd);
+        assert map2.size() == NCALLS;
+        assert map2.lastKey() == NCALLS-1;
 
     }
 
