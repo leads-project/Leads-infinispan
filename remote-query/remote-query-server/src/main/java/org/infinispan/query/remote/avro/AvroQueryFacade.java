@@ -14,24 +14,28 @@ import org.hibernate.search.bridge.FieldBridge;
 import org.hibernate.search.query.dsl.QueryBuilder;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
 import org.infinispan.AdvancedCache;
+import org.infinispan.query.CacheQuery;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
 import org.infinispan.query.remote.client.avro.AvroMarshaller;
 import org.infinispan.query.remote.client.avro.Request;
 import org.infinispan.query.remote.client.avro.Response;
+import org.infinispan.query.remote.logging.Log;
 import org.infinispan.server.core.QueryFacade;
+import org.infinispan.util.logging.LogFactory;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * // TODO: Document this
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 7.0
  */
 public class AvroQueryFacade implements QueryFacade {
+
+    private static final Log log = LogFactory.getLog(AvroQueryFacade.class, Log.class);
 
     private AvroMarshaller<Request> requestAvroMarshaller= new AvroMarshaller<>(Request.class);
     private AvroMarshaller<Response> responseAvroMarshaller = new AvroMarshaller<>(Response.class);
@@ -43,9 +47,10 @@ public class AvroQueryFacade implements QueryFacade {
         try {
 
             Request request = (Request) requestAvroMarshaller.objectFromByteBuffer(query);
+            log.info(request.toString());
+
             SearchManager sm = Search.getSearchManager(cache);
 
-            QueryParser queryParser = new QueryParser();
             SearchFactoryIntegrator searchFactory = (SearchFactoryIntegrator) sm.getSearchFactory();
             QueryBuilder qb = sm.buildQueryBuilderForClass(GenericData.Record.class).get();
             QueryParser qp = new QueryParser();
@@ -69,7 +74,16 @@ public class AvroQueryFacade implements QueryFacade {
 
             LuceneQueryParsingResult parsingResult = qp.parseQuery(request.getJpqlString().toString(), processingChain);
             Query q = parsingResult.getQuery();
-            List<Object> list = sm.getQuery(q).list();
+            CacheQuery cacheQuery;
+            cacheQuery = sm.getQuery(q,GenericData.Record.class);
+            if (request.getMaxResult() > 0)
+                cacheQuery = cacheQuery.maxResults(request.getMaxResult());
+            if (parsingResult.getSort() != null)
+                cacheQuery = cacheQuery.sort(parsingResult.getSort());
+            if (request.getStartOffset() > 0)
+                cacheQuery = cacheQuery.firstResult(request.getStartOffset().intValue());
+
+            List<Object> list = cacheQuery.list();
             List<ByteBuffer> results = new ArrayList<>();
             if (parsingResult.getProjections().size()==0){
                 for (Object o: list) {
@@ -77,7 +91,6 @@ public class AvroQueryFacade implements QueryFacade {
                 }
             }else{
                 for (Object o: list) {
-
                     GenericData.Record record = (GenericData.Record) externalizer.objectFromByteBuffer((byte[])o);
                     GenericRecordBuilder builder = new GenericRecordBuilder(record.getSchema());
                     GenericData.Record copy = builder.build();
@@ -85,7 +98,6 @@ public class AvroQueryFacade implements QueryFacade {
                         if (parsingResult.getProjections().contains(f.name()))
                             copy.put(f.name(),record.get(f.name()));
                     }
-
                     results.add(ByteBuffer.wrap(externalizer.objectToByteBuffer(copy)));
                 }
             }

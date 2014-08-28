@@ -2,17 +2,21 @@ package org.infinispan.query.remote.avro;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
+import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
+import org.apache.lucene.util.BytesRef;
 import org.hibernate.search.bridge.LuceneOptions;
 import org.hibernate.search.bridge.TwoWayFieldBridge;
 
+import java.util.Map;
+
+
 /**
- * // TODO: Document this
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 7.0
  */
 public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
 
@@ -25,17 +29,32 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
         StringField stringField;
         for(Schema.Field field : schema.getFields()){
             if (record.get(field.name())!=null){
-                stringField = new StringField(
-                        field.name(),
-                        record.get(field.name()).toString(),
-                        Field.Store.YES);
+                switch (field.schema().getType()){
+                    case MAP:
+                        Map<?,?> map = (Map) record.get(field.name());
+                        for(Object k: map.keySet()) {
+                            stringField = new StringField(
+                                    field.name(),
+                                    k.toString()+"::"+(map.get(k)!=null ? map.get(k).toString() : NULL),
+                                    Field.Store.YES);
+                            addField(stringField,document);
+                        }
+                        break;
+                    default:
+                        stringField = new StringField(
+                                field.name(),
+                                record.get(field.name()).toString(),
+                                Field.Store.YES);
+                        addField(stringField, document);
+                }
             }else{
                 stringField = new StringField(
                         field.name(),
                         NULL,
                         Field.Store.YES);
+                addField(stringField,document);
             }
-            document.add(stringField);
+
         }
     }
 
@@ -51,5 +70,15 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
         if (object==null)
             return NULL;
         return object.toString();
+    }
+
+    private void addField(StringField field, Document document){
+        if (field.stringValue().length()>30000){ // to handle the hard coded max value in Lucene
+            document.add(new BinaryDocValuesField(
+                    field.name(),
+                    new BytesRef(field.stringValue().getBytes())));
+        }else {
+            document.add(field);
+        }
     }
 }

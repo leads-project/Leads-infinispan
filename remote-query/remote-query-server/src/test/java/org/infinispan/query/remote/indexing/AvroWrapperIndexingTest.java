@@ -2,6 +2,7 @@ package org.infinispan.query.remote.indexing;
 
 
 import example.avro.User;
+import example.avro.WebPage;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.lucene.search.Query;
@@ -14,7 +15,9 @@ import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -75,11 +78,39 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
                 .onField("name")
                 .ignoreFieldBridge()
                 .ignoreAnalyzer()
-                .above("B")
+                .above("Bob")
                 .createQuery();
 
         list = sm.getQuery(luceneQuery).list();
         assertEquals(0, list.size());
+
+    }
+
+    public void testIndexingWithWrapper2() throws Exception {
+        WebPage page = new WebPage();
+        page.setUrl("http://www.test.com");
+        Map<CharSequence,CharSequence> outlinks = new HashMap<>();
+        outlinks.put("1","http://www.example.com");
+        page.setOutlinks(outlinks);
+
+        SearchManager sm = Search.getSearchManager(cache);
+
+        cache.put("page",page);
+
+        SearchFactoryImplementor searchFactory = (SearchFactoryImplementor) sm.getSearchFactory();
+        assertNotNull(searchFactory.getIndexManagerHolder().getIndexManager(GenericData.Record.class.getName()));
+
+        Query luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
+                .get()
+                .keyword()
+                .onField("outlinks")
+                .ignoreFieldBridge()
+                .ignoreAnalyzer()
+                .matching(outlinks)
+                .createQuery();
+
+        List<Object> list = list = sm.getQuery(luceneQuery).list();
+        // assertEquals(1, list.size());
 
     }
 

@@ -60,7 +60,7 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
     public Object objectFromByteBuffer(byte[] buf, int offset, int length) throws IOException, ClassNotFoundException {
         try{
             ByteArrayInputStream bais = new ByteArrayInputStream(buf, offset, length);
-            SpecificDatumReader<T> reader = new SpecificDatumReader<>(schema);
+            SpecificDatumReader<T> reader = new SpecificDatumReader<>(clazz);
             DataFileReader<T> dataFileReader = new DataFileReader<>(new SeekableByteArrayInput(buf),reader);
             if(dataFileReader.hasNext())
                 return dataFileReader.next();

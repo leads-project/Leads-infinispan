@@ -42,6 +42,7 @@ public class AvroQueryOperation extends RetryOnFailureOperation<Response> {
         Request queryRequest = new Request();
         queryRequest.setJpqlString(remoteQuery.getJpqlString());
         queryRequest.setStartOffset(remoteQuery.getStartOffset());
+        queryRequest.setMaxResult(remoteQuery.getMaxResults());
 
         try {
 
