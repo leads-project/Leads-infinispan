@@ -154,7 +154,23 @@ public class RemoteCacheImpl<K, V> extends RemoteCacheSupport<K, V> {
       return binary2VersionedValue(value);
    }
 
-   @Override
+    @Override
+    public NotifyingFuture<VersionedValue<V>> getVersionedAsync(final K key) {
+        assertRemoteCacheManagerIsStarted();
+        final NotifyingFutureImpl<VersionedValue<V>> result = new NotifyingFutureImpl<VersionedValue<V>>();
+        Future<VersionedValue<V>> future = executorService.submit(new Callable<VersionedValue<V>>() {
+            @Override
+            public VersionedValue<V> call() throws Exception {
+                VersionedValue<V> removed = getVersioned(key);
+                result.get();
+                return removed;
+            }
+        });
+        result.setFuture(future);
+        return result;
+    }
+
+    @Override
    public MetadataValue<V> getWithMetadata(K key) {
       assertRemoteCacheManagerIsStarted();
       GetWithMetadataOperation op = operationsFactory.newGetWithMetadataOperation(obj2bytes(key, true));

@@ -75,6 +75,7 @@
       <module>integrationtests/osgi</module>
       <module>versioning</module>
       <module>atomic-factory</module>
+      <module>ensemble</module>
    </modules>
 
    <profiles>
