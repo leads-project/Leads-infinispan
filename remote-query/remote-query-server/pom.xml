@@ -31,10 +31,8 @@
                             <goal>schema</goal>
                         </goals>
                         <configuration>
-                            <sourceDirectory>${project.basedir}/src/test/resources</sourceDirectory>
-                            <outputDirectory>${project.basedir}/src/test/resources/</outputDirectory>
                             <testSourceDirectory>${project.basedir}/src/test/resources</testSourceDirectory>
-                            <testOutputDirectory>${project.basedir}/src/test/resources/</testOutputDirectory>
+                            <testOutputDirectory>${project.basedir}/src/test/java/</testOutputDirectory>
                         </configuration>
                     </execution>
                 </executions>

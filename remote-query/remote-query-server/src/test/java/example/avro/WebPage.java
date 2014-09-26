@@ -3,7 +3,7 @@
  * 
  * DO NOT EDIT DIRECTLY
  */
-package example.avro;  
+package example.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class WebPage extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
