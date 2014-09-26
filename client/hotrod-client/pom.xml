@@ -125,7 +125,7 @@
                      ${project.groupId}.client.hotrod.*;version=${project.version};-split-package:=error
                   </Export-Package>
                   <Import-Package>
-                      org.apache.example.avro.*;resolution:=optional,
+                      org.apache.example.example.avro.*;resolution:=optional,
                       *
                   </Import-Package>
                </instructions>
