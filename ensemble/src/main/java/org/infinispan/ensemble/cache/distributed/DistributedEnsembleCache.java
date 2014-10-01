@@ -87,4 +87,24 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
         return partitioner.locate(key).put(key,value);
     }
 
+    @Override
+    public boolean containsKey(Object o) {
+        for (EnsembleCache cache : caches){
+            if (frontierMode) {
+                if (cache.equals(frontierCache) && cache.containsKey(o)) {
+                    return true;
+                }
+            } else if (cache.containsKey(o)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void clear() {
+        for (EnsembleCache cache: caches)
+            cache.clear();
+    }
+
 }

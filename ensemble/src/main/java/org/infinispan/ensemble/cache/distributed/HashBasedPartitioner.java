@@ -11,15 +11,13 @@ import java.util.List;
  */
 public class HashBasedPartitioner<K,V> extends Partitioner<K,V> {
 
-    List<EnsembleCache<K,V>> cacheList;
-
-    public HashBasedPartitioner(List<EnsembleCache<K,V>> cacheList){
-        this.cacheList = cacheList;
+    public HashBasedPartitioner(List<EnsembleCache<K,V>> caches){
+        super(caches);
     }
 
     @Override
     public EnsembleCache<K, V> locate(K k) {
-        return cacheList.get(k.hashCode()%cacheList.size());
+        return caches.get(Math.abs(k.hashCode())%caches.size());
     }
 
 }

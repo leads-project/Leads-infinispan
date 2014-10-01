@@ -50,37 +50,37 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putAsync(key, value, lifespan, unit);
     }
 
     @Override
     public NotifyingFuture<V> putAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putAsync(key, value, lifespan, lifespanUnit, maxIdle, maxIdleUnit);
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putAllAsync(data);
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putAllAsync(data, lifespan, unit);
     }
 
     @Override
     public NotifyingFuture<Void> putAllAsync(Map<? extends K, ? extends V> data, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putAllAsync(data, lifespan, lifespanUnit, maxIdle, maxIdleUnit);
     }
 
     @Override
     public NotifyingFuture<Void> clearAsync() {
-        return null;  // TODO: Customise this generated block
+        return delegate.clearAsync();
     }
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putIfAbsentAsync(key, value);
     }
 
     @Override
@@ -341,12 +341,12 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public void clear() {
-        // TODO: Customise this generated block
+        delegate.clear();
     }
 
     @Override
     public Set<K> keySet() {
-        return null;  // TODO: Customise this generated block
+        return delegate.keySet();
     }
 
     @Override
@@ -387,5 +387,10 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
     @Override
     public void stop() {
         delegate.stop();
+    }
+
+    @Override
+    public String toString(){
+        return delegate.toString();
     }
 }

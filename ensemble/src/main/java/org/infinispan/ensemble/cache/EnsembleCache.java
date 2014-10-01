@@ -71,11 +71,7 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
 
     @Override
     public boolean containsKey(Object o) {
-        for (EnsembleCache cache : caches){
-            if (cache.containsKey(o))
-                return true;
-        }
-        return false;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -131,7 +127,7 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
     }
 
     @Override
-    public void clear() {
+    public void clear()  {
         throw new UnsupportedOperationException();
     }
 
