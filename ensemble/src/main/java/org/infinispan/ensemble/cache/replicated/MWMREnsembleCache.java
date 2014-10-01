@@ -53,10 +53,8 @@ public class MWMREnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
         for(NotifyingFuture<Boolean> future : futures){
             try {
                 future.get();
-            } catch (InterruptedException e) {
-                e.printStackTrace();  // TODO: Customise this generated block
-            } catch (ExecutionException e) {
-                e.printStackTrace();  // TODO: Customise this generated block
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
             }
         }
 
@@ -66,17 +64,15 @@ public class MWMREnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
         Map<RemoteCache<K,V>,NotifyingFuture<VersionedValue<V>>> futures
                 = new HashMap<RemoteCache<K, V>, NotifyingFuture<VersionedValue<V>>>();
         for(EnsembleCache<K,V> cache : quorumCache()){
-            futures.put((RemoteCache<K, V>) cache, ((RemoteCache)cache).getVersionedAsynch(k));
+            futures.put((RemoteCache<K, V>) cache, ((RemoteCache)cache).getVersionedAsync(k));
         }
         Map<RemoteCache<K,V>, VersionedValue<V>> ret = new HashMap<RemoteCache<K, V>, VersionedValue<V>>();
         for(RemoteCache<K,V> cache : futures.keySet()){
             VersionedValue<V> tmp = null;
             try {
                 tmp = futures.get(cache).get();
-            } catch (InterruptedException e) {
-                e.printStackTrace();  // TODO: Customise this generated block
-            } catch (ExecutionException e) {
-                e.printStackTrace();  // TODO: Customise this generated block
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
             }
             ret.put(cache,tmp);
         }

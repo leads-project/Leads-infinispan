@@ -1,12 +1,14 @@
 package org.infinispan.ensemble;
 
+import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCacheContainer;
-import org.infinispan.ensemble.cache.*;
+import org.infinispan.commons.marshall.Marshaller;
+import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.cache.distributed.DistributedEnsembleCache;
 import org.infinispan.ensemble.cache.distributed.Partitioner;
-import org.infinispan.ensemble.cache.replicated.SWMREnsembleCache;
 import org.infinispan.ensemble.cache.replicated.MWMREnsembleCache;
+import org.infinispan.ensemble.cache.replicated.SWMREnsembleCache;
 import org.infinispan.ensemble.cache.replicated.WeakEnsembleCache;
 import org.infinispan.ensemble.indexing.IndexBuilder;
 import org.infinispan.ensemble.indexing.LocalIndexBuilder;
@@ -14,6 +16,7 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 
@@ -27,8 +30,6 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     private static final Log log = LogFactory.getLog(EnsembleCacheManager.class);
 
     public static int DEFAULT_REPLICATION_FACTOR = 1;
-    public static final int ENSEMBLE_VERSION_MAJOR = 0;
-    public static final int ENSEMBLE_VERSION_MINOR = 2;
     public static enum Consistency {
         SWMR,
         MWMR,
@@ -40,11 +41,15 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
 
     public EnsembleCacheManager() throws CacheException{
-        this(Collections.EMPTY_LIST);
+        this(Collections.EMPTY_LIST,null,new LocalIndexBuilder());
     }
 
     public EnsembleCacheManager(String siteList) throws CacheException{
-        this(Arrays.asList(siteList.split("\\|")));
+        this(Arrays.asList(siteList.split("\\|")),null,new LocalIndexBuilder());
+    }
+
+    public EnsembleCacheManager(String siteList, Marshaller marshaller) throws CacheException{
+        this(Arrays.asList(siteList.split("\\|")), marshaller, new LocalIndexBuilder());
     }
 
     /**
@@ -52,18 +57,28 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      * Create an EnsembleCacheManager using <i>sites</i> as the set of sites, and a local IndexBuilder..
      * By convention, the first site is local.
      *
-     * @param sites
+     * @param sites list of sites
+     * @param marshaller marshaller to use (null is valid)
+     * @param indexBuilder index to use
      * @throws CacheException
      */
-    public EnsembleCacheManager(Collection<String> sites) throws CacheException{
-        this(Site.fromNames(sites),new LocalIndexBuilder());
+    public EnsembleCacheManager(Collection<String> sites, Marshaller marshaller, IndexBuilder indexBuilder) throws CacheException{
+        this.caches = indexBuilder.getIndex(EnsembleCache.class);
+        this.sites = new ConcurrentHashMap<>();
+        for(Site s : Site.fromNames(sites, marshaller)){
+            this.sites.put(s.getName(),s);
+        }
     }
 
-    public EnsembleCacheManager(Collection<Site> sites, IndexBuilder indexBuilder) throws CacheException{
+    public EnsembleCacheManager(Collection<RemoteCacheManager> managers, IndexBuilder indexBuilder) throws CacheException{
         this.caches = indexBuilder.getIndex(EnsembleCache.class);
-        this.sites = indexBuilder.getIndex(Site.class);
-        for(Site s : sites){
-            this.sites.put(s.getName(),s);
+        this.sites = new ConcurrentHashMap<>();
+        boolean once = true;
+        for(RemoteCacheManager m : managers){
+            this.sites.put(
+                    m.toString(),
+                    new Site(m.toString(),m,once));
+            if (once) once=false;
         }
     }
 
@@ -104,7 +119,10 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      **/
     @Override
     public <K,V> EnsembleCache<K,V> getCache(String cacheName){
-        return getCache(cacheName, DEFAULT_REPLICATION_FACTOR);
+        EnsembleCache<K,V> ret = caches.get(cacheName);
+        if (ret==null)
+            ret = getCache(cacheName, DEFAULT_REPLICATION_FACTOR);
+        return ret;
     }
 
     public <K,V> EnsembleCache<K,V> getCache(String cacheName, int replicationFactor){
@@ -120,33 +138,36 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     }
 
     public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<Site> siteList, Consistency consistency){
-        List<EnsembleCache<K,V>> cacheList = new ArrayList<EnsembleCache<K, V>>();
+        List<EnsembleCache<K,V>> cacheList = new ArrayList<>();
         for(Site s : siteList){
             cacheList.add(s.<K,V>getCache(cacheName));
         }
-        return getCache(cacheName,cacheList,consistency,null);
+        return getCache(cacheName,cacheList,consistency,true);
     }
 
-    public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<EnsembleCache<K,V>> cacheList, Consistency consistency, Partitioner<K,V> partitioner){
+    public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<EnsembleCache<K,V>> cacheList, Consistency consistency, boolean create){
         EnsembleCache<K,V> ret;
-        if (partitioner==null){
-            switch (consistency){
-                case SWMR:
-                    ret = new SWMREnsembleCache<K,V>(cacheName, cacheList);
-                    break;
-                case MWMR:
-                    ret = new MWMREnsembleCache<K,V>(cacheName, cacheList);
-                    break;
-                case WEAK:
-                    ret = new WeakEnsembleCache<K,V>(cacheName,cacheList);
-                    break;
-                default:
-                    throw new CacheException("Invalid consistency level "+consistency.toString());
-            }
-        }else{
-            ret = new DistributedEnsembleCache<K, V>(cacheName,cacheList,partitioner);
+        switch (consistency){
+            case SWMR:
+                ret = new SWMREnsembleCache<>(cacheName, cacheList);
+                break;
+            case MWMR:
+                ret = new MWMREnsembleCache<>(cacheName, cacheList);
+                break;
+            case WEAK:
+                ret = new WeakEnsembleCache<>(cacheName,cacheList);
+                break;
+            default:
+                throw new CacheException("Invalid consistency level "+consistency.toString());
         }
-        caches.putIfAbsent(cacheName,ret);
+        recordCache(ret,create);
+        return caches.get(cacheName);
+    }
+
+    public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<EnsembleCache<K,V>> cacheList, Partitioner<K,V> partitioner, boolean frontierMode){
+        EnsembleCache<K,V> ret;
+        ret = new DistributedEnsembleCache<>(cacheName,cacheList,partitioner,frontierMode);
+        recordCache(ret,true);
         return caches.get(cacheName);
     }
 
@@ -175,7 +196,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
      * @return a random list of <i>replicationFactor</i> sites..
      */
     private List<Site> assignRandomly(int replicationFactor){
-        assert  replicationFactor <= sites.size() :sites.values().toString();
+        assert  replicationFactor <= sites.size() :sites.values().toString() +" vs " + replicationFactor;
         List<Site> replicas = new ArrayList<Site>();
         Set<Site> all = new HashSet<Site>(sites.values());
         // First add local site
@@ -189,6 +210,12 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
                 replicas.add(s);
         }
         return replicas;
+    }
+
+    private void recordCache(EnsembleCache cache, boolean create){
+        if (create && caches.containsKey(cache.getName()))
+            throw new CacheException("Cache already existing");
+        caches.putIfAbsent(cache.getName(),cache);
     }
 
 }

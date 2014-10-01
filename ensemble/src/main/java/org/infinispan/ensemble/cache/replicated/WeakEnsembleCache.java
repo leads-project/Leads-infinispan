@@ -35,10 +35,8 @@ public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
             try {
                 ret = f.get();
                 return ret;
-            } catch (InterruptedException e) {
-                e.printStackTrace();  // TODO: Customise this generated block
-            } catch (ExecutionException e) {
-                e.printStackTrace();  // TODO: Customise this generated block
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
             }
         }
         return null;
@@ -65,6 +63,8 @@ public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
     public boolean isEmpty() {
         return someCache().isEmpty();
     }
+
+    public boolean containsKey(Object o) { return someCache().containsKey(o); }
 
 
 }

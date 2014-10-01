@@ -2,16 +2,14 @@ package org.infinispan.ensemble.cache;
 
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import org.infinispan.ensemble.Site;
 import org.infinispan.ensemble.indexing.Indexable;
 import org.infinispan.ensemble.indexing.Primary;
 import org.infinispan.ensemble.indexing.Stored;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 
@@ -39,19 +37,9 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
         this.caches= caches;
     }
 
-    //
-    // PUBLIC
-    //
-
-    public String getName() {
-        return name;
+    public boolean isLocal(){
+        return false;
     }
-
-
-    //
-    // NYI
-    //
-
 
     // READ
 
@@ -83,7 +71,11 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
 
     @Override
     public boolean containsKey(Object o) {
-        throw new UnsupportedOperationException();
+        for (EnsembleCache cache : caches){
+            if (cache.containsKey(o))
+                return true;
+        }
+        return false;
     }
 
     @Override
@@ -233,8 +225,6 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
         throw new UnsupportedOperationException();
     }
 
-
-
     @Override
     public V put(K key, V value) {
         throw new UnsupportedOperationException();
@@ -302,6 +292,32 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
     @Override
     public void stop() {
         throw new UnsupportedOperationException();
+    }
+
+    // OTHERS
+
+    public String getName() {
+        return name;
+    }
+
+    public List<? extends EnsembleCache<K,V>> getCaches(){ return caches;}
+
+    public Set<Site> sites(){
+        Set<Site> ret = new HashSet<>();
+        for(EnsembleCache<K,V> cache : caches){
+            ret.addAll(cache.sites());
+        }
+        return ret;
+    }
+
+    @Override
+    public String toString(){
+        return getName();
+    }
+
+    @Override
+    public int hashCode(){
+        return name.hashCode();
     }
 
 }

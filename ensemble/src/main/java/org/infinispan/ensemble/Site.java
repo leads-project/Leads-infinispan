@@ -1,7 +1,10 @@
 package org.infinispan.ensemble;
 
+import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
-import org.infinispan.ensemble.cache.EnsembleCache;
+import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
+import org.infinispan.client.hotrod.impl.ConfigurationProperties;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.ensemble.cache.SiteEnsembleCache;
 import org.infinispan.ensemble.indexing.Indexable;
 import org.infinispan.util.logging.Log;
@@ -28,7 +31,7 @@ public class Site extends Indexable {
     //
     // CLASS FIELDS
     //
-    private static final Log log = LogFactory.getLog(Site.class);
+    private transient static final Log log = LogFactory.getLog(Site.class);
     private transient static Site localSite;
 
     //
@@ -54,14 +57,40 @@ public class Site extends Indexable {
      * @param sites
      * @return
      */
-    public static Collection<Site> fromNames(Collection<String> sites){
+    public static Collection<Site> fromNames(Collection<String> sites, Marshaller marshaller){
+
         List<Site> list = new ArrayList<Site>();
+
         boolean local=true;
+
         for(String s: sites){
-            Site site = new Site(s, new RemoteCacheManager(s),local);
+
+            // Configuration Builder
+            String host;
+            int port;
+            if (s.contains(":")) {
+                host = s.split(":")[0];
+                port = Integer.valueOf(s.split(":")[1]);
+            }else{
+                host = s;
+                port = ConfigurationProperties.DEFAULT_HOTROD_PORT;
+            }
+            ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+            configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
+            if (marshaller!=null)
+                configurationBuilder.marshaller(marshaller);
+
+            // Manager
+            RemoteCacheManager manager = new RemoteCacheManager(configurationBuilder.build());
+            manager.start();
+
+            //Site
+            Site site = new Site(s, manager,local);
             if(local) local=false;
             list.add(site);
+
         }
+
         return list;
     }
 
@@ -100,8 +129,12 @@ public class Site extends Indexable {
         return container;
     }
 
-    public <K,V> EnsembleCache<K,V> getCache(String name){
-        return new SiteEnsembleCache<K, V>(container.getCache(name));
+    public <K,V> SiteEnsembleCache<K,V> getCache(String name){
+        return new SiteEnsembleCache<>(this,container.getCache(name));
+    }
+
+    public boolean isOwner(RemoteCache remoteCache){
+        return container.equals(remoteCache.getRemoteCacheManager());
     }
 
     @Override

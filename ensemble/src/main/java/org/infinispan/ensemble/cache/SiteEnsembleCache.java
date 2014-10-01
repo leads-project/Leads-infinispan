@@ -1,7 +1,9 @@
 package org.infinispan.ensemble.cache;
 
 import org.infinispan.client.hotrod.*;
+import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import org.infinispan.ensemble.Site;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -18,11 +20,27 @@ import java.util.concurrent.TimeUnit;
  */
 public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements RemoteCache<K,V>{
 
-    RemoteCache<K,V> delegate;
+    private Site site;
+    private RemoteCacheImpl<K,V> delegate;
 
-    public SiteEnsembleCache(RemoteCache remoteCache) {
-        super(remoteCache.getName(), Collections.EMPTY_LIST);
-        delegate = remoteCache;
+    public SiteEnsembleCache(Site site, RemoteCache delegate) {
+        super(delegate.getName(), Collections.EMPTY_LIST);
+        this.delegate = (RemoteCacheImpl<K, V>) delegate;
+        this.site = site;
+    }
+
+    public RemoteCacheImpl<K,V> getDelegeate(){
+        return delegate;
+    }
+
+    @Override
+    public Set<Site> sites(){
+        return Collections.singleton(site);
+    }
+
+    @Override
+    public boolean isLocal(){
+        return Site.localSite().equals(site);
     }
 
     @Override
@@ -177,8 +195,8 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
     }
 
     @Override
-    public NotifyingFuture<VersionedValue<V>> getVersionedAsynch(K key) {
-        return delegate.getVersionedAsynch(key);
+    public NotifyingFuture<VersionedValue<V>> getVersionedAsync(K key) {
+        return delegate.getVersionedAsync(key);
     }
 
     @Override
@@ -223,6 +241,26 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public String getProtocolVersion() {
+        return null;  // TODO: Customise this generated block
+    }
+
+    @Override
+    public void addClientListener(Object listener) {
+        // TODO: Customise this generated block
+    }
+
+    @Override
+    public void addClientListener(Object listener, Object[] filterFactoryParams, Object[] converterFactoryParams) {
+        // TODO: Customise this generated block
+    }
+
+    @Override
+    public void removeClientListener(Object listener) {
+        // TODO: Customise this generated block
+    }
+
+    @Override
+    public Set<Object> getListeners() {
         return null;  // TODO: Customise this generated block
     }
 
