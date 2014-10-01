@@ -55,7 +55,7 @@ public class AvroQueryOperation extends RetryOnFailureOperation<Response> {
             return (Response) responseAvroMarshaller.objectFromByteBuffer(responseBytes);
 
         } catch (IOException | InterruptedException | ClassNotFoundException e) {
-            e.printStackTrace();  // TODO: Customise this generated block
+            e.printStackTrace();
         }
 
         return null;

@@ -59,10 +59,8 @@ public class AvroRemoteQuery implements Query {
         for (ByteBuffer byteBuffer : response.getResults()) {
             try {
                 results.add(cache.getRemoteCacheManager().getMarshaller().objectFromByteBuffer(byteBuffer.array()));
-            } catch (IOException e) {
-                e.printStackTrace();  // TODO: Customise this generated block
-            } catch (ClassNotFoundException e) {
-                e.printStackTrace();  // TODO: Customise this generated block
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
             }
         }
         return results;

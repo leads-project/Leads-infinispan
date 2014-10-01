@@ -25,6 +25,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
+import static org.infinispan.client.hotrod.avro.AvroTestHelper.assertEmployee;
+import static org.infinispan.client.hotrod.avro.AvroTestHelper.createEmployee1;
+import static org.infinispan.client.hotrod.avro.AvroTestHelper.createEmployee2;
 import static org.infinispan.client.hotrod.test.HotRodClientTestingUtil.killRemoteCacheManager;
 import static org.infinispan.client.hotrod.test.HotRodClientTestingUtil.killServers;
 import static org.junit.Assert.assertEquals;
@@ -32,14 +35,13 @@ import static org.junit.Assert.assertNotNull;
 
 
 /**
- * // TODO: Document this
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 7.0
  */
-@Test(testName = "client.hotrod.avro.AvroIndexedQueryTest", groups = "functional")
+@Test(testName = "client.hotrod.avro.AvroQueryTest", groups = "functional")
 @CleanupAfterMethod
-public class AvroIndexedQueryTest extends SingleCacheManagerTest {
+public class AvroQueryTest extends SingleCacheManagerTest {
 
     public static final String TEST_CACHE_NAME = "EmployeeCache";
 
@@ -47,13 +49,20 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
     private RemoteCacheManager remoteCacheManager;
     private RemoteCache<Integer, Employee> remoteCache;
 
+    // Configuration
+
     @Override
     protected EmbeddedCacheManager createCacheManager() throws Exception {
         GlobalConfigurationBuilder gcb = new GlobalConfigurationBuilder().nonClusteredDefault();
+        gcb.globalJmxStatistics()
+                .enable()
+                .allowDuplicateDomains(true);
+
         ConfigurationBuilder builder = getConfigurationBuilder();
         builder.indexing().enable()
                 .addProperty("default.directory_provider", "ram")
                 .addProperty("lucene_version", "LUCENE_CURRENT");
+
         cacheManager = TestCacheManagerFactory.createCacheManager(gcb, new ConfigurationBuilder(), true);
         cacheManager.defineConfiguration(TEST_CACHE_NAME, builder.build());
         cache = cacheManager.getCache(TEST_CACHE_NAME);
@@ -75,23 +84,9 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
         return builder;
     }
 
-    private byte[] readClasspathResource(String classPathResource) throws IOException {
-        InputStream is = getClass().getResourceAsStream(classPathResource);
-        try {
-            return Util.readStream(is);
-        } finally {
-            if (is != null) {
-                is.close();
-            }
-        }
-    }
+    // Tests
 
-    @AfterTest
-    public void release() {
-        killRemoteCacheManager(remoteCacheManager);
-        killServers(hotRodServer);
-    }
-
+    @Test
     public void testAttributeQuery() throws Exception {
         remoteCache.put(1, createEmployee1());
         remoteCache.put(2, createEmployee2());
@@ -112,6 +107,7 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
         assertEmployee(list.get(0));
     }
 
+    @Test
     public void testEmbeddedAttributeQuery() throws Exception {
         remoteCache.put(1, createEmployee1());
         remoteCache.put(2, createEmployee2());
@@ -126,6 +122,7 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
         assertEquals(0, list.size());
     }
 
+    @Test
     public void testProjections() throws Exception {
         remoteCache.put(1, createEmployee1());
         remoteCache.put(2, createEmployee2());
@@ -149,25 +146,24 @@ public class AvroIndexedQueryTest extends SingleCacheManagerTest {
         assertEquals(new Utf8("Tom"), list.get(0).getName());
     }
 
-    private Employee createEmployee1() {
-        Employee Employee = new Employee();
-        Employee.setName("Tom");
-        Employee.setSsn("dazd");
-        Employee.setDateOfBirth((long) 1);
-        return Employee;
+    @AfterTest
+    public void release() {
+        killRemoteCacheManager(remoteCacheManager);
+        killServers(hotRodServer);
     }
 
-    private Employee createEmployee2() {
-        Employee Employee = new Employee();
-        Employee.setName("Adrian");
-        Employee.setSsn("eadzzad");
-        Employee.setDateOfBirth((long) 2);
-        return Employee;
+    // Helpers
+
+    private byte[] readClasspathResource(String classPathResource) throws IOException {
+        InputStream is = getClass().getResourceAsStream(classPathResource);
+        try {
+            return Util.readStream(is);
+        } finally {
+            if (is != null) {
+                is.close();
+            }
+        }
     }
 
-    private void assertEmployee(Employee Employee) {
-        assertNotNull(Employee);
-        assertEquals("Tom", Employee.getName().toString());
-    }
 }
 
