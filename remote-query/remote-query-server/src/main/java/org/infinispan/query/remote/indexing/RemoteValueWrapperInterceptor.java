@@ -1,13 +1,10 @@
 package org.infinispan.query.remote.indexing;
 
-import org.apache.avro.generic.GenericData;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.compat.TypeConverter;
 import org.infinispan.context.Flag;
 import org.infinispan.interceptors.compat.BaseTypeConverterInterceptor;
-import org.infinispan.query.remote.avro.GenericRecordExternalizer;
 
-import java.io.IOException;
 import java.util.Set;
 
 /**
@@ -21,78 +18,68 @@ import java.util.Set;
  */
 public class RemoteValueWrapperInterceptor extends BaseTypeConverterInterceptor {
 
-   private final ProtobufValueWrapperTypeConverter protobufTypeConverter = new ProtobufValueWrapperTypeConverter();
+    private final ProtobufValueWrapperTypeConverter protobufTypeConverter = new ProtobufValueWrapperTypeConverter();
 
-   private final PassThroughTypeConverter passThroughTypeConverter = new PassThroughTypeConverter();
+    private final PassThroughTypeConverter passThroughTypeConverter = new PassThroughTypeConverter();
 
-   protected TypeConverter<Object, Object, Object, Object> determineTypeConverter(Set<Flag> flags) {
-      return flags != null && flags.contains(Flag.OPERATION_HOTROD) ? protobufTypeConverter : passThroughTypeConverter;
-   }
+    protected TypeConverter<Object, Object, Object, Object> determineTypeConverter(Set<Flag> flags) {
+        return flags != null && flags.contains(Flag.OPERATION_HOTROD) ? protobufTypeConverter : passThroughTypeConverter;
+    }
 
-   /**
-    * A no-op converter.
-    */
-   private static class PassThroughTypeConverter implements TypeConverter<Object, Object, Object, Object> {
+    /**
+     * A no-op converter.
+     */
+    private static class PassThroughTypeConverter implements TypeConverter<Object, Object, Object, Object> {
 
-      @Override
-      public Object boxKey(Object key) {
-         return key;
-      }
+        @Override
+        public Object boxKey(Object key) {
+            return key;
+        }
 
-      @Override
-      public Object boxValue(Object value) {
-         return value;
-      }
+        @Override
+        public Object boxValue(Object value) {
+            return value;
+        }
 
-      @Override
-      public Object unboxKey(Object target) {
-         return target;
-      }
+        @Override
+        public Object unboxKey(Object target) {
+            return target;
+        }
 
-      @Override
-      public Object unboxValue(Object target) {
-         return target;
-      }
+        @Override
+        public Object unboxValue(Object target) {
+            return target;
+        }
 
-      @Override
-      public boolean supportsInvocation(Flag flag) {
-         return false;
-      }
+        @Override
+        public boolean supportsInvocation(Flag flag) {
+            return false;
+        }
 
-      @Override
-      public void setMarshaller(Marshaller marshaller) {
-      }
-   }
+        @Override
+        public void setMarshaller(Marshaller marshaller) {
+        }
+    }
 
-   /**
-    * A converter that wraps/unwraps the value (a byte[]) into a ProtobufValueWrapper.
-    */
-   private static class ProtobufValueWrapperTypeConverter extends PassThroughTypeConverter {
+    /**
+     * A converter that wraps/unwraps the value (a byte[]) into a ProtobufValueWrapper.
+     */
+    private static class ProtobufValueWrapperTypeConverter extends PassThroughTypeConverter {
 
-      GenericRecordExternalizer externalizer = new GenericRecordExternalizer();
+        @Override
+        public Object boxValue(Object value) {
+            if (value instanceof byte[]) {
+                return new ProtobufValueWrapper((byte[]) value);
+            }
+            return value;
+        }
 
-      @Override
-      public Object boxValue(Object value) {
-         if (value instanceof byte[]) {
-             try{
-                 return externalizer.objectFromByteBuffer((byte[])value);
-             } catch (ClassNotFoundException | IOException e) {
-                 e.printStackTrace();
-             }
-         }
-         return value;
-      }
-
-      @Override
-      public Object unboxValue(Object target) {
-         if (target instanceof GenericData.Record) {
-             try{
-                 return externalizer.objectToByteBuffer(target);
-             } catch (IOException | InterruptedException e) {
-                 e.printStackTrace();
-             }
-         }
-         return target;
-      }
-   }
+        @Override
+        public Object unboxValue(Object target) {
+            if (target instanceof ProtobufValueWrapper) {
+                return ((ProtobufValueWrapper) target).getBinary();
+            }
+            return target;
+        }
+    }
 }

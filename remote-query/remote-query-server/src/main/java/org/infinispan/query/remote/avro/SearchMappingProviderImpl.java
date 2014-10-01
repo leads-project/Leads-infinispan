@@ -9,10 +9,9 @@ import org.infinispan.Cache;
 import org.infinispan.query.spi.ProgrammaticSearchMappingProvider;
 
 /**
- * // TODO: Document this
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 7.0
  */
 public class SearchMappingProviderImpl implements ProgrammaticSearchMappingProvider {
     @Override

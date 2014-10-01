@@ -22,8 +22,7 @@ import org.infinispan.protostream.ProtobufUtil;
 import org.infinispan.protostream.SerializationContext;
 import org.infinispan.query.remote.avro.GenericRecordExternalizer;
 import org.infinispan.query.remote.client.MarshallerRegistration;
-import org.infinispan.query.remote.indexing.ProtobufValueWrapper;
-import org.infinispan.query.remote.indexing.RemoteValueWrapperInterceptor;
+import org.infinispan.query.remote.avro.RemoteValueWrapperInterceptor;
 import org.infinispan.query.remote.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -59,7 +58,6 @@ public class LifecycleManager extends AbstractModuleLifecycle {
    @Override
    public void cacheManagerStarting(GlobalComponentRegistry gcr, GlobalConfiguration globalCfg) {
       Map<Integer, AdvancedExternalizer<?>> externalizerMap = globalCfg.serialization().advancedExternalizers();
-      externalizerMap.put(ExternalizerIds.PROTOBUF_VALUE_WRAPPER, new ProtobufValueWrapper.Externalizer());
       externalizerMap.put(ExternalizerIds.AVRO_VALUE_WRAPPER, new GenericRecordExternalizer());
    }
 
