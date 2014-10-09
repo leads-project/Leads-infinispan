@@ -15,7 +15,6 @@
    <!-- This module declares components that either has lifecycle (@Start or @Stop) or uses @Inject to retrieve dependencies -->
    <properties>
       <module.skipComponentMetaDataProcessing>false</module.skipComponentMetaDataProcessing>
-       <avro.version>1.7.6</avro.version>
    </properties>
 
     <build>
@@ -23,7 +22,7 @@
             <plugin>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro-maven-plugin</artifactId>
-                <version>${avro.version}</version>
+                <version>${version.avro}</version>
                 <executions>
                     <execution>
                         <phase>generate-sources</phase>
@@ -88,25 +87,25 @@
        <dependency>
            <groupId>org.apache.avro</groupId>
            <artifactId>avro</artifactId>
-           <version>${avro.version}</version>
+           <version>${version.avro}</version>
        </dependency>
 
        <dependency>
            <groupId>org.apache.avro</groupId>
            <artifactId>avro-maven-plugin</artifactId>
-           <version>${avro.version}</version>
+           <version>${version.avro}</version>
        </dependency>
 
        <dependency>
            <groupId>org.apache.avro</groupId>
            <artifactId>avro-compiler</artifactId>
-           <version>${avro.version}</version>
+           <version>${version.avro}</version>
        </dependency>
 
        <dependency>
            <groupId>org.apache.avro</groupId>
            <artifactId>avro-ipc</artifactId>
-           <version>${avro.version}</version>
+           <version>${version.avro}</version>
        </dependency>
 
    </dependencies>

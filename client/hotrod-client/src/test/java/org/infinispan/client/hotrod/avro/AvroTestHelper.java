@@ -3,6 +3,8 @@ package org.infinispan.client.hotrod.avro;
 import example.avro.Employee;
 import example.avro.WebPage;
 
+import java.util.Random;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -13,17 +15,12 @@ import static org.junit.Assert.assertNotNull;
  */
 public class AvroTestHelper {
 
-    public static WebPage createPage1(){
-        WebPage.Builder builder= WebPage.newBuilder();
-        WebPage page = builder.build();
-        page.setUrl("http://www.example.org");
-        return page;
-    }
+    private static Random rand = new Random(System.currentTimeMillis());
 
-    public static WebPage createPage2(){
+    public static WebPage somePage(){
         WebPage.Builder builder= WebPage.newBuilder();
         WebPage page = builder.build();
-        page.setUrl("http://www.anotherexample.org");
+        page.setUrl("http://www.example.org/"+Long.toString(rand.nextLong())+".html");
         return page;
     }
 

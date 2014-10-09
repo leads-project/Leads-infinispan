@@ -285,7 +285,29 @@
             <version>${project.version}</version>
             <type>test-jar</type>
          </dependency>
-         <dependency>
+          <dependency>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>infinispan-remote-query-server</artifactId>
+              <version>${project.version}</version>
+              <type>test-jar</type>
+          </dependency>
+          <dependency>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>infinispan-remote-query-server</artifactId>
+              <version>${project.version}</version>
+          </dependency>
+          <dependency>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>infinispan-remote-query-client</artifactId>
+              <version>${project.version}</version>
+          </dependency>
+          <dependency>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>infinispan-remote-query-client</artifactId>
+              <version>${project.version}</version>
+              <type>test-jar</type>
+          </dependency>
+          <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>infinispan-server-memcached</artifactId>
             <version>${project.version}</version>

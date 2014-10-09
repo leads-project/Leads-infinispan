@@ -10,58 +10,68 @@ package org.infinispan.test.fwk;
  */
 public class TransportFlags {
 
-   private boolean withFD;
-   private boolean withMerge;
-   private int sideIndex = -1;
-   private String siteName;
-   private String relayConfig;
+    private boolean withFD;
+    private boolean withMerge;
+    private boolean withReplay2 = true;
+    private int sideIndex = -1;
+    private String siteName;
+    private String relayConfig;
 
-   public TransportFlags withFD(boolean withFD) {
-      this.withFD = withFD;
-      return this;
-   }
+    public TransportFlags withFD(boolean withFD) {
+        this.withFD = withFD;
+        return this;
+    }
 
-   public boolean withFD() {
-      return withFD;
-   }
+    public boolean withFD() {
+        return withFD;
+    }
 
-   public TransportFlags withMerge(boolean withMerge) {
-      this.withMerge = withMerge;
-      return this;
-   }
+    public TransportFlags withMerge(boolean withMerge) {
+        this.withMerge = withMerge;
+        return this;
+    }
 
-   public boolean withMerge() {
-      return withMerge;
-   }
+    public boolean withMerge() {
+        return withMerge;
+    }
 
-   public TransportFlags withSiteIndex(int siteIndex) {
-      this.sideIndex = siteIndex;
-      return this;
-   }
+    public TransportFlags withReplay2(boolean withReplay2){
+        this.withReplay2 = withReplay2;
+        return this;
+    }
 
-   public TransportFlags withSiteName(String siteName) {
-      this.siteName = siteName;
-      return this;
-   }
+    public boolean withReplay2(){
+        return withReplay2;
+    }
 
-   public TransportFlags withRelayConfig(String relayConf) {
-      this.relayConfig = relayConf;
-      return this;
-   }
+    public TransportFlags withSiteIndex(int siteIndex) {
+        this.sideIndex = siteIndex;
+        return this;
+    }
 
-   public String siteName() {
-      return siteName;
-   }
+    public TransportFlags withSiteName(String siteName) {
+        this.siteName = siteName;
+        return this;
+    }
 
-   public String relayConfig() {
-      return relayConfig;
-   }
+    public TransportFlags withRelayConfig(String relayConf) {
+        this.relayConfig = relayConf;
+        return this;
+    }
 
-   public int siteIndex() {
-      return sideIndex;
-   }
+    public String siteName() {
+        return siteName;
+    }
 
-   public boolean isSiteIndexSpecified() {
-      return siteIndex() >= 0;
-   }
+    public String relayConfig() {
+        return relayConfig;
+    }
+
+    public int siteIndex() {
+        return sideIndex;
+    }
+
+    public boolean isSiteIndexSpecified() {
+        return siteIndex() >= 0;
+    }
 }
