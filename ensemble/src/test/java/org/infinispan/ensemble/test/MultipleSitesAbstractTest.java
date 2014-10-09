@@ -1,23 +1,17 @@
 package org.infinispan.ensemble.test;
 
-import example.avro.WebPage;
 import org.infinispan.client.hotrod.TestHelper;
 import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
-import org.infinispan.ensemble.EnsembleCacheManager;
-import org.infinispan.ensemble.cache.EnsembleCache;
-import org.infinispan.ensemble.indexing.LocalIndexBuilder;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.query.remote.client.avro.AvroMarshaller;
 import org.infinispan.remoting.transport.Transport;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.fwk.TransportFlags;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,22 +23,14 @@ import static org.infinispan.test.TestingUtil.blockUntilCacheStatusAchieved;
 /**
  *
  * @author Pierre Sutra
- * @since 6.0
+ * @since 7.0
  */
-public abstract class EnsembleCacheAbstractTest<T> extends MultipleCacheManagersTest {
+public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTest {
 
-    // Server side
     private List<HotRodServer> servers = new ArrayList<>();
-
-    // Client side
     private List<String> sites = new ArrayList<>();
-    protected EnsembleCacheManager manager;
 
-    // Parameters
-    protected abstract String cacheName();
     protected abstract int numberOfSites();
-    protected abstract Class<? extends T> beanClass();
-    protected abstract EnsembleCache<CharSequence,WebPage> cache();
 
     @Override
     protected void createCacheManagers() throws Throwable {
@@ -52,13 +38,8 @@ public abstract class EnsembleCacheAbstractTest<T> extends MultipleCacheManagers
         builder.indexing().enable()
                 .addProperty("default.directory_provider", "ram")
                 .addProperty("lucene_version", "LUCENE_CURRENT");
+        builder.jmxStatistics().enable();
         createSites(numberOfSites(), builder);
-        manager = new EnsembleCacheManager(sites,new AvroMarshaller<>(beanClass()),new LocalIndexBuilder());
-    }
-
-    @AfterMethod(alwaysRun = true)
-    protected void clearContent() throws Throwable {
-        cache().clear();
     }
 
     @AfterClass(alwaysRun = true)
@@ -72,8 +53,20 @@ public abstract class EnsembleCacheAbstractTest<T> extends MultipleCacheManagers
             // And then the caches and cache managers
             super.destroy();
         }
-        manager.stop();
     }
+
+    public List<String> sites(){
+        return sites;
+    }
+
+    public String connectionString(){
+        String ret="";
+        for (String site : sites)
+            ret+=site+"|";
+        return ret.substring(0,ret.length()-1);
+    }
+
+    // Helpers
 
     private void createSites(int num, ConfigurationBuilder defaultBuilder) {
         // Start Hot Rod servers in each site
@@ -105,7 +98,6 @@ public abstract class EnsembleCacheAbstractTest<T> extends MultipleCacheManagers
         transportFlags.withSiteIndex(siteIndex);
         transportFlags.withReplay2(false);
         EmbeddedCacheManager cm = addClusterEnabledCacheManager(gbuilder, builder, transportFlags);
-        cm.defineConfiguration(cacheName(), builder.build());
         HotRodServer server = TestHelper.startHotRodServer(cm);
         servers.add(server);
     }

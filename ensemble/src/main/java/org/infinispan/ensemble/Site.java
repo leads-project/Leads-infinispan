@@ -57,41 +57,42 @@ public class Site extends Indexable {
      * @param sites
      * @return
      */
-    public static Collection<Site> fromNames(Collection<String> sites, Marshaller marshaller){
+    public static Collection<Site> valuesOf(Collection<String> sites, Marshaller marshaller){
 
         List<Site> list = new ArrayList<Site>();
 
-        boolean local=true;
+        boolean isLocal=true;
 
-        for(String s: sites){
-
-            // Configuration Builder
-            String host;
-            int port;
-            if (s.contains(":")) {
-                host = s.split(":")[0];
-                port = Integer.valueOf(s.split(":")[1]);
-            }else{
-                host = s;
-                port = ConfigurationProperties.DEFAULT_HOTROD_PORT;
-            }
-            ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
-            configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
-            if (marshaller!=null)
-                configurationBuilder.marshaller(marshaller);
-
-            // Manager
-            RemoteCacheManager manager = new RemoteCacheManager(configurationBuilder.build());
-            manager.start();
-
-            //Site
-            Site site = new Site(s, manager,local);
-            if(local) local=false;
-            list.add(site);
-
+        for(String site: sites){
+            list.add(
+                    valueOf(site, marshaller, isLocal));
+            if (isLocal) isLocal = false;
         }
 
         return list;
+    }
+
+    public static Site valueOf(String servers, Marshaller marshaller, boolean isLocal){
+
+        ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+
+        if (marshaller != null)
+            configurationBuilder.marshaller(marshaller);
+
+        for(String server : servers.split(";")) {
+            String host;
+            int port;
+            if (server.contains(":")) {
+                host = server.split(":")[0];
+                port = Integer.valueOf(server.split(":")[1]);
+            } else {
+                host = server;
+                port = ConfigurationProperties.DEFAULT_HOTROD_PORT;
+            }
+            configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
+        }
+
+        return new Site(servers,new RemoteCacheManager(configurationBuilder.build(),true),isLocal);
     }
 
     //

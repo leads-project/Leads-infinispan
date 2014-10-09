@@ -107,4 +107,9 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
             cache.clear();
     }
 
+    @Override
+    public V remove(Object o) {
+        return partitioner.locate((K) o).remove(o);
+    }
+
 }

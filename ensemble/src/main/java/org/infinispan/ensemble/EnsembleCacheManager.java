@@ -65,7 +65,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     public EnsembleCacheManager(Collection<String> sites, Marshaller marshaller, IndexBuilder indexBuilder) throws CacheException{
         this.caches = indexBuilder.getIndex(EnsembleCache.class);
         this.sites = new ConcurrentHashMap<>();
-        for(Site s : Site.fromNames(sites, marshaller)){
+        for(Site s : Site.valuesOf(sites, marshaller)){
             this.sites.put(s.getName(),s);
         }
     }
@@ -161,6 +161,16 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
                 throw new CacheException("Invalid consistency level "+consistency.toString());
         }
         recordCache(ret,create);
+        return caches.get(cacheName);
+    }
+
+    public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<Site> siteList, boolean frontierMode, Partitioner<K,V> partitioner) {
+        List<EnsembleCache<K,V>> cacheList = new ArrayList<>();
+        for(Site s : siteList)
+            cacheList.add(s.<K,V>getCache(cacheName));
+        EnsembleCache<K,V> ret;
+        ret = new DistributedEnsembleCache<>(cacheName,cacheList,partitioner,frontierMode);
+        recordCache(ret,true);
         return caches.get(cacheName);
     }
 

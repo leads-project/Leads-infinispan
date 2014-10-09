@@ -18,22 +18,23 @@ import static org.testng.Assert.assertEquals;
  * @author Pierre Sutra
  * @since 6.0
  */
-public abstract class EnsembleCacheBaseTest extends EnsembleCacheAbstractTest<WebPage> {
+public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence, WebPage> {
 
     @Override
-    protected String cacheName(){
-        return "test";
+    protected Class<WebPage> valueClass(){
+        return WebPage.class;
     }
 
     @Override
-    protected Class<WebPage> beanClass(){
-        return WebPage.class;
+    protected Class<CharSequence> keyClass(){
+        return CharSequence.class;
     }
 
     @Override
     protected int numberOfSites() {
         return 1;
     }
+
 
     @Test
     public void baseOperations() {

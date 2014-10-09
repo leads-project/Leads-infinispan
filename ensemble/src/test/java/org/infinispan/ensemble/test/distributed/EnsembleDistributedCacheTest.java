@@ -1,4 +1,4 @@
-package org.infinispan.ensemble.test;
+package org.infinispan.ensemble.test.distributed;
 
 import example.avro.WebPage;
 import org.infinispan.ensemble.Site;
@@ -7,10 +7,11 @@ import org.infinispan.ensemble.cache.distributed.DistributedEnsembleCache;
 import org.infinispan.ensemble.cache.distributed.HashBasedPartitioner;
 import org.infinispan.ensemble.cache.distributed.Partitioner;
 import org.infinispan.ensemble.search.Search;
+import org.infinispan.ensemble.test.EnsembleBaseTest;
+import org.infinispan.manager.CacheContainer;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryBuilder;
 import org.infinispan.query.dsl.QueryFactory;
-import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +25,8 @@ import static org.testng.AssertJUnit.assertEquals;
  * @author Pierre Sutra
  * @since 6.0
  */
-@Test(groups = "functional", testName = "SWMRBaseTest")
-public class DistributedEnsembleCacheBaseTest extends EnsembleCacheBaseTest {
+@org.testng.annotations.Test(groups = "functional", testName = "EnsembleDistributedCacheTest")
+public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
 
     private DistributedEnsembleCache<CharSequence, WebPage> cache;
     private Partitioner<CharSequence, WebPage> partitioner;
@@ -36,14 +37,14 @@ public class DistributedEnsembleCacheBaseTest extends EnsembleCacheBaseTest {
         if (cache == null) {
             List<EnsembleCache<CharSequence, WebPage>> list = new ArrayList<>();
             for (Site s : manager.sites())
-                list.add(s.<CharSequence, WebPage>getCache(cacheName()));
+                list.add(s.<CharSequence, WebPage>getCache(CacheContainer.DEFAULT_CACHE_NAME));
             partitioner = new HashBasedPartitioner<>(list);
-            cache = (DistributedEnsembleCache<CharSequence, WebPage>) manager.getCache("cache", list, partitioner, frontierMode);
+            cache = (DistributedEnsembleCache<CharSequence, WebPage>) manager.getCache(CacheContainer.DEFAULT_CACHE_NAME, list, partitioner, frontierMode);
         }
         return cache;
     }
 
-    @Test
+    @org.testng.annotations.Test
     @Override
     public void baseOperations() {
         WebPage page1 = somePage();
@@ -55,7 +56,7 @@ public class DistributedEnsembleCacheBaseTest extends EnsembleCacheBaseTest {
             assert !cache.containsKey(page1.getUrl());
     }
 
-    @Test
+    @org.testng.annotations.Test
     @Override
     public void baseQuery() {
         QueryFactory qf = Search.getQueryFactory(cache());

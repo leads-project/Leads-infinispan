@@ -14,7 +14,7 @@ import java.util.Map;
  * @author Pierre Sutra
  * @since 7.0
  */
-public abstract class CoordinatesBasedPartitioner<K,V> extends Partitioner<K,V> {
+public abstract class ClusteringBasedPartitioner<K,V> extends Partitioner<K,V> {
 
     private Map<String, EnsembleCache<K,V>> cacheMap;
     private EnsembleCache<K,Coordinates> location;
@@ -26,9 +26,9 @@ public abstract class CoordinatesBasedPartitioner<K,V> extends Partitioner<K,V> 
      * @param location cache to store the locations of the keys
      * @param initialLocation immutable cache storing initial locations of a subset of the keys
      */
-    public CoordinatesBasedPartitioner(List<EnsembleCache<K, V>> caches,
-                                       EnsembleCache<K, Coordinates> location,
-                                       EnsembleCache<K, Coordinates> initialLocation) {
+    public ClusteringBasedPartitioner(List<EnsembleCache<K, V>> caches,
+                                      EnsembleCache<K, Coordinates> location,
+                                      EnsembleCache<K, Coordinates> initialLocation) {
         super(caches);
 
         cacheMap = new HashMap<>();
