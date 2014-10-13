@@ -1,6 +1,5 @@
 package org.infinispan.ensemble;
 
-import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.commons.marshall.Marshaller;
@@ -37,6 +36,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     }
 
     private ConcurrentMap<String, Site> sites;
+    private Site localSite;
     private ConcurrentMap<String, EnsembleCache> caches;
 
 
@@ -44,41 +44,25 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         this(Collections.EMPTY_LIST,null,new LocalIndexBuilder());
     }
 
-    public EnsembleCacheManager(String siteList) throws CacheException{
-        this(Arrays.asList(siteList.split("\\|")),null,new LocalIndexBuilder());
+    public EnsembleCacheManager(String connectionString) throws CacheException{
+        this(Arrays.asList(connectionString.split("\\|")),null,new LocalIndexBuilder());
     }
 
-    public EnsembleCacheManager(String siteList, Marshaller marshaller) throws CacheException{
-        this(Arrays.asList(siteList.split("\\|")), marshaller, new LocalIndexBuilder());
+    public EnsembleCacheManager(String connectionString, Marshaller marshaller) throws CacheException{
+        this(Arrays.asList(connectionString.split("\\|")), marshaller, new LocalIndexBuilder());
     }
 
-    /**
-     *
-     * Create an EnsembleCacheManager using <i>sites</i> as the set of sites, and a local IndexBuilder..
-     * By convention, the first site is local.
-     *
-     * @param sites list of sites
-     * @param marshaller marshaller to use (null is valid)
-     * @param indexBuilder index to use
-     * @throws CacheException
-     */
-    public EnsembleCacheManager(Collection<String> sites, Marshaller marshaller, IndexBuilder indexBuilder) throws CacheException{
-        this.caches = indexBuilder.getIndex(EnsembleCache.class);
-        this.sites = new ConcurrentHashMap<>();
-        for(Site s : Site.valuesOf(sites, marshaller)){
-            this.sites.put(s.getName(),s);
-        }
-    }
-
-    public EnsembleCacheManager(Collection<RemoteCacheManager> managers, IndexBuilder indexBuilder) throws CacheException{
+    public EnsembleCacheManager(Collection<String> connectionStrings, Marshaller marshaller, IndexBuilder indexBuilder) throws CacheException{
         this.caches = indexBuilder.getIndex(EnsembleCache.class);
         this.sites = new ConcurrentHashMap<>();
         boolean once = true;
-        for(RemoteCacheManager m : managers){
-            this.sites.put(
-                    m.toString(),
-                    new Site(m.toString(),m,once));
-            if (once) once=false;
+        for(String connectioNString : connectionStrings){
+            Site site = Site.valueOf(connectioNString,marshaller,once);
+            if (once){
+                localSite = site;
+                once=false;
+            }
+            addSite(site);
         }
     }
 
@@ -98,9 +82,18 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         return sites.values();
     }
 
+    public Collection<EnsembleCache> caches(){
+        return caches.values();
+    }
+
     public Site getSite(String name){
         return sites.get(name);
     }
+
+    public Site getLocalSite() {
+        return localSite;
+    }
+
 
     //
     // CACHE MANAGEMENT
@@ -181,7 +174,6 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         return caches.get(cacheName);
     }
 
-
     //
     // OTHER METHODS
     //
@@ -210,8 +202,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
         List<Site> replicas = new ArrayList<Site>();
         Set<Site> all = new HashSet<Site>(sites.values());
         // First add local site
-        if(Site.localSite()!=null)
-            replicas.add(Site.localSite());
+        if(getLocalSite()!=null)
+            replicas.add(getLocalSite());
         // Then, complete
         for(Site s: all){
             if(replicas.size()==replicationFactor)

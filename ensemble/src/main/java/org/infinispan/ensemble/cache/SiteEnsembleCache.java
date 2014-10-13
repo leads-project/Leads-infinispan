@@ -40,7 +40,7 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public boolean isLocal(){
-        return Site.localSite().equals(site);
+        return site.isLocal();
     }
 
     @Override
@@ -391,6 +391,6 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public String toString(){
-        return delegate.toString();
+        return site.toString();
     }
 }

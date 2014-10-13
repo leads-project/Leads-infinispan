@@ -54,4 +54,11 @@ public abstract class ReplicatedEnsembleCache<K,V> extends EnsembleCache<K,V> {
         return quorum;
     }
 
+    @Override
+    public void clear() {
+        for (EnsembleCache cache: caches)
+            cache.clear();
+    }
+
+
 }

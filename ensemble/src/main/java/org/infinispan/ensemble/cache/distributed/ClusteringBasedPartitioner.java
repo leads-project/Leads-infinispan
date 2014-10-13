@@ -8,6 +8,7 @@ import org.infinispan.query.dsl.QueryFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 /**
  *
@@ -19,16 +20,15 @@ public abstract class ClusteringBasedPartitioner<K,V> extends Partitioner<K,V> {
     private Map<String, EnsembleCache<K,V>> cacheMap;
     private EnsembleCache<K,Coordinates> location;
     private QueryFactory queryFactory;
+    private Random random;
 
     /**
      *
      * @param caches the caches to partition
      * @param location cache to store the locations of the keys
-     * @param initialLocation immutable cache storing initial locations of a subset of the keys
      */
     public ClusteringBasedPartitioner(List<EnsembleCache<K, V>> caches,
-                                      EnsembleCache<K, Coordinates> location,
-                                      EnsembleCache<K, Coordinates> initialLocation) {
+                                      EnsembleCache<K, Coordinates> location) {
         super(caches);
 
         cacheMap = new HashMap<>();
@@ -36,7 +36,8 @@ public abstract class ClusteringBasedPartitioner<K,V> extends Partitioner<K,V> {
             cacheMap.put(ensembleCache.getName(),ensembleCache);
 
         this.location = location;
-        queryFactory = Search.getQueryFactory(initialLocation);
+        this.queryFactory = Search.getQueryFactory(location);
+        this.random = new Random(System.currentTimeMillis());
     }
 
     @Override
@@ -60,7 +61,8 @@ public abstract class ClusteringBasedPartitioner<K,V> extends Partitioner<K,V> {
                 }
             }
 
-            assert coordinatesK.getCache()!=null;
+            if (coordinatesK.getCache()==null)
+                coordinatesK.setCache(caches.get(random.nextInt(caches.size())).getName());
             location.put(k,coordinatesK);
         }
 

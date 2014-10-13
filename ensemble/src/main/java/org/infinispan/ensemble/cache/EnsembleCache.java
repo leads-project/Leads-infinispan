@@ -308,8 +308,12 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
 
     @Override
     public String toString(){
-        return getName();
+        String ret=getName()+"(";
+        for(EnsembleCache cache : caches)
+            ret+=cache.toString()+",";
+        return ret.substring(0,ret.length()-1)+")";
     }
+
 
     @Override
     public int hashCode(){

@@ -12,6 +12,7 @@ import org.infinispan.manager.CacheContainer;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryBuilder;
 import org.infinispan.query.dsl.QueryFactory;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +26,7 @@ import static org.testng.AssertJUnit.assertEquals;
  * @author Pierre Sutra
  * @since 6.0
  */
-@org.testng.annotations.Test(groups = "functional", testName = "EnsembleDistributedCacheTest")
+@Test(groups = "functional", testName = "EnsembleDistributedCacheTest")
 public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
 
     private DistributedEnsembleCache<CharSequence, WebPage> cache;

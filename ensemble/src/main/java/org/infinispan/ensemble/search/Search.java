@@ -2,7 +2,6 @@ package org.infinispan.ensemble.search;
 
 import org.infinispan.client.hotrod.impl.avro.AvroQueryFactory;
 import org.infinispan.commons.CacheException;
-import org.infinispan.ensemble.Site;
 import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.cache.SiteEnsembleCache;
 import org.infinispan.ensemble.cache.distributed.DistributedEnsembleCache;
@@ -32,10 +31,9 @@ public class Search {
         } else if (cache instanceof ReplicatedEnsembleCache) {
             List<SiteEnsembleCache> list = cache.getCaches();
             for (SiteEnsembleCache c : list) {
-                if (Site.localSite().isOwner(c))
+                if (c.isLocal())
                     return new AvroQueryFactory(c.getDelegeate());
             }
-            return new AvroQueryFactory(list.get(0).getDelegeate());
         } else if (cache instanceof SiteEnsembleCache){
             return new AvroQueryFactory(((SiteEnsembleCache) cache).getDelegeate());
         }

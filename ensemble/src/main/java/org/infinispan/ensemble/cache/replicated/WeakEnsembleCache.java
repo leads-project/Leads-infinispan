@@ -66,5 +66,4 @@ public class WeakEnsembleCache<K,V> extends ReplicatedEnsembleCache<K,V> {
 
     public boolean containsKey(Object o) { return someCache().containsKey(o); }
 
-
 }

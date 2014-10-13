@@ -7,6 +7,7 @@ import org.infinispan.client.hotrod.impl.ConfigurationProperties;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.ensemble.cache.SiteEnsembleCache;
 import org.infinispan.ensemble.indexing.Indexable;
+import org.infinispan.manager.CacheContainer;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -41,36 +42,6 @@ public class Site extends Indexable {
     private String name;
     private transient boolean isLocal;
     private transient RemoteCacheManager container;
-
-    //
-    // CLASS METHODS
-    //
-
-    public static Site localSite() {
-        return localSite;
-    }
-
-
-    /**
-     *
-     * By convention, the first name is the local site.
-     * @param sites
-     * @return
-     */
-    public static Collection<Site> valuesOf(Collection<String> sites, Marshaller marshaller){
-
-        List<Site> list = new ArrayList<Site>();
-
-        boolean isLocal=true;
-
-        for(String site: sites){
-            list.add(
-                    valueOf(site, marshaller, isLocal));
-            if (isLocal) isLocal = false;
-        }
-
-        return list;
-    }
 
     public static Site valueOf(String servers, Marshaller marshaller, boolean isLocal){
 
@@ -122,6 +93,10 @@ public class Site extends Indexable {
     }
 
 
+    public boolean isLocal(){
+        return isLocal;
+    }
+
     public String getName(){
         return name;
     }
@@ -132,6 +107,10 @@ public class Site extends Indexable {
 
     public <K,V> SiteEnsembleCache<K,V> getCache(String name){
         return new SiteEnsembleCache<>(this,container.getCache(name));
+    }
+
+    public <K,V> SiteEnsembleCache<K,V> getCache(){
+        return  getCache(CacheContainer.DEFAULT_CACHE_NAME);
     }
 
     public boolean isOwner(RemoteCache remoteCache){
