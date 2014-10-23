@@ -16,6 +16,7 @@ import org.testng.annotations.AfterClass;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.util.Collections.EMPTY_LIST;
 import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
 import static org.infinispan.test.TestingUtil.blockUntilCacheStatusAchieved;
 
@@ -59,6 +60,10 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
         return sites;
     }
 
+    public List<String> cacheNames(){
+        return EMPTY_LIST;
+    }
+
     public String connectionString(){
         String ret="";
         for (String site : sites)
@@ -69,7 +74,8 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
     // Helpers
 
     private void createSites(int num, ConfigurationBuilder defaultBuilder) {
-        // Start Hot Rod servers in each site
+
+        // Start Hot Rod servers at each site
         for (int i = 0; i < num; i++){
             GlobalConfigurationBuilder gbuilder = GlobalConfigurationBuilder.defaultClusteredBuilder();
             Transport transport = gbuilder.transport().getTransport();
@@ -77,8 +83,16 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
             gbuilder.transport().clusterName("site(" + Integer.toString(i)+ ")");
             startHotRodServer(gbuilder, defaultBuilder, i + 1);
         }
+
+        // Create caches at each site
+        for (int i = 0; i < num; i++){
+            for(String name : cacheNames())
+                manager(i).getCache(name,true);
+        }
+
         // Verify that default caches should be started
         for (int i = 0; i < num; i++) assert manager(i).getCache() != null;
+
         // Verify that caches running
         for (int i = 0; i < num; i++) {
             blockUntilCacheStatusAchieved(

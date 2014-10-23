@@ -7,6 +7,7 @@ import org.infinispan.query.dsl.QueryBuilder;
 import org.infinispan.query.dsl.QueryFactory;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.infinispan.client.hotrod.avro.AvroTestHelper.somePage;
@@ -20,6 +21,8 @@ import static org.testng.Assert.assertEquals;
  */
 public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence, WebPage> {
 
+    public static final String cacheName = "testCache";
+
     @Override
     protected Class<WebPage> valueClass(){
         return WebPage.class;
@@ -32,7 +35,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
     @Override
     protected int numberOfSites() {
-        return 1;
+        return 3;
     }
 
 
@@ -64,6 +67,11 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
         assertEquals(query.list().get(0), page1);
     }
 
-
+    @Override
+    public List<String> cacheNames(){
+        List<String> cacheNames = new ArrayList<>();
+        cacheNames.add(cacheName);
+        return cacheNames;
+    }
 
 }

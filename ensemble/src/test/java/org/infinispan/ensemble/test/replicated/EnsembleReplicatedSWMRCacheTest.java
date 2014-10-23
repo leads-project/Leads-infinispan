@@ -21,7 +21,7 @@ public class EnsembleReplicatedSWMRCacheTest extends EnsembleBaseTest {
     @Override
     protected synchronized EnsembleCache<CharSequence, WebPage> cache() {
         if (cache==null)
-            cache = manager.getCache(CacheContainer.DEFAULT_CACHE_NAME,numberOfSites()/2, EnsembleCacheManager.Consistency.SWMR);
+            cache = manager.getCache(cacheName,numberOfSites()/2, EnsembleCacheManager.Consistency.SWMR);
         return cache;
     }
 

@@ -21,7 +21,7 @@ public class EnsembleReplicatedWeakCacheTest extends EnsembleBaseTest {
     @Override
     protected synchronized EnsembleCache<CharSequence, WebPage> cache() {
         if (cache==null)
-            cache = manager.getCache(CacheContainer.DEFAULT_CACHE_NAME,numberOfSites()/2, EnsembleCacheManager.Consistency.WEAK);
+            cache = manager.getCache(cacheName,numberOfSites()/2, EnsembleCacheManager.Consistency.WEAK);
         return cache;
     }
 

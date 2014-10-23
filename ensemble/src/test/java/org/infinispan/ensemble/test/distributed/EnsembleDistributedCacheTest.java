@@ -38,9 +38,9 @@ public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
         if (cache == null) {
             List<EnsembleCache<CharSequence, WebPage>> list = new ArrayList<>();
             for (Site s : manager.sites())
-                list.add(s.<CharSequence, WebPage>getCache(CacheContainer.DEFAULT_CACHE_NAME));
+                list.add(s.<CharSequence, WebPage>getCache(cacheName));
             partitioner = new HashBasedPartitioner<>(list);
-            cache = (DistributedEnsembleCache<CharSequence, WebPage>) manager.getCache(CacheContainer.DEFAULT_CACHE_NAME, list, partitioner, frontierMode);
+            cache = (DistributedEnsembleCache<CharSequence, WebPage>) manager.getCache(cacheName, list, partitioner, frontierMode);
         }
         return cache;
     }
