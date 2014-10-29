@@ -88,6 +88,11 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
     }
 
     @Override
+    public V putIfAbsent(K key, V value) {
+        return partitioner.locate(key).putIfAbsent(key,value);
+    }
+
+    @Override
     public boolean containsKey(Object o) {
         for (EnsembleCache cache : caches){
             if (frontierMode) {

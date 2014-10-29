@@ -52,7 +52,7 @@ public class AvroQueryFacade implements QueryFacade {
             SearchManager sm = Search.getSearchManager(cache);
 
             SearchFactoryIntegrator searchFactory = (SearchFactoryIntegrator) sm.getSearchFactory();
-            QueryBuilder qb = sm.buildQueryBuilderForClass(GenericData.Record.class).get();
+            QueryBuilder qb = sm.buildQueryBuilderForClass(GenericData.Record.class).get(); // FIXME
             QueryParser qp = new QueryParser();
 
             EntityNamesResolver resolver = new EntityNamesResolver() {
