@@ -85,57 +85,57 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putIfAbsentAsync(key, value, lifespan, unit);
     }
 
     @Override
     public NotifyingFuture<V> putIfAbsentAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putIfAbsentAsync(key, value, lifespan, lifespanUnit, maxIdle, maxIdleUnit);
     }
 
     @Override
     public NotifyingFuture<V> removeAsync(Object key) {
-        return null;  // TODO: Customise this generated block
+        return delegate.removeAsync(key);
     }
 
     @Override
     public NotifyingFuture<Boolean> removeAsync(Object key, Object value) {
-        return null;  // TODO: Customise this generated block
+        return delegate.removeAsync(key, value);
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replaceAsync(key, value);
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replaceAsync(key, value, lifespan, unit);
     }
 
     @Override
     public NotifyingFuture<V> replaceAsync(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replaceAsync(key, value, lifespan, lifespanUnit, maxIdle, maxIdleUnit);
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replaceAsync(key, oldValue, newValue);
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replaceAsync(key, oldValue, newValue, lifespan, unit);
     }
 
     @Override
     public NotifyingFuture<Boolean> replaceAsync(K key, V oldValue, V newValue, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replaceAsync(key, oldValue, newValue, lifespan, lifespanUnit, maxIdle, maxIdleUnit);
     }
 
     @Override
     public NotifyingFuture<V> getAsync(K key) {
-        return null;  // TODO: Customise this generated block
+        return delegate.getAsync(key);
     }
 
     @Override
@@ -145,7 +145,7 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public boolean containsValue(Object o) {
-        return false;  // TODO: Customise this generated block
+        return delegate.containsValue(o);
     }
 
 
@@ -216,52 +216,52 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public ServerStatistics stats() {
-        return null;  // TODO: Customise this generated block
+        return delegate.stats();
     }
 
     @Override
     public RemoteCache<K, V> withFlags(Flag... flags) {
-        return null;  // TODO: Customise this generated block
+        return delegate.withFlags(flags);
     }
 
     @Override
     public RemoteCacheManager getRemoteCacheManager() {
-        return null;  // TODO: Customise this generated block
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public Map<K, V> getBulk() {
-        return null;  // TODO: Customise this generated block
+        return delegate.getBulk();
     }
 
     @Override
     public Map<K, V> getBulk(int size) {
-        return null;  // TODO: Customise this generated block
+        return delegate.getBulk(size);
     }
 
     @Override
     public String getProtocolVersion() {
-        return null;  // TODO: Customise this generated block
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void addClientListener(Object listener) {
-        // TODO: Customise this generated block
+        delegate.addClientListener(listener);
     }
 
     @Override
     public void addClientListener(Object listener, Object[] filterFactoryParams, Object[] converterFactoryParams) {
-        // TODO: Customise this generated block
+        delegate.addClientListener(listener, filterFactoryParams, converterFactoryParams);
     }
 
     @Override
     public void removeClientListener(Object listener) {
-        // TODO: Customise this generated block
+        delegate.remove(listener);
     }
 
     @Override
     public Set<Object> getListeners() {
-        return null;  // TODO: Customise this generated block
+        return delegate.getListeners();
     }
 
     @Override
@@ -271,7 +271,7 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public String getVersion() {
-        return null;  // TODO: Customise this generated block
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -280,63 +280,70 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
     }
 
     @Override
+    public V putIfAbsent(K k, V v) {
+        return delegate.putIfAbsent(k,v);
+    }
+
+    // NYI
+
+    @Override
     public V put(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.put(key, value, lifespan, unit);
     }
 
     @Override
     public V putIfAbsent(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putIfAbsent(key, value, lifespan, unit);
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit unit) {
-        // TODO: Customise this generated block
+        delegate.putAll(map, lifespan, unit);
     }
 
     @Override
     public V replace(K key, V value, long lifespan, TimeUnit unit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replace(key, value, lifespan, unit);
     }
 
     @Override
     public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit unit) {
-        return false;  // TODO: Customise this generated block
+        return delegate.replace(key, oldValue, value, lifespan, unit);
     }
 
     @Override
     public V put(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.put(key, value, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
     }
 
     @Override
     public V putIfAbsent(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.putIfAbsent(key, value, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        // TODO: Customise this generated block
+        delegate.putAll(map, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);;
     }
 
     @Override
     public V replace(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replace(key, value, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
     }
 
     @Override
     public boolean replace(K key, V oldValue, V value, long lifespan, TimeUnit lifespanUnit, long maxIdleTime, TimeUnit maxIdleTimeUnit) {
-        return false;  // TODO: Customise this generated block
+        return delegate.replace(key, oldValue, value, lifespan, lifespanUnit, maxIdleTime, maxIdleTimeUnit);
     }
 
     @Override
     public V remove(Object key) {
-        return null;  // TODO: Customise this generated block
+        return delegate.remove(key);
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
-        // TODO: Customise this generated block
+        delegate.putAll(map);
     }
 
     @Override
@@ -351,32 +358,27 @@ public class SiteEnsembleCache<K,V> extends EnsembleCache<K,V> implements Remote
 
     @Override
     public Collection<V> values() {
-        return null;  // TODO: Customise this generated block
+        return delegate.values();
     }
 
     @Override
     public Set<Entry<K, V>> entrySet() {
-        return null;  // TODO: Customise this generated block
-    }
-
-    @Override
-    public V putIfAbsent(K k, V v) {
-        return null;  // TODO: Customise this generated block
+        return delegate.entrySet();
     }
 
     @Override
     public boolean remove(Object o, Object o2) {
-        return false;  // TODO: Customise this generated block
+        return delegate.remove(o, o2);
     }
 
     @Override
     public boolean replace(K k, V v, V v2) {
-        return false;  // TODO: Customise this generated block
+        return delegate.replace(k, v, v2);
     }
 
     @Override
     public V replace(K k, V v) {
-        return null;  // TODO: Customise this generated block
+        return delegate.replace(k,v);
     }
 
     @Override

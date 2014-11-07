@@ -8,7 +8,6 @@ import org.infinispan.ensemble.cache.distributed.HashBasedPartitioner;
 import org.infinispan.ensemble.cache.distributed.Partitioner;
 import org.infinispan.ensemble.search.Search;
 import org.infinispan.ensemble.test.EnsembleBaseTest;
-import org.infinispan.manager.CacheContainer;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryBuilder;
 import org.infinispan.query.dsl.QueryFactory;

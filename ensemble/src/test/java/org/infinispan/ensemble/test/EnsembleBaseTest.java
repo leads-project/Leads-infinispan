@@ -35,15 +35,27 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
     @Override
     protected int numberOfSites() {
-        return 3;
+        return 1;
     }
 
 
     @Test
     public void baseOperations() {
+
         WebPage page1 = somePage();
+        WebPage page2 = somePage();
+
+        org.infinispan.Cache c  = this.manager(0).getCache(cacheName,false);
+
+        // get, put
         cache().put(page1.getUrl(),page1);
         assert cache().containsKey(page1.getUrl());
+        assert cache().get(page1.getUrl()).equals(page1);
+
+        // putIfAbsent
+        assert cache().putIfAbsent(page2.getUrl(),page2)==null;
+        assert cache().get(page2.getUrl()).equals(page2);
+        cache().putIfAbsent(page1.getUrl(),page2);
         assert cache().get(page1.getUrl()).equals(page1);
     }
 

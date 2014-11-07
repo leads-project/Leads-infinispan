@@ -10,11 +10,11 @@ import java.io.IOException;
  * @author otrack
  * @since 4.0
  */
-public class MenagerieSerializer<T> implements org.menagerie.Serializer<T>{
+public class MenagerieSerializer<T> { // implements org.menagerie.Serializer<T>{
 
     public MenagerieSerializer(){}
 
-    @Override
+    // @Override
     public byte[] serialize(T obj) {
         GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
         try {
@@ -27,7 +27,7 @@ public class MenagerieSerializer<T> implements org.menagerie.Serializer<T>{
         return null;
     }
 
-    @Override
+    // @Override
     public T deserialize(byte[] bytes) {
         GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
         try {
