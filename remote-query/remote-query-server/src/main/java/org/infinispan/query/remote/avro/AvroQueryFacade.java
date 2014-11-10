@@ -75,7 +75,7 @@ public class AvroQueryFacade implements QueryFacade {
             LuceneQueryParsingResult parsingResult = qp.parseQuery(request.getJpqlString().toString(), processingChain);
             Query q = parsingResult.getQuery();
             CacheQuery cacheQuery;
-            cacheQuery = sm.getQuery(q,GenericData.Record.class);
+            cacheQuery = sm.getClusteredQuery(q,GenericData.Record.class);
             if (request.getMaxResult() > 0)
                 cacheQuery = cacheQuery.maxResults(request.getMaxResult());
             if (parsingResult.getSort() != null)
