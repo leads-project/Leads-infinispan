@@ -90,9 +90,9 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
         // Create appropriate caches at each node.
         ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
         builder.indexing().enable()
-                .addProperty("default.directory_provider", "infinispan")
+                .addProperty("default.directory_provider", "ram")
                 .addProperty("lucene_version", "LUCENE_CURRENT")
-                .addProperty("exclusive_index_use", "false");
+                .addProperty("exclusive_index_use", "true");
         builder.jmxStatistics().enable();
         Configuration configuration = builder.build();
         for (int i = 0; i < nsites; i++) {
