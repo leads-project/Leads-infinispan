@@ -80,7 +80,7 @@ public class AvroQueryFacade implements QueryFacade {
                 cacheQuery = cacheQuery.maxResults(request.getMaxResult());
             if (parsingResult.getSort() != null)
                 cacheQuery = cacheQuery.sort(parsingResult.getSort());
-            if (request.getStartOffset() > 0)
+            if (request.getStartOffset() >= 0)
                 cacheQuery = cacheQuery.firstResult(request.getStartOffset().intValue());
 
             List<Object> list = cacheQuery.list();

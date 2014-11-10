@@ -14,6 +14,7 @@ public class TransportFlags {
     private boolean withMerge;
     private boolean withReplay2 = true;
     private int sideIndex = -1;
+    private int nodeIndex = -1;
     private String siteName;
     private String relayConfig;
 
@@ -49,6 +50,11 @@ public class TransportFlags {
         return this;
     }
 
+    public TransportFlags withNodeIndex(int nodeIndex) {
+        this.nodeIndex = nodeIndex;
+        return this;
+    }
+
     public TransportFlags withSiteName(String siteName) {
         this.siteName = siteName;
         return this;
@@ -69,6 +75,10 @@ public class TransportFlags {
 
     public int siteIndex() {
         return sideIndex;
+    }
+
+    public int nodeIndex() {
+        return nodeIndex;
     }
 
     public boolean isSiteIndexSpecified() {

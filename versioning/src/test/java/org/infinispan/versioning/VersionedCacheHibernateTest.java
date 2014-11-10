@@ -29,7 +29,7 @@ public class VersionedCacheHibernateTest extends VersionedCacheAbstractTest {
                 .property("version", ElementType.METHOD).field();
 
         Properties properties = new Properties();
-        properties.put(org.hibernate.search.Environment.MODEL_MAPPING, mapping);
+        // properties.put(org.hibernate.search.Environment.MODEL_MAPPING, mapping);
         properties.put("default.directory_provider", "ram");
         builder.indexing()
                 .enable()

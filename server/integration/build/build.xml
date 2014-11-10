@@ -242,11 +242,16 @@
       </module-def>
 
       <module-def name="org.hibernate.search.engine">
-         <maven-resource group="com.thoughtworks.paranamer" artifact="paranamer" />
-         <maven-resource group="org.hibernate" artifact="hibernate-search-engine" />
-         <maven-resource group="org.hibernate" artifact="hibernate-search-infinispan" />
-         <maven-resource group="org.xerial.snappy" artifact="snappy-java" />
+        <maven-resource group="com.thoughtworks.paranamer" artifact="paranamer" />
+        <maven-resource group="org.hibernate" artifact="hibernate-search-engine" />
+        <maven-resource group="org.hibernate" artifact="hibernate-search-infinispan" />
+        <maven-resource group="org.xerial.snappy" artifact="snappy-java" />
       </module-def>
+
+       <module-def name="org.hibernate.search.serialization.avro">
+         <maven-resource group="org.hibernate" artifact="hibernate-search-serialization-avro" />
+       </module-def>
+
 
       <module-def name="org.hibernate.hql.parser">
          <maven-resource group="org.hibernate.hql" artifact="hibernate-hql-parser" />

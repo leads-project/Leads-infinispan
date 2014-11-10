@@ -72,13 +72,18 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
         return object.toString();
     }
 
+    /**
+     * By default field whose value is greater than 1000 are not indexed.
+     * @param field
+     * @param document
+     */
     private void addField(StringField field, Document document){
         if (field.stringValue().length()>1000){
-            // build a binary field (not indexed)
-            // limit set to 1000 to handle the hard coded max value in Lucene (~30k) and save space
-            document.add(new BinaryDocValuesField(
-                    field.name(),
-                    new BytesRef(field.stringValue().getBytes())));
+//            // build a binary field (not indexed)
+//            // limit set to 1000 to handle the hard coded max value in Lucene (~30k) and save space
+//            document.add(new BinaryDocValuesField(
+//                    field.name(),
+//                    new BytesRef(field.stringValue().getBytes())));
         }else {
             document.add(field);
         }

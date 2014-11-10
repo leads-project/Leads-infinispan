@@ -3,11 +3,10 @@ package org.infinispan.versioning.utils.hibernate;
 import org.apache.lucene.document.Document;
 import org.hibernate.search.bridge.LuceneOptions;
 import org.hibernate.search.bridge.TwoWayFieldBridge;
-import org.hibernate.search.bridge.builtin.LongNumericFieldBridge;
+import org.hibernate.search.bridge.builtin.LongBridge;
 import org.infinispan.versioning.utils.version.VersionScalar;
 
 /**
- * // TODO: Document this
  *
  * @author Pierre Sutra
  * @since 6.0
@@ -15,11 +14,11 @@ import org.infinispan.versioning.utils.version.VersionScalar;
 
 public class EntryVersionFieldBridge implements TwoWayFieldBridge{
 
-    private static LongNumericFieldBridge bridge = new LongNumericFieldBridge();
+    private static LongBridge bridge = new LongBridge();
 
     @Override
     public Object get(String name, Document document) {
-        return bridge.get(name,document);
+        return bridge.stringToObject(document.get(name));
     }
 
     @Override
@@ -34,7 +33,8 @@ public class EntryVersionFieldBridge implements TwoWayFieldBridge{
 
     @Override
     public void set(String name, Object value, Document document, LuceneOptions luceneOptions) {
-        bridge.set(name,value,document,luceneOptions);
+        String fieldValue = objectToString(value);
+        luceneOptions.addFieldToDocument(name, fieldValue, document);
     }
 
 }

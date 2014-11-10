@@ -12,6 +12,7 @@
         <module name="org.hibernate.hql.parser"/>
         <module name="org.hibernate.hql.lucene"/>
         <module name="org.hibernate.search.engine" />
+        <module name="org.hibernate.search.serialization.avro" />
         <module name="org.infinispan"/>
         <module name="org.infinispan.objectfilter"/>
         <module name="org.jboss.logging" />

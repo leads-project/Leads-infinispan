@@ -38,6 +38,10 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
         return 1;
     }
 
+    @Override
+    protected int numberOfNodes() {
+        return 1;
+    }
 
     @Test
     public void baseOperations() {

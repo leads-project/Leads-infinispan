@@ -63,7 +63,6 @@
         <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-search-engine</artifactId>
-            <version>4.4.2.Final</version>
         </dependency>
     </dependencies>
 

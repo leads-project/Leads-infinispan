@@ -3,6 +3,7 @@ package org.infinispan.ensemble.test;
 import org.infinispan.client.hotrod.TestHelper;
 import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
 import org.infinispan.configuration.cache.CacheMode;
+import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.lifecycle.ComponentStatus;
@@ -31,16 +32,16 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
     private List<HotRodServer> servers = new ArrayList<>();
     private List<String> sites = new ArrayList<>();
 
+    // total numbder of sites
     protected abstract int numberOfSites();
+
+    // node per site
+    protected abstract int numberOfNodes();
 
     @Override
     protected void createCacheManagers() throws Throwable {
         ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, false));
-        builder.indexing().enable()
-                .addProperty("default.directory_provider", "ram")
-                .addProperty("lucene_version", "LUCENE_CURRENT");
-        builder.jmxStatistics().enable();
-        createSites(numberOfSites(), builder);
+        createSites(numberOfSites(), numberOfNodes(), builder);
     }
 
     @AfterClass(alwaysRun = true)
@@ -73,43 +74,69 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
 
     // Helpers
 
-    private void createSites(int num, ConfigurationBuilder defaultBuilder) {
+    private void createSites(int nsites, int nnodes, ConfigurationBuilder defaultBuilder) {
 
-        // Start Hot Rod servers at each site
-        for (int i = 0; i < num; i++){
-            GlobalConfigurationBuilder gbuilder = GlobalConfigurationBuilder.defaultClusteredBuilder();
-            Transport transport = gbuilder.transport().getTransport();
-            gbuilder.transport().transport(transport);
-            gbuilder.transport().clusterName("site(" + Integer.toString(i)+ ")");
-            startHotRodServer(gbuilder, defaultBuilder, i + 1);
+        // Start Hot Rod servers at each site.
+        for (int i = 0; i < nsites; i++) {
+            for (int j = 0; j < nnodes; j++) {
+                GlobalConfigurationBuilder gbuilder = GlobalConfigurationBuilder.defaultClusteredBuilder();
+                Transport transport = gbuilder.transport().getTransport();
+                gbuilder.transport().transport(transport);
+                gbuilder.transport().clusterName("site-" + Integer.toString(i));
+                startHotRodServer(gbuilder, defaultBuilder, i + 1, j + 1);
+            }
         }
 
-        // Create caches at each site
-        for (int i = 0; i < num; i++){
-            for(String name : cacheNames())
-                manager(i).getCache(name,true);
+        // Create appropriate caches at each node.
+        ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
+        builder.indexing().enable()
+                .addProperty("default.directory_provider", "infinispan")
+                .addProperty("lucene_version", "LUCENE_CURRENT")
+                .addProperty("exclusive_index_use", "false");
+        builder.jmxStatistics().enable();
+        Configuration configuration = builder.build();
+        for (int i = 0; i < nsites; i++) {
+            for (int j = 0; j < nnodes; j++) {
+                for (String name : cacheNames()) {
+                    manager(i*nnodes+j).defineConfiguration(name,configuration);
+                    manager(i * nnodes + j).getCache(name, true);
+                }
+            }
         }
 
-        // Verify that default caches should be started
-        for (int i = 0; i < num; i++) assert manager(i).getCache() != null;
-
-        // Verify that caches running
-        for (int i = 0; i < num; i++) {
-            blockUntilCacheStatusAchieved(
-                    manager(i).getCache(), ComponentStatus.RUNNING, 10000);
+        // Verify that default caches are started.
+        for (int i = 0; i < nsites; i++) {
+            for (int j = 0; j < nnodes; j++) {
+                assert manager(i*nnodes+j).getCache() != null;
+            }
         }
 
-        for (int i = 0; i < num; i++)
-            sites.add(server(i).getHost()+":"+server(i).getPort());
+        // Verify that the default caches is running.
+        for (int i = 0; i < nsites; i++) {
+            for (int j = 0; j < nnodes; j++) {
+                blockUntilCacheStatusAchieved(
+                        manager(i*nnodes+j).getCache(), ComponentStatus.RUNNING, 10000);
+            }
+        }
+
+        for (int i = 0; i < nsites; i++) {
+            String site ="";
+            for (int j = 0; j < nnodes; j++) {
+                site += server(i*nnodes+j).getHost() + ":" + server(i*nnodes+j).getPort()+",";
+            }
+            site = site.substring(0,site.length()-1);
+            sites.add(site);
+        }
     }
 
     private HotRodServer server(int i) {
         return servers.get(i);
     }
 
-    private void startHotRodServer(GlobalConfigurationBuilder gbuilder, ConfigurationBuilder builder, int siteIndex) {
+    private void startHotRodServer(GlobalConfigurationBuilder gbuilder, ConfigurationBuilder builder, int siteIndex, int nodeIndex) {
         TransportFlags transportFlags = new TransportFlags();
         transportFlags.withSiteIndex(siteIndex);
+        transportFlags.withNodeIndex(nodeIndex);
         transportFlags.withReplay2(false);
         EmbeddedCacheManager cm = addClusterEnabledCacheManager(gbuilder, builder, transportFlags);
         HotRodServer server = TestHelper.startHotRodServer(cm);

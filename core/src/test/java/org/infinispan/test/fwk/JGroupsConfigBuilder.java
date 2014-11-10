@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.infinispan.commons.util.Immutables.immutableMapCopy;
 import static org.infinispan.test.fwk.JGroupsConfigBuilder.ProtocolType.*;
+import static org.infinispan.test.fwk.JGroupsConfigBuilder.ProtocolType.TEST_PING;
 
 /**
  * This class owns the logic of associating network resources(i.e. ports) with threads, in order to make sure that there
@@ -169,7 +170,7 @@ public class JGroupsConfigBuilder {
       if (transportFlags.isSiteIndexSpecified()) {
          portRange = 10;
          int maxIndex = TCP_PORT_RANGE_PER_THREAD / portRange - 1;
-         if (transportFlags.siteIndex() > maxIndex) {
+         if (transportFlags.siteIndex() * transportFlags.nodeIndex() > maxIndex) {
             throw new IllegalStateException("Currently we only support " + (maxIndex + 1) + " sites!");
          }
          startPort += transportFlags.siteIndex() * portRange;

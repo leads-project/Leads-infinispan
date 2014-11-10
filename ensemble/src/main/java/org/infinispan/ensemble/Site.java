@@ -12,9 +12,6 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 /**
  *
@@ -50,7 +47,7 @@ public class Site extends Indexable {
         if (marshaller != null)
             configurationBuilder.marshaller(marshaller);
 
-        for(String server : servers.split(";")) {
+        for(String server : servers.split(",")) {
             String host;
             int port;
             if (server.contains(":")) {
