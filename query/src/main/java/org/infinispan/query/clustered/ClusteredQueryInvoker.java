@@ -1,17 +1,5 @@
 package org.infinispan.query.clustered;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
 import org.hibernate.search.exception.SearchException;
 import org.infinispan.Cache;
 import org.infinispan.remoting.responses.Response;
@@ -20,6 +8,10 @@ import org.infinispan.remoting.rpc.ResponseMode;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.rpc.RpcOptions;
 import org.infinispan.remoting.transport.Address;
+
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.concurrent.*;
 
 /**
  * Invoke a ClusteredQueryCommand on the cluster, including on own node.
@@ -89,6 +81,10 @@ public class ClusteredQueryInvoker {
       // invoke on own node
       Future<QueryResponse> localResponse = localInvoke(clusteredQuery);
       Map<Address, Response> responses = rpcManager.invokeRemotely(null, clusteredQuery, rpcOptions);
+
+      for(Response response : responses.values()) {
+         assert response.isSuccessful();
+      }
 
       List<QueryResponse> objects = cast(responses);
       final QueryResponse localReturnValue;

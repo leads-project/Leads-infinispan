@@ -1,13 +1,5 @@
 package org.infinispan.query.impl;
 
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Properties;
-import java.util.TreeMap;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-
 import org.hibernate.search.cfg.Environment;
 import org.hibernate.search.cfg.SearchMapping;
 import org.hibernate.search.cfg.spi.SearchConfiguration;
@@ -18,11 +10,7 @@ import org.infinispan.Cache;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.marshall.AdvancedExternalizer;
 import org.infinispan.commons.util.ServiceFinder;
-import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.configuration.cache.CustomInterceptorsConfigurationBuilder;
-import org.infinispan.configuration.cache.InterceptorConfiguration;
-import org.infinispan.configuration.cache.InterceptorConfigurationBuilder;
+import org.infinispan.configuration.cache.*;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.GlobalComponentRegistry;
@@ -42,22 +30,19 @@ import org.infinispan.query.backend.QueryInterceptor;
 import org.infinispan.query.backend.SearchableCacheConfiguration;
 import org.infinispan.query.clustered.QueryBox;
 import org.infinispan.query.dsl.embedded.impl.FilterAndConverter;
-import org.infinispan.query.impl.externalizers.ClusteredTopDocsExternalizer;
-import org.infinispan.query.impl.externalizers.ExternalizerIds;
-import org.infinispan.query.impl.externalizers.LuceneBooleanQueryExternalizer;
-import org.infinispan.query.impl.externalizers.LuceneFieldDocExternalizer;
-import org.infinispan.query.impl.externalizers.LuceneScoreDocExternalizer;
-import org.infinispan.query.impl.externalizers.LuceneSortExternalizer;
-import org.infinispan.query.impl.externalizers.LuceneSortFieldExternalizer;
-import org.infinispan.query.impl.externalizers.LuceneTermExternalizer;
-import org.infinispan.query.impl.externalizers.LuceneTermQueryExternalizer;
-import org.infinispan.query.impl.externalizers.LuceneTopDocsExternalizer;
-import org.infinispan.query.impl.externalizers.LuceneTopFieldDocsExternalizer;
+import org.infinispan.query.impl.externalizers.*;
 import org.infinispan.query.impl.massindex.MapReduceMassIndexer;
 import org.infinispan.query.logging.Log;
 import org.infinispan.query.spi.ProgrammaticSearchMappingProvider;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.util.logging.LogFactory;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Properties;
+import java.util.TreeMap;
 
 /**
  * Lifecycle of the Query module: initializes the Hibernate Search engine and shuts it down
@@ -310,6 +295,8 @@ public class LifecycleManager extends AbstractModuleLifecycle {
       externalizerMap.put(ExternalizerIds.LUCENE_FIELD_SCORE_DOC, new LuceneFieldDocExternalizer());
       externalizerMap.put(ExternalizerIds.LUCENE_SCORE_DOC, new LuceneScoreDocExternalizer());
       externalizerMap.put(ExternalizerIds.LUCENE_TOPFIELDDOCS, new LuceneTopFieldDocsExternalizer());
+      externalizerMap.put(ExternalizerIds.LUCENE_QUERY_MATCH_ALL, new LuceneMatchAllQueryExternalizer());
+      externalizerMap.put(ExternalizerIds.LUCENE_BYTES_REF, new LuceneBytesRefExternalizer());
    }
 
 }

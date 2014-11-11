@@ -45,10 +45,10 @@ public class DistributedLazyIterator extends DistributedIterator {
    }
 
    @Override
-   public Object fetchValue(int scoreIndex, ClusteredTopDocs topDoc) {
+   public Object fetchValue(int position, ClusteredTopDocs topDoc) {
       Object value = null;
       try {
-         value = invoker.getValue(scoreIndex, topDoc.getNodeAddress(), queryId);
+         value = invoker.getValue(position, topDoc.getNodeAddress(), queryId);
       } catch (Exception e) {
          log.error("Error while trying to remoting fetch next value: " + e.getMessage());
       }

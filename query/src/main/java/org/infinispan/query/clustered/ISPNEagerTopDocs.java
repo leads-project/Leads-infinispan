@@ -2,6 +2,8 @@ package org.infinispan.query.clustered;
 
 import org.apache.lucene.search.TopDocs;
 
+import java.util.Map;
+
 /**
  * ISPNEagerTopDocs.
  * 
@@ -14,9 +16,9 @@ public class ISPNEagerTopDocs extends TopDocs {
 
    private static final long serialVersionUID = 3236786895259278399L;
 
-   public Object[] keys;
+   public Map<Integer, Object> keys;
 
-   public ISPNEagerTopDocs(TopDocs topDocs, Object[] keys) {
+   public ISPNEagerTopDocs(TopDocs topDocs, Map<Integer, Object> keys) {
       super(topDocs.totalHits, topDocs.scoreDocs, topDocs.getMaxScore());
       this.keys = keys;
    }

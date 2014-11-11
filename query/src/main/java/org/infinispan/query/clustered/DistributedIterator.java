@@ -39,7 +39,6 @@ public class DistributedIterator implements ResultIterator {
    private final UUID[] clusterIDs;
    private final ClusteredTopDocs[] partialResults;
    private final TopDocs[] partialTopDocs;
-   private final int[] partialPositionNext;
    private final TopDocs mergedResults;
 
    public DistributedIterator(Sort sort, int fetchSize, int resultSize, int maxResults, int firstResult, HashMap<UUID, ClusteredTopDocs> topDocsResponses, AdvancedCache<?, ?> cache) {
@@ -52,7 +51,6 @@ public class DistributedIterator implements ResultIterator {
       this.clusterIDs = new UUID[parallels];
       this.partialResults = new ClusteredTopDocs[parallels];
       this.partialTopDocs = new TopDocs[parallels];
-      this.partialPositionNext = new int[parallels];
       int i=0;
       for (Entry<UUID, ClusteredTopDocs> entry : topDocsResponses.entrySet()) {
          clusterIDs[i] = entry.getKey();
@@ -80,14 +78,13 @@ public class DistributedIterator implements ResultIterator {
       // fetch and return the value
       ScoreDoc scoreDoc = mergedResults.scoreDocs[currentIndex];
       int index = scoreDoc.shardIndex;
-      int specificPosition = partialPositionNext[index];
-      partialPositionNext[index]++;
-      return fetchValue(specificPosition, partialResults[index]);
+      int position = scoreDoc.doc;
+      return fetchValue(position, partialResults[index]);
    }
 
-   public Object fetchValue(int scoreIndex, ClusteredTopDocs topDoc) {
+   public Object fetchValue(int position, ClusteredTopDocs topDoc) {
       ISPNEagerTopDocs eagerTopDocs = (ISPNEagerTopDocs) topDoc.getTopDocs();
-      return cache.get(eagerTopDocs.keys[scoreIndex]);
+      return cache.get(eagerTopDocs.keys.get(position));
    }
 
    @Override

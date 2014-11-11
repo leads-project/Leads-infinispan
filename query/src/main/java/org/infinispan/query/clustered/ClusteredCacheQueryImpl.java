@@ -1,29 +1,24 @@
 package org.infinispan.query.clustered;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SortField;
 import org.hibernate.search.exception.SearchException;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
 import org.infinispan.AdvancedCache;
-import org.infinispan.factories.KnownComponentNames;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.StreamingMarshaller;
+import org.infinispan.factories.KnownComponentNames;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.FetchOptions;
 import org.infinispan.query.ResultIterator;
 import org.infinispan.query.backend.KeyTransformationHandler;
 import org.infinispan.query.impl.CacheQueryImpl;
 import org.infinispan.query.impl.ComponentRegistryUtils;
-import org.infinispan.commons.util.Util;
+import org.infinispan.remoting.responses.Response;
+
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A extension of CacheQueryImpl used for distributed queries.
@@ -103,6 +98,9 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
             ClusteredQueryCommand command = ClusteredQueryCommand.createEagerIterator(hSearchQuery, cache);
             HashMap<UUID, ClusteredTopDocs> topDocsResponses = broadcastQuery(command);
 
+            for (ClusteredTopDocs docs : topDocsResponses.values())
+               assert docs.getTopDocs().scoreDocs.length <= getNodeMaxResults();
+
             return new DistributedIterator(sort,
                   fetchOptions.getFetchSize(), this.resultSize, maxResults,
                   firstResult, topDocsResponses, cache);
@@ -135,14 +133,16 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
       List<QueryResponse> responses = invoker.broadcast(command);
 
       for (QueryResponse queryResponse : responses) {
+         if (queryResponse.getTopDocs()==null)
+            continue; // no result found, we can safely ignore it.
          ClusteredTopDocs topDocs = new ClusteredTopDocs(queryResponse.getTopDocs(), queryResponse.getNodeUUID());
-
          resultSize += queryResponse.getResultSize();
          topDocs.setNodeAddress(queryResponse.getAddress());
          topDocsResponses.put(queryResponse.getNodeUUID(), topDocs);
       }
 
       this.resultSize = resultSize;
+      assert resultSize!=0;
       return topDocsResponses;
    }
 

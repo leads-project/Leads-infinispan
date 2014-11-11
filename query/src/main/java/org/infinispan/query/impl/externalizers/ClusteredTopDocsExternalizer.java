@@ -1,15 +1,16 @@
 package org.infinispan.query.impl.externalizers;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Set;
-
 import org.apache.lucene.search.TopDocs;
 import org.infinispan.commons.io.UnsignedNumeric;
 import org.infinispan.commons.marshall.AbstractExternalizer;
 import org.infinispan.commons.util.Util;
 import org.infinispan.query.clustered.ISPNEagerTopDocs;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Map;
+import java.util.Set;
 
 public class ClusteredTopDocsExternalizer extends AbstractExternalizer<ISPNEagerTopDocs> {
 
@@ -20,22 +21,14 @@ public class ClusteredTopDocsExternalizer extends AbstractExternalizer<ISPNEager
 
    @Override
    public ISPNEagerTopDocs readObject(final ObjectInput input) throws IOException, ClassNotFoundException {
-      final int keysNumber = UnsignedNumeric.readUnsignedInt(input);
-      final Object[] keys = new Object[keysNumber];
-      for (int i=0; i<keysNumber; i++) {
-         keys[i] = input.readObject();
-      }
+      final Map<Integer,Object> keys = (Map<Integer, Object>) input.readObject();
       final TopDocs innerTopDocs = LuceneTopDocsExternalizer.readObjectStatic(input);
       return new ISPNEagerTopDocs(innerTopDocs, keys);
    }
 
    @Override
    public void writeObject(final ObjectOutput output, final ISPNEagerTopDocs topDocs) throws IOException {
-      final Object[] keys = topDocs.keys;
-      UnsignedNumeric.writeUnsignedInt(output, keys.length);
-      for (Object o : keys) {
-         output.writeObject(o);
-      }
+      output.writeObject(topDocs.keys);
       LuceneTopDocsExternalizer.writeObjectStatic(output, topDocs);
    }
 
