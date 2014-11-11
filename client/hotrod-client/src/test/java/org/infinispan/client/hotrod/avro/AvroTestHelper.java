@@ -20,7 +20,7 @@ public class AvroTestHelper {
     public static WebPage somePage(){
         WebPage.Builder builder= WebPage.newBuilder();
         WebPage page = builder.build();
-        page.setUrl("http://www.example.org/"+Long.toString(rand.nextLong())+".html");
+        page.setUrl("http://"+Long.toString(rand.nextLong())+".org/index.html");
         return page;
     }
 
