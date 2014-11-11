@@ -35,84 +35,85 @@ import java.util.List;
  */
 public class AvroQueryFacade implements QueryFacade {
 
-    private static final Log log = LogFactory.getLog(AvroQueryFacade.class, Log.class);
+   private static final Log log = LogFactory.getLog(AvroQueryFacade.class, Log.class);
 
-    private AvroMarshaller<Request> requestAvroMarshaller= new AvroMarshaller<>(Request.class);
-    private AvroMarshaller<Response> responseAvroMarshaller = new AvroMarshaller<>(Response.class);
-    private GenericRecordExternalizer externalizer = new GenericRecordExternalizer();
+   private AvroMarshaller<Request> requestAvroMarshaller= new AvroMarshaller<>(Request.class);
+   private AvroMarshaller<Response> responseAvroMarshaller = new AvroMarshaller<>(Response.class);
+   private GenericRecordExternalizer externalizer = new GenericRecordExternalizer();
 
-    @Override
-    public byte[] query(AdvancedCache<byte[], byte[]> cache, byte[] query) {
+   @Override
+   public byte[] query(AdvancedCache<byte[], byte[]> cache, byte[] query) {
 
-        try {
+      try {
 
-            Request request = (Request) requestAvroMarshaller.objectFromByteBuffer(query);
-            log.info(request.toString());
+         Request request = (Request) requestAvroMarshaller.objectFromByteBuffer(query);
+         log.info(request.toString());
 
-            SearchManager sm = Search.getSearchManager(cache);
+         SearchManager sm = Search.getSearchManager(cache);
 
-            SearchFactoryIntegrator searchFactory = (SearchFactoryIntegrator) sm.getSearchFactory();
-            QueryBuilder qb = sm.buildQueryBuilderForClass(GenericData.Record.class).get(); // FIXME
-            QueryParser qp = new QueryParser();
+         SearchFactoryIntegrator searchFactory = (SearchFactoryIntegrator) sm.getSearchFactory();
+         QueryBuilder qb = sm.buildQueryBuilderForClass(GenericData.Record.class).get(); // FIXME
+         QueryParser qp = new QueryParser();
 
-            EntityNamesResolver resolver = new EntityNamesResolver() {
-                @Override
-                public Class<?> getClassFromName(String s) {
-                    if (s.equals(GenericData.Record.class.getName()))
-                        return GenericData.Record.class;
-                    return null;
-                }
-            };
-            LuceneProcessingChain processingChain
-                    = new LuceneProcessingChain.Builder(searchFactory,resolver).buildProcessingChainForDynamicEntities(
-                    new FieldBridgeProvider() {
-                        @Override
-                        public FieldBridge getFieldBridge(String s, String s2) {
-                            return new ValueWrapperFieldBridge();
-                        }
-                    });
-
-            LuceneQueryParsingResult parsingResult = qp.parseQuery(request.getJpqlString().toString(), processingChain);
-            Query q = parsingResult.getQuery();
-            CacheQuery cacheQuery;
-            cacheQuery = sm.getClusteredQuery(q,GenericData.Record.class);
-            if (request.getMaxResult() > 0)
-                cacheQuery = cacheQuery.maxResults(request.getMaxResult());
-            if (parsingResult.getSort() != null)
-                cacheQuery = cacheQuery.sort(parsingResult.getSort());
-            if (request.getStartOffset() >= 0)
-                cacheQuery = cacheQuery.firstResult(request.getStartOffset().intValue());
-
-            List<Object> list = cacheQuery.list();
-            List<ByteBuffer> results = new ArrayList<>();
-            if (parsingResult.getProjections().size()==0){
-                for (Object o: list) {
-                    results.add(ByteBuffer.wrap((byte[])o));
-                }
-            }else{
-                for (Object o: list) {
-                    GenericData.Record record = (GenericData.Record) externalizer.objectFromByteBuffer((byte[])o);
-                    GenericRecordBuilder builder = new GenericRecordBuilder(record.getSchema());
-                    GenericData.Record copy = builder.build();
-                    for(Schema.Field f : record.getSchema().getFields()){
-                        if (parsingResult.getProjections().contains(f.name()))
-                            copy.put(f.name(),record.get(f.name()));
-                    }
-                    results.add(ByteBuffer.wrap(externalizer.objectToByteBuffer(copy)));
-                }
+         EntityNamesResolver resolver = new EntityNamesResolver() {
+            @Override
+            public Class<?> getClassFromName(String s) {
+               if (s.equals(GenericData.Record.class.getName()))
+                  return GenericData.Record.class;
+               return null;
             }
+         };
+         LuceneProcessingChain processingChain
+               = new LuceneProcessingChain.Builder(searchFactory,resolver).buildProcessingChainForDynamicEntities(
+               new FieldBridgeProvider() {
+                  @Override
+                  public FieldBridge getFieldBridge(String s, String s2) {
+                     return new ValueWrapperFieldBridge();
+                  }
+               });
 
-            Response response = new Response();
-            response.setNumResults(list.size());
-            response.setResults(results);
-            return responseAvroMarshaller.objectToByteBuffer(response);
+         LuceneQueryParsingResult parsingResult = qp.parseQuery(request.getJpqlString().toString(), processingChain);
+         Query q = parsingResult.getQuery();
+         CacheQuery cacheQuery;
+         cacheQuery = sm.getClusteredQuery(q,GenericData.Record.class);
+         if (request.getMaxResult() > 0)
+            cacheQuery = cacheQuery.maxResults(request.getMaxResult());
+         if (parsingResult.getSort() != null)
+            cacheQuery = cacheQuery.sort(parsingResult.getSort());
+         if (request.getStartOffset() >= 0)
+            cacheQuery = cacheQuery.firstResult(request.getStartOffset().intValue());
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+         List<Object> list = cacheQuery.list();
+         List<ByteBuffer> results = new ArrayList<>();
+         if (parsingResult.getProjections().size()==0){
+            for (Object o: list) {
+               assert o!=null;
+               results.add(ByteBuffer.wrap((byte[])o));
+            }
+         }else{
+            for (Object o: list) {
+               GenericData.Record record = (GenericData.Record) externalizer.objectFromByteBuffer((byte[])o);
+               GenericRecordBuilder builder = new GenericRecordBuilder(record.getSchema());
+               GenericData.Record copy = builder.build();
+               for(Schema.Field f : record.getSchema().getFields()){
+                  if (parsingResult.getProjections().contains(f.name()))
+                     copy.put(f.name(),record.get(f.name()));
+               }
+               results.add(ByteBuffer.wrap(externalizer.objectToByteBuffer(copy)));
+            }
+         }
 
-        return null;
+         Response response = new Response();
+         response.setNumResults(list.size());
+         response.setResults(results);
+         return responseAvroMarshaller.objectToByteBuffer(response);
 
-    }
+      } catch (Exception e) {
+         e.printStackTrace();
+      }
+
+      return null;
+
+   }
 
 }
