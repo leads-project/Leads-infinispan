@@ -28,50 +28,50 @@ import static org.testng.AssertJUnit.assertEquals;
 @Test(groups = "functional", testName = "EnsembleDistributedCacheTest")
 public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
 
-    private DistributedEnsembleCache<CharSequence, WebPage> cache;
-    private Partitioner<CharSequence, WebPage> partitioner;
-    private boolean frontierMode = true;
+   private DistributedEnsembleCache<CharSequence, WebPage> cache;
+   private Partitioner<CharSequence, WebPage> partitioner;
+   private boolean frontierMode = true;
 
-    @Override
-    protected synchronized EnsembleCache<CharSequence, WebPage> cache() {
-        if (cache == null) {
-            List<EnsembleCache<CharSequence, WebPage>> list = new ArrayList<>();
-            for (Site s : manager.sites())
-                list.add(s.<CharSequence, WebPage>getCache(cacheName));
-            partitioner = new HashBasedPartitioner<>(list);
-            cache = (DistributedEnsembleCache<CharSequence, WebPage>) manager.getCache(cacheName, list, partitioner, frontierMode);
-        }
-        return cache;
-    }
+   @Override
+   protected synchronized EnsembleCache<CharSequence, WebPage> cache() {
+      if (cache == null) {
+         List<EnsembleCache<CharSequence, WebPage>> list = new ArrayList<>();
+         for (Site s : manager.sites())
+            list.add(s.<CharSequence, WebPage>getCache(cacheName));
+         partitioner = new HashBasedPartitioner<>(list);
+         cache = (DistributedEnsembleCache<CharSequence, WebPage>) manager.getCache(cacheName, list, partitioner, frontierMode);
+      }
+      return cache;
+   }
 
-    @org.testng.annotations.Test
-    @Override
-    public void baseOperations() {
-        WebPage page1 = somePage();
-        cache().put(page1.getUrl(), page1);
-        EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page1.getUrl());
-        if (!frontierMode || location.equals(cache.getFrontierCache()))
-            assert cache.containsKey(page1.getUrl());
-        else
-            assert !cache.containsKey(page1.getUrl());
-    }
+   @Test
+   @Override
+   public void baseOperations() {
+      WebPage page1 = somePage();
+      cache().put(page1.getUrl(), page1);
+      EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page1.getUrl());
+      if (!frontierMode || location.equals(cache.getFrontierCache()))
+         assert cache.containsKey(page1.getUrl());
+      else
+         assert !cache.containsKey(page1.getUrl());
+   }
 
-    @org.testng.annotations.Test
-    @Override
-    public void baseQuery() {
-        QueryFactory qf = Search.getQueryFactory(cache());
-        QueryBuilder qb = qf.from(WebPage.class);
-        Query query = qb.build();
+   @Test
+   @Override
+   public void baseQuery() {
+      QueryFactory qf = Search.getQueryFactory(cache());
+      QueryBuilder qb = qf.from(WebPage.class);
+      Query query = qb.build();
 
-        WebPage page1 = somePage();
-        cache().put(page1.getUrl(), page1);
+      WebPage page1 = somePage();
+      cache().put(page1.getUrl(), page1);
 
-        EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page1.getUrl());
-        if (!frontierMode || location.equals(cache.getFrontierCache()))
-            assertEquals(query.list().size(), 1);
-        else
-            assertEquals(query.list().size(), 0);
+      EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page1.getUrl());
+      if (!frontierMode || location.equals(cache.getFrontierCache()))
+         assertEquals(query.list().size(), 1);
+      else
+         assertEquals(query.list().size(), 0);
 
-    }
+   }
 
 }

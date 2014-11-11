@@ -5,10 +5,11 @@ import org.infinispan.ensemble.search.Search;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryBuilder;
 import org.infinispan.query.dsl.QueryFactory;
+import org.infinispan.query.dsl.SortOrder;
+import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import static org.infinispan.client.hotrod.avro.AvroTestHelper.somePage;
 import static org.testng.Assert.assertEquals;
@@ -40,7 +41,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
     @Override
     protected int numberOfNodes() {
-        return 1;
+        return 8;
     }
 
     @Test
@@ -82,6 +83,36 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
         query = qb.build();
         assertEquals(query.list().get(0), page1);
     }
+
+   @Test
+   public void pagination() {
+
+      int NPAGES = 100;
+
+      Map<String, WebPage> added = new HashMap<>();
+      for(int i=0; i<NPAGES; i++) {
+         WebPage page = somePage();
+         cache().put(page.getUrl(), page);
+         added.put(page.getUrl().toString(), page);
+      }
+
+      QueryFactory qf = Search.getQueryFactory(cache());
+
+      Map<String, WebPage> retrieved = new HashMap<>();
+      for (int i=0; i< NPAGES; i++) {
+         Query query = qf.from(WebPage.class)
+               .maxResults(1)
+               .startOffset(i)
+               .orderBy("url", SortOrder.ASC)
+               .build();
+         assertEquals(1,query.list().size());
+         WebPage page = (WebPage) query.list().get(0);
+         retrieved.put(page.getUrl().toString(),page);
+      }
+
+      AssertJUnit.assertEquals(added.size(), retrieved.size());
+
+   }
 
     @Override
     public List<String> cacheNames(){
