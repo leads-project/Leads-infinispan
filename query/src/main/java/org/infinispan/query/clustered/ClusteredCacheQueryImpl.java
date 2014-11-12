@@ -19,6 +19,9 @@ import org.infinispan.remoting.responses.Response;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.infinispan.util.logging.LogFactory;
+import org.infinispan.util.logging.Log;
+
 
 /**
  * A extension of CacheQueryImpl used for distributed queries.
@@ -27,6 +30,8 @@ import java.util.concurrent.TimeUnit;
  * @since 5.1
  */
 public class ClusteredCacheQueryImpl extends CacheQueryImpl {
+
+   private static final Log log = LogFactory.getLog(ClusteredCacheQueryImpl.class, Log.class);
 
    private Sort sort;
 
@@ -150,7 +155,11 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
       ResultIterator iterator = iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
       List<Object> values = new ArrayList<Object>();
       while (iterator.hasNext()) {
-         values.add(iterator.next());
+         Object result = iterator.next();
+         if (result==null)
+            log.warn("received null result!");
+         else
+            values.add(result);
       }
 
       return values;

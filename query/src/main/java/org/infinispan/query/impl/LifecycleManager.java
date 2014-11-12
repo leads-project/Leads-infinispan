@@ -1,12 +1,5 @@
 package org.infinispan.query.impl;
 
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Properties;
-
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
-
 import org.hibernate.search.cfg.Environment;
 import org.hibernate.search.cfg.SearchMapping;
 import org.hibernate.search.cfg.spi.SearchConfiguration;
@@ -37,8 +30,8 @@ import org.infinispan.query.backend.IndexModificationStrategy;
 import org.infinispan.query.backend.QueryInterceptor;
 import org.infinispan.query.backend.SearchableCacheConfiguration;
 import org.infinispan.query.clustered.QueryBox;
-import org.infinispan.query.dsl.embedded.impl.QueryCache;
 import org.infinispan.query.dsl.embedded.impl.FilterAndConverter;
+import org.infinispan.query.dsl.embedded.impl.QueryCache;
 import org.infinispan.query.impl.externalizers.*;
 import org.infinispan.query.impl.massindex.MapReduceMassIndexer;
 import org.infinispan.query.logging.Log;
@@ -51,13 +44,12 @@ import javax.management.ObjectName;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
-import java.util.TreeMap;
-
 import java.util.Set;
 
-import static org.hibernate.search.infinispan.InfinispanIntegration.DEFAULT_INDEXESDATA_CACHENAME;
-import static org.hibernate.search.infinispan.InfinispanIntegration.DEFAULT_INDEXESMETADATA_CACHENAME;
-import static org.hibernate.search.infinispan.InfinispanIntegration.DEFAULT_LOCKING_CACHENAME;
+import static org.hibernate.search.infinispan.InfinispanIntegration.*;
+import static org.infinispan.query.impl.IndexPropertyInspector.getDataCacheName;
+import static org.infinispan.query.impl.IndexPropertyInspector.getLockingCacheName;
+import static org.infinispan.query.impl.IndexPropertyInspector.getMetadataCacheName;
 import static org.infinispan.query.impl.IndexPropertyInspector.*;
 
 /**
@@ -334,6 +326,7 @@ public class LifecycleManager extends AbstractModuleLifecycle {
       externalizerMap.put(ExternalizerIds.LUCENE_TOPFIELDDOCS, new LuceneTopFieldDocsExternalizer());
       externalizerMap.put(ExternalizerIds.LUCENE_QUERY_MATCH_ALL, new LuceneMatchAllQueryExternalizer());
       externalizerMap.put(ExternalizerIds.LUCENE_BYTES_REF, new LuceneBytesRefExternalizer());
+      externalizerMap.put(ExternalizerIds.LUCENE_QUERY_RANGE_TERM, new LuceneTermRangeQueryExternalizer());
    }
 
 }

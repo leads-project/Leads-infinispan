@@ -39,4 +39,6 @@ public interface ExternalizerIds {
 
    Integer FILTER_RESULT = 1613;
 
+   Integer LUCENE_QUERY_RANGE_TERM = 1614;
+
 }
