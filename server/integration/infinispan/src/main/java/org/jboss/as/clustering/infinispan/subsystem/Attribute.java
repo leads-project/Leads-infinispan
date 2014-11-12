@@ -22,12 +22,11 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
-import javax.xml.XMLConstants;
+import org.jboss.as.controller.AttributeDefinition;
 
+import javax.xml.XMLConstants;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.jboss.as.controller.AttributeDefinition;
 
 /**
  * Enumerates the attributes used in the Infinispan subsystem schema.
@@ -43,6 +42,7 @@ public enum Attribute {
     APPEND_CACHE_NAME_TO_PATH(ModelKeys.APPEND_CACHE_NAME_TO_PATH),
     ASYNC_MARSHALLING(ModelKeys.ASYNC_MARSHALLING),
     AUDIT_LOGGER(ModelKeys.AUDIT_LOGGER),
+    AUTO_CONFIG(ModelKeys.AUTO_CONFIG),
     AWAIT_INITIAL_TRANSFER(ModelKeys.AWAIT_INITIAL_TRANSFER),
     BACKUP_FAILURE_POLICY(ModelKeys.BACKUP_FAILURE_POLICY),
     BATCH_SIZE(ModelKeys.BATCH_SIZE),
@@ -87,6 +87,7 @@ public enum Attribute {
     MAX_CONNECTIONS_PER_HOST(ModelKeys.MAX_CONNECTIONS_PER_HOST),
     MAX_ENTRIES(ModelKeys.MAX_ENTRIES),
     MAX_IDLE(ModelKeys.MAX_IDLE),
+    MAX_RETRIES(ModelKeys.MAX_RETRIES),
     MAX_TOTAL_CONNECTIONS(ModelKeys.MAX_TOTAL_CONNECTIONS),
     MODE(ModelKeys.MODE),
     MODIFICATION_QUEUE_SIZE(ModelKeys.MODIFICATION_QUEUE_SIZE),
@@ -107,6 +108,9 @@ public enum Attribute {
     RAW_VALUES(ModelKeys.RAW_VALUES),
     READ_ONLY(ModelKeys.READ_ONLY),
     RELATIVE_TO(ModelKeys.RELATIVE_TO),
+    REMOTE_CACHE(ModelKeys.REMOTE_CACHE),
+    REMOTE_COMMAND_EXECUTOR(ModelKeys.REMOTE_COMMAND_EXECUTOR),
+    REMOTE_SITE(ModelKeys.REMOTE_SITE),
     REMOTE_TIMEOUT(ModelKeys.REMOTE_TIMEOUT),
     REPLICATION_QUEUE_EXECUTOR(ModelKeys.REPLICATION_QUEUE_EXECUTOR),
     ROLES(ModelKeys.ROLES),
@@ -128,8 +132,10 @@ public enum Attribute {
     TCP_NO_DELAY(ModelKeys.TCP_NO_DELAY),
     THREAD_POOL_SIZE(ModelKeys.THREAD_POOL_SIZE),
     TIMEOUT(ModelKeys.TIMEOUT),
+    TOTAL_ORDER_EXECUTOR(ModelKeys.TOTAL_ORDER_EXECUTOR),
     TYPE(ModelKeys.TYPE),
-    @Deprecated VIRTUAL_NODES("virtual-nodes")
+    @Deprecated VIRTUAL_NODES("virtual-nodes"),
+    WAIT_TIME(ModelKeys.WAIT_TIME)
     ;
 
     private final String name;

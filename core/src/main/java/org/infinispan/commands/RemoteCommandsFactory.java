@@ -9,6 +9,7 @@ import org.infinispan.commands.read.MapCombineCommand;
 import org.infinispan.commands.read.ReduceCommand;
 import org.infinispan.commands.remote.CacheRpcCommand;
 import org.infinispan.commands.remote.ClusteredGetCommand;
+import org.infinispan.commands.remote.GetKeysInGroupCommand;
 import org.infinispan.commands.remote.MultipleRpcCommand;
 import org.infinispan.commands.remote.SingleRpcCommand;
 import org.infinispan.commands.remote.recovery.CompleteTransactionCommand;
@@ -27,6 +28,7 @@ import org.infinispan.commands.tx.totalorder.TotalOrderVersionedCommitCommand;
 import org.infinispan.commands.tx.totalorder.TotalOrderVersionedPrepareCommand;
 import org.infinispan.commands.write.*;
 import org.infinispan.commons.CacheException;
+import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.iteration.impl.EntryRequestCommand;
 import org.infinispan.iteration.impl.EntryResponseCommand;
 import org.infinispan.factories.GlobalComponentRegistry;
@@ -35,6 +37,7 @@ import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
+import org.infinispan.jmx.CacheJmxRegistration;
 import org.infinispan.persistence.manager.PersistenceManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.statetransfer.StateRequestCommand;
@@ -121,6 +124,9 @@ public class RemoteCommandsFactory {
             case CacheTopologyControlCommand.COMMAND_ID:
                command = new CacheTopologyControlCommand();
                break;
+            case GetKeysInGroupCommand.COMMAND_ID:
+               command = new GetKeysInGroupCommand();
+               break;
             default:
                throw new CacheException("Unknown command id " + id + "!");
          }
@@ -197,8 +203,10 @@ public class RemoteCommandsFactory {
                command = new StateResponseCommand(cacheName);
                break;
             case RemoveCacheCommand.COMMAND_ID:
-               command = new RemoveCacheCommand(cacheName, cacheManager, registry,
-                     registry.getNamedComponentRegistry(cacheName).getComponent(PersistenceManager.class));
+               ComponentRegistry namedCacheRegistry = registry.getNamedComponentRegistry(cacheName);
+               command = new RemoveCacheCommand(cacheName, cacheManager, this.registry,
+                     namedCacheRegistry.getComponent(PersistenceManager.class),
+                     namedCacheRegistry.getComponent(CacheJmxRegistration.class));
                break;
             case TxCompletionNotificationCommand.COMMAND_ID:
                command = new TxCompletionNotificationCommand(cacheName);

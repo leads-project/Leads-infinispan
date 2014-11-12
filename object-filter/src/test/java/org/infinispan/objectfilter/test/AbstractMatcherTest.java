@@ -17,6 +17,7 @@ import org.junit.rules.ExpectedException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -32,6 +33,7 @@ public abstract class AbstractMatcherTest {
 
    protected Object createPerson1() throws Exception {
       Person person = new Person();
+      person.setId(1);
       person.setName("John");
       person.setSurname("Batman");
       person.setAge(40);
@@ -52,6 +54,7 @@ public abstract class AbstractMatcherTest {
 
    protected Object createPerson2() throws Exception {
       Person person = new Person();
+      person.setId(2);
       person.setName("Cat");
       person.setSurname("Woman");
       person.setAge(27);
@@ -68,7 +71,7 @@ public abstract class AbstractMatcherTest {
 
       matcher.registerFilter(queryString, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             matchCount[0]++;
          }
       });
@@ -84,7 +87,7 @@ public abstract class AbstractMatcherTest {
 
       matcher.registerFilter(query, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             matchCount[0]++;
          }
       });
@@ -104,7 +107,7 @@ public abstract class AbstractMatcherTest {
 
    @Test
    @Ignore
-   //todo this triggers a bug in hql parser: NPE in SingleEntityQueryRendererDelegate.addComparisonPredicate due to null property path
+   //todo this triggers a bug in hql parser (https://hibernate.atlassian.net/browse/HQLPARSER-44): NPE in SingleEntityQueryRendererDelegate.addComparisonPredicate due to null property path.
    public void testNoOpFilter1() throws Exception {
       String queryString = "from org.infinispan.objectfilter.test.model.Person where 4 = 4";  // this should match ALL
       assertTrue(match(queryString, createPerson1()));
@@ -112,7 +115,7 @@ public abstract class AbstractMatcherTest {
 
    @Test
    @Ignore
-   //todo this triggers a bug in hql parser: second name token is mistakenly recognized as a string constant instead of property reference. this should trigger a parsing error
+   //todo this triggers a bug in hql parser (https://hibernate.atlassian.net/browse/HQLPARSER-44): second name token is mistakenly recognized as a string constant instead of property reference. this should trigger a parsing error.
    public void testNoOpFilter2() throws Exception {
       String queryString = "from org.infinispan.objectfilter.test.model.Person where name = name";  // this should match ALL
       assertTrue(match(queryString, createPerson1()));
@@ -126,7 +129,6 @@ public abstract class AbstractMatcherTest {
 
    @Test
    public void testSimpleAttribute1() throws Exception {
-      //todo [anistor] should we be able to use short class names too? how would we guess the full name then?
       String queryString = "from org.infinispan.objectfilter.test.model.Person where name = 'John'";
       assertTrue(match(queryString, createPerson1()));
    }
@@ -271,7 +273,7 @@ public abstract class AbstractMatcherTest {
       String queryString1 = "from org.infinispan.objectfilter.test.model.Person p where p.name = 'John'";
       matcher.registerFilter(queryString1, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             matchCount[0]++;
          }
       });
@@ -279,7 +281,7 @@ public abstract class AbstractMatcherTest {
       String queryString2 = "from org.infinispan.objectfilter.test.model.Person p where p.phoneNumbers.number = '004012345'";
       matcher.registerFilter(queryString2, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projectiong) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             matchCount[1]++;
          }
       });
@@ -289,6 +291,33 @@ public abstract class AbstractMatcherTest {
       // assert that only one of the filters matched and the callback of the other was not invoked
       assertEquals(1, matchCount[0]);
       assertEquals(1, matchCount[1]);
+   }
+
+   @Test
+   public void testOrderBy() throws Exception {
+      Matcher matcher = createMatcher();
+
+      final List<Comparable[]> sortProjections = new ArrayList<Comparable[]>();
+
+      String queryString1 = "from org.infinispan.objectfilter.test.model.Person p where p.age > 18 order by p.name, p.surname";
+      FilterSubscription filterSubscription = matcher.registerFilter(queryString1, new FilterCallback() {
+         @Override
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
+            sortProjections.add(sortProjection);
+         }
+      });
+
+      matcher.match(createPerson1());
+      matcher.match(createPerson2());
+
+      assertEquals(2, sortProjections.size());
+
+      Collections.sort(sortProjections, filterSubscription.getComparator());
+
+      assertEquals("Cat", sortProjections.get(0)[0]);
+      assertEquals("Woman", sortProjections.get(0)[1]);
+      assertEquals("John", sortProjections.get(1)[0]);
+      assertEquals("Batman", sortProjections.get(1)[1]);
    }
 
    @Test
@@ -310,7 +339,7 @@ public abstract class AbstractMatcherTest {
       final int[] matchCount = new int[1];
       FilterSubscription filterSubscription = matcher.registerFilter(queryString, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             matchCount[0]++;
          }
       });
@@ -320,8 +349,8 @@ public abstract class AbstractMatcherTest {
       matcher.match(person);
       assertEquals(1, matchCount[0]);
 
-      Object result = objectFilter.filter(person);
-      assertTrue(result == person);
+      ObjectFilter.FilterResult result = objectFilter.filter(person);
+      assertTrue(result.getInstance() == person);
 
       assertEquals(1, matchCount[0]); // check that the object filter did not also mistakenly trigger a match in the parent matcher
    }
@@ -335,11 +364,80 @@ public abstract class AbstractMatcherTest {
 
       ObjectFilter objectFilter = matcher.getObjectFilter(queryString);
 
-      matcher.match(person);
-
-      Object result = objectFilter.filter(person);
-      assertTrue(result == person);
+      ObjectFilter.FilterResult result = objectFilter.filter(person);
+      assertNotNull(result);
+      assertTrue(result.getInstance() == person);
    }
+
+   @Test
+   public void testObjectFilterWithDSLSamePredicate1() throws Exception {
+      Matcher matcher = createMatcher();
+      Object person = createPerson1();
+
+      QueryFactory qf = matcher.getQueryFactory();
+
+      // use the same '< 1000' predicate on two different attributes to demonstrate they do not interfere (see ISPN-4654)
+      Query q = qf.from(Person.class)
+            .having("id").lt(1000)
+            .and()
+            .having("age").lt(1000)
+            .toBuilder().build();
+
+      ObjectFilter objectFilter = matcher.getObjectFilter(q);
+
+      ObjectFilter.FilterResult result = objectFilter.filter(person);
+      assertNotNull(result);
+      assertTrue(result.getInstance() == person);
+   }
+
+   @Test
+   public void testObjectFilterWithDSLSamePredicate2() throws Exception {
+      Matcher matcher = createMatcher();
+      Object person = createPerson1();
+
+      QueryFactory qf = matcher.getQueryFactory();
+
+      // use the same "like 'Jo%'" predicate (in positive and negative form) on the same attribute to demonstrate they do not interfere (see ISPN-4654)
+      Query q = qf.from(Person.class)
+            .having("name").like("Jo%")
+            .and(qf.not().having("name").like("Jo%").or().having("id").lt(1000))
+            .toBuilder().build();
+
+      ObjectFilter objectFilter = matcher.getObjectFilter(q);
+
+      ObjectFilter.FilterResult result = objectFilter.filter(person);
+      assertNotNull(result);
+      assertTrue(result.getInstance() == person);
+   }
+
+   @Test
+   public void testMatcherAndObjectFilterWithDSL() throws Exception {
+      Matcher matcher = createMatcher();
+      Object person = createPerson1();
+
+      QueryFactory qf = matcher.getQueryFactory();
+      Query q = qf.from(Person.class)
+            .having("name").eq("John").toBuilder().build();
+
+      final boolean b[] = new boolean[1];
+
+      FilterSubscription filterSubscription = matcher.registerFilter(q, new FilterCallback() {
+         @Override
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
+            b[0] = true;
+         }
+      });
+
+      ObjectFilter objectFilter = matcher.getObjectFilter(filterSubscription);
+
+      ObjectFilter.FilterResult result = objectFilter.filter(person);
+      assertNotNull(result);
+      assertTrue(result.getInstance() == person);
+
+      matcher.match(person);
+      assertTrue(b[0]);
+   }
+
 
    @Test
    public void testObjectFilterWithDSL() throws Exception {
@@ -352,10 +450,9 @@ public abstract class AbstractMatcherTest {
 
       ObjectFilter objectFilter = matcher.getObjectFilter(q);
 
-      matcher.match(person);
-
-      Object result = objectFilter.filter(person);
-      assertTrue(result == person);
+      ObjectFilter.FilterResult result = objectFilter.filter(person);
+      assertNotNull(result);
+      assertTrue(result.getInstance() == person);
    }
 
    @Test
@@ -368,7 +465,7 @@ public abstract class AbstractMatcherTest {
       final int matchCount[] = new int[1];
       FilterSubscription filterSubscription = matcher.registerFilter(queryString, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             matchCount[0]++;
          }
       });
@@ -439,6 +536,54 @@ public abstract class AbstractMatcherTest {
    }
 
    @Test
+   public void testLike3() throws Exception {
+      String queryString = "from org.infinispan.objectfilter.test.model.Person p where p.name like 'Jo%'";
+      assertTrue(match(queryString, createPerson1()));
+   }
+
+   @Test
+   public void testLike4() throws Exception {
+      String queryString = "from org.infinispan.objectfilter.test.model.Person p where p.name like 'Joh_'";
+      assertTrue(match(queryString, createPerson1()));
+   }
+
+   @Test
+   public void testLike5() throws Exception {
+      String queryString = "from org.infinispan.objectfilter.test.model.Person p where p.name like 'Joh_nna'";
+      assertFalse(match(queryString, createPerson1()));
+   }
+
+   @Test
+   public void testLike6() throws Exception {
+      String queryString = "from org.infinispan.objectfilter.test.model.Person p where p.name like '_oh_'";
+      assertTrue(match(queryString, createPerson1()));
+   }
+
+   @Test
+   public void testLike7() throws Exception {
+      String queryString = "from org.infinispan.objectfilter.test.model.Person p where p.name like '_oh_noes'";
+      assertFalse(match(queryString, createPerson1()));
+   }
+
+   @Test
+   public void testLike8() throws Exception {
+      String queryString = "from org.infinispan.objectfilter.test.model.Person p where p.name like '%hn%'";
+      assertTrue(match(queryString, createPerson1()));
+   }
+
+   @Test
+   public void testLike9() throws Exception {
+      String queryString = "from org.infinispan.objectfilter.test.model.Person p where p.name like '%hn'";
+      assertTrue(match(queryString, createPerson1()));
+   }
+
+   @Test
+   public void testLike10() throws Exception {
+      String queryString = "from org.infinispan.objectfilter.test.model.Person p where p.name like 'Jo%hn'";
+      assertTrue(match(queryString, createPerson1()));
+   }
+
+   @Test
    public void testIn() throws Exception {
       String queryString = "from org.infinispan.objectfilter.test.model.Person where age between 22 and 42";
       assertTrue(match(queryString, createPerson1()));
@@ -461,7 +606,7 @@ public abstract class AbstractMatcherTest {
 
       FilterSubscription filterSubscription = matcher.registerFilter(queryString, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             result.add(projection);
          }
       });
@@ -492,7 +637,7 @@ public abstract class AbstractMatcherTest {
 
       FilterSubscription filterSubscription = matcher.registerFilter(queryString, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             result.add(projection);
          }
       });
@@ -525,7 +670,7 @@ public abstract class AbstractMatcherTest {
 
       FilterSubscription filterSubscription = matcher.registerFilter(queryString, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
             result.add(projection);
          }
       });
@@ -543,7 +688,7 @@ public abstract class AbstractMatcherTest {
       assertEquals(2, result.get(0).length);
       assertEquals("SW12345", result.get(0)[0]);
       //todo [anistor] it is unclear what whe should expect here...
-      assertEquals("004012345", result.get(0)[1]);  //expect the last phone number
+      assertEquals("0040888888", result.get(0)[1]);  //expect the first phone number
    }
 
    @Test
@@ -557,7 +702,7 @@ public abstract class AbstractMatcherTest {
 
       matcher.registerFilter(queryString, new FilterCallback() {
          @Override
-         public void onFilterResult(Object instance, Object[] projection) {
+         public void onFilterResult(Object instance, Object[] projection, Comparable[] sortProjection) {
          }
       });
    }

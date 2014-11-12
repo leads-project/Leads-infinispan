@@ -5,8 +5,6 @@ import static org.infinispan.query.helper.TestQueryHelperFactory.createQueryPars
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import junit.framework.Assert;
-
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanQuery;
@@ -16,14 +14,18 @@ import org.apache.lucene.search.BooleanClause.Occur;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.FetchOptions;
 import org.infinispan.query.ResultIterator;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
+import org.infinispan.query.helper.StaticTestingErrorHandler;
 import org.infinispan.query.test.Person;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.testng.annotations.Test;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * ClusteredQueryTest.
@@ -53,9 +55,9 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       ConfigurationBuilder cacheCfg = getDefaultClusteredCacheConfig(getCacheMode(), false);
       cacheCfg
          .indexing()
-            .enable()
-            .indexLocalOnly(true)
+            .index(Index.LOCAL)
             .addProperty("default.directory_provider", "ram")
+            .addProperty("error_handler", "org.infinispan.query.helper.StaticTestingErrorHandler")
             .addProperty("lucene_version", "LUCENE_CURRENT");
       enhanceConfig(cacheCfg);
       List<Cache<String, Person>> caches = createClusteredCaches(2, cacheCfg);
@@ -95,6 +97,7 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       person4.setAge(66);
 
       cacheAMachine1.put("newOne", person4);
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    public void testLazyOrdered() throws ParseException {
@@ -121,6 +124,7 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
             iterator.close();
          }
       }
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    public void testLazyNonOrdered() throws ParseException {
@@ -133,6 +137,7 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       finally {
          iterator.close();
       }
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    public void testLocalQuery() throws ParseException {
@@ -140,11 +145,12 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
 
       final SearchManager searchManager1 = Search.getSearchManager(cacheAMachine1);
       final CacheQuery localQuery1 = searchManager1.getQuery(createLuceneQuery());
-      Assert.assertEquals(3, localQuery1.getResultSize());
+      assertEquals(3, localQuery1.getResultSize());
 
       final SearchManager searchManager2 = Search.getSearchManager(cacheAMachine2);
       final CacheQuery localQuery2 = searchManager2.getQuery(createLuceneQuery());
-      Assert.assertEquals(1, localQuery2.getResultSize());
+      assertEquals(1, localQuery2.getResultSize());
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    public void testEagerOrdered() throws ParseException {
@@ -157,7 +163,7 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
 
       ResultIterator iterator = cacheQuery.iterator(new FetchOptions().fetchMode(FetchOptions.FetchMode.EAGER));
       try {
-         Assert.assertEquals(4, cacheQuery.getResultSize());
+         assertEquals(4, cacheQuery.getResultSize());
 
          int previousAge = 0;
          while (iterator.hasNext()) {
@@ -168,6 +174,7 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       } finally {
          iterator.close();
       }
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    @Test(expectedExceptions = NoSuchElementException.class, expectedExceptionsMessageRegExp = "Out of boundaries")
@@ -185,6 +192,7 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       } finally {
          iterator.close();
       }
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    @Test(expectedExceptions = UnsupportedOperationException.class)
@@ -199,6 +207,7 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       } finally {
          iterator.close();
       }
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    public void testList() throws ParseException {
@@ -218,11 +227,12 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
          assert person.getAge() > previousAge;
          previousAge = person.getAge();
       }
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
    
    public void testGetResultSizeList() throws ParseException {
       populateCache();
-      Assert.assertEquals(4, cacheQuery.getResultSize());
+      assertEquals(4, cacheQuery.getResultSize());
    }
 
    public void testPagination() throws ParseException {
@@ -237,16 +247,18 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
       cacheQuery.sort(sort);
 
       List<Object> results = cacheQuery.list();
-      Assert.assertEquals(1, results.size());
-      Assert.assertEquals(4, cacheQuery.getResultSize());
+      assertEquals(1, results.size());
+      assertEquals(4, cacheQuery.getResultSize());
       Person result = (Person) results.get(0);
-      Assert.assertEquals(45, result.getAge());
+      assertEquals(45, result.getAge());
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    private void populateCache() throws ParseException {
       prepareTestData();
 
       cacheQuery = Search.getSearchManager(cacheAMachine1).getClusteredQuery(createLuceneQuery());
+      StaticTestingErrorHandler.assertAllGood(cacheAMachine1, cacheAMachine2);
    }
 
    private BooleanQuery createLuceneQuery() throws ParseException {

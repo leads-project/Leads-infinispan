@@ -8,6 +8,7 @@ import org.infinispan.commons.marshall.StreamingMarshaller;
 import org.infinispan.commons.util.Util;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.CustomStoreConfiguration;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.configuration.cache.StoreConfiguration;
 import org.infinispan.container.entries.ImmortalCacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
@@ -64,6 +65,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.infinispan.context.Flag.*;
 import static org.infinispan.factories.KnownComponentNames.CACHE_MARSHALLER;
 import static org.infinispan.factories.KnownComponentNames.PERSISTENCE_EXECUTOR;
+import static org.infinispan.persistence.manager.PersistenceManager.AccessMode.BOTH;
 
 public class PersistenceManagerImpl implements PersistenceManager {
 
@@ -75,11 +77,11 @@ public class PersistenceManagerImpl implements PersistenceManager {
 
    TransactionManager transactionManager;
    private TimeService timeService;
-   private final List<CacheLoader> loaders = new ArrayList<CacheLoader>();
-   private final List<CacheWriter> writers = new ArrayList<CacheWriter>();
+   private final List<CacheLoader> loaders = new ArrayList<>();
+   private final List<CacheWriter> writers = new ArrayList<>();
 
    private final ReadWriteLock storesMutex = new ReentrantReadWriteLock();
-   private final Map<Object, StoreConfiguration> configMap = new HashMap<Object, StoreConfiguration>();
+   private final Map<Object, StoreConfiguration> configMap = new HashMap<>();
 
 
    /**
@@ -89,6 +91,7 @@ public class PersistenceManagerImpl implements PersistenceManager {
    private Executor persistenceExecutor;
    private ByteBufferFactory byteBufferFactory;
    private MarshalledEntryFactory marshalledEntryFactory;
+   private volatile boolean clearOnStop;
 
    @Inject
    public void inject(AdvancedCache<Object, Object> cache, @ComponentName(CACHE_MARSHALLER) StreamingMarshaller marshaller,
@@ -161,6 +164,9 @@ public class PersistenceManagerImpl implements PersistenceManager {
    @Override
    @Stop
    public void stop() {
+      // If needed, clear the persistent store before stopping
+      if (clearOnStop)
+         clearAllStores(AccessMode.BOTH);
 
       Set undelegated = new HashSet();
       for (CacheWriter w : writers) {
@@ -353,38 +359,16 @@ public class PersistenceManagerImpl implements PersistenceManager {
       }
    }
 
-   @Override
-   public boolean activate(Object key) {
-      if (!configuration.persistence().passivation()) {
-         return false;
-      }
-      log.tracef("Try to activate key=%s. removing it from all writers", key);
-
-      storesMutex.readLock().lock();
-      try {
-         boolean activated = false;
-         for (CacheWriter w : writers) {
-            StoreConfiguration conf = configMap.get(w);
-            if (!conf.shared()) {
-               activated = w.delete(key);
-            }
-         }
-         return activated;
-      } finally {
-         storesMutex.readLock().unlock();
-      }
-   }
-
 
    @Override
-   public void clearAllStores(boolean skipSharedStores) {
+   public void clearAllStores(AccessMode mode) {
       storesMutex.readLock().lock();
       try {
          for (CacheWriter w : writers) {
             if (w instanceof AdvancedCacheWriter) {
-               if (skipSharedStores && configMap.get(w).shared())
-                  continue;
-               ((AdvancedCacheWriter) w).clear();
+               if (mode.canPerform(configMap.get(w))) {
+                  ((AdvancedCacheWriter) w).clear();
+               }
             }
          }
       } finally {
@@ -393,14 +377,14 @@ public class PersistenceManagerImpl implements PersistenceManager {
    }
 
    @Override
-   public boolean deleteFromAllStores(Object key, boolean skipSharedStore) {
+   public boolean deleteFromAllStores(Object key, AccessMode mode) {
       storesMutex.readLock().lock();
       try {
          boolean removed = false;
          for (CacheWriter w : writers) {
-            if (skipSharedStore && configMap.get(w).shared())
-               continue;
-            removed |= w.delete(key);
+            if (mode.canPerform(configMap.get(w))) {
+               removed |= w.delete(key);
+            }
          }
          return removed;
       } finally {
@@ -416,24 +400,21 @@ public class PersistenceManagerImpl implements PersistenceManager {
 
    @Override
    public void processOnAllStores(Executor executor, KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task, boolean fetchValue, boolean fetchMetadata) {
-      processOnAllStores(executor, keyFilter, task, fetchValue, fetchMetadata, false);
+      processOnAllStores(executor, keyFilter, task, fetchValue, fetchMetadata, BOTH);
    }
 
    @Override
    public void processOnAllStores(KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task,
-                                  boolean fetchValue, boolean fetchMetadata, boolean skipSharedStore) {
-      processOnAllStores(persistenceExecutor, keyFilter, task, fetchValue, fetchMetadata, skipSharedStore);
+                                  boolean fetchValue, boolean fetchMetadata, AccessMode mode) {
+      processOnAllStores(persistenceExecutor, keyFilter, task, fetchValue, fetchMetadata, mode);
    }
 
    @Override
-   public void processOnAllStores(Executor executor, KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task, boolean fetchValue, boolean fetchMetadata, boolean skipSharedStore) {
+   public void processOnAllStores(Executor executor, KeyFilter keyFilter, AdvancedCacheLoader.CacheLoaderTask task, boolean fetchValue, boolean fetchMetadata, AccessMode mode) {
       storesMutex.readLock().lock();
       try {
          for (CacheLoader loader : loaders) {
-            if (skipSharedStore && configMap.get(loader).shared())
-               continue;
-
-            if (loader instanceof AdvancedCacheLoader) {
+            if (mode.canPerform(configMap.get(loader)) && loader instanceof AdvancedCacheLoader) {
                ((AdvancedCacheLoader) loader).process(keyFilter, task, executor, fetchValue, fetchMetadata);
             }
          }
@@ -471,13 +452,13 @@ public class PersistenceManagerImpl implements PersistenceManager {
    }
 
    @Override
-   public void writeToAllStores(MarshalledEntry marshalledEntry, boolean skipSharedStores) {
+   public void writeToAllStores(MarshalledEntry marshalledEntry, AccessMode mode) {
       storesMutex.readLock().lock();
       try {
          for (CacheWriter w : writers) {
-            if (skipSharedStores && configMap.get(w).shared())
-               continue;
-            w.write(marshalledEntry);
+            if (mode.canPerform(configMap.get(w))) {
+               w.write(marshalledEntry);
+            }
          }
       } finally {
          storesMutex.readLock().unlock();
@@ -511,6 +492,11 @@ public class PersistenceManagerImpl implements PersistenceManager {
          storesMutex.readLock().unlock();
       }
       return 0;
+   }
+
+   @Override
+   public void setClearOnStop(boolean clearOnStop) {
+      this.clearOnStop = clearOnStop;
    }
 
    public List<CacheLoader> getAllLoaders() {
@@ -611,7 +597,7 @@ public class PersistenceManagerImpl implements PersistenceManager {
       }
 
       if (hasShared) {
-         if (!localIndexingEnabled())
+         if (indexShareable())
             flags.add(SKIP_INDEXING);
       } else {
          flags.add(SKIP_INDEXING);
@@ -622,7 +608,11 @@ public class PersistenceManagerImpl implements PersistenceManager {
    }
 
    private boolean localIndexingEnabled() {
-      return configuration.indexing().enabled() && configuration.indexing().indexLocalOnly();
+      return configuration.indexing().index() == Index.LOCAL;
+   }
+
+   private boolean indexShareable() {
+      return configuration.indexing().indexShareable();
    }
 
    private int getMaxEntries() {

@@ -17,6 +17,7 @@ import org.infinispan.interceptors.totalorder.*;
 import org.infinispan.interceptors.xsite.NonTransactionalBackupInterceptor;
 import org.infinispan.interceptors.xsite.OptimisticBackupInterceptor;
 import org.infinispan.interceptors.xsite.PessimisticBackupInterceptor;
+import org.infinispan.partionhandling.impl.PartitionHandlingInterceptor;
 import org.infinispan.statetransfer.StateTransferInterceptor;
 import org.infinispan.statetransfer.TransactionSynchronizerInterceptor;
 import org.infinispan.transaction.LockingMode;
@@ -82,6 +83,12 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
          interceptorChain.appendInterceptor(createInterceptor(new BatchingInterceptor(), BatchingInterceptor.class), false);
       }
       interceptorChain.appendInterceptor(createInterceptor(new InvocationContextInterceptor(), InvocationContextInterceptor.class), false);
+
+      if (configuration.clustering().partitionHandling().enabled()
+            && (configuration.clustering().cacheMode().isDistributed()
+            || configuration.clustering().cacheMode().isReplicated())) {
+         interceptorChain.appendInterceptor(createInterceptor(new PartitionHandlingInterceptor(), PartitionHandlingInterceptor.class), false);
+      }
 
 
       CompatibilityModeConfiguration compatibility = configuration.compatibility();
@@ -168,6 +175,10 @@ public class InterceptorChainFactory extends AbstractNamedCacheComponentFactory 
       // This needs to be added after the locking interceptor (for tx caches) but before the wrapping interceptor.
       if (configuration.clustering().l1().enabled()) {
          interceptorChain.appendInterceptor(createInterceptor(new L1LastChanceInterceptor(), L1LastChanceInterceptor.class), false);
+      }
+
+      if (configuration.clustering().hash().groups().enabled()) {
+         interceptorChain.appendInterceptor(createInterceptor(new GroupingInterceptor(), GroupingInterceptor.class), false);
       }
 
       if (needsVersionAwareComponents && configuration.clustering().cacheMode().isClustered()) {

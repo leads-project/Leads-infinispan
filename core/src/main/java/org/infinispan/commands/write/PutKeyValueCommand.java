@@ -164,7 +164,7 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
       return new StringBuilder()
             .append("PutKeyValueCommand{key=")
             .append(toStr(key))
-            .append(", value=").append(value)
+            .append(", value=").append(toStr(value))
             .append(", flags=").append(flags)
             .append(", putIfAbsent=").append(putIfAbsent)
             .append(", valueMatcher=").append(valueMatcher)
@@ -207,8 +207,7 @@ public class PutKeyValueCommand extends AbstractDataWriteCommand implements Meta
       Object o;
 
       if (!e.isCreated()) {
-         notifier.notifyCacheEntryModified(
-               key, entryValue, entryValue == null, true, ctx, this);
+         notifier.notifyCacheEntryModified(key, value, entryValue, e.getMetadata(), true, ctx, this);
       }
 
       if (value instanceof Delta) {

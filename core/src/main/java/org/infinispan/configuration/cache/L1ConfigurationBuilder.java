@@ -2,6 +2,7 @@ package org.infinispan.configuration.cache;
 
 import org.infinispan.commons.configuration.Builder;
 import org.infinispan.commons.CacheConfigurationException;
+import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -19,7 +20,7 @@ public class L1ConfigurationBuilder extends AbstractClusteringConfigurationChild
    private boolean enabled = false;
    private int invalidationThreshold = 0;
    private long lifespan = TimeUnit.MINUTES.toMillis(10);
-   private long cleanupTaskFrequency = TimeUnit.MINUTES.toMillis(10);
+   private long cleanupTaskFrequency = TimeUnit.MINUTES.toMillis(1);
 
    L1ConfigurationBuilder(ClusteringConfigurationBuilder builder) {
       super(builder);
@@ -102,6 +103,10 @@ public class L1ConfigurationBuilder extends AbstractClusteringConfigurationChild
             throw new CacheConfigurationException("Using a L1 lifespan of 0 or a negative value is meaningless");
 
       }
+   }
+
+   @Override
+   public void validate(GlobalConfiguration globalConfig) {
    }
 
    @Override

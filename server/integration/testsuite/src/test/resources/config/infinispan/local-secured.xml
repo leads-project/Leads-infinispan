@@ -1,17 +1,18 @@
         <subsystem xmlns="urn:infinispan:server:core:7.0" >
             <cache-container name="local" default-cache="testcache">
                 <security>
-                    <authorization mapper="org.infinispan.security.impl.IdentityRoleMapper">
+                    <authorization>
+                        <identity-role-mapper />
                         <role name="admin" permissions="ALL" />
                         <role name="reader" permissions="READ" />
                         <role name="writer" permissions="WRITE" />
-                        <role name="supervisor" permissions="READ WRITE EXEC"/>
+                        <role name="supervisor" permissions="READ WRITE EXEC BULK_READ"/>
                     </authorization>
                 </security>
                 <local-cache name="testcache" start="EAGER" batching="false">
                     <transaction mode="NONE" />
                     <security>
-                        <authorization roles="admin reader writer supervisor" />
+                        <authorization roles="admin reader writer supervisor" enabled="true" />
                     </security>
                 </local-cache>
                 <!-- to get a memcached module to work, there needs to be a named cache called "memcachedCache" -->

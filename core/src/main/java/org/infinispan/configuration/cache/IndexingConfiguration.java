@@ -9,10 +9,14 @@ import org.infinispan.commons.util.TypedProperties;
 public class IndexingConfiguration extends AbstractTypedPropertiesConfiguration {
 
    private final Index index;
+   private final boolean autoConfig;
+   private static final String DIRECTORY_PROVIDER_KEY = "directory_provider";
+   private static final String RAM_DIRECTORY_PROVIDER = "ram";
 
-   IndexingConfiguration(TypedProperties properties, Index index) {
+   IndexingConfiguration(TypedProperties properties, Index index, boolean autoConfig) {
       super(properties);
       this.index = index;
+      this.autoConfig = autoConfig;
    }
 
    /**
@@ -60,6 +64,35 @@ public class IndexingConfiguration extends AbstractTypedPropertiesConfiguration 
       return index;
    }
 
+   /**
+    * Determines if autoconfig is enabled for this IndexingConfiguration
+    */
+   public boolean autoConfig() {
+      return autoConfig;
+   }
+
+   /**
+    * Check if the indexes can be shared. Currently only "ram"
+    * based indexes don't allow any sort of sharing
+    * 
+    * @return false if the index is ram only and thus not shared
+    */
+   public boolean indexShareable() {
+      TypedProperties properties = properties();
+      boolean hasRamDirectoryProvider = false;
+      for (Object objKey : properties.keySet()) {
+         String key = (String) objKey;
+         if (key.endsWith(DIRECTORY_PROVIDER_KEY)) {
+            if (properties.get(key).equals(RAM_DIRECTORY_PROVIDER)) {
+               hasRamDirectoryProvider = true;
+            } else {
+               return true;
+            }
+         }
+      }
+      return !hasRamDirectoryProvider;
+   }
+   
    @Override
    public String toString() {
       return "IndexingConfiguration{" +
@@ -76,13 +109,17 @@ public class IndexingConfiguration extends AbstractTypedPropertiesConfiguration 
       IndexingConfiguration that = (IndexingConfiguration) o;
 
       if (index != that.index) return false;
+      if (autoConfig != that.autoConfig) return false;
 
       return true;
    }
 
    @Override
    public int hashCode() {
-      return 31 * index.hashCode();
+      int result = super.hashCode();
+      result = 31 * result + (index != null ? index.hashCode() : 0);
+      result = 31 * result + (autoConfig ? 1 : 0);
+      return result;
    }
 
 }

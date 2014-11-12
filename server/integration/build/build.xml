@@ -64,6 +64,7 @@
          <fileset file="${org.jboss.logging:jboss-logging:jar}" />
          <fileset file="${commons-pool:commons-pool:jar}" />
          <fileset file="${com.google.protobuf:protobuf-java:jar}" />
+         <fileset file="${com.squareup:protoparser:jar}" />
          <mapper type="flatten" />
       </copy>
       
@@ -99,6 +100,10 @@
          <maven-resource group="com.google.protobuf" artifact="protobuf-java" />
       </module-def>
 
+      <module-def name="com.squareup.protoparser">
+         <maven-resource group="com.squareup" artifact="protoparser" />
+      </module-def>
+
       <module-def name="com.jboss.datagrid" />
 
       <module-def name="javax.activation.api">
@@ -111,6 +116,11 @@
 
       <module-def name="org.jboss.as.clustering.jgroups">
          <maven-resource group="org.infinispan.server" artifact="infinispan-server-jgroups" />
+      </module-def>
+
+      <module-def name="org.jboss.as.cli">
+         <maven-resource group="org.wildfly" artifact="wildfly-cli"/>
+         <maven-resource group="org.infinispan.server" artifact="infinispan-server-cli"/>
       </module-def>
 
       <module-def name="org.jboss.as.console" slot="ispn" />
@@ -139,12 +149,8 @@
          <maven-resource group="org.infinispan" artifact="infinispan-core" />
       </module-def>
 
-      <module-def name="org.infinispan.cli.client">
-         <maven-resource group="org.infinispan" artifact="infinispan-cli-client" />
-      </module-def>
-
-      <module-def name="org.infinispan.cli.server">
-         <maven-resource group="org.infinispan" artifact="infinispan-cli-server" />
+      <module-def name="org.infinispan.cli.interpreter">
+         <maven-resource group="org.infinispan" artifact="infinispan-cli-interpreter" />
       </module-def>
 
       <module-def name="org.infinispan.client.hotrod">
@@ -231,6 +237,10 @@
          <maven-resource group="org.scala-lang" artifact="scala-library" />
       </module-def>
 
+      <module-def name="org.scala-lang.modules.xml">
+         <maven-resource group="org.scala-lang.modules" artifact="scala-xml_2.11" />
+      </module-def>
+
       <module-def name="org.apache.lucene">
          <maven-resource group="org.apache.lucene" artifact="lucene-core" />
          <maven-resource group="org.apache.lucene" artifact="lucene-queries" />
@@ -260,15 +270,11 @@
       <module-def name="org.hibernate.hql.lucene">
          <maven-resource group="org.hibernate.hql" artifact="hibernate-hql-lucene" />
       </module-def>
-      
-      <module-def name="org.json">
-         <maven-resource group="org.json" artifact="json"/>
-      </module-def>
    </target>
 
    <target name="trim-modules">
       <delete includeemptydirs="true" verbose="true">
-         <fileset dir="${output.dir}/modules" includesfile="trim-modules.txt" />
+         <fileset dir="${output.dir}/modules/system/layers/base" includesfile="trim-modules.txt" />
       </delete>
    </target>
 

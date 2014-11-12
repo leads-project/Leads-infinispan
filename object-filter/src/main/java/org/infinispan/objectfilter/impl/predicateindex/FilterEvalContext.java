@@ -1,5 +1,6 @@
 package org.infinispan.objectfilter.impl.predicateindex;
 
+import org.infinispan.objectfilter.impl.FilterSubscriptionImpl;
 import org.infinispan.objectfilter.impl.predicateindex.be.BETree;
 
 import java.util.Arrays;
@@ -14,16 +15,19 @@ public final class FilterEvalContext {
 
    public final int[] treeCounters;
 
-   public final MatcherEvalContext<?> matcherContext;
+   public final MatcherEvalContext<?, ?, ?> matcherContext;
 
    public final Object[] projection;
 
-   public FilterEvalContext(BETree beTree, MatcherEvalContext<?> matcherContext, Object[] projection) {
-      this.beTree = beTree;
+   public final Comparable[] sortProjection;
+
+   public FilterEvalContext(MatcherEvalContext<?, ?, ?> matcherContext, FilterSubscriptionImpl filterSubscription) {
       this.matcherContext = matcherContext;
+      this.beTree = filterSubscription.getBETree();
       int[] childCounters = beTree.getChildCounters();
       this.treeCounters = Arrays.copyOf(childCounters, childCounters.length);
-      this.projection = projection;
+      projection = filterSubscription.getProjection() != null ? new Object[filterSubscription.getProjection().length] : null;
+      sortProjection = filterSubscription.getSortFields() != null ? new Comparable[filterSubscription.getSortFields().length] : null;
    }
 
    /**
@@ -38,5 +42,9 @@ public final class FilterEvalContext {
 
    public Object[] getProjection() {
       return projection;
+   }
+
+   public Comparable[] getSortProjection() {
+      return sortProjection;
    }
 }

@@ -5,19 +5,20 @@ import java.util.List;
 
 import org.infinispan.arquillian.core.InfinispanResource;
 import org.infinispan.arquillian.core.RemoteInfinispanServer;
-import org.infinispan.arquillian.core.RunningServer;
-import org.infinispan.arquillian.core.WithRunningServer;
 import org.infinispan.client.hotrod.Search;
 import org.infinispan.protostream.sampledomain.Address;
 import org.infinispan.protostream.sampledomain.User;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryFactory;
+import org.infinispan.server.test.category.Queries;
 import org.jboss.arquillian.junit.Arquillian;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for remote queries over HotRod on a local cache using RAM directory.
@@ -25,15 +26,15 @@ import static org.junit.Assert.assertNotNull;
  * @author Adrian Nistor
  * @author Martin Gencur
  */
+@Category({ Queries.class })
 @RunWith(Arquillian.class)
-@WithRunningServer({@RunningServer(name = "remote-query")})
 public class RemoteQueryIT extends RemoteQueryBaseIT {
 
     @InfinispanResource("remote-query")
     protected RemoteInfinispanServer server;
 
     public RemoteQueryIT() {
-        super("local", "testcache");
+        super("clustered", "localtestcache");
     }
 
     protected RemoteQueryIT(String cacheContainerName, String cacheName) {
@@ -112,7 +113,7 @@ public class RemoteQueryIT extends RemoteQueryBaseIT {
         user.setName("Tom");
         user.setSurname("Cat");
         user.setGender(User.Gender.MALE);
-        user.setAccountIds(Collections.singletonList(12));
+        user.setAccountIds(Collections.singleton(12));
         Address address = new Address();
         address.setStreet("Dark Alley");
         address.setPostCode("1234");
@@ -141,7 +142,7 @@ public class RemoteQueryIT extends RemoteQueryBaseIT {
         assertEquals(User.Gender.MALE, user.getGender());
         assertNotNull(user.getAccountIds());
         assertEquals(1, user.getAccountIds().size());
-        assertEquals(12, user.getAccountIds().get(0).intValue());
+        assertTrue(user.getAccountIds().contains(12));
         assertNotNull(user.getAddresses());
         assertEquals(1, user.getAddresses().size());
         assertEquals("Dark Alley", user.getAddresses().get(0).getStreet());

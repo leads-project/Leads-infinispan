@@ -11,7 +11,7 @@
 
    <groupId>org.infinispan.server</groupId>
    <artifactId>infinispan-server-versions</artifactId>
-   <version>7.0.0-SNAPSHOT</version>
+   <version>7.0.1-SNAPSHOT</version>
    <packaging>pom</packaging>
 
    <name>Infinispan Server - BOM</name>
@@ -33,22 +33,22 @@
       <version.org.jboss.modules>1.3.3.Final</version.org.jboss.modules>
       <version.junit>4.11</version.junit>
       <version.org.infinispan>${project.version}</version.org.infinispan>
-      <version.org.infinispan.arquillian.container>1.2.0.Alpha1</version.org.infinispan.arquillian.container>
+      <version.org.infinispan.arquillian.container>1.2.0.Alpha2</version.org.infinispan.arquillian.container>
       <version.org.slf4j>1.7.2</version.org.slf4j>
       <version.org.wildfly>8.1.0.Final</version.org.wildfly>
       <version.org.xerial.snappy>1.0.5</version.org.xerial.snappy>
       <version.xml.maven.plugin>1.0</version.xml.maven.plugin>
-      <version.org.infinispan.protostream>1.0.2.Final</version.org.infinispan.protostream>
+      <version.org.infinispan.protostream>2.0.2.Final</version.org.infinispan.protostream>
       <version.http.client>4.3</version.http.client>
       <version.org.picketbox>4.0.17.SP2</version.org.picketbox>
       <version.xpp3>1.1.4c</version.xpp3>
       <version.pax.url>1.3.7</version.pax.url>
       <version.karaf>2.3.3</version.karaf>
-      <version.pax.exam>3.4.0</version.pax.exam>
+      <version.pax.exam>4.1.0</version.pax.exam>
       <version.javax.inject>1</version.javax.inject>
       <version.h2.database>1.3.173</version.h2.database>
       <version.resteasy>3.0.8.Final</version.resteasy>
-      <version.lucene.v4>4.8.1</version.lucene.v4>
+      <version.lucene>4.10.2</version.lucene>
       <relocations />
 
    </properties>
@@ -88,6 +88,12 @@
             <artifactId>jboss-marshalling-parent</artifactId>
             <version>${version.org.jboss.marshalling.jboss-marshalling}</version>
             <type>pom</type>
+         </dependency>
+
+         <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>infinispan-server-cli</artifactId>
+            <version>${project.version}</version>
          </dependency>
 
          <dependency>
@@ -261,7 +267,7 @@
 
          <dependency>
             <groupId>org.infinispan</groupId>
-            <artifactId>infinispan-cli-server</artifactId>
+            <artifactId>infinispan-cli-interpreter</artifactId>
             <version>${version.org.infinispan}</version>
          </dependency>
 
@@ -295,7 +301,7 @@
          <dependency>
             <groupId>org.infinispan.arquillian.container</groupId>
             <artifactId>infinispan-arquillian-container-managed</artifactId>
-            <version>${version.org.infinispan.arquillian.containern}</version>
+            <version>${version.org.infinispan.arquillian.container}</version>
             <scope>test</scope>
          </dependency>
 
@@ -444,7 +450,15 @@
             <classifier>tests</classifier>
             <scope>test</scope>
          </dependency>
-         
+
+         <dependency>
+            <groupId>org.infinispan.server</groupId>
+            <artifactId>infinispan-server-build</artifactId>
+            <type>pom</type>
+            <version>${version.org.infinispan}</version>
+            <scope>test</scope>
+         </dependency>
+
          <dependency>
             <groupId>org.apache.directory.server</groupId>
             <artifactId>apacheds-all</artifactId>
@@ -455,25 +469,25 @@
          <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-core</artifactId>
-            <version>${version.lucene.v4}</version>
+            <version>${version.lucene}</version>
          </dependency>
 
          <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-queryparser</artifactId>
-            <version>${version.lucene.v4}</version>
+            <version>${version.lucene}</version>
          </dependency>
 
          <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-highlighter</artifactId>
-            <version>${version.lucene.v4}</version>
+            <version>${version.lucene}</version>
          </dependency>
 
          <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-grouping</artifactId>
-            <version>${version.lucene.v4}</version>
+            <version>${version.lucene}</version>
          </dependency>
       </dependencies>
 
@@ -505,7 +519,7 @@
                            <version>[1.7,)</version>
                         </requireJavaVersion>
                         <requireMavenVersion>
-                           <version>[3.0.3,)</version>
+                           <version>[3.0.5,)</version>
                         </requireMavenVersion>
                      </rules>
                   </configuration>

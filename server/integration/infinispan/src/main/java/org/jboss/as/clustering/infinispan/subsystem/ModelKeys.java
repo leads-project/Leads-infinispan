@@ -35,11 +35,13 @@ public class ModelKeys {
     static final String AUDIT_LOGGER = "audit-logger";
     static final String AUTHORIZATION = "authorization";
     static final String AUTHORIZATION_NAME = "AUTHORIZATION";
+    static final String AUTO_CONFIG = "auto-config";
     static final String AWAIT_INITIAL_TRANSFER = "await-initial-transfer";
     static final String BACKUP = "backup";
     static final String BACKUP_FAILURE_POLICY = "failure-policy";
     static final String BACKUP_STRATEGY = "strategy";
     static final String BACKUPS = "backups";
+    static final String BACKUP_FOR = "backup-for";
     static final String BATCH_SIZE = "batch-size";
     static final String BATCHING = "batching";
     static final String BINARY_KEYED_TABLE = "binary-keyed-table";
@@ -48,6 +50,7 @@ public class ModelKeys {
     static final String BUCKET_TABLE = "bucket-table";
     static final String BUFFER_SIZE = "buffer-size";
     static final String CACHE = "cache";
+    static final String CACHE_AVAILABILITY = "cache-availability";
     static final String CACHE_SIZE = "cache-size";
     // static final String CACHE_MODE = "cache-mode";
     static final String CACHE_CONTAINER = "cache-container";
@@ -124,13 +127,17 @@ public class ModelKeys {
     static final String MAX_CONNECTIONS_PER_HOST = "max-connections-per-host";
     static final String MAX_ENTRIES = "max-entries";
     static final String MAX_IDLE = "max-idle";
+    static final String MAX_RETRIES = "max-retries";
     static final String MAX_TOTAL_CONNECTIONS = "max-total-connections";
+    static final String MIGRATOR_NAME = "migrator-name";
     static final String MODE = "mode";
     static final String MODIFICATION_QUEUE_SIZE = "modification-queue-size";
     static final String MODULE = "module";
     static final String NAME = "name";
     static final String OUTBOUND_SOCKET_BINDING = "outbound-socket-binding";
     static final String OWNERS = "owners";
+    static final String PARTITION_HANDLING = "partition-handling";
+    static final String PARTITION_HANDLING_NAME = "PARTITION_HANDLING";
     static final String PASSIVATION = "passivation";
     static final String PATH = "path";
     static final String PERMISSIONS = "permissions";
@@ -146,8 +153,11 @@ public class ModelKeys {
     static final String READ_ONLY = "read-only";
     static final String REBALANCING = "rebalancing";
     static final String RELATIVE_TO = "relative-to";
+    static final String REMOTE_CACHE = "remote-cache";
+    static final String REMOTE_COMMAND_EXECUTOR = "remote-command-executor";
     static final String REMOTE_SERVER = "remote-server";
     static final String REMOTE_SERVERS = "remote-servers";
+    static final String REMOTE_SITE = "remote-site";
     static final String REMOTE_STORE_NAME = "REMOTE_STORE";
     static final String REMOTE_STORE = "remote-store";
     static final String REMOTE_TIMEOUT = "remote-timeout";
@@ -184,6 +194,7 @@ public class ModelKeys {
     static final String THREAD_POOL_SIZE = "thread-pool-size";
     static final String TIMEOUT = "timeout";
     static final String TIMESTAMP_COLUMN = "timestamp-column";
+    static final String TOTAL_ORDER_EXECUTOR = "total-order-executor";
     static final String TRANSACTION = "transaction";
     static final String TRANSACTION_NAME = "TRANSACTION";
     static final String TRANSPORT = "transport";
@@ -192,6 +203,7 @@ public class ModelKeys {
     static final String TX_INTERNAL_ID = "internal-id";
     @Deprecated static final String VIRTUAL_NODES = "virtual-nodes";
     static final String WAIT = "wait";
+    static final String WAIT_TIME = "wait-time";
     static final String WRITE_BEHIND = "write-behind";
     static final String WRITE_BEHIND_NAME = "WRITE_BEHIND";
 }

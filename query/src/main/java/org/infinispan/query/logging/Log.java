@@ -40,11 +40,11 @@ public interface Log extends org.infinispan.util.logging.Log {
    @Message(value = "Custom commands backend initialized backing index %s", id = 14004)
    void commandsBackendInitialized(String indexName);
 
-   @LogMessage(level = DEBUG)
+   @LogMessage(level = TRACE)
    @Message(value = "Sent list of LuceneWork %s to node %s", id = 14005)
    void workListRemotedTo(Object workList, Address primaryNodeAddress);
 
-   @LogMessage(level = DEBUG)
+   @LogMessage(level = TRACE)
    @Message(value = "Apply list of LuceneWork %s delegating to local indexing engine", id = 14006)
    void applyingChangeListLocally(List<LuceneWork> workList);
 
@@ -63,4 +63,24 @@ public interface Log extends org.infinispan.util.logging.Log {
 
    @Message(value = "An IOException happened where none where expected", id = 14010)
    CacheException unexpectedIOException(@Cause IOException e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Some indexing work was lost because of an InterruptedException", id = 14011)
+   void interruptedWhileBufferingWork(@Cause InterruptedException e);
+
+   @LogMessage(level = DEBUG)
+   @Message(value = "Waiting for index lock was successfull: '%1$s'", id = 14012)
+   void waitingForLockAcquired(boolean waitForAvailabilityInternal);
+
+   @Message(value = "Cache named '%1$s' is being shut down. No longer accepting remote commands.", id = 14013)
+   CacheException cacheIsStoppingNoCommandAllowed(String cacheName);
+
+   @LogMessage(level = INFO)
+   @Message(value = "Reindexed %1$d entities", id = 14014)
+   void indexingEntitiesCompleted(long nbrOfEntities);
+
+   @LogMessage(level = INFO)
+   @Message(value = "%1$d documents indexed in %2$d ms", id = 14015)
+   void indexingDocumentsCompleted(long doneCount, long elapsedMs);
+
 }

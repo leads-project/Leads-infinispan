@@ -1,12 +1,14 @@
 package org.infinispan.query.remote.indexing;
 
-import com.google.protobuf.Descriptors;
 import org.apache.lucene.document.Document;
 import org.hibernate.search.bridge.LuceneOptions;
 import org.infinispan.commons.CacheException;
 import org.infinispan.protostream.ProtobufParser;
 import org.infinispan.protostream.SerializationContext;
 import org.infinispan.protostream.TagHandler;
+import org.infinispan.protostream.descriptors.Descriptor;
+import org.infinispan.protostream.descriptors.JavaType;
+import org.infinispan.protostream.descriptors.Type;
 import org.infinispan.protostream.impl.WrappedMessageMarshaller;
 
 import java.io.IOException;
@@ -15,13 +17,13 @@ import java.io.IOException;
  * @author anistor@redhat.com
  * @since 6.0
  */
-class WrappedMessageTagHandler implements TagHandler {
+final class WrappedMessageTagHandler implements TagHandler {
 
    private final Document document;
    private final LuceneOptions luceneOptions;
    private final SerializationContext serCtx;
 
-   private Descriptors.Descriptor messageDescriptor;
+   private Descriptor messageDescriptor;
    private byte[] bytes;
    private Number numericValue;
    private String stringValue;
@@ -37,7 +39,7 @@ class WrappedMessageTagHandler implements TagHandler {
    }
 
    @Override
-   public void onTag(int fieldNumber, String fieldName, Descriptors.FieldDescriptor.Type type, Descriptors.FieldDescriptor.JavaType javaType, Object value) {
+   public void onTag(int fieldNumber, String fieldName, Type type, JavaType javaType, Object value) {
       switch (fieldNumber) {
          case WrappedMessageMarshaller.WRAPPED_BOOL:
             numericValue = Boolean.TRUE.equals(value) ? IndexingTagHandler.TRUE_INT : IndexingTagHandler.FALSE_INT;
@@ -72,12 +74,12 @@ class WrappedMessageTagHandler implements TagHandler {
    }
 
    @Override
-   public void onStartNested(int fieldNumber, String fieldName, Descriptors.Descriptor messageDescriptor) {
+   public void onStartNested(int fieldNumber, String fieldName, Descriptor messageDescriptor) {
       throw new IllegalStateException("No nested message is expected");
    }
 
    @Override
-   public void onEndNested(int fieldNumber, String fieldName, Descriptors.Descriptor messageDescriptor) {
+   public void onEndNested(int fieldNumber, String fieldName, Descriptor messageDescriptor) {
       throw new IllegalStateException("No nested message is expected");
    }
 
@@ -87,10 +89,14 @@ class WrappedMessageTagHandler implements TagHandler {
          if (messageDescriptor == null) {
             throw new IllegalStateException("Descriptor name is missing");
          }
-         try {
-            ProtobufParser.INSTANCE.parse(new IndexingTagHandler(messageDescriptor, document), messageDescriptor, bytes);
-         } catch (IOException e) {
-            throw new CacheException(e);
+         IndexingMetadata indexingMetadata = messageDescriptor.getProcessedAnnotation(IndexingMetadata.INDEXED_ANNOTATION);
+         // if the message definition is not annotated at all we consider all fields indexed and stored, just to be backwards compatible
+         if (indexingMetadata == null || indexingMetadata.isIndexed()) {
+            try {
+               ProtobufParser.INSTANCE.parse(new IndexingTagHandler(messageDescriptor, document), messageDescriptor, bytes);
+            } catch (IOException e) {
+               throw new CacheException(e);
+            }
          }
       } else if (numericValue != null) {
          //todo [anistor] how do we index a scalar value?

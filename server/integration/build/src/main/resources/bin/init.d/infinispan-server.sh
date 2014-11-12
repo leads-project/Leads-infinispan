@@ -88,7 +88,7 @@ start() {
   chown $ISPN_SERVER_USER $(dirname $ISPN_SERVER_PIDFILE) || true
 
   if [ ! -z "$ISPN_SERVER_USER" ]; then
-    if [ -x /etc/rc.d/init.d/functions ]; then
+    if [ -r /etc/rc.d/init.d/functions ]; then
       daemon --user $ISPN_SERVER_USER LAUNCH_JBOSS_IN_BACKGROUND=1 JBOSS_PIDFILE=$ISPN_SERVER_PIDFILE RUN_CONF="$ISPN_SERVER_RUN_CONF" $ISPN_SERVER_SCRIPT -c $ISPN_SERVER_CONFIG 2>&1 > $ISPN_SERVER_CONSOLE_LOG &
     else
       su - $ISPN_SERVER_USER -c "LAUNCH_JBOSS_IN_BACKGROUND=1 JBOSS_PIDFILE=$ISPN_SERVER_PIDFILE RUN_CONF=\"$ISPN_SERVER_RUN_CONF\" $ISPN_SERVER_SCRIPT -c $ISPN_SERVER_CONFIG" 2>&1 > $ISPN_SERVER_CONSOLE_LOG &
@@ -100,7 +100,7 @@ start() {
 
   until [ $count -gt $STARTUP_WAIT ]
   do
-    grep 'JBAS015874.*started in' $ISPN_SERVER_CONSOLE_LOG > /dev/null 
+    grep 'JBAS015874:' $ISPN_SERVER_CONSOLE_LOG > /dev/null
     if [ $? -eq 0 ] ; then
       launched=true
       break

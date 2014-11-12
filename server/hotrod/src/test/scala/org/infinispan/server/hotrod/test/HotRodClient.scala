@@ -16,7 +16,6 @@ import org.infinispan.test.TestingUtil
 import org.infinispan.commons.util.Util
 import org.infinispan.server.core.transport.ExtendedByteBuf._
 import org.infinispan.server.hotrod._
-import java.lang.IllegalStateException
 import java.lang.StringBuilder
 import javax.net.ssl.SSLEngine
 import io.netty.handler.ssl.SslHandler
@@ -25,9 +24,7 @@ import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.bootstrap.Bootstrap
 import io.netty.handler.codec.{ReplayingDecoder, MessageToByteEncoder}
 import io.netty.buffer.ByteBuf
-import io.netty.buffer.Unpooled;
 import io.netty.channel.socket.nio.NioSocketChannel
-import scala.Some
 import javax.security.sasl.SaslClient
 import org.infinispan.commons.util.concurrent.jdk8backported.EquivalentConcurrentHashMapV8
 import org.infinispan.commons.equivalence.{ByteArrayEquivalence, AnyEquivalence}
@@ -268,10 +265,10 @@ class HotRodClient(host: String, port: Int, val defaultCacheName: String, rspTim
       response
    }
 
-   def addClientListener(listener: TestClientListener,
+   def addClientListener(listener: TestClientListener, includeState: Boolean,
            filterFactory: NamedFactory, converterFactory: NamedFactory): TestResponse = {
       val op = new AddClientListenerOp(0xA0, protocolVersion, defaultCacheName,
-         1, 0, listener.getId, filterFactory, converterFactory)
+         1, 0, listener.getId, includeState, filterFactory, converterFactory)
       val handler = ch.pipeline.last.asInstanceOf[ClientHandler]
       handler.addClientListener(listener)
       writeOp(op)
@@ -285,6 +282,13 @@ class HotRodClient(host: String, port: Int, val defaultCacheName: String, rspTim
       val response = handler.getResponse(op.id)
       if (response.status == Success) handler.removeClientListener(listenerId)
       response
+   }
+
+   def size(): TestSizeResponse = {
+      val op = new SizeOp(0xA0, protocolVersion, defaultCacheName, 1, 0)
+      val writeFuture = writeOp(op)
+      val handler = ch.pipeline.last.asInstanceOf[ClientHandler]
+      handler.getResponse(op.id).asInstanceOf[TestSizeResponse]
    }
 
 }
@@ -315,6 +319,7 @@ private class Encoder(protocolVersion: Byte) extends MessageToByteEncoder[Object
          case op: AddClientListenerOp =>
             writeHeader(op, buffer)
             writeRangedBytes(op.listenerId, buffer)
+            buffer.writeByte(if (op.includeState) 1 else 0)
             writeNamedFactory(op.filterFactory, buffer)
             writeNamedFactory(op.converterFactory, buffer)
          case op: RemoveClientListenerOp =>
@@ -327,7 +332,8 @@ private class Encoder(protocolVersion: Byte) extends MessageToByteEncoder[Object
             if (op.code != 0x13 && op.code != 0x15
                     && op.code != 0x17 && op.code != 0x19
                     && op.code != 0x1D && op.code != 0x1F
-                    && op.code != 0x21 && op.code != 0x23) { // if it's a key based op...
+                    && op.code != 0x21 && op.code != 0x23
+                    && op.code != 0x29) { // if it's a key based op...
                writeRangedBytes(op.key, buffer) // key length + key
                if (op.value != null) {
                   if (op.code != 0x0D) { // If it's not removeIfUnmodified...
@@ -438,12 +444,17 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[Void] with 
          }
          case PutResponse | PutIfAbsentResponse | ReplaceResponse | ReplaceIfUnmodifiedResponse
               | RemoveResponse | RemoveIfUnmodifiedResponse => {
-            if ((op.flags & ProtocolFlag.ForceReturnPreviousValue.id) == 1) {
+            val checkPrevious = op.version match {
+               case 10 | 11 | 12 | 13 => (op.flags & ProtocolFlag.ForceReturnPreviousValue.id) == 1
+               case _ => status == SuccessWithPrevious || status == NotExecutedWithPrevious
+            }
+
+            if (checkPrevious) {
                val length = readUnsignedInt(buf)
                if (length == 0) {
                   new TestResponseWithPrevious(op.version, id, op.cacheName,
-                        op.clientIntel, opCode, status, op.topologyId, None,
-                        topologyChangeResponse)
+                     op.clientIntel, opCode, status, op.topologyId, None,
+                     topologyChangeResponse)
                } else {
                   val previous = new Array[Byte](length)
                   buf.readBytes(previous)
@@ -551,19 +562,24 @@ private class Decoder(client: HotRodClient) extends ReplayingDecoder[Void] with 
          case CacheEntryCreatedEventResponse | CacheEntryModifiedEventResponse | CacheEntryRemovedEventResponse =>
             val listenerId = readRangedBytes(buf)
             val isCustom = buf.readByte()
+            val isRetried = if (buf.readByte() == 1) true else false
             if (isCustom == 1) {
                val eventData = readRangedBytes(buf)
-               new TestCustomEvent(client.protocolVersion, id, client.defaultCacheName, opCode, listenerId, eventData)
+               new TestCustomEvent(client.protocolVersion, id, client.defaultCacheName, opCode, listenerId, isRetried, eventData)
             } else {
                val key = readRangedBytes(buf)
                if (opCode == CacheEntryRemovedEventResponse) {
-                  new TestKeyEvent(client.protocolVersion, id, client.defaultCacheName, listenerId, key)
+                  new TestKeyEvent(client.protocolVersion, id, client.defaultCacheName, listenerId, isRetried, key)
                } else {
                   val dataVersion = buf.readLong()
                   new TestKeyWithVersionEvent(client.protocolVersion, id, client.defaultCacheName,
-                     opCode, listenerId, key, dataVersion)
+                     opCode, listenerId, isRetried, key, dataVersion)
                }
             }
+         case SizeResponse =>
+            val size = readUnsignedLong(buf)
+            new TestSizeResponse(op.version, id, op.cacheName, op.clientIntel,
+               size, op.topologyId, topologyChangeResponse)
          case ErrorResponse => {
             if (op == null)
                new TestErrorResponse(10, id, "", 0, status, 0,
@@ -813,6 +829,7 @@ class AddClientListenerOp(override val magic: Int,
         override val clientIntel: Byte,
         override val topologyId: Int,
         val listenerId: Bytes,
+        val includeState: Boolean,
         val filterFactory: NamedFactory,
         val converterFactory: NamedFactory)
         extends Op(magic, version, 0x25, cacheName, null, 0, 0, null, 0, 0,
@@ -846,6 +863,14 @@ class AuthOp(override val magic: Int,
               val response: Array[Byte])
       extends Op(magic, version, code, cacheName, null, 0, 0, null, 0, 0,
                  clientIntel, topologyId)
+
+class SizeOp(override val magic: Int,
+      override val version: Byte,
+      override val cacheName: String,
+      override val clientIntel: Byte,
+      override val topologyId: Int)
+      extends Op(magic, version, 0x29, cacheName, null, 0, 0, null, 0, 0,
+         clientIntel, topologyId)
 
 class TestResponse(override val version: Byte, override val messageId: Long,
                    override val cacheName: String, override val clientIntel: Short,
@@ -953,17 +978,23 @@ class TestAuthResponse(override val version: Byte, override val messageId: Long,
 
 class TestKeyWithVersionEvent(override val version: Byte, override val messageId: Long,
         override val cacheName: String, override val operation: OperationResponse,
-        val listenerId: Bytes, val key: Bytes, val dataVersion: Long)
+        val listenerId: Bytes, val isRetried: Boolean, val key: Bytes, val dataVersion: Long)
         extends TestResponse(version, messageId, cacheName, 0, operation, Success, 0, None)
 
 class TestKeyEvent(override val version: Byte, override val messageId: Long,
-        override val cacheName: String, val listenerId: Bytes, val key: Bytes)
+        override val cacheName: String, val listenerId: Bytes, val isRetried: Boolean, val key: Bytes)
         extends TestResponse(version, messageId, cacheName, 0, CacheEntryRemovedEventResponse, Success, 0, None)
 
 class TestCustomEvent(override val version: Byte, override val messageId: Long,
         override val cacheName: String, override val operation: OperationResponse,
-        val listenerId: Bytes, val eventData: Bytes)
+        val listenerId: Bytes, val isRetried: Boolean, val eventData: Bytes)
         extends TestResponse(version, messageId, cacheName, 0, operation, Success, 0, None)
+
+class TestSizeResponse(override val version: Byte, override val messageId: Long,
+      override val cacheName: String, override val clientIntel: Short,
+      val size: Long, override val topologyId: Int,
+      override val topologyResponse: Option[AbstractTestTopologyAwareResponse])
+      extends TestResponse(version, messageId, cacheName, clientIntel, SizeResponse, Success, topologyId, topologyResponse)
 
 case class ServerNode(host: String, port: Int)
 

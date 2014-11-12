@@ -6,8 +6,6 @@ import org.infinispan.commands.FlagAffectedCommand;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
 import org.infinispan.commons.CacheException;
-import org.infinispan.configuration.cache.ClusterLoaderConfiguration;
-import org.infinispan.configuration.cache.StoreConfiguration;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextContainer;
@@ -19,12 +17,11 @@ import org.infinispan.factories.annotations.Stop;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.CacheContainer;
+import org.infinispan.statetransfer.OutdatedTopologyException;
 import org.infinispan.transaction.WriteSkewException;
 import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
-
-import java.util.List;
 
 import javax.transaction.Status;
 import javax.transaction.SystemException;
@@ -89,15 +86,9 @@ public class InvocationContextInterceptor extends CommandInterceptor {
          }
 
          if (status.isTerminated()) {
-            throw new IllegalStateException(String.format(
-                  "%s is in 'TERMINATED' state and so it does not accept new invocations. " +
-                        "Either restart it or recreate the cache container.",
-                  getCacheNamePrefix()));
+            throw log.cacheIsTerminated(getCacheNamePrefix());
          } else if (stoppingAndNotAllowed(status, ctx)) {
-            throw new IllegalStateException(String.format(
-                  "%s is in 'STOPPING' state and this is an invocation not belonging to an on-going transaction, so it does not accept new invocations. " +
-                        "Either restart it or recreate the cache container.",
-                  getCacheNamePrefix()));
+            throw log.cacheIsStopping(getCacheNamePrefix());
          }
 
          LogFactory.pushNDC(componentRegistry.getCacheName(), trace);
@@ -127,6 +118,8 @@ public class InvocationContextInterceptor extends CommandInterceptor {
                   if (th instanceof WriteSkewException) {
                      // We log this as DEBUG rather than ERROR - see ISPN-2076
                      log.debug("Exception executing call", th);
+                  } else if (th instanceof OutdatedTopologyException) {
+                     log.outdatedTopology(th);
                   } else {
                      log.executionError(th);
                   }

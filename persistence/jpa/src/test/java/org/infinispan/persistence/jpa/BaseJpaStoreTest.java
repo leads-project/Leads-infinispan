@@ -1,24 +1,22 @@
 package org.infinispan.persistence.jpa;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
 import javax.persistence.Persistence;
 
-import org.hornetq.utils.ConcurrentHashSet;
 import org.infinispan.marshall.core.MarshalledEntry;
 import org.infinispan.marshall.core.MarshalledEntryImpl;
 import org.infinispan.persistence.spi.AdvancedCacheLoader;
 import org.infinispan.persistence.spi.PersistenceException;
+import org.infinispan.util.concurrent.ConcurrentHashSet;
 import org.testng.annotations.Test;
 
 /**
@@ -72,6 +70,9 @@ public abstract class BaseJpaStoreTest extends AbstractJpaStoreTest {
 		cs.write(createEntry(obj1));
 		cs.write(createEntry(obj2));
 		cs.write(createEntry(obj3));
+      assertEquals(cs.load(obj1.getKey()).getValue(), obj1.getValue());
+      assertEquals(cs.load(obj2.getKey()).getValue(), obj2.getValue());
+      assertEquals(cs.load(obj3.getKey()).getValue(), obj3.getValue());
 
       final ConcurrentHashMap map = new ConcurrentHashMap();
       AdvancedCacheLoader.CacheLoaderTask taskWithValues = new AdvancedCacheLoader.CacheLoaderTask() {
@@ -280,8 +281,6 @@ public abstract class BaseJpaStoreTest extends AbstractJpaStoreTest {
       cs.store(se2);
       cs.store(se3);
       cs.store(se4);
-
-      sleepForStopStartTest();
 
       cs.stop();
       cs.start();

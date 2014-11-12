@@ -1,13 +1,11 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<project
-   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
-   xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
    <modelVersion>4.0.0</modelVersion>
 
    <parent>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-parent</artifactId>
-      <version>7.0.0-SNAPSHOT</version>
+      <version>7.0.1-SNAPSHOT</version>
       <relativePath>../../parent/pom.xml</relativePath>
    </parent>
 
@@ -15,6 +13,26 @@
    <name>Integration tests: Karaf</name>
    <packaging>bundle</packaging>
    <description>Integration tests for Infinispan running in OSGi/Karaf</description>
+
+   <profiles>
+      <profile>
+         <id>disable-osgi-tests</id>
+         <activation>
+            <activeByDefault>false</activeByDefault>
+            
+            <jdk>[1.8,1.9]</jdk>
+         </activation>
+         <properties>
+            <skipOSGiTests>true</skipOSGiTests>
+         </properties>
+      </profile>
+      <profile>
+         <id>smoke</id>
+         <properties>
+            <skipOSGiTests>true</skipOSGiTests>
+         </properties>
+      </profile>
+   </profiles>
 
    <dependencies>
       <dependency>
@@ -48,6 +66,33 @@
          <scope>test</scope>
       </dependency>
       <dependency>
+         <groupId>org.hibernate</groupId>
+         <artifactId>hibernate-core</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.hibernate</groupId>
+         <artifactId>hibernate-osgi</artifactId>
+         <version>${version.hibernate.core}</version>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.hibernate.javax.persistence</groupId>
+         <artifactId>hibernate-jpa-2.1-api</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>${project.groupId}</groupId>
+         <artifactId>infinispan-cachestore-jpa</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>${project.groupId}</groupId>
+         <artifactId>infinispan-cachestore-jpa</artifactId>
+         <type>test-jar</type>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
          <groupId>junit</groupId>
          <artifactId>junit</artifactId>
       </dependency>
@@ -72,6 +117,11 @@
       <dependency>
          <groupId>${project.groupId}</groupId>
          <artifactId>infinispan-cachestore-remote</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>${project.groupId}</groupId>
+         <artifactId>infinispan-osgi</artifactId>
+         <scope>test</scope>
       </dependency>
       <dependency>
          <groupId>com.mchange</groupId>
@@ -121,10 +171,6 @@
       </dependency>
       <dependency>
          <groupId>org.ops4j.pax.url</groupId>
-         <artifactId>pax-url-mvn</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.ops4j.pax.url</groupId>
          <artifactId>pax-url-wrap</artifactId>
       </dependency>
       <dependency>
@@ -135,11 +181,12 @@
    </dependencies>
 
    <properties>
-      <defaultTestGroup></defaultTestGroup>
-      <defaultExcludedTestGroup></defaultExcludedTestGroup>
+      <defaultTestGroup />
+      <defaultExcludedTestGroup />
       <infinispan.test.parallel.threads>1</infinispan.test.parallel.threads>
       <infinispan.test.jgroups.protocol>tcp</infinispan.test.jgroups.protocol>
       <target.tmp.dir>${project.build.directory}/tmp/</target.tmp.dir>
+      <skipOSGiTests>${skipTests}</skipOSGiTests>
    </properties>
 
    <build>
@@ -153,8 +200,7 @@
          </testResource>
       </testResources>
       <plugins>
-         <!-- IMPORTANT: generates META-INF/maven/dependencies.properties 
-            required by PAX-EXAM framework -->
+         
          <plugin>
             <groupId>org.apache.servicemix.tooling</groupId>
             <artifactId>depends-maven-plugin</artifactId>
@@ -174,7 +220,7 @@
                   <phase>generate-sources</phase>
                   <configuration>
                      <target>
-                        <mkdir dir="${target.tmp.dir}"/>
+                        <mkdir dir="${target.tmp.dir}" />
                      </target>
                   </configuration>
                   <goals>
@@ -192,23 +238,40 @@
                <systemPropertyVariables>
                   <java.io.tmpdir>${target.tmp.dir}</java.io.tmpdir>
                </systemPropertyVariables>
+               <runOrder>alphabetical</runOrder>
+               <skipTests>${skipOSGiTests}</skipTests>
+               <testNGArtifactName>none:none</testNGArtifactName>
+               <properties>
+                  <property>
+                     <name>listener</name>
+                     <value>org.junit.runner.notification.RunListener</value>
+                  </property>
+               </properties>
             </configuration>
             <executions>
+               
                <execution>
                   <id>default-test</id>
+                  <phase>test</phase>
+                  <goals>
+                     <goal>test</goal>
+                  </goals>
                   <configuration>
-                     <testNGArtifactName>none:none</testNGArtifactName>
-                     <properties>
-                        <property>
-                           <name>listener</name>
-                           <value>org.junit.runner.notification.RunListener</value>
-                        </property>
-                     </properties>
+                     <groups>org.ops4j.pax.exam.spi.reactors.PerSuite</groups>
+                  </configuration>
+               </execution>
+               <execution>
+                  <id>new-container</id>
+                  <phase>test</phase>
+                  <goals>
+                     <goal>test</goal>
+                  </goals>
+                  <configuration>
+                     <excludedGroups>org.ops4j.pax.exam.spi.reactors.PerSuite</excludedGroups>
                   </configuration>
                </execution>
             </executions>
          </plugin>
       </plugins>
    </build>
-
 </project>

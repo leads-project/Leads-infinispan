@@ -21,6 +21,7 @@ import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.util.Either;
+import org.infinispan.commons.util.Util;
 
 /**
  * A Hot Rod encoder/decoder for version 1.0 of the protocol.
@@ -121,6 +122,26 @@ public class Codec10 implements Codec {
    }
 
    @Override
+   public byte[] returnPossiblePrevValue(Transport transport, short status, Flag[] flags) {
+      if (hasForceReturn(flags)) {
+         byte[] bytes = transport.readArray();
+         if (log.isTraceEnabled()) log.tracef("Previous value bytes is: %s", Util.printArray(bytes, false));
+         //0-length response means null
+         return bytes.length == 0 ? null : bytes;
+      } else {
+         return null;
+      }
+   }
+
+   private boolean hasForceReturn(Flag[] flags) {
+      if (flags == null) return false;
+      for (Flag flag : flags) {
+         if (flag == Flag.FORCE_RETURN_VALUE) return true;
+      }
+      return false;
+   }
+
+   @Override
    public Log getLog() {
       return log;
    }
@@ -178,10 +199,10 @@ public class Codec10 implements Codec {
    protected void readNewTopologyIfPresent(Transport transport, HeaderParams params) {
       short topologyChangeByte = transport.readByte();
       if (topologyChangeByte == 1)
-         readNewTopologyAndHash(transport, params.topologyId);
+         readNewTopologyAndHash(transport, params.topologyId, params.cacheName);
    }
 
-   protected void readNewTopologyAndHash(Transport transport, AtomicInteger topologyId) {
+   protected void readNewTopologyAndHash(Transport transport, AtomicInteger topologyId, byte[] cacheName) {
       final Log localLog = getLog();
       int newTopologyId = transport.readVInt();
       topologyId.set(newTopologyId);
@@ -199,12 +220,12 @@ public class Codec10 implements Codec {
          localLog.newTopology(transport.getRemoteSocketAddress(), newTopologyId,
                socketAddresses.size(), socketAddresses);
       }
-      transport.getTransportFactory().updateServers(socketAddresses);
+      transport.getTransportFactory().updateServers(socketAddresses, cacheName);
       if (hashFunctionVersion == 0) {
          localLog.trace("Not using a consistent hash function (hash function version == 0).");
       } else {
          transport.getTransportFactory().updateHashFunction(
-               servers2Hash, numKeyOwners, hashFunctionVersion, hashSpace);
+               servers2Hash, numKeyOwners, hashFunctionVersion, hashSpace, cacheName);
       }
    }
 

@@ -2,14 +2,13 @@ package org.infinispan.query.persistence;
 
 import java.util.List;
 
-import junit.framework.Assert;
-
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.dummy.DummyInMemoryStoreConfigurationBuilder;
@@ -26,6 +25,8 @@ import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author Sanne Grinovero <sanne@infinispan.org> (C) 2011 Red Hat Inc.
@@ -78,7 +79,7 @@ public class EntryActivatingTest extends AbstractInfinispanTest {
       verifyFullTextHasMatches(1);
 
       cache.stop();
-      assert ((SearchFactoryIntegrator)search.getSearchFactory()).isStopped();
+      assert search.getSearchFactory().isStopped();
       TestingUtil.killCacheManagers(cm);
 
       // Now let's check the entry is not re-indexed during data preloading:
@@ -98,7 +99,7 @@ public class EntryActivatingTest extends AbstractInfinispanTest {
             .preload(true)
             .purgeOnStartup(true)
          .indexing()
-            .enable()
+            .index(Index.ALL)
             .addProperty("default.directory_provider", "ram")
             .addProperty("lucene_version", "LUCENE_CURRENT")
          ;
@@ -111,7 +112,7 @@ public class EntryActivatingTest extends AbstractInfinispanTest {
    private void verifyFullTextHasMatches(int i) throws ParseException {
       Query query = queryParser.parse("Italy");
       List<Object> list = search.getQuery(query, Country.class, City.class).list();
-      Assert.assertEquals( i , list.size() );
+      assertEquals(i, list.size());
    }
 
 }

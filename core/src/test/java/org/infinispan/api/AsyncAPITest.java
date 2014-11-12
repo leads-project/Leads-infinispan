@@ -2,6 +2,8 @@ package org.infinispan.api;
 
 import org.infinispan.Cache;
 import org.infinispan.commons.util.Util;
+import org.infinispan.container.entries.ImmortalCacheEntry;
+import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.TestingUtil;
@@ -19,7 +21,7 @@ public class AsyncAPITest extends SingleCacheManagerTest {
 
    private Cache<String, String> c;
 
-   private long startTime;
+   private Long startTime;
 
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
@@ -149,6 +151,8 @@ public class AsyncAPITest extends SingleCacheManagerTest {
       assert f.get() == null;
       assert f.isDone();
       verifyEviction("k", "v", 1000, true);
+
+      log.warn("STARTING FAILING ONE");
 
       // lifespan and max idle (test max idle)
       f = c.putAsync("k", "v", 3000, TimeUnit.MILLISECONDS, 1000, TimeUnit.MILLISECONDS);
@@ -332,7 +336,7 @@ public class AsyncAPITest extends SingleCacheManagerTest {
     * @param touchKey indicates if the poll for key existence should read the key and cause idle time to be reset
     */
    private void verifyEviction(final String key, final String expectedValue, final long expectedLifetime, final boolean touchKey) {
-      if (startTime == -1) {
+      if (startTime == null) {
          throw new IllegalStateException("markStartTime() must be called before verifyEviction(..)");
       }
 
@@ -345,17 +349,20 @@ public class AsyncAPITest extends SingleCacheManagerTest {
                if (touchKey) {
                   return !c.containsKey(key);        //this check DOES read the key so it resets the idle time
                } else {
-                  return !c.keySet().contains(key);  //this check DOES NOT read the key so it does not interfere with idle time
+                  //this check DOES NOT read the key so it does not interfere with idle time
+                  InternalCacheEntry entry = c.getAdvancedCache().getDataContainer().peek(key);
+                  return entry == null || entry.isExpired(System.currentTimeMillis());
                }
             }
          }, 3 * expectedLifetime, (int) (3 * expectedLifetime / pollInterval) + 1);
          long waitTime = Util.currentMillisFromNanotime() - startTime;
-         assertNull(c.get(key));
+         Object value = c.get(key);
+         assertNull(value);
 
          long lowerBound = expectedLifetime - expectedLifetime / 4;
          assertTrue("Entry evicted too soon!", lowerBound <= waitTime);
       } finally {
-         startTime = -1;
+         startTime = null;
       }
    }
 }

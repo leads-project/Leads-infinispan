@@ -1,6 +1,7 @@
 package org.infinispan.test;
 
 import static java.io.File.separator;
+import static org.infinispan.persistence.manager.PersistenceManager.AccessMode.BOTH;
 import static org.testng.AssertJUnit.assertFalse;
 
 import java.io.File;
@@ -46,8 +47,10 @@ import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
+import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.InvocationContextFactory;
+import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.factories.KnownComponentNames;
@@ -74,7 +77,6 @@ import org.infinispan.marshall.core.ExternalizerTable;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.metadata.impl.InternalMetadataImpl;
-import org.infinispan.registry.ClusterRegistry;
 import org.infinispan.registry.impl.ClusterRegistryImpl;
 import org.infinispan.remoting.ReplicationQueue;
 import org.infinispan.remoting.transport.Address;
@@ -83,8 +85,6 @@ import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.infinispan.security.impl.SecureCacheImpl;
 import org.infinispan.statetransfer.StateTransferManager;
 import org.infinispan.topology.CacheTopology;
-import org.infinispan.topology.DefaultRebalancePolicy;
-import org.infinispan.topology.RebalancePolicy;
 import org.infinispan.transaction.impl.TransactionTable;
 import org.infinispan.util.concurrent.WithinThreadExecutor;
 import org.infinispan.util.concurrent.locks.LockManager;
@@ -100,6 +100,9 @@ public class TestingUtil {
    private static final Log log = LogFactory.getLog(TestingUtil.class);
    private static final Random random = new Random();
    public static final String TEST_PATH = "infinispanTempFiles";
+   public static final String JGROUPS_CONFIG = "<jgroups>\n" +
+         "      <stack-file name=\"tcp\" path=\"jgroups-tcp.xml\"/>\n" +
+         "   </jgroups>";
    public static final String INFINISPAN_START_TAG = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<infinispan\n" +
          "      xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
          "      xsi:schemaLocation=\"urn:infinispan:config:7.0 http://www.infinispan.org/schemas/infinispan-config-7.0.xsd\"\n" +
@@ -137,8 +140,8 @@ public class TestingUtil {
     *
     * @return field value
     */
-   public static Object extractField(Object target, String fieldName) {
-      return extractField(target.getClass(), target, fieldName);
+   public static <T> T extractField(Object target, String fieldName) {
+      return (T) extractField(target.getClass(), target, fieldName);
    }
 
    public static void replaceField(Object newValue, String fieldName, Object owner, Class baseType) {
@@ -182,24 +185,31 @@ public class TestingUtil {
    }
 
    public static void waitForRehashToComplete(Cache... caches) {
-      final int REHASH_TIMEOUT_SECONDS = 180; //Needs to be rather large to prevent sporadic failures on CI
+      final int REHASH_TIMEOUT_SECONDS = 60; //Needs to be rather large to prevent sporadic failures on CI
       final long giveup = System.nanoTime() + TimeUnit.SECONDS.toNanos(REHASH_TIMEOUT_SECONDS);
       for (Cache c : caches) {
          if (c instanceof SecureCacheImpl) {
             c = (Cache) extractField(SecureCacheImpl.class, c, "delegate");
          }
          StateTransferManager stateTransferManager = extractComponent(c, StateTransferManager.class);
-         DefaultRebalancePolicy rebalancePolicy = (DefaultRebalancePolicy) TestingUtil.extractGlobalComponent(c.getCacheManager(), RebalancePolicy.class);
          Address cacheAddress = c.getAdvancedCache().getRpcManager().getAddress();
          while (true) {
             CacheTopology cacheTopology = stateTransferManager.getCacheTopology();
-            boolean rebalanceInProgress = stateTransferManager.isStateTransferInProgress();
-            boolean chIsBalanced = !rebalanceInProgress && rebalancePolicy.isBalanced(cacheTopology.getCurrentCH());
-            boolean chContainsAllMembers = cacheTopology.getCurrentCH().getMembers().size() == caches.length;
-            if (chIsBalanced && chContainsAllMembers)
+            ConsistentHash currentCH = cacheTopology.getCurrentCH();
+            boolean rebalanceInProgress = cacheTopology.getPendingCH() != null;
+            boolean chContainsAllMembers = currentCH.getMembers().size() == caches.length;
+            boolean currentChIsBalanced = true;
+            int actualNumOwners = Math.min(currentCH.getNumOwners(), currentCH.getMembers().size());
+            for (int i = 0; i < currentCH.getNumSegments(); i++) {
+               if (currentCH.locateOwnersForSegment(i).size() < actualNumOwners) {
+                  currentChIsBalanced = false;
+                  break;
+               }
+            }
+            if (chContainsAllMembers && !rebalanceInProgress && currentChIsBalanced)
                break;
 
-            if (System.nanoTime() > giveup) {
+            if (System.nanoTime() - giveup > 0) {
                String message;
                if (!chContainsAllMembers) {
                   Address[] addresses = new Address[caches.length];
@@ -211,7 +221,8 @@ public class TestingUtil {
                         cacheAddress, Arrays.toString(addresses), cacheTopology.getCurrentCH().getMembers());
                } else {
                   message = String.format("Timed out waiting for rebalancing to complete on node %s, " +
-                        "current topology is %s", c.getCacheManager().getAddress(), cacheTopology);
+                        "current topology is %s. rebalanceInProgress=%s, currentChIsBalanced=%s", c.getCacheManager().getAddress(),
+                                          cacheTopology, rebalanceInProgress, currentChIsBalanced);
                }
                log.error(message);
                throw new RuntimeException(message);
@@ -599,10 +610,14 @@ public class TestingUtil {
    }
 
    public static void killCacheManagers(EmbeddedCacheManager... cacheManagers) {
+      killCacheManagers(false, cacheManagers);
+   }
+
+   public static void killCacheManagers(boolean clear, EmbeddedCacheManager... cacheManagers) {
       // stop the caches first so that stopping the cache managers doesn't trigger a rehash
       for (EmbeddedCacheManager cm : cacheManagers) {
          try {
-            killCaches(getRunningCaches(cm));
+            killCaches(clear, getRunningCaches(cm));
          } catch (Throwable e) {
             log.warn("Problems stopping cache manager " + cm, e);
          }
@@ -691,7 +706,7 @@ public class TestingUtil {
 
    public static void clearCacheLoader(Cache cache) {
       PersistenceManager persistenceManager = TestingUtil.extractComponent(cache, PersistenceManager.class);
-      persistenceManager.clearAllStores(false);
+      persistenceManager.clearAllStores(BOTH);
    }
 
    public static <K, V> List<CacheLoader<K, V>> cachestores(List<Cache<K, V>> caches) {
@@ -727,6 +742,13 @@ public class TestingUtil {
     * Kills a cache - stops it and rolls back any associated txs
     */
    public static void killCaches(Collection<Cache> caches) {
+      killCaches(false, caches);
+   }
+
+   /**
+    * Kills a cache - stops it and rolls back any associated txs
+    */
+   public static void killCaches(boolean clear, Collection<Cache> caches) {
       for (Cache c : caches) {
          try {
             if (c != null && c.getStatus() == ComponentStatus.RUNNING) {
@@ -740,9 +762,15 @@ public class TestingUtil {
                   }
                }
                if (c.getAdvancedCache().getRpcManager() != null) {
-                  log.tracef("Cache contents on %s before stopping: %s", c.getAdvancedCache().getRpcManager().getAddress(), c.entrySet());
+                  log.tracef("Cache contents on %s before stopping: %s", c.getAdvancedCache().getRpcManager().getAddress(),
+                             c.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL).entrySet());
                } else {
-                  log.tracef("Cache contents before stopping: %s", c.entrySet());
+                  log.tracef("Cache contents before stopping: %s", c.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL).entrySet());
+               }
+               if (clear) {
+                  try {
+                     c.clear();
+                  } catch (Exception ignored) {}
                }
                c.stop();
             }
@@ -934,7 +962,7 @@ public class TestingUtil {
       }
    }
 
-   public static CommandsFactory extractCommandsFactory(Cache<Object, Object> cache) {
+   public static CommandsFactory extractCommandsFactory(Cache<?, ?> cache) {
       return (CommandsFactory) extractField(cache, "commandsFactory");
    }
 
@@ -1079,10 +1107,13 @@ public class TestingUtil {
       JGroupsTransport jgt = (JGroupsTransport) TestingUtil.extractComponent(cache, Transport.class);
       Channel ch = jgt.getChannel();
       ProtocolStack ps = ch.getProtocolStack();
-      DELAY delay = new DELAY();
+      DELAY delay = (DELAY) ps.findProtocol(DELAY.class);
+      if (delay==null) {
+         delay = new DELAY();
+         ps.insertProtocol(delay, ProtocolStack.ABOVE, TP.class);
+      }
       delay.setInDelay(in_delay_millis);
       delay.setOutDelay(out_delay_millis);
-      ps.insertProtocol(delay, ProtocolStack.ABOVE, TP.class);
       return delay;
    }
 
@@ -1101,7 +1132,7 @@ public class TestingUtil {
    }
 
    /**
-    * See {@link #tmpDirectory(AbstractInfinispanTest)}
+    * See {@link #tmpDirectory(Class)}
     *
     * @return an absolute path
     */
@@ -1136,7 +1167,7 @@ public class TestingUtil {
       return prefix + m.getName();
    }
 
-   public static TransactionTable getTransactionTable(Cache<Object, Object> cache) {
+   public static TransactionTable getTransactionTable(Cache<?, ?> cache) {
       return cache.getAdvancedCache().getComponentRegistry().getComponent(TransactionTable.class);
    }
 
@@ -1231,21 +1262,40 @@ public class TestingUtil {
     *
     * @param tm transaction manager
     * @param c callable instance to run within a transaction
-    * @param <T> type of callable return
+    * @param <T> type returned from the callable
     * @return returns whatever the callable returns
     * @throws Exception
     */
    public static <T> T withTx(TransactionManager tm, Callable<T> c) throws Exception {
-      tm.begin();
-      try {
-         return c.call();
-      } catch (Exception e) {
-         tm.setRollbackOnly();
-         throw e;
-      } finally {
-         if (tm.getStatus() == Status.STATUS_ACTIVE) tm.commit();
-         else tm.rollback();
-      }
+      return withTxCallable(tm, c).call();
+   }
+
+   /**
+    * Returns a callable that will call the provided callable within a transaction.  This method guarantees that the
+    * right pattern is used to make sure that the transaction is always either committed or rollbacked around
+    * the callable.
+    *
+    * @param tm transaction manager
+    * @param c callable instance to run within a transaction
+    * @param <T> tyep of callable to return
+    * @return The callable to invoke.  Note as long as the provided callable is thread safe this callable will be as well
+    */
+   public static <T> Callable<T> withTxCallable(final TransactionManager tm, final Callable<? extends T> c) {
+      return new Callable<T>() {
+         @Override
+         public T call() throws Exception {
+            tm.begin();
+            try {
+               return c.call();
+            } catch (Exception e) {
+               tm.setRollbackOnly();
+               throw e;
+            } finally {
+               if (tm.getStatus() == Status.STATUS_ACTIVE) tm.commit();
+               else tm.rollback();
+            }
+         }
+      };
    }
 
    /**
@@ -1259,7 +1309,7 @@ public class TestingUtil {
       try {
          c.call();
       } finally {
-         TestingUtil.killCacheManagers(c.cm);
+         TestingUtil.killCacheManagers(c.clearBeforeKill(), c.cm);
       }
    }
 
@@ -1308,9 +1358,10 @@ public class TestingUtil {
    }
 
 
-   public static <K, V> CacheLoader<K, V> getFirstLoader(Cache<K, V> cache) {
+   public static <T extends CacheLoader<K, V>, K, V>  T getFirstLoader(Cache<K, V> cache) {
       PersistenceManagerImpl persistenceManager = (PersistenceManagerImpl) extractComponent(cache, PersistenceManager.class);
-      return persistenceManager.getAllLoaders().get(0);
+      //noinspection unchecked
+      return (T) persistenceManager.getAllLoaders().get(0);
    }
 
    @SuppressWarnings("unchecked")
@@ -1376,13 +1427,13 @@ public class TestingUtil {
       AdvancedCache<K, V> advCache = cache.getAdvancedCache();
       PersistenceManager pm = advCache.getComponentRegistry().getComponent(PersistenceManager.class);
       StreamingMarshaller marshaller = advCache.getComponentRegistry().getCacheMarshaller();
-      pm.writeToAllStores(new MarshalledEntryImpl(key, value, null, marshaller), false);
+      pm.writeToAllStores(new MarshalledEntryImpl(key, value, null, marshaller), BOTH);
    }
 
    public static <K, V> boolean deleteFromAllStores(K key, Cache<K, V> cache) {
       AdvancedCache<K, V> advCache = cache.getAdvancedCache();
       PersistenceManager pm = advCache.getComponentRegistry().getComponent(PersistenceManager.class);
-      return pm.deleteFromAllStores(key, false);
+      return pm.deleteFromAllStores(key, BOTH);
    }
 
    public static Subject makeSubject(String... principals) {
@@ -1434,6 +1485,26 @@ public class TestingUtil {
             return false;
          return true;
       }
+   }
+
+   public static <T, W extends T> W wrapGlobalComponent(CacheContainer cacheContainer, Class<T> tClass,
+                                                        WrapFactory<T, W, CacheContainer> factory, boolean rewire) {
+      T current = extractGlobalComponent(cacheContainer, tClass);
+      W wrap = factory.wrap(cacheContainer, current);
+      replaceComponent(cacheContainer, tClass, wrap, rewire);
+      return wrap;
+   }
+
+   public static <T, W extends T> W wrapComponent(Cache<?, ?> cache, Class<T> tClass,
+                                                  WrapFactory<T, W, Cache<?, ?>> factory, boolean rewire) {
+      T current = extractComponent(cache, tClass);
+      W wrap = factory.wrap(cache, current);
+      replaceComponent(cache, tClass, wrap, rewire);
+      return wrap;
+   }
+
+   public static interface WrapFactory<T, W, C> {
+      W wrap(C wrapOn, T current);
    }
 
 }

@@ -1,22 +1,25 @@
 package org.infinispan.security;
 
-import java.util.Collections;
-import java.util.concurrent.TimeUnit;
-
-import javax.transaction.NotSupportedException;
-import javax.transaction.SystemException;
-
 import org.infinispan.atomic.Delta;
 import org.infinispan.atomic.DeltaAware;
 import org.infinispan.container.versioning.EntryVersion;
 import org.infinispan.context.Flag;
-import org.infinispan.interceptors.InvocationContextInterceptor;
-import org.infinispan.interceptors.base.CommandInterceptor;
-import org.infinispan.metadata.Metadata;
-import org.infinispan.filter.Converter;
 import org.infinispan.filter.KeyFilter;
 import org.infinispan.filter.KeyValueFilter;
+import org.infinispan.interceptors.InvocationContextInterceptor;
+import org.infinispan.interceptors.base.CommandInterceptor;
+import org.infinispan.metadata.EmbeddedMetadata;
+import org.infinispan.metadata.Metadata;
 import org.infinispan.notifications.Listener;
+import org.infinispan.notifications.cachelistener.filter.CacheEventConverter;
+import org.infinispan.notifications.cachelistener.filter.CacheEventFilter;
+import org.infinispan.notifications.cachelistener.filter.EventType;
+import org.infinispan.partionhandling.AvailabilityMode;
+
+import javax.transaction.NotSupportedException;
+import javax.transaction.SystemException;
+import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 
 public class SecureCacheTestDriver {
 
@@ -24,8 +27,8 @@ public class SecureCacheTestDriver {
    private NullListener listener;
    private CommandInterceptor interceptor;
    private KeyFilter<String> keyFilter;
-   private Converter<String, String, String> converter;
-   private KeyValueFilter<String, String> keyValueFilter;
+   private CacheEventConverter<String, String, String> converter;
+   private CacheEventFilter<String, String> keyValueFilter;
 
    public SecureCacheTestDriver() {
       interceptor = new CommandInterceptor() {
@@ -36,16 +39,16 @@ public class SecureCacheTestDriver {
             return true;
          }
       };
-      keyValueFilter = new KeyValueFilter<String, String>() {
+      keyValueFilter = new CacheEventFilter<String, String>() {
          @Override
-         public boolean accept(String key, String value, Metadata metadata) {
+         public boolean accept(String key, String oldValue, Metadata oldMetadata, String newValue, Metadata newMetadata, EventType eventType) {
             return true;
          }
       };
-      converter = new Converter<String, String, String>() {
+      converter = new CacheEventConverter<String, String, String>() {
          @Override
-         public String convert(String key, String value, Metadata metadata) {
-            return value;
+         public String convert(String key, String oldValue, Metadata oldMetadata, String newValue, Metadata newMetadata, EventType eventType) {
+            return null;
          }
       };
       listener = new NullListener();
@@ -164,7 +167,7 @@ public class SecureCacheTestDriver {
    }
 
    @TestCachePermission(AuthorizationPermission.LISTEN)
-   public void testAddListener_Object_KeyValueFilter_Converter(SecureCache<String, String> cache) {
+   public void testAddListener_Object_CacheEventFilter_CacheEventConverter(SecureCache<String, String> cache) {
       cache.addListener(listener, keyValueFilter, converter);
    }
 
@@ -205,6 +208,16 @@ public class SecureCacheTestDriver {
    @TestCachePermission(AuthorizationPermission.NONE)
    public void testGetStatus(SecureCache<String, String> cache) {
       cache.getStatus();
+   }
+
+   @TestCachePermission(AuthorizationPermission.NONE)
+   public void testGetAvailability(SecureCache<String, String> cache) {
+      cache.getAvailability();
+   }
+
+   @TestCachePermission(AuthorizationPermission.ADMIN)
+   public void testSetAvailability_AvailabilityMode(SecureCache<String, String> cache) {
+      cache.setAvailability(AvailabilityMode.AVAILABLE);
    }
 
    @TestCachePermission(AuthorizationPermission.READ)
@@ -369,6 +382,22 @@ public class SecureCacheTestDriver {
    public void testPutForExternalRead_Object_Object(SecureCache<String, String> cache) {
       cache.putForExternalRead("a", "a");
    }
+
+   @TestCachePermission(AuthorizationPermission.WRITE)
+   public void testPutForExternalRead_Object_Object_long_TimeUnit(SecureCache<String, String> cache) {
+      cache.putForExternalRead("a", "a", 1000, TimeUnit.MILLISECONDS);
+   }
+
+   @TestCachePermission(AuthorizationPermission.WRITE)
+   public void testPutForExternalRead_Object_Object_long_TimeUnit_long_TimeUnit(SecureCache<String, String> cache) {
+      cache.putForExternalRead("a", "a", 1, TimeUnit.SECONDS, 1, TimeUnit.SECONDS);
+   }
+
+   @TestCachePermission(AuthorizationPermission.WRITE)
+   public void testPutForExternalRead_Object_Object_Metadata(SecureCache<String, String> cache) {
+      cache.putForExternalRead("a", "a", new EmbeddedMetadata.Builder().lifespan(1, TimeUnit.SECONDS).build());
+   }
+
 
    @TestCachePermission(AuthorizationPermission.WRITE)
    public void testReplaceAsync_Object_Object(SecureCache<String, String> cache) {
@@ -598,5 +627,15 @@ public class SecureCacheTestDriver {
    @Listener
    public static class NullListener {
 
+   }
+
+   @TestCachePermission(AuthorizationPermission.BULK_READ)
+   public void testGetGroup_String(SecureCache<String, String> cache) {
+      cache.getGroup("someGroup");
+   }
+
+   @TestCachePermission(AuthorizationPermission.BULK_WRITE)
+   public void testRemoveGroup_String(SecureCache<String, String> cache) {
+      cache.removeGroup("someGroup");
    }
 }

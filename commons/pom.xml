@@ -4,7 +4,7 @@
    <parent>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-parent</artifactId>
-      <version>7.0.0-SNAPSHOT</version>
+      <version>7.0.1-SNAPSHOT</version>
       <relativePath>../parent/pom.xml</relativePath>
    </parent>
 
@@ -18,6 +18,7 @@
          <groupId>org.jboss.logging</groupId>
          <artifactId>jboss-logging</artifactId>
       </dependency>
+
       <dependency>
          <groupId>org.jboss.marshalling</groupId>
          <artifactId>jboss-marshalling-osgi</artifactId>
@@ -27,10 +28,13 @@
       <dependency>
          <groupId>org.osgi</groupId>
          <artifactId>org.osgi.core</artifactId>
+         <scope>provided</scope>
       </dependency>
+
       <dependency>
          <groupId>org.osgi</groupId>
          <artifactId>org.osgi.compendium</artifactId>
+         <scope>provided</scope>
       </dependency>
    </dependencies>
 
@@ -55,11 +59,10 @@
          </resource>
       </resources>
       <plugins>
-         <!-- compiler to use -XDignore.symbol.file to suppress warnings regarding the use of sun.misc.Unsafe -->
+         
          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
-            <version>3.0</version>
             <configuration>
                <source>1.7</source>
                <target>1.7</target>
@@ -67,8 +70,12 @@
                <compilerArgument>-AtranslationFilesPath=${project.basedir}/target/generated-translation-files
                </compilerArgument>
                <compilerArgument>-XDignore.symbol.file</compilerArgument>
-               <!-- Forking is necessary to allow for the compiler args to be picked up. -->
+               
                <fork>true</fork>
+               
+               <excludes>
+                  <exclude>**/package-info.java</exclude>
+               </excludes>
             </configuration>
          </plugin>
          <plugin>
@@ -79,15 +86,13 @@
                   <Export-Package>
                      ${project.groupId}.commons.*;version=${project.version};-split-package:=error
                   </Export-Package>
-                  <!-- Relax the versioning rule for osgi packages as a specific version is provided by the container and
-                       it might not match the one used to build. -->
-                  <Import-Package><![CDATA[
-                  org.osgi.*;version="$<range;[==,+)>",
+                  
+                  <Import-Package>
                   !sun.misc,
                   *
-                  ]]>
+                  
                   </Import-Package>
-                  <!-- Required for loading client classes. -->
+                  
                   <DynamicImport-Package>*</DynamicImport-Package>
                </instructions>
             </configuration>
@@ -117,7 +122,7 @@
       </plugins>
       <pluginManagement>
          <plugins>
-            <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself. -->
+            
             <plugin>
                <groupId>org.eclipse.m2e</groupId>
                <artifactId>lifecycle-mapping</artifactId>
@@ -135,7 +140,7 @@
                               </goals>
                            </pluginExecutionFilter>
                            <action>
-                              <ignore></ignore>
+                              <ignore />
                            </action>
                         </pluginExecution>
                      </pluginExecutions>

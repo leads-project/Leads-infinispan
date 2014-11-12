@@ -13,6 +13,7 @@ import java.util.NoSuchElementException;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleReference;
+import org.osgi.framework.FrameworkUtil;
 
 /**
  * @author Brett Meyer
@@ -32,12 +33,12 @@ public class OsgiClassLoader extends ClassLoader {
    // singleton (bad) or on-demand (worse, imo).  Singleton will "work" for the time being, but it defeats "dynamic"
    // considerations within the container (ie, gracefully handling bundles being activated in the middle of runtime,
    // etc.).  However, the rest of Infinispan isn't setup for that either.  So, this might be an acceptable baby step.
-   private static OsgiClassLoader instance = null;
+   private static class LazyHolder {
+      private static OsgiClassLoader INSTANCE = new OsgiClassLoader();
+   }
+
    public static OsgiClassLoader getInstance() {
-      if (instance == null) {
-         instance = new OsgiClassLoader();
-      }
-      return instance;
+      return LazyHolder.INSTANCE;
    }
 
    private OsgiClassLoader() {
@@ -47,8 +48,7 @@ public class OsgiClassLoader extends ClassLoader {
       super(null);
 
       if (Util.isOSGiContext()) {
-         final BundleContext bundleContext = ((BundleReference) OsgiClassLoader.class.getClassLoader()).getBundle()
-               .getBundleContext();
+         final BundleContext bundleContext = FrameworkUtil.getBundle(OsgiClassLoader.class).getBundleContext();
          Bundle[] foundBundles = bundleContext.getBundles();
          bundles = new ArrayList<WeakReference<Bundle>>(foundBundles.length);
          for (Bundle foundBundle : foundBundles) {
@@ -74,6 +74,8 @@ public class OsgiClassLoader extends ClassLoader {
 
       for (WeakReference<Bundle> ref : bundles) {
          final Bundle bundle = ref.get();
+         // ISPN-4679 may get a null handle from the weak refrence
+         if(bundle == null) continue;
          if (bundle.getState() == Bundle.ACTIVE) {
             try {
                final Class clazz = bundle.loadClass(name);

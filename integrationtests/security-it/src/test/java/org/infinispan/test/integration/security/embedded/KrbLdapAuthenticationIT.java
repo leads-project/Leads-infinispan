@@ -13,6 +13,7 @@ import org.infinispan.test.integration.security.utils.ApacheDsKrbLdap;
 import org.infinispan.test.integration.security.utils.Deployments;
 import org.infinispan.test.integration.security.utils.SimplePrincipalGroupRoleMapper;
 import org.jboss.arquillian.container.test.api.Deployment;
+import org.jboss.arquillian.container.test.api.TargetsContainer;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
@@ -36,7 +37,7 @@ public class KrbLdapAuthenticationIT extends AbstractAuthentication {
    @BeforeClass
    public static void ldapSetup() throws Exception {
       System.setProperty("java.security.krb5.conf", KrbLdapAuthenticationIT.class.getResource("/krb5.conf").getPath());
-      krbLdapServer = new ApacheDsKrbLdap("localhost");
+      krbLdapServer = new ApacheDsKrbLdap("127.0.0.1");
       krbLdapServer.start();
    }
 
@@ -46,6 +47,7 @@ public class KrbLdapAuthenticationIT extends AbstractAuthentication {
    }
 
    @Deployment
+   @TargetsContainer(DEFAULT_DEPLOY_CONTAINER)
    public static WebArchive getDeployment() {
       return Deployments.createKrbLdapTestDeployment();
    }

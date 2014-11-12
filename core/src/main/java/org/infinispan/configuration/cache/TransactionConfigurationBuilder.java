@@ -2,6 +2,7 @@ package org.infinispan.configuration.cache;
 
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.configuration.Builder;
+import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.transaction.TransactionMode;
 import org.infinispan.transaction.TransactionProtocol;
@@ -33,10 +34,10 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    private TransactionSynchronizationRegistryLookup transactionSynchronizationRegistryLookup;
    TransactionMode transactionMode = null;
    private boolean useEagerLocking = false;
-   private boolean useSynchronization = true;
+   private boolean useSynchronization = false;
    private final RecoveryConfigurationBuilder recovery;
    private boolean use1PcForAutoCommitTransactions = false;
-   private long reaperWakeUpInterval = 1000;
+   private long reaperWakeUpInterval = 30000;
    private long completedTxTimeout = 60000;
    private TransactionProtocol transactionProtocol = TransactionProtocol.DEFAULT;
 
@@ -236,7 +237,7 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
    }
 
    /**
-    *The time interval (millis) at which the thread that cleans up transaction completion information kicks in. Defaults to 1000.
+    *The time interval (millis) at which the thread that cleans up transaction completion information kicks in. Defaults to 30000.
     */
    public TransactionConfigurationBuilder reaperWakeUpInterval(long interval) {
       this.reaperWakeUpInterval = interval;
@@ -277,6 +278,11 @@ public class TransactionConfigurationBuilder extends AbstractConfigurationChildB
          }
       }
       recovery.validate();
+   }
+
+   @Override
+   public void validate(GlobalConfiguration globalConfig) {
+      recovery.validate(globalConfig);
    }
 
    @Override

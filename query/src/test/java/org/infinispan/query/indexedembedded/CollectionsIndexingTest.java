@@ -2,13 +2,12 @@ package org.infinispan.query.indexedembedded;
 
 import java.util.List;
 
-import junit.framework.Assert;
-
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
@@ -18,6 +17,9 @@ import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * @author Sanne Grinovero <sanne@hibernate.org> (C) 2011 Red Hat Inc.
@@ -31,8 +33,7 @@ public class CollectionsIndexingTest extends SingleCacheManagerTest {
       ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
       cfg
          .indexing()
-            .enable()
-            .indexLocalOnly(false)
+            .index(Index.ALL)
             .addProperty("default.directory_provider", "ram")
             .addProperty("lucene_version", "LUCENE_CURRENT");
       return TestCacheManagerFactory.createCacheManager(cfg);
@@ -53,7 +54,7 @@ public class CollectionsIndexingTest extends SingleCacheManagerTest {
       QueryParser queryParser = TestQueryHelperFactory.createQueryParser("countryName");
       Query query = queryParser.parse("Italy");
       List<Object> list = qf.getQuery(query, Country.class, City.class).list();
-      Assert.assertEquals( 0 , list.size() );
+      assertEquals(0, list.size());
    }
    
    @Test
@@ -64,11 +65,11 @@ public class CollectionsIndexingTest extends SingleCacheManagerTest {
       italy.countryName = "Italy";
       cache.put("IT", italy);
       List<Object> list = qf.getQuery(query, Country.class, City.class).list();
-      Assert.assertEquals( 1 , list.size() );
+      assertEquals(1, list.size());
       list = qf.getQuery(query).list();
-      Assert.assertEquals( 1 , list.size() );
+      assertEquals(1, list.size());
       list = qf.getQuery( new MatchAllDocsQuery() ).list();
-      Assert.assertEquals( 1 , list.size() );
+      assertEquals(1, list.size());
    }
    
    @Test
@@ -79,7 +80,7 @@ public class CollectionsIndexingTest extends SingleCacheManagerTest {
       italy.countryName = "Italy";
       cache.put("IT", italy);
       List<Object> list = qf.getQuery(query, Country.class, City.class).list();
-      Assert.assertEquals( 1 , list.size() );
+      assertEquals(1, list.size());
    }
    
    @Test
@@ -101,8 +102,8 @@ public class CollectionsIndexingTest extends SingleCacheManagerTest {
       cache.put("UK", uk);
       cache.put("UK", uk);
       List<Object> list = qf.getQuery(query, Country.class, City.class).list();
-      Assert.assertEquals( 1 , list.size() );
-      Assert.assertTrue( uk == list.get(0) );
+      assertEquals(1, list.size());
+      assertTrue(uk == list.get(0));
    }
 
 }

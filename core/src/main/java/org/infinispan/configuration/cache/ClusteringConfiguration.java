@@ -14,15 +14,18 @@ public class ClusteringConfiguration {
    private final L1Configuration l1Configuration;
    private final StateTransferConfiguration stateTransferConfiguration;
    private final SyncConfiguration syncConfiguration;
+   private final PartitionHandlingConfiguration partitionHandlingConfiguration;
 
    ClusteringConfiguration(CacheMode cacheMode, AsyncConfiguration asyncConfiguration, HashConfiguration hashConfiguration,
-         L1Configuration l1Configuration, StateTransferConfiguration stateTransferConfiguration, SyncConfiguration syncConfiguration) {
+         L1Configuration l1Configuration, StateTransferConfiguration stateTransferConfiguration, SyncConfiguration syncConfiguration,
+         PartitionHandlingConfiguration partitionHandlingStrategy) {
       this.cacheMode = cacheMode;
       this.asyncConfiguration = asyncConfiguration;
       this.hashConfiguration = hashConfiguration;
       this.l1Configuration = l1Configuration;
       this.stateTransferConfiguration = stateTransferConfiguration;
       this.syncConfiguration = syncConfiguration;
+      this.partitionHandlingConfiguration  = partitionHandlingStrategy;
    }
 
    /**
@@ -30,6 +33,13 @@ public class ClusteringConfiguration {
     */
    public CacheMode cacheMode() {
       return cacheMode;
+   }
+
+   /**
+    * Configures cluster's behaviour in the presence of partitions or node failures.
+    */
+   public PartitionHandlingConfiguration partitionHandling() {
+      return partitionHandlingConfiguration;
    }
 
    public String cacheModeString() {

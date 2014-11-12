@@ -2,12 +2,16 @@ package org.infinispan.cache.impl;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
+import org.infinispan.commons.util.CloseableIteratorCollection;
+import org.infinispan.commons.util.CloseableIteratorSet;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.filter.Converter;
 import org.infinispan.filter.KeyFilter;
 import org.infinispan.filter.KeyValueFilter;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import org.infinispan.notifications.cachelistener.filter.CacheEventConverter;
+import org.infinispan.notifications.cachelistener.filter.CacheEventFilter;
 
 import java.util.Collection;
 import java.util.Map;
@@ -35,6 +39,16 @@ public abstract class AbstractDelegatingCache<K, V> implements Cache<K, V> {
    @Override
    public void putForExternalRead(K key, V value) {
       cache.putForExternalRead(key, value);
+   }
+   
+   @Override
+   public void putForExternalRead(K key, V value, long lifespan, TimeUnit unit) {
+      cache.putForExternalRead(key, value, lifespan, unit);
+   }
+
+   @Override
+   public void putForExternalRead(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
+      cache.putForExternalRead(key, value, lifespan, lifespanUnit, maxIdle, maxIdleUnit);
    }
 
    @Override
@@ -296,17 +310,17 @@ public abstract class AbstractDelegatingCache<K, V> implements Cache<K, V> {
    }
 
    @Override
-   public Set<K> keySet() {
+   public CloseableIteratorSet<K> keySet() {
       return cache.keySet();
    }
 
    @Override
-   public Set<Entry<K, V>> entrySet() {
+   public CloseableIteratorSet<Entry<K, V>> entrySet() {
       return cache.entrySet();
    }
 
    @Override
-   public Collection<V> values() {
+   public CloseableIteratorCollection<V> values() {
       return cache.values();
    }
 
@@ -331,8 +345,8 @@ public abstract class AbstractDelegatingCache<K, V> implements Cache<K, V> {
    }
 
    @Override
-   public <C> void addListener(Object listener, KeyValueFilter<? super K, ? super V> filter,
-                               Converter<? super K, ? super V, C> converter) {
+   public <C> void addListener(Object listener, CacheEventFilter<? super K, ? super V> filter,
+                               CacheEventConverter<? super K, ? super V, C> converter) {
       cache.addListener(listener, filter, converter);
    }
 

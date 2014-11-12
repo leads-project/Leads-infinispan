@@ -1,7 +1,6 @@
 package org.infinispan.util.logging;
 
 import org.jboss.logging.Logger;
-import org.jboss.logging.NDC;
 
 /**
  * Factory that creates {@link Log} instances.
@@ -10,6 +9,9 @@ import org.jboss.logging.NDC;
  * @since 4.0
  */
 public class LogFactory {
+   public static final String LOG_ROOT = "org.infinispan";
+
+   public static Log CLUSTER = Logger.getMessageLogger(Log.class, LOG_ROOT + ".CLUSTER");
 
    public static Log getLog(Class<?> clazz) {
       return Logger.getMessageLogger(Log.class, clazz.getName());
@@ -20,13 +22,19 @@ public class LogFactory {
    }
 
    public static void pushNDC(String cacheName, boolean isTrace) {
-      if (isTrace)
-         NDC.push(cacheName);
+      // Disabled NDC usage until https://issues.jboss.org/browse/JBLOGGING-106 is fixed or
+      // we introduce Log4j2 https://issues.jboss.org/browse/ISPN-3076
+      // See https://issues.jboss.org/browse/ISPN-4498 for more details
+//      if (isTrace)
+//         NDC.push(cacheName);
    }
 
    public static void popNDC(boolean isTrace) {
-      if (isTrace)
-         NDC.pop();
+      // Disabled NDC usage until https://issues.jboss.org/browse/JBLOGGING-106 is fixed or
+      // we introduce Log4j2 https://issues.jboss.org/browse/ISPN-3076
+      // See https://issues.jboss.org/browse/ISPN-4498 for more details
+//      if (isTrace)
+//         NDC.pop();
    }
 
 }

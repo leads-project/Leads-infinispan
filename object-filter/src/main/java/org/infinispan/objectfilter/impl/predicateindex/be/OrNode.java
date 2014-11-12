@@ -13,42 +13,33 @@ public final class OrNode extends BENode {
    }
 
    @Override
-   public boolean handleChildValue(BENode child, boolean childValue, FilterEvalContext evalContext) {
-      if (evalContext.treeCounters[index] <= 0) {
+   public void handleChildValue(BENode child, boolean childValue, FilterEvalContext evalContext) {
+      if (isDecided(evalContext)) {
          throw new IllegalStateException("This should never be called again because the state of this node has been decided already.");
       }
 
       if (childValue) {
          // value of this node is decided: TRUE
          if (parent != null) {
-            // let the parent know
-            return parent.handleChildValue(this, true, evalContext);
+            // propagate to the parent, if we have a parent
+            parent.handleChildValue(this, true, evalContext);
          } else {
-            evalContext.treeCounters[0] = BETree.EXPR_TRUE;
-            for (int i = index; i < span; i++) {
-               evalContext.beTree.getNodes()[i].suspendSubscription(evalContext);
-            }
-            return true;
+            // mark this node as satisfied
+            setState(BETree.EXPR_TRUE, evalContext);
          }
       } else {
-         if (--evalContext.treeCounters[index] == 0) {
-            // value of this node has just been decided: TRUE
+         if (--evalContext.treeCounters[startIndex] == 0) {
+            // value of this node is decided: FALSE
             if (parent != null) {
-               // let the parent know
-               return parent.handleChildValue(this, false, evalContext);
+               // propagate to the parent, if we have a parent
+               parent.handleChildValue(this, false, evalContext);
             } else {
-               for (int i = index; i < span; i++) {
-                  evalContext.beTree.getNodes()[i].suspendSubscription(evalContext);
-               }
-               return true;
+               // mark this node as 'unsatisfied'
+               setState(BETree.EXPR_FALSE, evalContext);
             }
          } else {
-            // value of this node cannot be decided yet, so we cannot tell the parent anything yet but let's at least mark down the children as 'unsatisfied'
-            evalContext.treeCounters[child.index] = BETree.EXPR_FALSE;
-            for (int i = child.index; i < child.span; i++) {
-               evalContext.beTree.getNodes()[i].suspendSubscription(evalContext);
-            }
-            return false;
+            // value of this node cannot be decided yet, so we cannot propagate to the parent anything yet but let's at least mark down the child as 'unsatisfied'
+            child.setState(BETree.EXPR_FALSE, evalContext);
          }
       }
    }

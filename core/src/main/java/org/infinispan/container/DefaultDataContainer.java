@@ -1,12 +1,14 @@
 package org.infinispan.container;
 
 import net.jcip.annotations.ThreadSafe;
+
 import org.infinispan.commons.equivalence.AnyEquivalence;
 import org.infinispan.commons.equivalence.Equivalence;
 import org.infinispan.commons.logging.Log;
 import org.infinispan.commons.logging.LogFactory;
 import org.infinispan.commons.util.CollectionFactory;
 import org.infinispan.commons.util.concurrent.ParallelIterableMap;
+import org.infinispan.commons.util.concurrent.ParallelIterableMap.KeyValueAction;
 import org.infinispan.commons.util.concurrent.jdk8backported.EquivalentConcurrentHashMapV8;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.eviction.ActivationManager;
@@ -33,6 +35,9 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.infinispan.persistence.manager.PersistenceManager.AccessMode.BOTH;
 
 /**
  * DefaultDataContainer is both eviction and non-eviction based data container.
@@ -187,7 +192,7 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
 
    @Override
    public InternalCacheEntry<K, V> remove(Object k) {
-      InternalCacheEntry<K, V> e = entries.remove(k);
+      InternalCacheEntry<K, V> e = extendedMap.removeAndActivate(k);
       return e == null || (e.canExpire() && e.isExpired(timeService.wallClockTime())) ? null : e;
    }
 
@@ -234,8 +239,8 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
    }
 
    @Override
-   public void compute(K key, ComputeAction<K, V> action) {
-      extendedMap.compute(key, action);
+   public InternalCacheEntry<K, V> compute(K key, ComputeAction<K, V> action) {
+      return extendedMap.compute(key, action);
    }
 
    @Override
@@ -257,13 +262,13 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
 
       @Override
       public void onEntryActivated(Object key) {
-         activator.activate(key);
+         activator.onUpdate(key, true);
       }
 
       @Override
       public void onEntryRemoved(Object key) {
          if (pm != null)
-            pm.deleteFromAllStores(key, false);
+            pm.deleteFromAllStores(key, BOTH);
       }
    }
 
@@ -377,15 +382,15 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
    }
 
    @Override
-   public void executeTask(final KeyFilter<? super K> filter,
-                               final ParallelIterableMap.KeyValueAction<? super K, InternalCacheEntry<? super K, ? super V>> action) throws InterruptedException{
+   public void executeTask(final KeyFilter<? super K> filter, final KeyValueAction<? super K, InternalCacheEntry<K, V>> action)
+         throws InterruptedException {
       if (filter == null)
          throw new IllegalArgumentException("No filter specified");
       if (action == null)
          throw new IllegalArgumentException("No action specified");
 
       ParallelIterableMap<K, InternalCacheEntry<K, V>> map = (ParallelIterableMap<K, InternalCacheEntry<K, V>>) entries;
-      map.forEach(512, new ParallelIterableMap.KeyValueAction<K, InternalCacheEntry<K, V>>() {
+      map.forEach(32, new KeyValueAction<K, InternalCacheEntry<K, V>>() {
          @Override
          public void apply(K key, InternalCacheEntry<K, V> value) {
             if (filter.accept(key)) {
@@ -400,15 +405,15 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
    }
 
    @Override
-   public void executeTask(final KeyValueFilter<? super K, ? super V> filter,
-                           final ParallelIterableMap.KeyValueAction<? super K, InternalCacheEntry<? super K, ? super V>> action) throws InterruptedException {
+   public void executeTask(final KeyValueFilter<? super K, ? super V> filter, final KeyValueAction<? super K, InternalCacheEntry<K, V>> action)
+         throws InterruptedException {
       if (filter == null)
          throw new IllegalArgumentException("No filter specified");
       if (action == null)
          throw new IllegalArgumentException("No action specified");
 
       ParallelIterableMap<K, InternalCacheEntry<K, V>> map = (ParallelIterableMap<K, InternalCacheEntry<K, V>>) entries;
-      map.forEach(512, new ParallelIterableMap.KeyValueAction<K, InternalCacheEntry<K, V>>() {
+      map.forEach(32, new KeyValueAction<K, InternalCacheEntry<K, V>>() {
          @Override
          public void apply(K key, InternalCacheEntry<K, V> value) {
             if (filter.accept(key, value.getValue(), value.getMetadata())) {
@@ -428,9 +433,11 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
    private static interface ExtendedMap<K, V> {
       void evict(K key);
 
-      void compute(K key, ComputeAction<K, V> action);
+      InternalCacheEntry<K, V> compute(K key, ComputeAction<K, V> action);
 
       void putAndActivate(InternalCacheEntry<K, V> newEntry);
+
+      InternalCacheEntry<K, V> removeAndActivate(Object key);
    }
 
    private class EquivalentConcurrentExtendedMap implements ExtendedMap<K, V> {
@@ -447,8 +454,8 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
       }
 
       @Override
-      public void compute(K key, final ComputeAction<K, V> action) {
-         ((EquivalentConcurrentHashMapV8<K, InternalCacheEntry<K, V>>) entries)
+      public InternalCacheEntry<K, V> compute(K key, final ComputeAction<K, V> action) {
+         return ((EquivalentConcurrentHashMapV8<K, InternalCacheEntry<K, V>>) entries)
                .compute(key, new EquivalentConcurrentHashMapV8.BiFun<K, InternalCacheEntry<K, V>, InternalCacheEntry<K, V>>() {
                   @Override
                   public InternalCacheEntry<K, V> apply(K key, InternalCacheEntry<K, V> oldEntry) {
@@ -456,12 +463,10 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
                      if (newEntry == oldEntry) {
                         return oldEntry;
                      } else if (newEntry == null) {
+                        activator.onRemove(key, false);
                         return null;
                      }
-                     if (oldEntry == null) {
-                        //new entry. need to activate the key.
-                        activator.activate(key);
-                     }
+                     activator.onUpdate(key, oldEntry == null);
                      if (trace)
                         log.tracef("Store %s in container", newEntry);
                      return newEntry;
@@ -475,14 +480,25 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
                .compute(newEntry.getKey(), new EquivalentConcurrentHashMapV8.BiFun<K, InternalCacheEntry<K, V>, InternalCacheEntry<K, V>>() {
                   @Override
                   public InternalCacheEntry<K, V> apply(K key, InternalCacheEntry<K, V> entry) {
-                     if (entry == null) {
-                        //entry does not exists before. we need to activate it.
-                        activator.activate(key);
-                     }
-
+                     activator.onUpdate(key, entry == null);
                      return newEntry;
                   }
                });
+      }
+
+      @Override
+      public InternalCacheEntry<K, V> removeAndActivate(Object key) {
+         final AtomicReference<InternalCacheEntry<K,V>> reference = new AtomicReference<>(null);
+         ((EquivalentConcurrentHashMapV8<Object, InternalCacheEntry<K, V>>) entries)
+               .compute(key, new EquivalentConcurrentHashMapV8.BiFun<Object, InternalCacheEntry<K, V>, InternalCacheEntry<K, V>>() {
+                  @Override
+                  public InternalCacheEntry<K, V> apply(Object key, InternalCacheEntry<K, V> entry) {
+                     activator.onRemove(key, entry == null);
+                     reference.set(entry);
+                     return null;
+                  }
+               });
+         return reference.get();
       }
    }
 
@@ -493,7 +509,7 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
       }
 
       @Override
-      public void compute(K key, final ComputeAction<K, V> action) {
+      public InternalCacheEntry<K, V> compute(K key, final ComputeAction<K, V> action) {
          final BoundedConcurrentHashMap<K, InternalCacheEntry<K, V>> boundedMap =
                ((BoundedConcurrentHashMap<K, InternalCacheEntry<K, V>>) entries);
          boundedMap.lock(key);
@@ -501,15 +517,17 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
             InternalCacheEntry<K, V> oldEntry = boundedMap.get(key);
             InternalCacheEntry<K, V> newEntry = action.compute(key, oldEntry, entryFactory);
             if (oldEntry == newEntry) {
-               return;
+               return newEntry;
             } else if (newEntry == null) {
+               activator.onRemove(key, false);
                boundedMap.remove(key);
-               return;
+               return null;
             }
             if (trace)
                log.tracef("Store %s in container", newEntry);
             //put already activate the entry if it is new.
             boundedMap.put(key, newEntry);
+            return newEntry;
          } finally {
             boundedMap.unlock(key);
          }
@@ -519,6 +537,20 @@ public class DefaultDataContainer<K, V> implements DataContainer<K, V> {
       public void putAndActivate(InternalCacheEntry<K, V> newEntry) {
          //put already activate the entry if it is new.
          entries.put(newEntry.getKey(), newEntry);
+      }
+
+      @Override
+      public InternalCacheEntry<K, V> removeAndActivate(Object key) {
+         final BoundedConcurrentHashMap<Object, InternalCacheEntry<K, V>> boundedMap =
+               ((BoundedConcurrentHashMap<Object, InternalCacheEntry<K, V>>) entries);
+         boundedMap.lock(key);
+         try {
+            InternalCacheEntry<K, V> oldEntry = boundedMap.remove(key);
+            activator.onRemove(key, oldEntry == null);
+            return oldEntry;
+         } finally {
+            boundedMap.unlock(key);
+         }
       }
    }
 }

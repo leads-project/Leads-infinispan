@@ -52,8 +52,10 @@ import org.infinispan.factories.annotations.Start;
 import org.infinispan.factories.annotations.Stop;
 import org.infinispan.factories.scopes.Scope;
 import org.infinispan.factories.scopes.Scopes;
+import org.infinispan.filter.AcceptAllKeyValueFilter;
 import org.infinispan.filter.CollectionKeyFilter;
 import org.infinispan.filter.CompositeKeyValueFilter;
+import org.infinispan.filter.NullValueConverter;
 import org.infinispan.marshall.exts.ArrayExternalizers;
 import org.infinispan.marshall.exts.EnumSetExternalizer;
 import org.infinispan.marshall.exts.ListExternalizer;
@@ -69,6 +71,11 @@ import org.infinispan.notifications.cachelistener.cluster.ClusterEventCallable;
 import org.infinispan.notifications.cachelistener.cluster.ClusterListenerRemoveCallable;
 import org.infinispan.notifications.cachelistener.cluster.ClusterListenerReplicateCallable;
 import org.infinispan.filter.KeyFilterAsKeyValueFilter;
+import org.infinispan.notifications.cachelistener.filter.CacheEventConverterAsConverter;
+import org.infinispan.notifications.cachelistener.filter.CacheEventFilterAsKeyValueFilter;
+import org.infinispan.notifications.cachelistener.filter.ConverterAsCacheEventConverter;
+import org.infinispan.notifications.cachelistener.filter.KeyFilterAsCacheEventFilter;
+import org.infinispan.notifications.cachelistener.filter.KeyValueFilterAsCacheEventFilter;
 import org.infinispan.registry.ScopedKey;
 import org.infinispan.remoting.responses.CacheNotFoundResponse;
 import org.infinispan.remoting.responses.ExceptionResponse;
@@ -80,6 +87,7 @@ import org.infinispan.remoting.transport.jgroups.JGroupsTopologyAwareAddress;
 import org.infinispan.statetransfer.StateChunk;
 import org.infinispan.statetransfer.TransactionInfo;
 import org.infinispan.topology.CacheJoinInfo;
+import org.infinispan.topology.CacheStatusResponse;
 import org.infinispan.topology.CacheTopology;
 import org.infinispan.transaction.xa.DldGlobalTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
@@ -161,20 +169,19 @@ public class ExternalizerTable implements ObjectTable {
 
    @Stop(priority = 13) // Stop after global marshaller
    public void stop() {
+      started = false;
       writers.clear();
       readers.clear();
-      started = false;
       log.trace("Externalizer reader and writer maps have been cleared and constant object table was stopped");
    }
 
    @Override
    public Writer getObjectWriter(Object o) throws IOException {
       Class<?> clazz = o.getClass();
-      Writer writer = writers.get(clazz);
-      if (writer == null) {
-         if (Thread.currentThread().isInterrupted())
-            throw new IOException(log.interruptedRetrievingObjectWriter(clazz.getName()));
+      if (!started) {
+         throw log.externalizerTableStopped(clazz.getName());
       }
+      Writer writer = writers.get(clazz);
       return writer;
    }
 
@@ -320,6 +327,14 @@ public class ExternalizerTable implements ObjectTable {
       addInternalExternalizer(new CompositeKeyValueFilter.Externalizer());
       addInternalExternalizer(new MapReduceManagerImpl.DeltaListExternalizer());
       addInternalExternalizer(new MapReduceManagerImpl.DeltaAwareListExternalizer());
+      addInternalExternalizer(new CacheStatusResponse.Externalizer());
+      addInternalExternalizer(new CacheEventConverterAsConverter.Externalizer());
+      addInternalExternalizer(new CacheEventFilterAsKeyValueFilter.Externalizer());
+      addInternalExternalizer(new ConverterAsCacheEventConverter.Externalizer());
+      addInternalExternalizer(new KeyFilterAsCacheEventFilter.Externalizer());
+      addInternalExternalizer(new KeyValueFilterAsCacheEventFilter.Externalizer());
+      addInternalExternalizer(new NullValueConverter.Externalizer());
+      addInternalExternalizer(new AcceptAllKeyValueFilter.Externalizer());
    }
 
    void addInternalExternalizer(AdvancedExternalizer<?> ext) {

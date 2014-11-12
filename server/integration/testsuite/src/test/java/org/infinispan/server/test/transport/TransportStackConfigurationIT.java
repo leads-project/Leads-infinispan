@@ -1,13 +1,9 @@
 package org.infinispan.server.test.transport;
 
-import static org.infinispan.server.test.util.ITestUtils.SERVER1_MGMT_PORT;
-
-import java.util.Scanner;
-
-import javax.management.ObjectName;
-
 import org.infinispan.arquillian.core.InfinispanResource;
 import org.infinispan.arquillian.core.RemoteInfinispanServer;
+import org.infinispan.arquillian.core.RunningServer;
+import org.infinispan.arquillian.core.WithRunningServer;
 import org.infinispan.arquillian.utils.MBeanServerConnectionProvider;
 import org.jboss.arquillian.container.test.api.Config;
 import org.jboss.arquillian.container.test.api.ContainerController;
@@ -16,6 +12,11 @@ import org.jboss.arquillian.test.api.ArquillianResource;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import javax.management.ObjectName;
+import java.util.Scanner;
+
+import static org.infinispan.server.test.util.ITestUtils.SERVER1_MGMT_PORT;
+import static org.infinispan.server.test.util.ITestUtils.SERVER2_MGMT_PORT;
 import static org.infinispan.server.test.util.ITestUtils.getAttribute;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -27,13 +28,14 @@ import static org.junit.Assert.assertTrue;
  * @author <a href="mailto:mgencur@redhat.com">Martin Gencur</a>
  */
 @RunWith(Arquillian.class)
+@WithRunningServer({@RunningServer(name = "transport-stack-tcp"), @RunningServer(name = "transport-stack-udp")})
 public class TransportStackConfigurationIT {
 
-    private final String CONTAINER1 = "transport-stack-1";
-    private final String CONTAINER2 = "transport-stack-2";
-
-    @InfinispanResource(CONTAINER1)
+    @InfinispanResource("transport-stack-tcp")
     RemoteInfinispanServer server1;
+
+    @InfinispanResource("transport-stack-udp")
+    RemoteInfinispanServer server2;
 
     @ArquillianResource
     ContainerController controller;
@@ -49,16 +51,8 @@ public class TransportStackConfigurationIT {
      */
     @Test
     public void testUDPStackAttributes() throws Exception {
-        try {
-            startContainerWithStack(CONTAINER1, "node0", 0,   "udp");
-            startContainerWithStack(CONTAINER2, "node1", 100, "udp");
-
-            provider = new MBeanServerConnectionProvider(server1.getHotrodEndpoint().getInetAddress().getHostName(), SERVER1_MGMT_PORT);
-
-            assertMBeanAttributes(provider, udpProtocolMBean);
-        } finally {
-            stopContainers(CONTAINER1, CONTAINER2);
-        }
+        provider = new MBeanServerConnectionProvider(server2.getHotrodEndpoint().getInetAddress().getHostName(), SERVER2_MGMT_PORT);
+        assertMBeanAttributes(provider, udpProtocolMBean);
     }
 
     /*
@@ -69,17 +63,8 @@ public class TransportStackConfigurationIT {
      */
     @Test
     public void testTCPStackAttributes() throws Exception {
-        try {
-            startContainerWithStack(CONTAINER1, "node0", 0,   "tcp");
-            startContainerWithStack(CONTAINER2, "node1", 100, "tcp");
-
-            provider = new MBeanServerConnectionProvider(server1.getHotrodEndpoint().getInetAddress().getHostName(), SERVER1_MGMT_PORT);
-
-
-            assertMBeanAttributes(provider, tcpProtocolMBean);
-        } finally {
-            stopContainers(CONTAINER1, CONTAINER2);
-        }
+        provider = new MBeanServerConnectionProvider(server1.getHotrodEndpoint().getInetAddress().getHostName(), SERVER1_MGMT_PORT);
+        assertMBeanAttributes(provider, tcpProtocolMBean);
     }
 
     private void assertMBeanAttributes(MBeanServerConnectionProvider provider, String protocolMBean) throws Exception {
@@ -91,7 +76,7 @@ public class TransportStackConfigurationIT {
         assertEquals("discard", getAttribute(provider, protocolMBean, "thread_pool.rejection_policy"));
 
         assertEquals(true, Boolean.parseBoolean(getAttribute(provider, protocolMBean, "oob_thread_pool.enabled")));
-        assertEquals(true, Boolean.parseBoolean(getAttribute(provider, protocolMBean, "oob_thread_pool.queue_enabled")));
+        assertEquals(false, Boolean.parseBoolean(getAttribute(provider, protocolMBean, "oob_thread_pool.queue_enabled")));
         assertEquals("discard", getAttribute(provider, protocolMBean, "oob_thread_pool.rejection_policy"));
     }
 
@@ -100,18 +85,11 @@ public class TransportStackConfigurationIT {
      */
     @Test
     public void testExecutorAttribute() throws Exception {
-        try {
-            startContainerWithStack(CONTAINER1, "node0", 0,   "tcp");
-            startContainerWithStack(CONTAINER2, "node1", 100, "tcp");
-
-            provider = new MBeanServerConnectionProvider(server1.getHotrodEndpoint().getInetAddress().getHostName(), SERVER1_MGMT_PORT);
-            final String dumpServicesBean = "jboss.msc:type=container,name=jboss-as";
-            final String dumpServicesOp = "dumpServicesToString";
-            String services = provider.getConnection().invoke(new ObjectName(dumpServicesBean), dumpServicesOp, null, null).toString();
-            assertTrue(isTestInfinispanTransportSpecified(services));
-        } finally {
-            stopContainers(CONTAINER1, CONTAINER2);
-        }
+        provider = new MBeanServerConnectionProvider(server1.getHotrodEndpoint().getInetAddress().getHostName(), SERVER1_MGMT_PORT);
+        final String dumpServicesBean = "jboss.msc:type=container,name=jboss-as";
+        final String dumpServicesOp = "dumpServicesToString";
+        String services = provider.getConnection().invoke(new ObjectName(dumpServicesBean), dumpServicesOp, null, null).toString();
+        assertTrue(isTestInfinispanTransportSpecified(services));
     }
 
     private boolean isTestInfinispanTransportSpecified(String services) {

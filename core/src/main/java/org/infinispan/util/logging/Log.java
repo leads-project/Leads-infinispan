@@ -1,5 +1,6 @@
 package org.infinispan.util.logging;
 
+import org.infinispan.IllegalLifecycleStateException;
 import org.infinispan.commands.ReplicableCommand;
 import org.infinispan.commands.tx.PrepareCommand;
 import org.infinispan.commons.CacheConfigurationException;
@@ -8,12 +9,15 @@ import org.infinispan.commons.CacheListenerException;
 import org.infinispan.commons.marshall.AdvancedExternalizer;
 import org.infinispan.commons.util.TypedProperties;
 import org.infinispan.lifecycle.ComponentStatus;
+import org.infinispan.partionhandling.AvailabilityException;
+import org.infinispan.partionhandling.AvailabilityMode;
 import org.infinispan.persistence.spi.PersistenceException;
 import org.infinispan.persistence.support.SingletonCacheWriter;
 import org.infinispan.remoting.RemoteException;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.remoting.transport.jgroups.SuspectException;
+import org.infinispan.topology.CacheTopology;
 import org.infinispan.transaction.impl.LocalTransaction;
 import org.infinispan.transaction.xa.GlobalTransaction;
 import org.infinispan.transaction.xa.recovery.RecoveryAwareRemoteTransaction;
@@ -80,6 +84,7 @@ import static org.jboss.logging.Logger.Level.*;
  *
  * @author Manik Surtani
  * @since 4.0
+ * @private
  */
 @MessageLogger(projectCode = "ISPN")
 public interface Log extends BasicLogger {
@@ -882,8 +887,8 @@ public interface Log extends BasicLogger {
    @Message(value = "Directory %s does not exist and cannot be created!", id = 238)
    CacheConfigurationException directoryCannotBeCreated(String path);
 
-   @Message(value="Cache manager is shutting down, so type write externalizer for type=%s cannot be resolved. Interruption being pushed up.", id = 239)
-   InterruptedException interruptedRetrievingObjectWriter(String className);
+   @Message(value="Cache manager is shutting down, so type write externalizer for type=%s cannot be resolved", id = 239)
+   IOException externalizerTableStopped(String className);
 
    @Message(value="Cache manager is shutting down, so type (id=%d) cannot be resolved. Interruption being pushed up.", id = 240)
    IOException pushReadInterruptionDueToCacheManagerShutdown(int readerIndex, @Cause InterruptedException cause);
@@ -1110,4 +1115,103 @@ public interface Log extends BasicLogger {
    @LogMessage(level = WARN)
    @Message(value = "Issue when retrieving transactions from %s, response was %s", id = 302)
    void unsuccessfulResponseRetrievingTransactionsForSegments(Address address, Response response);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Partition handling doesn't work for replicated caches, it will be ignored.", id = 303)
+   void warnPartitionHandlingForReplicatedCaches();
+
+   @LogMessage(level = WARN)
+   @Message(value = "More than one configuration file with specified name on classpath. The first one will be used:\n %s", id = 304)
+   void ambiguousConfigurationFiles(String files);
+
+   @Message(value = "Cluster is unavailable because of node failures.", id = 305)
+   AvailabilityException partitionUnavailable();
+
+   @Message(value = "Key '%s' is not available. Not all owners are in this partition", id = 306)
+   AvailabilityException degradedModeKeyUnavailable(Object key);
+
+   @Message(value = "Cannot clear when the cluster is partitioned", id = 307)
+   AvailabilityException clearDisallowedWhilePartitioned();
+
+   @LogMessage(level = INFO)
+   @Message(value = "Rebalancing enabled", id = 308)
+   void rebalancingEnabled();
+
+   @LogMessage(level = INFO)
+   @Message(value = "Rebalancing suspended", id = 309)
+   void rebalancingSuspended();
+
+   @LogMessage(level = INFO)
+   @Message(value = "Starting cluster-wide rebalance for cache %s, topology %s", id = 310)
+   void startRebalance(String cacheName, CacheTopology cacheTopology);
+
+   @LogMessage(level = DEBUG)
+   @Message(value = "Received a command from an outdated topology, returning the exception to caller", id = 311)
+   void outdatedTopology(@Cause Throwable oe);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Cache %s lost data because of graceful leaver %s", id = 312)
+   void lostDataBecauseOfGracefulLeaver(String cacheName, Address leaver);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Cache %s lost data because of abrupt leavers %s", id = 313)
+   void lostDataBecauseOfAbruptLeavers(String cacheName, Collection<Address> leavers);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Cache %s lost at least half of the stable members, possible split brain causing data inconsistency. Current members are %s, lost members are %s, stable members are %s", id = 314)
+   void minorityPartition(String cacheName, Collection<Address> currentMembers, Collection<Address> lostMembers, Collection<Address> stableMembers);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Unexpected availability mode %s for cache %s partition %s", id = 315)
+   void unexpectedAvailabilityMode(AvailabilityMode availabilityMode, String cacheName, CacheTopology cacheTopology);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Cache %s lost data because of graceful leaver %s, entering unavailable mode", id = 316)
+   void enteringUnavailableModeGracefulLeaver(String cacheName, Address leaver);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Cache %s lost data because of abrupt leavers %s, assuming a network split and entering degraded mode", id = 317)
+   void enteringDegradedModeLostData(String cacheName, Collection<Address> leavers);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "Cache %s lost at least half of the stable members, assuming a network split and entering degraded mode. Current members are %s, lost members are %s, stable members are %s", id = 318)
+   void enteringDegradedModeMinorityPartition(String cacheName, Collection<Address> currentMembers, Collection<Address> lostMembers, Collection<Address> stableMembers);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "After merge (or coordinator change), cache %s still hasn't recovered all its data and must stay in degraded mode. Current members are %s, lost members are %s, stable members are %s", id = 319)
+   void keepingDegradedModeAfterMergeDataLost(String cacheName, Collection<Address> currentMembers, Collection<Address> lostMembers, Collection<Address> stableMembers);
+
+   @LogMessage(level = ERROR)
+   @Message(value = "After merge (or coordinator change), cache %s still hasn't recovered a majority of members and must stay in degraded mode. Current members are %s, lost members are %s, stable members are %s", id = 320)
+   void keepingDegradedModeAfterMergeMinorityPartition(String cacheName, Collection<Address> currentMembers, Collection<Address> lostMembers, Collection<Address> stableMembers);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Cyclic dependency detected between caches, stop order ignored", id = 321)
+   void stopOrderIgnored();
+
+   @LogMessage(level = WARN)
+   @Message(value = "Unable to re-start x-site state transfer to site %s", id = 322)
+   void failedToRestartXSiteStateTransfer(String siteName, @Cause Throwable cause);
+
+   @Message(value = "%s is in 'TERMINATED' state and so it does not accept new invocations. " +
+         "Either restart it or recreate the cache container.", id = 323)
+   IllegalLifecycleStateException cacheIsTerminated(String cacheName);
+
+   @Message(value = "%s is in 'STOPPING' state and this is an invocation not belonging to an on-going transaction, so it does not accept new invocations. " +
+         "Either restart it or recreate the cache container.", id = 324)
+   IllegalLifecycleStateException cacheIsStopping(String cacheName);
+
+   @Message (value="Creating tmp cache %s timed out waiting for rebalancing to complete on node %s ", id=325)
+   RuntimeException creatingTmpCacheTimedOut(String cacheName, Address address);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Remote transaction %s timed out. Rolling back after %d ms", id = 326)
+   void remoteTransactionTimeout(GlobalTransaction gtx, long ageMilliSeconds);
+
+   @Message(value = "Cannot find a parser for element '%s' in namespace '%s'. Check that your configuration is up-to date for this version of Infinispan.", id = 327)
+   CacheConfigurationException unsupportedConfiguration(String element, String namespaceUri);
+
+   @LogMessage(level = INFO)
+   @Message(value = "Finished local rebalance for cache %s on node %s, topology id = %d", id = 328)
+   void rebalanceCompleted(String cacheName, Address node, int topologyId);
 }

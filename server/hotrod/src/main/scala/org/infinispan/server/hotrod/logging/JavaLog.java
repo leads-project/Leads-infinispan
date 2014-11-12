@@ -3,6 +3,7 @@ package org.infinispan.server.hotrod.logging;
 import java.util.Set;
 
 import org.infinispan.commons.CacheConfigurationException;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.notifications.cachelistener.event.Event;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.jboss.logging.annotations.Cause;
@@ -54,5 +55,17 @@ public interface JavaLog extends org.infinispan.util.logging.Log {
 
    @Message(value = "Event not handled by current Hot Rod event implementation: '%s'", id = 6009)
    IllegalStateException unexpectedEvent(Event e);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Conditional operation '%s' should be used with transactional caches, otherwise data inconsistency issues could arise under failure situations", id = 6010)
+   void warnConditionalOperationNonTransactional(String op);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Operation '%s' forced to return previous value should be used on transactional caches, otherwise data inconsistency issues could arise under failure situations", id = 6011)
+   void warnForceReturnPreviousNonTransactional(String op);
+
+   @LogMessage(level = WARN)
+   @Message(value = "Marshaller already set to '%s', ignoring passed '%s'", id = 6012)
+   void warnMarshallerAlreadySet(Marshaller existingMarshaller, Marshaller newMarshaller);
 
 }

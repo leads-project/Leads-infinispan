@@ -14,16 +14,32 @@ Currently these subsets are predefined:
   -P suite.leveldb-client            (LevelDB cache store tests - the whole suite.client with leveldb configs)
   -P suite.cachestore                (Tests that use different cachestore configurations, remote, leveldb apod)
 
-  -P suite.rolling.upgrades          (Rolling upgrades specific tests, mandatory specification of: -Dzip.dist.old=path/to/old_distro.zip
+  -P suite.rolling.upgrades          (Rolling upgrades specific tests, mandatory specification of:
+                                      -Dzip.dist.old=path/to/old_distro.zip
+
                                       NOTE: there are 2 properties defined with default values:
                                       1) -Dold.server.schema.version=6.1 -- used for failsafe report suffix
                                       2) -Dnew.server.schema.version=7.0 -- used to decide which snippet to use during
                                           transformation of a configuration for new servers in the clustered scenario
                                       Configuration snippets for new cluster are prepared for versions: 6.0, 6.1, 7.0)
 
+                                      Testing backwards compatibility: use "old" -Dhotrod.protocol.version to set
+                                      HR protocol version for communication with "new" servers.
+
+                                      Settings are also applicable/madatory for other Rolling Upgrades profiles bellow.
+
+  -P suite.rolling.upgrades.dist     (Distribution case of Rolling upgrades)
+
+  -P suite.rolling.upgrades.jbossas       (This profile needs to be used when running Rolling upgrades with
+                                           old Infinispan server based on JBoss AS)
+  -P suite.rolling.upgrades.dist.jbossas  (Distribution case of Rolling upgrades with
+                                           old Infinispan server based on JBoss AS)
+
   -P suite.others                    (Tests that do not belong to any of the suites above. Useful when running a single test that's outside
                                       of any pre-defined group)
   -P suite.query                     (Query related tests, everything contained in the 'query' package)
+
+  -P smoke                             (Smoke tests. A small subset of server mode tests)
 
 Running with specific server zip distribution
 ---------------------------------------------
@@ -83,18 +99,31 @@ The server logs will be stored in the standard location of the test distribution
 Test suite allows generic logging level change via command line parameters.
 Available parameters:
 
-1. -Dlog.level.infinispan=[loggingLevel]
-2. -Dlog.level.jgroups=[loggingLevel]
-3. -Dlog.level.console=[loggingLevel]
+1. -Dtrace=org.infinispan.category1,org.jgroups.category2
 
 What it does:
-1 - sets subsystem/logger[@category='org.infinispan']/level[@name] to [loggingLevel], INFO by default
-2 - sets subsystem/logger[@category='org.jgroups']/level[@name] to [loggingLevel], INFO by default
-3 - sets subsystem/console-handler[@name = 'CONSOLE']/level[@name] to [loggingLevel], INFO by default
+    <console-handler name="CONSOLE">
+        <level name="INFO"/>
+        <formatter>
+            <named-formatter name="COLOR-PATTERN"/>
+        </formatter>
+    </console-handler>
 
-When 1) or 2) is set (only one of them), it also changes subsystem/periodic-rotating-file-handler[@name = 'FILE']/level[@name]
-to [loggingLevel], INFO by default. When both 1) and 2) is provided, subsystem/periodic-rotating-file-handler[@name = 'FILE']/level[@name] is set
-to TRACE.
+    <file-handler name="FILE">
+        <level name="TRACE""/>
+        <formatter>
+            <named-formatter name="PATTERN"/>
+        </formatter>
+        <file relative-to="jboss.server.log.dir" path="server.log"/>
+        <append value="true"/>
+    </file-handler>
+    <logger category="org.infinispan.category1">
+        <level name="TRACE"/>
+    </logger>
+    <logger category="org.jgroups.category2">
+        <level name="TRACE"/>
+    </logger>
+INFO: We do not set TRACE level for console logger here because multiple servers are running and it slows down test execution
 
 LevelDB specifics
 -----------------

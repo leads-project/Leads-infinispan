@@ -5,6 +5,7 @@ import os
 import os.path
 import subprocess
 import shutil
+import tempfile
 from datetime import *
 from multiprocessing import Process
 from utils import *
@@ -191,23 +192,20 @@ def get_module_name(pom_file):
   return tree.findtext("./{%s}artifactId" % maven_pom_xml_namespace)
 
 
-def upload_artifacts(base_dir, version):
+def upload_artifacts(dist_dir, version):
   """Artifacts gets rsync'ed to filemgmt.jboss.org, in the downloads_htdocs/infinispan directory"""
-  shutil.rmtree(".tmp", ignore_errors = True)  
-  os.mkdir(".tmp")
-  os.mkdir(".tmp/%s" % version)
-  os.chdir(".tmp")
-  dist_dir = "%s/target/distribution" % base_dir
+  tempdir = tempfile.mkdtemp(prefix = '.tmp', dir='.')
+  os.mkdir("%s/%s" % (tempdir,version))
   prettyprint("Copying from %s to %s" % (dist_dir, version), Levels.INFO)
   for item in os.listdir(dist_dir):
     full_name = "%s/%s" % (dist_dir, item)
     if item.strip().lower().endswith(".zip") and os.path.isfile(full_name):
-      shutil.copy2(full_name, version)
-  uploader.upload_rsync(version, "infinispan@filemgmt.jboss.org:/downloads_htdocs/infinispan")
-  shutil.rmtree(".tmp", ignore_errors = True)
+      shutil.copy2(full_name, "%s/%s" % (tempdir,version))
+  uploader.upload_rsync("%s/%s" % (tempdir,version), "infinispan@filemgmt.jboss.org:/downloads_htdocs/infinispan")
+  shutil.rmtree(tempdir, ignore_errors = True)
 
 def unzip_archive(version):
-  os.chdir("./target/distribution")
+  os.chdir("./distribution/target/distribution")
   ## Grab the distribution archive and un-arch it
   shutil.rmtree("infinispan-%s-all" % version, ignore_errors = True)
   if settings['verbose']:
@@ -216,7 +214,7 @@ def unzip_archive(version):
     subprocess.check_call(["unzip", "-q", "infinispan-%s-all.zip" % version])
 
 def update_javadoc_tracker(base_dir, version):
-  os.chdir("%s/target/distribution/infinispan-%s-all/doc" % (base_dir, version))
+  os.chdir("%s/distribution/target/distribution/infinispan-%s-all/doc" % (base_dir, version))
   ## "Fix" the docs to use the appropriate analytics tracker ID
   subprocess.check_call(["%s/bin/updateTracker.sh" % base_dir])
 
@@ -233,7 +231,7 @@ def upload_javadocs(base_dir, version):
 
 def upload_schema(base_dir, version):
   """Schema gets rsync'ed to filemgmt.jboss.org, in the docs_htdocs/infinispan/schemas and schema_htdoc/infinispan directories"""
-  os.chdir("%s/target/distribution/infinispan-%s-all/etc/schema" % (base_dir, version))
+  os.chdir("%s/distribution/target/distribution/infinispan-%s-all/schema" % (base_dir, version))
   
   ## rsync this stuff to filemgmt.jboss.org, we put it in the orginal location (docs/infinispan/schemas) and the new location (schema/infinispan)
   uploader.upload_rsync('.', "infinispan@filemgmt.jboss.org:/docs_htdocs/infinispan/schemas")
@@ -242,7 +240,7 @@ def upload_schema(base_dir, version):
   
   ## now the schema docs
   version_short = get_version_major_minor(version)
-  os.chdir("%s/target/site" % base_dir)
+  os.chdir("%s/distribution/target/site" % base_dir)
   os.mkdir(version_short)
   os.rename("configdocs", "%s/configdocs" % version_short)
   uploader.upload_rsync(version_short, "infinispan@filemgmt.jboss.org:/docs_htdocs/infinispan")
@@ -250,7 +248,7 @@ def upload_schema(base_dir, version):
 
 def do_task(target, args, async_processes):
   if settings['multi_threaded']:
-    async_processes.append(Process(target = target, args = args))  
+    async_processes.append(Process(target = target, args = args))
   else:
     target(*args)
 
@@ -347,9 +345,10 @@ def release():
       prettyprint("Step 6: Complete", Levels.INFO)
 
       prettyprint("Step 7: Uploading Artifacts", Levels.INFO)
-      do_task(upload_artifacts, [base_dir, version], async_processes)
-      do_task(upload_artifacts, [base_dir + "/as-modules", version], async_processes)
-      do_task(upload_artifacts, [base_dir + "/server/integration", version], async_processes)
+      do_task(upload_artifacts, ["%s/distribution/target/distribution" % base_dir, version], async_processes)
+      do_task(upload_artifacts, ["%s/as-modules/client/target/distribution" % base_dir, version], async_processes)
+      do_task(upload_artifacts, ["%s/as-modules/embedded/target/distribution" % base_dir, version], async_processes)
+      do_task(upload_artifacts, ["%s/server/integration/target/distribution" % base_dir, version], async_processes)
       prettyprint("Step 7: Complete", Levels.INFO)
 
       prettyprint("Step 8: Uploading to configuration XML schema", Levels.INFO)

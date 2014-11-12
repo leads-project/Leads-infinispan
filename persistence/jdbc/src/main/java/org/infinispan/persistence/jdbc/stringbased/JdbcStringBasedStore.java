@@ -1,24 +1,6 @@
 package org.infinispan.persistence.jdbc.stringbased;
 
-import org.infinispan.commons.configuration.ConfiguredBy;
-import org.infinispan.commons.io.ByteBuffer;
-import org.infinispan.filter.KeyFilter;
-import org.infinispan.marshall.core.MarshalledEntry;
-import org.infinispan.persistence.spi.PersistenceException;
-import org.infinispan.persistence.TaskContextImpl;
-import org.infinispan.persistence.jdbc.JdbcUtil;
-import org.infinispan.persistence.jdbc.TableManipulation;
-import org.infinispan.persistence.jdbc.configuration.JdbcStringBasedStoreConfiguration;
-import org.infinispan.persistence.jdbc.connectionfactory.ConnectionFactory;
-import org.infinispan.persistence.jdbc.connectionfactory.ManagedConnectionFactory;
-import org.infinispan.persistence.jdbc.logging.Log;
-import org.infinispan.persistence.keymappers.Key2StringMapper;
-import org.infinispan.persistence.keymappers.TwoWayKey2StringMapper;
-import org.infinispan.persistence.keymappers.UnsupportedKeyTypeException;
-import org.infinispan.persistence.spi.AdvancedLoadWriteStore;
-import org.infinispan.persistence.spi.InitializationContext;
-import org.infinispan.util.KeyValuePair;
-import org.infinispan.util.logging.LogFactory;
+import static org.infinispan.persistence.PersistenceUtil.getExpiryTime;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -32,7 +14,27 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 
-import static org.infinispan.persistence.PersistenceUtil.getExpiryTime;
+import org.infinispan.commons.configuration.ConfiguredBy;
+import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.util.Util;
+import org.infinispan.configuration.global.GlobalConfiguration;
+import org.infinispan.filter.KeyFilter;
+import org.infinispan.marshall.core.MarshalledEntry;
+import org.infinispan.persistence.TaskContextImpl;
+import org.infinispan.persistence.jdbc.JdbcUtil;
+import org.infinispan.persistence.jdbc.TableManipulation;
+import org.infinispan.persistence.jdbc.configuration.JdbcStringBasedStoreConfiguration;
+import org.infinispan.persistence.jdbc.connectionfactory.ConnectionFactory;
+import org.infinispan.persistence.jdbc.connectionfactory.ManagedConnectionFactory;
+import org.infinispan.persistence.jdbc.logging.Log;
+import org.infinispan.persistence.keymappers.Key2StringMapper;
+import org.infinispan.persistence.keymappers.TwoWayKey2StringMapper;
+import org.infinispan.persistence.keymappers.UnsupportedKeyTypeException;
+import org.infinispan.persistence.spi.AdvancedLoadWriteStore;
+import org.infinispan.persistence.spi.InitializationContext;
+import org.infinispan.persistence.spi.PersistenceException;
+import org.infinispan.util.KeyValuePair;
+import org.infinispan.util.logging.LogFactory;
 
 /**
  * {@link org.infinispan.persistence.spi.AdvancedCacheLoader} implementation that stores the entries in a database. In contrast to the
@@ -80,6 +82,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
    private TableManipulation tableManipulation;
    private InitializationContext ctx;
    private String cacheName;
+   private GlobalConfiguration globalConfiguration;
 
 
    @Override
@@ -87,6 +90,7 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
       this.configuration = ctx.getConfiguration();
       this.ctx = ctx;
       cacheName = ctx.getCache().getName();
+      globalConfiguration = ctx.getCache().getCacheManager().getCacheManagerConfiguration();
    }
 
    @Override
@@ -97,7 +101,8 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
          initializeConnectionFactory(factory);
       }
       try {
-         Object mapper = Class.forName(configuration.key2StringMapper()).newInstance();
+         Object mapper = Util.loadClassStrict(configuration.key2StringMapper(),
+                                              globalConfiguration.classLoader()).newInstance();
          if (mapper instanceof Key2StringMapper) key2StringMapper = (Key2StringMapper) mapper;
       } catch (Exception e) {
          log.errorf("Trying to instantiate %s, however it failed due to %s", configuration.key2StringMapper(),
@@ -321,10 +326,10 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
                   log.tracef("Running sql %s", sql);
                }
                conn = connectionFactory.getConnection();
-               ps = conn.prepareStatement(sql);
+               ps = conn.prepareStatement(sql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
                ps.setLong(1, ctx.getTimeService().wallClockTime());
+               ps.setFetchSize(tableManipulation.getFetchSize());
                rs = ps.executeQuery();
-               rs.setFetchSize(tableManipulation.getFetchSize());
 
                TaskContext taskContext = new TaskContextImpl();
                while (rs.next()) {
@@ -337,7 +342,8 @@ public class JdbcStringBasedStore implements AdvancedLoadWriteStore {
                   MarshalledEntry entry;
                   if (fetchValue || fetchMetadata) {
                      KeyValuePair<ByteBuffer, ByteBuffer> kvp = JdbcUtil.unmarshall(ctx.getMarshaller(), inputStream);
-                     entry = ctx.getMarshalledEntryFactory().newMarshalledEntry(key, kvp.getKey(), kvp.getValue());
+                     entry = ctx.getMarshalledEntryFactory().newMarshalledEntry(
+                           key, fetchValue ? kvp.getKey() : null, fetchMetadata ? kvp.getValue() : null);
                   } else {
                      entry = ctx.getMarshalledEntryFactory().newMarshalledEntry(key, (Object)null, null);
                   }

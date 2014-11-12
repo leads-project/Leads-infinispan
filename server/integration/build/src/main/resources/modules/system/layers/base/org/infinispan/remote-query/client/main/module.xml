@@ -8,6 +8,10 @@
     <dependencies>
         <module name="org.infinispan.commons" />
         <module name="org.infinispan.protostream" />
+<<<<<<< HEAD
         <module name="org.apache.avro" />
+=======
+        <module name="org.infinispan.commons" />
+>>>>>>> upstream/master
     </dependencies>
 </module>

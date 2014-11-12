@@ -1,6 +1,8 @@
 package org.infinispan.server.hotrod
 
 import logging.Log
+import org.infinispan.commons.marshall.Marshaller
+import org.infinispan.notifications.cachelistener.filter.{CacheEventConverterFactory, CacheEventFilterFactory}
 import scala.collection.JavaConversions._
 import org.infinispan.manager.EmbeddedCacheManager
 import org.infinispan.server.core.{QueryFacade, AbstractProtocolServer}
@@ -16,8 +18,6 @@ import java.util.ServiceLoader
 import org.infinispan.util.concurrent.IsolationLevel
 import javax.security.sasl.SaslServerFactory
 import org.infinispan.server.core.security.SaslUtils
-import java.util.Arrays
-import java.util.Collections
 import org.infinispan.factories.ComponentRegistry
 
 /**
@@ -174,7 +174,7 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
          val tmpCache = SecurityActions.getCache[Bytes, Bytes](cacheManager, validCacheName)
          val cacheConfiguration = SecurityActions.getCacheConfiguration(tmpCache.getAdvancedCache)
          val compatibility = cacheConfiguration.compatibility().enabled()
-         val indexing = cacheConfiguration.indexing().enabled()
+         val indexing = cacheConfiguration.indexing().index().isEnabled
 
          // Use flag when compatibility is enabled, otherwise it's unnecessary
          if (compatibility || indexing)
@@ -227,6 +227,30 @@ class HotRodServer extends AbstractProtocolServer("HotRod") with Log {
 
    private[hotrod] def getAddressCache = addressCache
 
+   def addCacheEventFilterFactory(name: String, factory: CacheEventFilterFactory): Unit = {
+      clientListenerRegistry.addCacheEventFilterFactory(name, factory)
+   }
+
+   def removeCacheEventFilterFactory(name: String): Unit = {
+      clientListenerRegistry.removeCacheEventFilterFactory(name)
+   }
+
+   def addCacheEventConverterFactory(name: String, factory: CacheEventConverterFactory): Unit = {
+      clientListenerRegistry.addCacheEventConverterFactory(name, factory)
+   }
+
+   def removeCacheEventConverterFactory(name: String): Unit = {
+      clientListenerRegistry.removeCacheEventConverterFactory(name)
+   }
+
+   def setEventMarshaller(marshaller: Marshaller): Unit = {
+      clientListenerRegistry.setEventMarshaller(Option(marshaller))
+   }
+
+   override def stop: Unit = {
+      if (clientListenerRegistry != null) clientListenerRegistry.stop()
+      super.stop
+   }
 }
 
 object HotRodServer {

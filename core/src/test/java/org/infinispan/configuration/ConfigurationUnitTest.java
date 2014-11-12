@@ -18,6 +18,7 @@ import org.infinispan.commons.util.FileLookup;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.manager.EmbeddedCacheManager;
@@ -265,12 +266,9 @@ public class ConfigurationUnitTest extends AbstractInfinispanTest {
 
    @Test(expectedExceptions = CacheConfigurationException.class)
    public void testWrongCacheModeConfiguration() throws Exception {
-      withCacheManager(new CacheManagerCallable(createTestCacheManager()) {
-         @Override
-         public void call() {
-            cm.getCache().put("key", "value");
-         }
-      });
+      ConfigurationBuilder config = new ConfigurationBuilder();
+      config.clustering().cacheMode(CacheMode.REPL_ASYNC);
+      TestCacheManagerFactory.createCacheManager(config);
    }
 
    public void testCacheModeConfiguration() throws Exception {
@@ -285,7 +283,7 @@ public class ConfigurationUnitTest extends AbstractInfinispanTest {
    private EmbeddedCacheManager createTestCacheManager() {
       ConfigurationBuilder config = new ConfigurationBuilder();
       config.clustering().cacheMode(CacheMode.REPL_ASYNC);
-      EmbeddedCacheManager cm = TestCacheManagerFactory.createCacheManager(config);
+      EmbeddedCacheManager cm = TestCacheManagerFactory.createClusteredCacheManager(config);
       config = new ConfigurationBuilder();
       cm.defineConfiguration("local", config.build());
       return cm;
@@ -324,7 +322,7 @@ public class ConfigurationUnitTest extends AbstractInfinispanTest {
       try {
          ConfigurationBuilder c = new ConfigurationBuilder();
          c.clustering().cacheMode(CacheMode.INVALIDATION_SYNC);
-         c.indexing().enable();
+         c.indexing().index(Index.ALL);
          ecm = TestCacheManagerFactory.createClusteredCacheManager(c);
          ecm.getCache();
       } finally {
@@ -338,7 +336,7 @@ public class ConfigurationUnitTest extends AbstractInfinispanTest {
       EmbeddedCacheManager ecm = null;
       try {
          ConfigurationBuilder c = new ConfigurationBuilder();
-         c.indexing().enable();
+         c.indexing().index(Index.ALL);
          ecm = TestCacheManagerFactory.createClusteredCacheManager(c);
          ecm.getCache();
       } finally {

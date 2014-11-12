@@ -1,7 +1,6 @@
 package org.infinispan.server.hotrod
 
 import io.netty.buffer.ByteBuf
-import org.infinispan.distribution.ch.impl.DefaultConsistentHash
 import org.infinispan.manager.EmbeddedCacheManager
 import org.infinispan.remoting.transport.Address
 import org.infinispan.server.core.transport.ExtendedByteBuf._
@@ -9,11 +8,11 @@ import org.infinispan.server.hotrod.HotRodServer._
 import org.infinispan.server.hotrod.OperationStatus._
 import org.infinispan.server.hotrod.logging.Log
 import org.infinispan.server.hotrod.util.BulkUtil
-import scala.Some
 import scala.collection.JavaConversions._
 import scala.collection.mutable
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 import org.infinispan.server.hotrod.Events.{CustomEvent, KeyEvent, Event, KeyWithVersionEvent}
+import scala.collection.mutable.ListBuffer
+import org.infinispan.remoting.rpc.RpcManager
 
 /**
  * @author Galder Zamarreño
@@ -33,13 +32,16 @@ object Encoder2x extends AbstractVersionedEncoder with Constants with Log {
       e match {
          case k: KeyWithVersionEvent =>
             buf.writeByte(0) // custom marker
+            buf.writeByte(if (k.isRetried) 1 else 0)
             writeRangedBytes(k.key, buf)
             buf.writeLong(k.dataVersion)
          case k: KeyEvent =>
             buf.writeByte(0) // custom marker
+            buf.writeByte(if (k.isRetried) 1 else 0)
             writeRangedBytes(k.key, buf)
          case c: CustomEvent =>
             buf.writeByte(1) // custom marker
+            buf.writeByte(if (c.isRetried) 1 else 0)
             writeRangedBytes(c.eventData, buf)
       }
    }
@@ -86,29 +88,39 @@ object Encoder2x extends AbstractVersionedEncoder with Constants with Log {
    private def writeHashTopologyUpdate(h: HashDistAware20Response, cache: Cache, buf: ByteBuf) {
       trace("Write hash distribution change response header %s", h)
       buf.writeByte(1) // Topology changed
-      writeUnsignedInt(h.topologyId, buf)
-      writeUnsignedInt(h.serverEndpointsMap.size, buf)
-      // Write known servers in topology
-      val memberIndexes = mutable.Map.empty[Address, Int]
-      var indexCount = 0
-      for ((address, serverAddress) <- h.serverEndpointsMap) {
-         writeString(serverAddress.host, buf)
-         writeUnsignedShort(serverAddress.port, buf)
-         memberIndexes += (address -> indexCount)
+      writeUnsignedInt(h.topologyId, buf) // Topology ID
+
+      if (isTraceEnabled) trace(s"Topology cache contains: ${h.serverEndpointsMap}")
+
+      // Calculate members
+      val ch = SecurityActions.getCacheDistributionManager(cache).getReadConsistentHash
+      val members = h.serverEndpointsMap.filter { case (addr, serverAddr) =>
+         ch.getMembers.contains(addr)
+      }
+
+      if (isTraceEnabled) trace(s"After read consistent hash filter, members are: $members")
+
+      // Write members
+      var indexCount = -1
+      writeUnsignedInt(members.size, buf)
+      val indexedMembers = members.map { case (addr, serverAddr) =>
+         writeString(serverAddr.host, buf)
+         writeUnsignedShort(serverAddr.port, buf)
          indexCount += 1
+         addr -> indexCount // easier indexing
       }
 
       // Write segment information
-      val ch = cache.getDistributionManager.getReadConsistentHash
       val numSegments = ch.getNumSegments
       buf.writeByte(h.hashFunction) // Hash function
       writeUnsignedInt(numSegments, buf)
+
       for (segmentId <- 0 until numSegments) {
-         val owners = ch.locateOwnersForSegment(segmentId)
+         val owners = ch.locateOwnersForSegment(segmentId).filter(members.contains)
          val numOwnersToSend = Math.min(2, owners.size())
          buf.writeByte(numOwnersToSend)
          owners.take(numOwnersToSend).foreach { ownerAddr =>
-            memberIndexes.get(ownerAddr) match {
+            indexedMembers.get(ownerAddr) match {
                case Some(index) => writeUnsignedInt(index, buf)
                case None => // Do not add to indexes
             }
@@ -123,7 +135,7 @@ object Encoder2x extends AbstractVersionedEncoder with Constants with Log {
             case INTELLIGENCE_TOPOLOGY_AWARE | INTELLIGENCE_HASH_DISTRIBUTION_AWARE => {
                val cache = server.getCacheInstance(r.cacheName, addressCache.getCacheManager, skipCacheCheck = false)
                // Use the request cache's topology id as the HotRod topologyId.
-               val rpcManager = cache.getRpcManager
+               val rpcManager = SecurityActions.getCacheRpcManager(cache)
                // Only send a topology update if the cache is clustered
                val currentTopologyId = rpcManager match {
                   case null => DEFAULT_TOPOLOGY_ID
@@ -131,7 +143,7 @@ object Encoder2x extends AbstractVersionedEncoder with Constants with Log {
                }
                // AND if the client's topology id is smaller than the server's topology id
                if (currentTopologyId >= DEFAULT_TOPOLOGY_ID && r.topologyId < currentTopologyId)
-                  generateTopologyResponse(r, addressCache, cache, currentTopologyId)
+                  generateTopologyResponse(r, addressCache, cache, rpcManager, currentTopologyId)
                else None
             }
             case INTELLIGENCE_BASIC => None
@@ -140,7 +152,7 @@ object Encoder2x extends AbstractVersionedEncoder with Constants with Log {
    }
 
    private def generateTopologyResponse(r: Response, addressCache: AddressCache,
-           cache: Cache, currentTopologyId: Int): Option[AbstractTopologyResponse] = {
+           cache: Cache, rpcManager: RpcManager, currentTopologyId: Int): Option[AbstractTopologyResponse] = {
       // If the topology cache is incomplete, we assume that a node has joined but hasn't added his HotRod
       // endpoint address to the topology cache yet. We delay the topology update until the next client
       // request by returning null here (so the client topology id stays the same).
@@ -151,7 +163,7 @@ object Encoder2x extends AbstractVersionedEncoder with Constants with Log {
       // difference between the client topology id and the server topology id is 2 or more. The partial update
       // will have the topology id of the server - 1, so it won't prevent a regular topology update if/when
       // the topology cache is updated.
-      val cacheMembers = cache.getRpcManager.getMembers
+      val cacheMembers = rpcManager.getMembers
       val serverEndpoints = addressCache.toMap
       var topologyId = currentTopologyId
       if (!serverEndpoints.keySet.containsAll(cacheMembers)) {
@@ -165,7 +177,7 @@ object Encoder2x extends AbstractVersionedEncoder with Constants with Log {
          }
       }
 
-      val config = cache.getCacheConfiguration
+      val config = SecurityActions.getCacheConfiguration(cache)
       if (r.clientIntel == INTELLIGENCE_TOPOLOGY_AWARE || !config.clustering().cacheMode().isDistributed) {
          Some(TopologyAwareResponse(topologyId, serverEndpoints))
       } else {
@@ -253,6 +265,7 @@ object Encoder2x extends AbstractVersionedEncoder with Constants with Log {
                writeUnsignedInt(0, buf)
             }
          }
+         case s: SizeResponse => writeUnsignedLong(s.size, buf)
          case e: ErrorResponse => writeString(e.msg, buf)
          case _ => if (buf == null)
             throw new IllegalArgumentException("Response received is unknown: " + r)

@@ -2,13 +2,18 @@ package org.jboss.as.clustering.infinispan.subsystem;
 
 import org.infinispan.Cache;
 import org.infinispan.eviction.PassivationManager;
+import org.infinispan.factories.ComponentRegistry;
 import org.infinispan.interceptors.ActivationInterceptor;
 import org.infinispan.interceptors.CacheMgmtInterceptor;
 import org.infinispan.interceptors.CacheWriterInterceptor;
 import org.infinispan.interceptors.InvalidationInterceptor;
 import org.infinispan.interceptors.TxInterceptor;
+import org.infinispan.query.SearchManager;
+import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.remoting.rpc.RpcManagerImpl;
+import org.infinispan.server.infinispan.SecurityActions;
 import org.infinispan.transaction.xa.recovery.RecoveryAdminOperations;
+import org.infinispan.upgrade.RollingUpgradeManager;
 import org.infinispan.xsite.XSiteAdminOperations;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -17,8 +22,10 @@ import org.jboss.as.controller.PathAddress;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceController;
 
+import java.util.Iterator;
+import java.util.Map;
+
 import static org.jboss.as.clustering.infinispan.InfinispanMessages.MESSAGES;
-import static org.jboss.as.clustering.infinispan.subsystem.CacheMetricsHandler.getFirstInterceptorWhichExtends;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
 /**
@@ -72,11 +79,7 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            CacheMgmtInterceptor interceptor = getFirstInterceptorWhichExtends(cache.getAdvancedCache()
-                    .getInterceptorChain(), CacheMgmtInterceptor.class);
-            if (interceptor != null) {
-                interceptor.resetStatistics();
-            }
+            SecurityActions.resetStatistics(cache.getAdvancedCache(), CacheMgmtInterceptor.class);
             return null;
         }
     }
@@ -90,7 +93,35 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            cache.clear();
+            SecurityActions.clearCache(cache.getAdvancedCache());
+            return null;
+        }
+    }
+
+    public static class StartCacheCommand extends CacheCommands {
+        public static final StartCacheCommand INSTANCE = new StartCacheCommand();
+
+        public StartCacheCommand() {
+            super(0);
+        }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            SecurityActions.startCache(cache.getAdvancedCache());
+            return null;
+        }
+    }
+
+    public static class StopCacheCommand extends CacheCommands {
+        public static final StopCacheCommand INSTANCE = new StopCacheCommand();
+
+        public StopCacheCommand() {
+            super(0);
+        }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            SecurityActions.stopCache(cache.getAdvancedCache());
             return null;
         }
     }
@@ -104,11 +135,7 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            TxInterceptor interceptor = getFirstInterceptorWhichExtends(cache.getAdvancedCache()
-                    .getInterceptorChain(), TxInterceptor.class);
-            if (interceptor != null) {
-                interceptor.resetStatistics();
-            }
+            SecurityActions.resetStatistics(cache.getAdvancedCache(), TxInterceptor.class);
             return null;
         }
     }
@@ -122,11 +149,7 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            InvalidationInterceptor interceptor = getFirstInterceptorWhichExtends(cache.getAdvancedCache()
-                    .getInterceptorChain(), InvalidationInterceptor.class);
-            if (interceptor != null) {
-                interceptor.resetStatistics();
-            }
+            SecurityActions.resetStatistics(cache.getAdvancedCache(), InvalidationInterceptor.class);
             return null;
         }
     }
@@ -140,11 +163,7 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            ActivationInterceptor interceptor = getFirstInterceptorWhichExtends(cache.getAdvancedCache()
-                    .getInterceptorChain(), ActivationInterceptor.class);
-            if (interceptor != null) {
-                interceptor.resetStatistics();
-            }
+            SecurityActions.resetStatistics(cache.getAdvancedCache(), ActivationInterceptor.class);
             return null;
         }
     }
@@ -158,10 +177,7 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            PassivationManager manager = cache.getAdvancedCache().getComponentRegistry().getComponent(PassivationManager.class);
-            if (manager != null) {
-               manager.resetStatistics();
-            }
+            SecurityActions.resetStatistics(cache.getAdvancedCache(), PassivationManager.class);
             return null;
         }
     }
@@ -175,7 +191,7 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            RpcManagerImpl rpcManager = (RpcManagerImpl) cache.getAdvancedCache().getRpcManager();
+            RpcManagerImpl rpcManager = (RpcManagerImpl) SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(RpcManager.class);
             if (rpcManager != null) {
                 rpcManager.resetStatistics();
             }
@@ -192,11 +208,7 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            CacheWriterInterceptor interceptor = getFirstInterceptorWhichExtends(cache.getAdvancedCache()
-                    .getInterceptorChain(), CacheWriterInterceptor.class);
-            if (interceptor != null) {
-                interceptor.resetStatistics();
-            }
+            SecurityActions.resetStatistics(cache.getAdvancedCache(), CacheWriterInterceptor.class);
             return null;
         }
     }
@@ -210,7 +222,7 @@ public abstract class CacheCommands implements OperationStepHandler {
 
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
-            RecoveryAdminOperations recoveryAdminOperations = cache.getAdvancedCache().getComponentRegistry().getComponent(RecoveryAdminOperations.class);
+            RecoveryAdminOperations recoveryAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(RecoveryAdminOperations.class);
             return toOperationResult(recoveryAdminOperations.showInDoubtTransactions());
         }
     }
@@ -225,7 +237,7 @@ public abstract class CacheCommands implements OperationStepHandler {
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
             long internalId = operation.require(ModelKeys.TX_INTERNAL_ID).asLong();
-            RecoveryAdminOperations recoveryAdminOperations = cache.getAdvancedCache().getComponentRegistry().getComponent(RecoveryAdminOperations.class);
+            RecoveryAdminOperations recoveryAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(RecoveryAdminOperations.class);
             return toOperationResult(recoveryAdminOperations.forceCommit(internalId));
         }
     }
@@ -240,7 +252,7 @@ public abstract class CacheCommands implements OperationStepHandler {
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
             long internalId = operation.require(ModelKeys.TX_INTERNAL_ID).asLong();
-            RecoveryAdminOperations recoveryAdminOperations = cache.getAdvancedCache().getComponentRegistry().getComponent(RecoveryAdminOperations.class);
+            RecoveryAdminOperations recoveryAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(RecoveryAdminOperations.class);
             return toOperationResult(recoveryAdminOperations.forceRollback(internalId));
         }
     }
@@ -255,7 +267,7 @@ public abstract class CacheCommands implements OperationStepHandler {
         @Override
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
             long internalId = operation.require(ModelKeys.TX_INTERNAL_ID).asLong();
-            RecoveryAdminOperations recoveryAdminOperations = cache.getAdvancedCache().getComponentRegistry().getComponent(RecoveryAdminOperations.class);
+            RecoveryAdminOperations recoveryAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(RecoveryAdminOperations.class);
             return toOperationResult(recoveryAdminOperations.forget(internalId));
         }
     }
@@ -271,7 +283,7 @@ public abstract class CacheCommands implements OperationStepHandler {
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
             final PathAddress address = PathAddress.pathAddress(operation.require(OP_ADDR));
             final String site = address.getLastElement().getValue();
-            XSiteAdminOperations xsiteAdminOperations = cache.getAdvancedCache().getComponentRegistry().getComponent(XSiteAdminOperations.class);
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
             return toOperationResult(xsiteAdminOperations.bringSiteOnline(site));
         }
     }
@@ -288,7 +300,7 @@ public abstract class CacheCommands implements OperationStepHandler {
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
             final PathAddress address = PathAddress.pathAddress(operation.require(OP_ADDR));
             final String site = address.getLastElement().getValue();
-            XSiteAdminOperations xsiteAdminOperations = cache.getAdvancedCache().getComponentRegistry().getComponent(XSiteAdminOperations.class);
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
             return toOperationResult(xsiteAdminOperations.takeSiteOffline(site));
         }
     }
@@ -304,15 +316,192 @@ public abstract class CacheCommands implements OperationStepHandler {
         protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
             final PathAddress address = PathAddress.pathAddress(operation.require(OP_ADDR));
             final String site = address.getLastElement().getValue();
-            XSiteAdminOperations xsiteAdminOperations = cache.getAdvancedCache().getComponentRegistry().getComponent(XSiteAdminOperations.class);
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
             return toOperationResult(xsiteAdminOperations.siteStatus(site));
         }
     }
+
+    public static class SynchronizeDataCommand extends CacheCommands {
+        public static final SynchronizeDataCommand INSTANCE = new SynchronizeDataCommand();
+
+        public SynchronizeDataCommand() {
+            super(0);
+        }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            ComponentRegistry registry = SecurityActions.getComponentRegistry(cache.getAdvancedCache());
+            RollingUpgradeManager manager = registry.getComponent(RollingUpgradeManager.class);
+            if (manager != null) {
+                manager.synchronizeData(operation.require(ModelKeys.MIGRATOR_NAME).asString());
+            }
+            return null;
+        }
+    }
+
+    public static class RecordGlobalKeySetCommand extends CacheCommands {
+        public static final RecordGlobalKeySetCommand INSTANCE = new RecordGlobalKeySetCommand();
+
+        public RecordGlobalKeySetCommand() {
+            super(0);
+        }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            ComponentRegistry registry = SecurityActions.getComponentRegistry(cache.getAdvancedCache());
+            RollingUpgradeManager manager = registry.getComponent(RollingUpgradeManager.class);
+            if (manager != null) {
+                manager.recordKnownGlobalKeyset();
+            }
+            return null;
+        }
+    }
+
+    public static class DisconnectSourceCommand extends CacheCommands {
+        public static final DisconnectSourceCommand INSTANCE = new DisconnectSourceCommand();
+
+        public DisconnectSourceCommand() {
+            super(0);
+        }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            ComponentRegistry registry = SecurityActions.getComponentRegistry(cache.getAdvancedCache());
+            RollingUpgradeManager manager = registry.getComponent(RollingUpgradeManager.class);
+            if (manager != null) {
+                manager.disconnectSource(operation.require(ModelKeys.MIGRATOR_NAME).asString());
+            }
+            return null;
+        }
+   }
+
+    public static class BackupPushStateCommand extends CacheCommands {
+        public static final BackupPushStateCommand INSTANCE = new BackupPushStateCommand();
+
+        public BackupPushStateCommand() {
+         super(1);
+      }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            final PathAddress address = PathAddress.pathAddress(operation.require(OP_ADDR));
+            final String site = address.getLastElement().getValue();
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
+            return toOperationResult(xsiteAdminOperations.pushState(site));
+        }
+    }
+
+    public static class BackupCancelPushStateCommand extends CacheCommands {
+        public static final BackupCancelPushStateCommand INSTANCE = new BackupCancelPushStateCommand();
+
+        public BackupCancelPushStateCommand() {
+         super(1);
+      }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            final PathAddress address = PathAddress.pathAddress(operation.require(OP_ADDR));
+            final String site = address.getLastElement().getValue();
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
+            return toOperationResult(xsiteAdminOperations.cancelPushState(site));
+        }
+    }
+
+    public static class BackupCancelReceiveStateCommand extends CacheCommands {
+        public static final BackupCancelReceiveStateCommand INSTANCE = new BackupCancelReceiveStateCommand();
+
+        public BackupCancelReceiveStateCommand() {
+         super(1);
+      }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            final PathAddress address = PathAddress.pathAddress(operation.require(OP_ADDR));
+            final String site = address.getLastElement().getValue();
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
+            return toOperationResult(xsiteAdminOperations.cancelReceiveState(site));
+        }
+    }
+
+    public static class BackupPushStateStatusCommand extends CacheCommands {
+        public static final BackupPushStateStatusCommand INSTANCE = new BackupPushStateStatusCommand();
+
+        public BackupPushStateStatusCommand() {
+         super(1);
+      }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
+            return toOperationResult(prettyPrintMap(xsiteAdminOperations.getPushStateStatus()));
+        }
+    }
+
+    public static class BackupGetSendingSiteCommand extends CacheCommands {
+        public static final BackupGetSendingSiteCommand INSTANCE = new BackupGetSendingSiteCommand();
+
+        public BackupGetSendingSiteCommand() {
+         super(1);
+      }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
+            return toOperationResult(xsiteAdminOperations.getSendingSiteName());
+        }
+    }
+
+    public static class BackupClearPushStatusCommand extends CacheCommands {
+        public static final BackupClearPushStatusCommand INSTANCE = new BackupClearPushStatusCommand();
+
+        public BackupClearPushStatusCommand() {
+         super(1);
+      }
+
+        @Override
+        protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+            XSiteAdminOperations xsiteAdminOperations = SecurityActions.getComponentRegistry(cache.getAdvancedCache()).getComponent(XSiteAdminOperations.class);
+            xsiteAdminOperations.clearPushStateStatus();
+            return null;
+        }
+    }
+
+    public static class MassReindexCommand extends CacheCommands {
+       public static final MassReindexCommand INSTANCE = new MassReindexCommand();
+
+       public MassReindexCommand() {
+           super(0);
+       }
+
+       @Override
+       protected ModelNode invokeCommand(Cache<?, ?> cache, ModelNode operation) throws Exception {
+           SearchManager searchManager = SecurityActions.getSearchManager(cache.getAdvancedCache());
+           if (searchManager != null) {
+               searchManager.getMassIndexer().start();
+           }
+           return null;
+       }
+   }
 
     private static ModelNode toOperationResult(String s) {
         ModelNode result = new ModelNode();
         result.add(s);
         return result;
     }
+
+    private static String prettyPrintMap(Map<?, ?> map) {
+        if (map.isEmpty()) {
+           return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (Iterator<? extends Map.Entry<?, ?>> iterator = map.entrySet().iterator(); iterator.hasNext(); ) {
+           Map.Entry<?, ?> entry = iterator.next();
+           builder.append(entry.getKey()).append("=").append(entry.getValue());
+           if (iterator.hasNext()) {
+              builder.append(System.lineSeparator());
+           }
+        }
+        return builder.toString();
+   }
 
 }

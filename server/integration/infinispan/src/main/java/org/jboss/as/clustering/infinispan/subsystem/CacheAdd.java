@@ -46,23 +46,13 @@ import org.infinispan.commons.configuration.ConfiguredBy;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.util.FileLookup;
 import org.infinispan.commons.util.TypedProperties;
-import org.infinispan.configuration.cache.AuthorizationConfigurationBuilder;
+import org.infinispan.configuration.cache.*;
 import org.infinispan.configuration.cache.BackupConfiguration.BackupStrategy;
-import org.infinispan.configuration.cache.BackupFailurePolicy;
-import org.infinispan.configuration.cache.CacheMode;
-import org.infinispan.configuration.cache.ClusterLoaderConfigurationBuilder;
-import org.infinispan.configuration.cache.Configuration;
-import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.configuration.cache.CustomStoreConfigurationBuilder;
-import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
-import org.infinispan.configuration.cache.SingleFileStoreConfigurationBuilder;
-import org.infinispan.configuration.cache.SitesConfigurationBuilder;
-import org.infinispan.configuration.cache.StoreConfigurationBuilder;
 import org.infinispan.configuration.parsing.ConfigurationBuilderHolder;
 import org.infinispan.configuration.parsing.ParserRegistry;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.persistence.jdbc.Dialect;
+import org.infinispan.persistence.jdbc.DatabaseType;
 import org.infinispan.persistence.jdbc.configuration.AbstractJdbcStoreConfigurationBuilder;
 import org.infinispan.persistence.jdbc.configuration.JdbcBinaryStoreConfigurationBuilder;
 import org.infinispan.persistence.jdbc.configuration.JdbcMixedStoreConfigurationBuilder;
@@ -379,10 +369,13 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
         CacheResource.START.validateAndSet(fromModel, toModel);
         CacheResource.BATCHING.validateAndSet(fromModel, toModel);
         CacheResource.INDEXING.validateAndSet(fromModel, toModel);
+        CacheResource.INDEXING_AUTO_CONFIG.validateAndSet(fromModel, toModel);
         CacheResource.JNDI_NAME.validateAndSet(fromModel, toModel);
         CacheResource.CACHE_MODULE.validateAndSet(fromModel, toModel);
         CacheResource.INDEXING_PROPERTIES.validateAndSet(fromModel, toModel);
         CacheResource.STATISTICS.validateAndSet(fromModel, toModel);
+        CacheResource.REMOTE_CACHE.validateAndSet(fromModel, toModel);
+        CacheResource.REMOTE_SITE.validateAndSet(fromModel, toModel);
     }
 
     /**
@@ -399,6 +392,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
         builder.jmxStatistics().enabled(CacheResource.STATISTICS.resolveModelAttribute(context, cache).asBoolean());
 
         final Indexing indexing = Indexing.valueOf(CacheResource.INDEXING.resolveModelAttribute(context, cache).asString());
+        final boolean autoConfig = CacheResource.INDEXING_AUTO_CONFIG.resolveModelAttribute(context, cache).asBoolean();
         final boolean batching = CacheResource.BATCHING.resolveModelAttribute(context, cache).asBoolean();
 
         // set the cache mode (may be modified when setting up clustering attributes)
@@ -412,17 +406,25 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             }
         }
         builder.indexing()
-                .enabled(indexing.isEnabled())
-                .indexLocalOnly(indexing.isLocalOnly())
+                .index(indexing.isEnabled() ? indexing.isLocalOnly() ? Index.LOCAL : Index.ALL : Index.NONE)
                 .withProperties(indexingProperties)
+                .autoConfig(autoConfig)
         ;
+
+        if (cache.hasDefined(ModelKeys.REMOTE_CACHE)) {
+             builder.sites().backupFor().remoteCache(CacheResource.REMOTE_CACHE.resolveModelAttribute(context, cache).asString());
+        }
+        if (cache.hasDefined(ModelKeys.REMOTE_SITE)) {
+             builder.sites().backupFor().remoteSite(CacheResource.REMOTE_SITE.resolveModelAttribute(context, cache).asString());
+        }
+
 
         // locking is a child resource
         if (cache.hasDefined(ModelKeys.LOCKING) && cache.get(ModelKeys.LOCKING, ModelKeys.LOCKING_NAME).isDefined()) {
             ModelNode locking = cache.get(ModelKeys.LOCKING, ModelKeys.LOCKING_NAME);
-            
+
             final IsolationLevel isolationLevel = IsolationLevel.READ_COMMITTED;
-            if (LockingResource.ISOLATION.resolveModelAttribute(context, locking).isDefined()) {  
+            if (locking.hasDefined(ModelKeys.ISOLATION)) {
                log.warn("Ignoring XML attribute " + ModelKeys.ISOLATION + ", please remove from configuration file");
             }
             final boolean striping = LockingResource.STRIPING.resolveModelAttribute(context, locking).asBoolean();
@@ -548,15 +550,29 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             for (Property property : cache.get(ModelKeys.BACKUP).asPropertyList()) {
                 String siteName = property.getName();
                 ModelNode site = property.getValue();
-                sitesBuilder
-                        .addBackup()
-                        .site(siteName)
+                BackupConfigurationBuilder backupConfigurationBuilder = sitesBuilder.addBackup();
+                backupConfigurationBuilder.site(siteName)
                         .backupFailurePolicy(BackupFailurePolicy.valueOf(BackupSiteResource.FAILURE_POLICY.resolveModelAttribute(context, site).asString()))
                         .strategy(BackupStrategy.valueOf(BackupSiteResource.STRATEGY.resolveModelAttribute(context, site).asString()))
                         .replicationTimeout(BackupSiteResource.REPLICATION_TIMEOUT.resolveModelAttribute(context, site).asLong());
                 if (BackupSiteResource.ENABLED.resolveModelAttribute(context, site).asBoolean()) {
                     sitesBuilder.addInUseBackupSite(siteName);
                 }
+                if (site.hasDefined(ModelKeys.TAKE_OFFLINE)) {
+                    ModelNode takeOfflineModel = site.get(ModelKeys.TAKE_OFFLINE);
+                    backupConfigurationBuilder.takeOffline()
+                          .afterFailures(BackupSiteResource.TAKE_OFFLINE_AFTER_FAILURES.resolveModelAttribute(context, takeOfflineModel).asInt())
+                          .minTimeToWait(BackupSiteResource.TAKE_OFFLINE_MIN_WAIT.resolveModelAttribute(context, takeOfflineModel).asLong());
+                }
+                if (site.hasDefined(ModelKeys.STATE_TRANSFER) && site.get(ModelKeys.STATE_TRANSFER, ModelKeys.STATE_TRANSFER_NAME).isDefined()) {
+                    ModelNode stateTransferModel = site.get(ModelKeys.STATE_TRANSFER, ModelKeys.STATE_TRANSFER_NAME);
+                    backupConfigurationBuilder.stateTransfer()
+                          .chunkSize(BackupSiteStateTransferResource.STATE_TRANSFER_CHUNK_SIZE.resolveModelAttribute(context, stateTransferModel).asInt())
+                          .timeout(BackupSiteStateTransferResource.STATE_TRANSFER_TIMEOUT.resolveModelAttribute(context, stateTransferModel).asLong())
+                          .maxRetries(BackupSiteStateTransferResource.STATE_TRANSFER_MAX_RETRIES.resolveModelAttribute(context, stateTransferModel).asInt())
+                          .waitTime(BackupSiteStateTransferResource.STATE_TRANSFER_WAIT_TIME.resolveModelAttribute(context, stateTransferModel).asLong());
+                }
+
             }
         }
     }
@@ -680,9 +696,9 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             return builder;
         } else if (storeKey.equals(ModelKeys.STRING_KEYED_JDBC_STORE) || storeKey.equals(ModelKeys.BINARY_KEYED_JDBC_STORE) || storeKey.equals(ModelKeys.MIXED_KEYED_JDBC_STORE)) {
             ModelNode dialectNode = BaseJDBCStoreResource.DIALECT.resolveModelAttribute(context, store);
-            Dialect dialect = dialectNode.isDefined() ? Dialect.valueOf(dialectNode.asString()) : null;
+            DatabaseType databaseType = dialectNode.isDefined() ? DatabaseType.valueOf(dialectNode.asString()) : null;
 
-            AbstractJdbcStoreConfigurationBuilder<?, ?> builder = buildJdbcStore(persistenceBuilder, context, store, dialect);
+            AbstractJdbcStoreConfigurationBuilder<?, ?> builder = buildJdbcStore(persistenceBuilder, context, store, databaseType);
 
             final String datasource = BaseJDBCStoreResource.DATA_SOURCE.resolveModelAttribute(context, store).asString();
 
@@ -748,6 +764,7 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
             if (expirationDefined) {
                 ModelNode expiration = store.get(ModelKeys.EXPIRATION, ModelKeys.EXPIRATION_NAME);
                 expirationPath = LevelDBExpirationResource.PATH.resolveModelAttribute(context, expiration).asString();
+                builder.expiryQueueSize(LevelDBExpirationResource.QUEUE_SIZE.resolveModelAttribute(context, expiration).asInt());
             } else {
                 expirationPath = InfinispanExtension.SUBSYSTEM_NAME + File.separatorChar + containerName + File.separatorChar + "expiration";
             }
@@ -776,8 +793,6 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
                 builder.cacheSize(store.get(ModelKeys.CACHE_SIZE).asLong());
             if (store.hasDefined(ModelKeys.CLEAR_THRESHOLD))
                 builder.clearThreshold(store.get(ModelKeys.CLEAR_THRESHOLD).asInt());
-            if (store.hasDefined(ModelKeys.QUEUE_SIZE))
-                builder.expiryQueueSize(store.get(ModelKeys.QUEUE_SIZE).asInt());
 
             if (store.hasDefined(ModelKeys.COMPRESSION)) {
                 ModelNode node = store.get(ModelKeys.COMPRESSION, ModelKeys.COMPRESSION_NAME);
@@ -920,23 +935,23 @@ public abstract class CacheAdd extends AbstractAddStepHandler {
       }
    }
 
-   private AbstractJdbcStoreConfigurationBuilder<?, ?> buildJdbcStore(PersistenceConfigurationBuilder loadersBuilder, OperationContext context, ModelNode store, Dialect dialect) throws OperationFailedException {
+   private AbstractJdbcStoreConfigurationBuilder<?, ?> buildJdbcStore(PersistenceConfigurationBuilder loadersBuilder, OperationContext context, ModelNode store, DatabaseType databaseType) throws OperationFailedException {
         boolean useStringKeyedTable = store.hasDefined(ModelKeys.STRING_KEYED_TABLE);
         boolean useBinaryKeyedTable = store.hasDefined(ModelKeys.BINARY_KEYED_TABLE);
         if (useStringKeyedTable && !useBinaryKeyedTable) {
             JdbcStringBasedStoreConfigurationBuilder builder = loadersBuilder.addStore(JdbcStringBasedStoreConfigurationBuilder.class);
-            builder.dialect(dialect);
+            builder.dialect(databaseType);
             this.buildStringKeyedTable(builder.table(), context, store.get(ModelKeys.STRING_KEYED_TABLE));
             return builder;
         } else if (useBinaryKeyedTable && !useStringKeyedTable) {
             JdbcBinaryStoreConfigurationBuilder builder = loadersBuilder.addStore(JdbcBinaryStoreConfigurationBuilder.class);
-            builder.dialect(dialect);
+            builder.dialect(databaseType);
             this.buildBinaryKeyedTable(builder.table(), context, store.get(ModelKeys.BINARY_KEYED_TABLE));
             return builder;
         }
         // Else, use mixed mode
         JdbcMixedStoreConfigurationBuilder builder = loadersBuilder.addStore(JdbcMixedStoreConfigurationBuilder.class);
-        builder.dialect(dialect);
+        builder.dialect(databaseType);
         this.buildStringKeyedTable(builder.stringTable(), context, store.get(ModelKeys.STRING_KEYED_TABLE));
         this.buildBinaryKeyedTable(builder.binaryTable(), context, store.get(ModelKeys.BINARY_KEYED_TABLE));
         return builder;

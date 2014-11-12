@@ -12,6 +12,7 @@ import org.infinispan.security.impl.IdentityRoleMapper;
 import org.infinispan.test.integration.security.utils.ApacheDsLdap;
 import org.infinispan.test.integration.security.utils.Deployments;
 import org.jboss.arquillian.container.test.api.Deployment;
+import org.jboss.arquillian.container.test.api.TargetsContainer;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
@@ -27,13 +28,13 @@ public class LdapAuthenticationIT extends AbstractAuthentication {
 
    public static final String SECURITY_DOMAIN_NAME = "ispn-secure";
    public static final String ADMIN_ROLE = "admin";
-   public static final String ADMIN_PASSWD = "strong_password";
+   public static final String ADMIN_PASSWD = "strongPassword";
    public static final String WRITER_ROLE = "writer";
-   public static final String WRITER_PASSWD = "some_password";
+   public static final String WRITER_PASSWD = "somePassword";
    public static final String READER_ROLE = "reader";
    public static final String READER_PASSWD = "password";
    public static final String UNPRIVILEGED_ROLE = "unprivileged";
-   public static final String UNPRIVILEGED_PASSWD = "weak_password";
+   public static final String UNPRIVILEGED_PASSWD = "weakPassword";
 
    private static ApacheDsLdap ldapServer;
 
@@ -49,6 +50,7 @@ public class LdapAuthenticationIT extends AbstractAuthentication {
    }
 
    @Deployment
+   @TargetsContainer(DEFAULT_DEPLOY_CONTAINER)
    public static WebArchive getDeployment() {
       return Deployments.createKrbLdapTestDeployment();
    }

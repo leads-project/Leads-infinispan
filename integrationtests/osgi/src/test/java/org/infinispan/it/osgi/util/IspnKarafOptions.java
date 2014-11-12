@@ -6,6 +6,7 @@ import static org.ops4j.pax.exam.CoreOptions.maven;
 import static org.ops4j.pax.exam.CoreOptions.mavenBundle;
 import static org.ops4j.pax.exam.CoreOptions.streamBundle;
 import static org.ops4j.pax.exam.CoreOptions.systemProperty;
+import static org.ops4j.pax.exam.CoreOptions.vmOptions;
 import static org.ops4j.pax.exam.CoreOptions.wrappedBundle;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFilePut;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.features;
@@ -35,6 +36,9 @@ import org.ops4j.pax.exam.options.WrappedUrlProvisionOption;
 
 public class IspnKarafOptions {
    private static final String PROP_VERSION_KARAF = "version.karaf";
+   private static final String PROP_VERSION_PAX_EXAM = "version.pax.exam";
+   private static final String PROP_VERSION_MOCKITO = "version.mockito";
+   private static final String PROP_VERSION_OBJENESIS = "version.mockito_dep.objenesis";
    private static final String PROP_VERBOSE_KARAF = "verbose.karaf";
 
    private static Pattern PATTERN_HEADER = Pattern.compile("(.+)=(.+)");
@@ -99,18 +103,31 @@ public class IspnKarafOptions {
             mvnTestsAsFragmentBundle("org.infinispan", "infinispan-cachestore-jdbc", "org.infinispan.cachestore-jdbc"));
    }
 
+   public static Option featureJpaStore() {
+      return mvnFeature("org.infinispan", "infinispan-cachestore-jpa", "infinispan-cachestore-jpa");
+   }
+
+   public static Option featureJpaStoreAndTests() throws Exception {
+      return composite(featureJpaStore(),
+            bundleMockito(),
+            mavenBundle().groupId("org.testng").artifactId("testng").versionAsInProject(),
+            mvnTestsAsFragmentBundle("org.infinispan", "infinispan-cachestore-jpa", "org.infinispan.cachestore-jpa"));
+   }
+
+   public static Option bundleMockito() throws Exception {
+      String versionMockito = MavenUtils.getProperties().getProperty(PROP_VERSION_MOCKITO);
+      String versionObjenesis = MavenUtils.getProperties().getProperty(PROP_VERSION_OBJENESIS);
+      return composite(
+            mavenBundle().groupId("org.objenesis").artifactId("objenesis").version(versionObjenesis),
+            mavenBundle().groupId("org.mockito").artifactId("mockito-core").version(versionMockito));
+   }
+
    public static Option featureKarafJNDI() throws Exception {
       String karafVersion = karafVersion();
       String groupId = String.format("org.apache.karaf.%sfeatures", karafVersion.startsWith("2") ? "assemblies." : "");
 
       return features(maven().groupId(groupId).artifactId("enterprise").type("xml")
             .classifier("features").version(karafVersion), "jndi");
-   }
-
-   public static Option wrappedBundleC3P0() {
-      return composite(
-            wrappedBundle(maven().groupId("com.mchange").artifactId("c3p0").versionAsInProject()).instructions("DynamicImport-Package=*"),
-            wrappedBundle(maven().groupId("com.mchange").artifactId("mchange-commons-java").version("0.2.7")));
    }
 
    public static Option bundleH2Database() {
@@ -258,11 +275,27 @@ public class IspnKarafOptions {
             editConfigurationFilePut("etc/org.ops4j.pax.url.mvn.cfg", PaxURLUtils.PROP_PAX_URL_LOCAL_REPO, localRepo));
    }
 
+   /**
+    * Sets the system variables used inside persistence.xml to use H2.
+    */
+   public static Option hibernatePersistenceH2() {
+      return composite(systemProperty("connection.url").value("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1"),
+            systemProperty("driver.class").value("org.h2.Driver"));
+   }
+
+   public static Option bundlePaxExamSpi() throws Exception {
+      String version = MavenUtils.getProperties().getProperty(PROP_VERSION_PAX_EXAM);
+      return wrappedBundle(mavenBundle().groupId("org.ops4j.pax.exam").artifactId("pax-exam-spi").version(version));
+   }
+
    public static Option commonOptions() throws Exception {
       return composite(karafContainer(),
+            vmOptions("-Djava.net.preferIPv4Stack=true", "-Djgroups.bind_addr=127.0.0.1"),
             verboseKaraf(),
             junitBundles(),
             keepRuntimeFolder(),
+            /* Required for the @Category(Per{Suite,Class,Method}) annotations. */
+            bundlePaxExamSpi(),
             localRepoForPAXUrl());
    }
 
@@ -271,10 +304,11 @@ public class IspnKarafOptions {
             featureKarafJNDI(),
             featureIspnCoreAndTests(),
             featureJdbcStoreAndTests(),
+            featureJpaStoreAndTests(),
             featureLevelDbJni(),
             featureRemoteStore(),
             bundleH2Database(),
-            wrappedBundleC3P0(),
+            hibernatePersistenceH2(),
             bundleSplitTestPackages());
    }
 }

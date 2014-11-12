@@ -1,6 +1,10 @@
 package org.infinispan.configuration.cache;
 
+import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.configuration.Builder;
+import org.infinispan.configuration.global.GlobalConfiguration;
+
+import java.util.Arrays;
 
 /**
  * Defines clustered characteristics of the cache.
@@ -17,6 +21,7 @@ public class ClusteringConfigurationBuilder extends AbstractConfigurationChildBu
    private final L1ConfigurationBuilder l1ConfigurationBuilder;
    private final StateTransferConfigurationBuilder stateTransferConfigurationBuilder;
    private final SyncConfigurationBuilder syncConfigurationBuilder;
+   private final PartitionHandlingConfigurationBuilder partitionHandlingConfigurationBuilder;
 
    ClusteringConfigurationBuilder(ConfigurationBuilder builder) {
       super(builder);
@@ -25,6 +30,7 @@ public class ClusteringConfigurationBuilder extends AbstractConfigurationChildBu
       this.l1ConfigurationBuilder = new L1ConfigurationBuilder(this);
       this.stateTransferConfigurationBuilder = new StateTransferConfigurationBuilder(this);
       this.syncConfigurationBuilder = new SyncConfigurationBuilder(this);
+      this.partitionHandlingConfigurationBuilder = new PartitionHandlingConfigurationBuilder(this);
    }
 
    /**
@@ -86,20 +92,39 @@ public class ClusteringConfigurationBuilder extends AbstractConfigurationChildBu
    }
 
    @Override
+   public PartitionHandlingConfigurationBuilder partitionHandling() {
+      return partitionHandlingConfigurationBuilder;
+   }
+
+   @Override
    public
    void validate() {
-      asyncConfigurationBuilder.validate();
-      hashConfigurationBuilder.validate();
-      l1ConfigurationBuilder.validate();
-      syncConfigurationBuilder.validate();
-      stateTransferConfigurationBuilder.validate();
+      for (Builder<?> validatable:
+            Arrays.asList(asyncConfigurationBuilder, hashConfigurationBuilder, l1ConfigurationBuilder,
+                          syncConfigurationBuilder, stateTransferConfigurationBuilder, partitionHandlingConfigurationBuilder)) {
+         validatable.validate();
+      }
+   }
+
+   @Override
+   public void validate(GlobalConfiguration globalConfig) {
+      if (cacheMode().isClustered() && globalConfig.transport().transport() == null) {
+         throw new CacheConfigurationException("Must have a transport set in the global configuration in " +
+               "order to define a clustered cache");
+      }
+
+      for (ConfigurationChildBuilder validatable:
+         Arrays.asList(asyncConfigurationBuilder, hashConfigurationBuilder, l1ConfigurationBuilder,
+                       syncConfigurationBuilder, stateTransferConfigurationBuilder, partitionHandlingConfigurationBuilder)) {
+         validatable.validate(globalConfig);
+      }
    }
 
    @Override
    public
    ClusteringConfiguration create() {
       return new ClusteringConfiguration(cacheMode, asyncConfigurationBuilder.create(), hashConfigurationBuilder.create(),
-            l1ConfigurationBuilder.create(), stateTransferConfigurationBuilder.create(), syncConfigurationBuilder.create());
+            l1ConfigurationBuilder.create(), stateTransferConfigurationBuilder.create(), syncConfigurationBuilder.create(), partitionHandlingConfigurationBuilder.create());
    }
 
    @Override
@@ -110,6 +135,7 @@ public class ClusteringConfigurationBuilder extends AbstractConfigurationChildBu
       l1ConfigurationBuilder.read(template.l1());
       stateTransferConfigurationBuilder.read(template.stateTransfer());
       syncConfigurationBuilder.read(template.sync());
+      partitionHandlingConfigurationBuilder.read(template.partitionHandling());
 
       return this;
    }

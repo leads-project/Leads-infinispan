@@ -1,13 +1,5 @@
 package org.infinispan.server.test.query;
 
-import static org.infinispan.server.test.util.ITestUtils.SERVER1_MGMT_PORT;
-import static org.infinispan.server.test.util.ITestUtils.invokeOperation;
-
-import java.io.IOException;
-import java.io.InputStream;
-
-import javax.management.ObjectName;
-
 import org.infinispan.arquillian.core.RemoteInfinispanServer;
 import org.infinispan.arquillian.utils.MBeanServerConnectionProvider;
 import org.infinispan.client.hotrod.RemoteCache;
@@ -17,9 +9,14 @@ import org.infinispan.client.hotrod.marshall.ProtoStreamMarshaller;
 import org.infinispan.commons.util.Util;
 import org.infinispan.protostream.sampledomain.User;
 import org.infinispan.protostream.sampledomain.marshallers.MarshallerRegistration;
+import org.infinispan.query.remote.ProtobufMetadataManager;
 import org.infinispan.server.test.util.RemoteCacheManagerFactory;
 import org.junit.After;
 import org.junit.Before;
+
+import java.io.IOException;
+
+import static org.infinispan.server.test.util.ITestUtils.SERVER1_MGMT_PORT;
 
 /**
  * Base class for tests for remote queries over HotRod.
@@ -56,13 +53,9 @@ public abstract class RemoteQueryBaseIT {
       remoteCacheManager = rcmFactory.createManager(clientBuilder);
       remoteCache = remoteCacheManager.getCache(cacheName);
 
-      String mbean = "jboss.infinispan:type=RemoteQuery,name="
-            + ObjectName.quote(cacheContainerName)
-            + ",component=ProtobufMetadataManager";
-
-      //initialize server-side serialization context via JMX
-      byte[] descriptor = readClasspathResource("/sample_bank_account/bank.protobin");
-      invokeOperation(jmxConnectionProvider, mbean, "registerProtofile", new Object[]{descriptor}, new String[]{byte[].class.getName()});
+      //initialize server-side serialization context
+      RemoteCache<String, String> metadataCache = remoteCacheManager.getCache(ProtobufMetadataManager.PROTOBUF_METADATA_CACHE_NAME);
+      metadataCache.put("sample_bank_account/bank.proto", read("/sample_bank_account/bank.proto"));
 
       //initialize client-side serialization context
       MarshallerRegistration.registerMarshallers(ProtoStreamMarshaller.getSerializationContext(remoteCacheManager));
@@ -79,14 +72,7 @@ public abstract class RemoteQueryBaseIT {
       rcmFactory = null;
    }
 
-   private byte[] readClasspathResource(String resourcePath) throws IOException {
-      InputStream is = getClass().getResourceAsStream(resourcePath);
-      try {
-         return Util.readStream(is);
-      } finally {
-         if (is != null) {
-            is.close();
-         }
-      }
+   private String read(String resourcePath) throws IOException {
+      return Util.read(getClass().getResourceAsStream(resourcePath));
    }
 }

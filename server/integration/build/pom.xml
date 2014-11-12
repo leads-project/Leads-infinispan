@@ -5,16 +5,16 @@
    <parent>
       <groupId>org.infinispan.server</groupId>
       <artifactId>infinispan-server-versions</artifactId>
-      <version>7.0.0-SNAPSHOT</version>
+      <version>7.0.1-SNAPSHOT</version>
       <relativePath>../versions/pom.xml</relativePath>
    </parent>
 
    <artifactId>infinispan-server-build</artifactId>
+   <packaging>pom</packaging>
 
    <name>Infinispan Server - Build</name>
    <description>Infinispan Server - Build</description>
 
-   <packaging>pom</packaging>
 
    <properties>
       
@@ -39,6 +39,11 @@
       <dependency>
          <groupId>org.fusesource.jansi</groupId>
          <artifactId>jansi</artifactId>
+      </dependency>
+
+      <dependency>
+         <groupId>${project.groupId}</groupId>
+         <artifactId>infinispan-server-cli</artifactId>
       </dependency>
 
       <dependency>
@@ -74,11 +79,6 @@
       <dependency>
          <groupId>org.infinispan</groupId>
          <artifactId>infinispan-lucene-directory</artifactId>
-      </dependency>
-
-      <dependency>
-         <groupId>org.infinispan</groupId>
-         <artifactId>infinispan-lucene-v3</artifactId>
       </dependency>
 
       <dependency>
@@ -174,7 +174,7 @@
 
       <dependency>
          <groupId>org.infinispan</groupId>
-         <artifactId>infinispan-cli-server</artifactId>
+         <artifactId>infinispan-cli-interpreter</artifactId>
       </dependency>
 
       <dependency>

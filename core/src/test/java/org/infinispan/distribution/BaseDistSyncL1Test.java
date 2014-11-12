@@ -10,7 +10,6 @@ import org.infinispan.interceptors.distribution.L1WriteSynchronizer;
 import org.infinispan.statetransfer.StateTransferLock;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.test.fwk.CheckPoint;
-import org.infinispan.test.fwk.CleanupAfterMethod;
 import org.infinispan.transaction.TransactionMode;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.junit.Assert;
@@ -77,7 +76,7 @@ public abstract class BaseDistSyncL1Test extends BaseDistFunctionalTest<Object, 
                                          Class<? extends VisitableCommand> commandClass,
                                          Class<? extends CommandInterceptor> interceptorPosition,
                                          boolean blockAfterCommand) {
-      cache.getAdvancedCache().addInterceptorBefore(new BlockingInterceptor(barrier, commandClass, blockAfterCommand),
+      cache.getAdvancedCache().addInterceptorBefore(new BlockingInterceptor(barrier, commandClass, blockAfterCommand, false),
                                                     interceptorPosition);
    }
 
@@ -183,7 +182,7 @@ public abstract class BaseDistSyncL1Test extends BaseDistFunctionalTest<Object, 
       CyclicBarrier invalidationBarrier = new CyclicBarrier(2);
       // We want to block right before the invalidation would hit the L1 interceptor to prevent it from invaliding until we want
       nonOwnerCache.getAdvancedCache().addInterceptorBefore(
-            new BlockingInterceptor(invalidationBarrier, InvalidateL1Command.class, false), getL1InterceptorClass());
+            new BlockingInterceptor(invalidationBarrier, InvalidateL1Command.class, false, false), getL1InterceptorClass());
 
       try {
          assertEquals(firstValue, nonOwnerCache.get(key));
@@ -316,9 +315,9 @@ public abstract class BaseDistSyncL1Test extends BaseDistFunctionalTest<Object, 
       // Add a barrier to block the owner/backupowner from going further after retrieving the value before coming back into the L1
       // interceptor
       CyclicBarrier getBarrier = new CyclicBarrier(3);
-      ownerCache.getAdvancedCache().addInterceptorAfter(new BlockingInterceptor(getBarrier, GetKeyValueCommand.class, true),
+      ownerCache.getAdvancedCache().addInterceptorAfter(new BlockingInterceptor(getBarrier, GetKeyValueCommand.class, true, false),
                                                         getL1InterceptorClass());
-      backupOwnerCache.getAdvancedCache().addInterceptorAfter(new BlockingInterceptor(getBarrier, GetKeyValueCommand.class, true),
+      backupOwnerCache.getAdvancedCache().addInterceptorAfter(new BlockingInterceptor(getBarrier, GetKeyValueCommand.class, true, false),
                                                        getL1InterceptorClass());
 
       try {
@@ -333,17 +332,7 @@ public abstract class BaseDistSyncL1Test extends BaseDistFunctionalTest<Object, 
          getBarrier.await(10, TimeUnit.SECONDS);
 
          final String expectedValue;
-         // This is a bit peculiar that depending on the isolation level that a different value is returned.  This is
-         // caused due to the fact that the get has retrieved the value from the data container already and placed it
-         // in it's context.  With read committed however the value in the context is the same value from the data
-         // container.  And thus when the value is updated the context can see the update since it is same reference.
-         // Repeatable read however makes a copy of the data and thus doesn't see the value.  That is why read committed
-         // returns the new value and repeatable read has the original value
-         if (isolationLevel == IsolationLevel.REPEATABLE_READ) {
-            expectedValue = firstValue;
-         } else {
-            expectedValue = secondValue;
-         }
+         expectedValue = firstValue;
          Assert.assertEquals(expectedValue, future.get(10, TimeUnit.SECONDS));
 
          assertIsNotInL1(nonOwnerCache, key);

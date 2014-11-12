@@ -4,12 +4,13 @@ import org.infinispan.Cache;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.marshall.AbstractExternalizer;
 import org.infinispan.factories.annotations.Inject;
-import org.infinispan.filter.Converter;
-import org.infinispan.filter.KeyValueFilter;
+import org.infinispan.filter.AbstractKeyValueFilterConverter;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.objectfilter.Matcher;
 import org.infinispan.objectfilter.ObjectFilter;
+import org.infinispan.objectfilter.impl.FilterResultImpl;
 import org.infinispan.query.impl.externalizers.ExternalizerIds;
+import org.infinispan.util.KeyValuePair;
 
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -24,7 +25,12 @@ import java.util.Set;
  * @author anistor@redhat.com
  * @since 7.0
  */
-public class FilterAndConverter<K, V, C> implements KeyValueFilter<K, V>, Converter<K, V, C> {
+public final class FilterAndConverter<K, V> extends AbstractKeyValueFilterConverter<K, V, ObjectFilter.FilterResult> {
+
+   /**
+    * Optional cache for query objects.
+    */
+   private QueryCache queryCache;
 
    private final String jpaQuery;
 
@@ -56,35 +62,43 @@ public class FilterAndConverter<K, V, C> implements KeyValueFilter<K, V>, Conver
     */
    @Inject
    void injectDependencies(Cache cache) {
+      this.queryCache = cache.getCacheManager().getGlobalComponentRegistry().getComponent(QueryCache.class);
       matcher = cache.getAdvancedCache().getComponentRegistry().getComponent(matcherImplClass);
       if (matcher == null) {
-         throw new CacheException("Expected component implementation not found: " + matcherImplClass.getName());
+         throw new CacheException("Expected component not found in registry: " + matcherImplClass.getName());
       }
    }
 
-   private ObjectFilter getObjectFilter() {
+   public ObjectFilter getObjectFilter() {
       if (objectFilter == null) {
-         objectFilter = matcher.getObjectFilter(jpaQuery);
+         if (queryCache != null) {
+            KeyValuePair<String, Class> queryCacheKey = new KeyValuePair<String, Class>(jpaQuery, matcherImplClass);
+            ObjectFilter of = queryCache.get(queryCacheKey);
+            if (of == null) {
+               of = matcher.getObjectFilter(jpaQuery);
+               queryCache.put(queryCacheKey, of);
+            }
+            objectFilter = of;
+         } else {
+            objectFilter = matcher.getObjectFilter(jpaQuery);
+         }
       }
       return objectFilter;
    }
 
    @Override
-   public boolean accept(K key, V value, Metadata metadata) {
-      return getObjectFilter().filter(value) != null;
+   public ObjectFilter.FilterResult filterAndConvert(K key, V value, Metadata metadata) {
+      return getObjectFilter().filter(value);
    }
 
    @Override
-   public C convert(K key, V value, Metadata metadata) {
-      ObjectFilter filter = getObjectFilter();
-      return (C) (filter.getProjection() == null ? value : filter.filter(value));
+   public String toString() {
+      return "FilterAndConverter{" +
+            "jpaQuery='" + jpaQuery + '\'' +
+            '}';
    }
 
-   public String[] getProjection() {
-      return getObjectFilter().getProjection();
-   }
-
-   public static final class Externalizer extends AbstractExternalizer<FilterAndConverter> {
+   public static final class FilterAndConverterExternalizer extends AbstractExternalizer<FilterAndConverter> {
 
       @Override
       public void writeObject(ObjectOutput output, FilterAndConverter filterAndConverter) throws IOException {
@@ -107,6 +121,39 @@ public class FilterAndConverter<K, V, C> implements KeyValueFilter<K, V>, Conver
       @Override
       public Set<Class<? extends FilterAndConverter>> getTypeClasses() {
          return Collections.<Class<? extends FilterAndConverter>>singleton(FilterAndConverter.class);
+      }
+   }
+
+   public static final class FilterResultExternalizer extends AbstractExternalizer<FilterResultImpl> {
+
+      @Override
+      public void writeObject(ObjectOutput output, FilterResultImpl filterResult) throws IOException {
+         if (filterResult.getProjection() != null) {
+            // skip serializing the instance if there is a projection
+            output.writeObject(null);
+         } else {
+            output.writeObject(filterResult.getInstance());
+         }
+         output.writeObject(filterResult.getProjection());
+         output.writeObject(filterResult.getSortProjection());
+      }
+
+      @Override
+      public FilterResultImpl readObject(ObjectInput input) throws IOException, ClassNotFoundException {
+         Object instance = input.readObject();
+         Object[] projection = (Object[]) input.readObject();
+         Comparable[] sortProjection = (Comparable[]) input.readObject();
+         return new FilterResultImpl(instance, projection, sortProjection);
+      }
+
+      @Override
+      public Integer getId() {
+         return ExternalizerIds.FILTER_RESULT;
+      }
+
+      @Override
+      public Set<Class<? extends FilterResultImpl>> getTypeClasses() {
+         return Collections.<Class<? extends FilterResultImpl>>singleton(FilterResultImpl.class);
       }
    }
 }

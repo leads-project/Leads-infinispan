@@ -32,12 +32,12 @@ public class SaslTransportObjectFactory extends TransportObjectFactory {
    private static final Log log = LogFactory.getLog(SaslTransportObjectFactory.class);
    private static final byte[] EMPTY_BYTES = new byte[0];
    private static final String AUTH_INT = "auth-int";
-   private static final String AUTO_CONF = "auth-conf";
+   private static final String AUTH_CONF = "auth-conf";
    private final AuthenticationConfiguration configuration;
 
-   public SaslTransportObjectFactory(Codec codec, TcpTransportFactory tcpTransportFactory, AtomicInteger topologyId,
-         boolean pingOnStartup, AuthenticationConfiguration configuration) {
-      super(codec, tcpTransportFactory, topologyId, pingOnStartup);
+   public SaslTransportObjectFactory(Codec codec, TcpTransportFactory tcpTransportFactory,
+         AtomicInteger defaultCacheTopologyId, boolean pingOnStartup, AuthenticationConfiguration configuration) {
+      super(codec, tcpTransportFactory, defaultCacheTopologyId, pingOnStartup);
       this.configuration = configuration;
    }
 
@@ -48,7 +48,7 @@ public class SaslTransportObjectFactory extends TransportObjectFactory {
          log.tracef("Created tcp transport: %s", tcpTransport);
       }
 
-      List<String> serverMechs = mechList(tcpTransport, topologyId);
+      List<String> serverMechs = mechList(tcpTransport, defaultCacheTopologyId);
       if (!serverMechs.contains(configuration.saslMechanism())) {
          throw log.unsupportedMech(configuration.saslMechanism(), serverMechs);
       }
@@ -76,20 +76,21 @@ public class SaslTransportObjectFactory extends TransportObjectFactory {
       }
       byte response[] = saslClient.hasInitialResponse() ? evaluateChallenge(saslClient, EMPTY_BYTES) : EMPTY_BYTES;
 
-      byte challenge[] = auth(tcpTransport, topologyId, configuration.saslMechanism(), response);
+      byte challenge[] = auth(tcpTransport, defaultCacheTopologyId, configuration.saslMechanism(), response);
       while (!saslClient.isComplete() && challenge != null) {
          response = evaluateChallenge(saslClient, challenge);
          if (response == null) {
             break;
          }
-         challenge = auth(tcpTransport, topologyId, "", response);
+         challenge = auth(tcpTransport, defaultCacheTopologyId, "", response);
       }
 
-      /*String qop = (String) saslClient.getNegotiatedProperty(Sasl.QOP);
-      if (qop != null && (qop.equalsIgnoreCase(AUTH_INT) || qop.equalsIgnoreCase(AUTO_CONF))) {
+      String qop = (String) saslClient.getNegotiatedProperty(Sasl.QOP);
+      if (qop != null && (qop.equalsIgnoreCase(AUTH_INT) || qop.equalsIgnoreCase(AUTH_CONF))) {
          tcpTransport.setSaslClient(saslClient);
-      } else {*/
-      saslClient.dispose();
+      } else {
+         saslClient.dispose();
+      }
 
       if (pingOnStartup && !firstPingExecuted) {
          log.trace("Executing first ping!");
@@ -97,7 +98,7 @@ public class SaslTransportObjectFactory extends TransportObjectFactory {
 
          // Don't ignore exceptions from ping() command, since
          // they indicate that the transport instance is invalid.
-         ping(tcpTransport, topologyId);
+         ping(tcpTransport, defaultCacheTopologyId);
       }
       return tcpTransport;
    }

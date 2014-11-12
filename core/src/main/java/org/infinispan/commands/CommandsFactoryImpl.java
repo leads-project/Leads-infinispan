@@ -1,8 +1,11 @@
 package org.infinispan.commands;
 
 import org.infinispan.Cache;
+import org.infinispan.commands.read.EntryRetrievalCommand;
 import org.infinispan.container.entries.CacheEntry;
+import org.infinispan.commands.remote.GetKeysInGroupCommand;
 import org.infinispan.context.InvocationContextFactory;
+import org.infinispan.distribution.group.GroupManager;
 import org.infinispan.iteration.impl.EntryRequestCommand;
 import org.infinispan.iteration.impl.EntryResponseCommand;
 import org.infinispan.iteration.impl.EntryRetriever;
@@ -60,6 +63,7 @@ import org.infinispan.factories.annotations.Start;
 import org.infinispan.interceptors.InterceptorChain;
 import org.infinispan.filter.Converter;
 import org.infinispan.filter.KeyValueFilter;
+import org.infinispan.partionhandling.impl.PartitionHandlingManager;
 import org.infinispan.statetransfer.StateProvider;
 import org.infinispan.statetransfer.StateConsumer;
 import org.infinispan.statetransfer.StateRequestCommand;
@@ -136,6 +140,8 @@ public class CommandsFactoryImpl implements CommandsFactory {
    private XSiteStateConsumer xSiteStateConsumer;
    private XSiteStateTransferManager xSiteStateTransferManager;
    private EntryRetriever entryRetriever;
+   private GroupManager groupManager;
+   private PartitionHandlingManager partitionHandlingManager;
 
    private Map<Byte, ModuleCommandInitializer> moduleCommandInitializers;
 
@@ -148,7 +154,7 @@ public class CommandsFactoryImpl implements CommandsFactory {
                                  LockManager lockManager, InternalEntryFactory entryFactory, MapReduceManager mapReduceManager, 
                                  StateTransferManager stm, BackupSender backupSender, CancellationService cancellationService,
                                  TimeService timeService, XSiteStateProvider xSiteStateProvider, XSiteStateConsumer xSiteStateConsumer,
-                                 XSiteStateTransferManager xSiteStateTransferManager, EntryRetriever entryRetriever) {
+                                 XSiteStateTransferManager xSiteStateTransferManager, EntryRetriever entryRetriever, GroupManager groupManager, PartitionHandlingManager partitionHandlingManager) {
       this.dataContainer = container;
       this.notifier = notifier;
       this.cache = cache;
@@ -171,7 +177,9 @@ public class CommandsFactoryImpl implements CommandsFactory {
       this.xSiteStateConsumer = xSiteStateConsumer;
       this.xSiteStateProvider = xSiteStateProvider;
       this.xSiteStateTransferManager = xSiteStateTransferManager;
+      this.partitionHandlingManager = partitionHandlingManager;
       this.entryRetriever = entryRetriever;
+      this.groupManager = groupManager;
    }
 
    @Start(priority = 1)
@@ -198,13 +206,13 @@ public class CommandsFactoryImpl implements CommandsFactory {
    }
 
    @Override
-   public InvalidateCommand buildInvalidateFromL1Command(boolean forRehash, Set<Flag> flags, Collection<Object> keys) {
-      return new InvalidateL1Command(forRehash, dataContainer, configuration, distributionManager, notifier, flags, keys);
+   public InvalidateCommand buildInvalidateFromL1Command(Set<Flag> flags, Collection<Object> keys) {
+      return new InvalidateL1Command(dataContainer, configuration, distributionManager, notifier, flags, keys);
    }
 
    @Override
-   public InvalidateCommand buildInvalidateFromL1Command(Address origin, boolean forRehash, Set<Flag> flags, Collection<Object> keys) {
-      return new InvalidateL1Command(origin, forRehash, dataContainer, configuration, distributionManager, notifier, flags, keys);
+   public InvalidateCommand buildInvalidateFromL1Command(Address origin, Set<Flag> flags, Collection<Object> keys) {
+      return new InvalidateL1Command(origin, dataContainer, configuration, distributionManager, notifier, flags, keys);
    }
 
    @Override
@@ -214,27 +222,33 @@ public class CommandsFactoryImpl implements CommandsFactory {
 
    @Override
    public SizeCommand buildSizeCommand(Set<Flag> flags) {
-      return new SizeCommand(dataContainer, flags);
+      return new SizeCommand(cache, flags);
    }
 
    @Override
    public KeySetCommand buildKeySetCommand(Set<Flag> flags) {
-      return new KeySetCommand(dataContainer, flags);
+      return new KeySetCommand(cache, flags);
    }
 
    @Override
    public ValuesCommand buildValuesCommand(Set<Flag> flags) {
-      return new ValuesCommand(dataContainer, timeService, flags);
+      return new ValuesCommand(cache, flags);
    }
 
    @Override
    public EntrySetCommand buildEntrySetCommand(Set<Flag> flags) {
-      return new EntrySetCommand(dataContainer, entryFactory, timeService, flags);
+      return new EntrySetCommand(cache, flags);
+   }
+
+   @Override
+   public EntryRetrievalCommand buildEntryRetrievalCommand(Set<Flag> flags, KeyValueFilter filter) {
+      return new EntryRetrievalCommand(filter, entryRetriever, flags, cache);
    }
 
    @Override
    public GetKeyValueCommand buildGetKeyValueCommand(Object key, Set<Flag> flags, boolean returnEntry) {
-      return new GetKeyValueCommand(key, flags, returnEntry);
+      // TODO: This could be optimised, with a separate class for GetCacheEntryCommand that takes entryFactory, avoiding normal gets getting extra instance variable
+      return new GetKeyValueCommand(key, flags, returnEntry, entryFactory);
    }
 
    @Override
@@ -438,7 +452,7 @@ public class CommandsFactoryImpl implements CommandsFactory {
             break;
          case CreateCacheCommand.COMMAND_ID:
             CreateCacheCommand createCacheCommand = (CreateCacheCommand)c;
-            createCacheCommand.init(cache.getCacheManager());
+            createCacheCommand.init(cache.getCacheManager(), stateTransferManager);
             break;
          case XSiteAdminCommand.COMMAND_ID:
             XSiteAdminCommand xSiteAdminCommand = (XSiteAdminCommand)c;
@@ -463,6 +477,10 @@ public class CommandsFactoryImpl implements CommandsFactory {
          case EntryResponseCommand.COMMAND_ID:
             EntryResponseCommand entryResponseCommand = (EntryResponseCommand) c;
             entryResponseCommand.init(entryRetriever);
+            break;
+         case GetKeysInGroupCommand.COMMAND_ID:
+            GetKeysInGroupCommand getKeysInGroupCommand = (GetKeysInGroupCommand) c;
+            getKeysInGroupCommand.setGroupManager(groupManager);
             break;
          default:
             ModuleCommandInitializer mci = moduleCommandInitializers.get(c.getCommandId());
@@ -495,8 +513,8 @@ public class CommandsFactoryImpl implements CommandsFactory {
    }
 
    @Override
-   public StateResponseCommand buildStateResponseCommand(Address sender, int viewId, Collection<StateChunk> stateChunks) {
-      return new StateResponseCommand(cacheName, sender, viewId, stateChunks);
+   public StateResponseCommand buildStateResponseCommand(Address sender, int topologyId, Collection<StateChunk> stateChunks) {
+      return new StateResponseCommand(cacheName, sender, topologyId, stateChunks);
    }
 
    @Override
@@ -592,9 +610,10 @@ public class CommandsFactoryImpl implements CommandsFactory {
    @Override
    public <K, V, C> EntryRequestCommand<K, V, C> buildEntryRequestCommand(UUID identifier, Set<Integer> segments,
                                                                     KeyValueFilter<? super K, ? super V> filter,
-                                                                    Converter<? super K, ? super V, C> converter) {
+                                                                    Converter<? super K, ? super V, C> converter,
+                                                                    Set<Flag> flags) {
       return new EntryRequestCommand<K, V, C>(cacheName, identifier, cache.getCacheManager().getAddress(), segments,
-                                              filter, converter);
+                                              filter, converter, flags);
    }
 
    @Override
@@ -603,5 +622,10 @@ public class CommandsFactoryImpl implements CommandsFactory {
                                                                 Collection<CacheEntry<K, C>> values) {
       return new EntryResponseCommand(cache.getCacheManager().getAddress(), cacheName, identifier, completedSegments,
                                       inDoubtSegments, values);
+   }
+
+   @Override
+   public GetKeysInGroupCommand buildGetKeysInGroupCommand(Set<Flag> flags, String groupName) {
+      return new GetKeysInGroupCommand(flags, groupName).setGroupManager(groupManager);
    }
 }

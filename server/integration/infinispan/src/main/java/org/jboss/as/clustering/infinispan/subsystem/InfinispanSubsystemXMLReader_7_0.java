@@ -187,8 +187,16 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
                     TransportResource.LOCK_TIMEOUT.parseAndSetParameter(value, transport, reader);
                     break;
                 }
+                case REMOTE_COMMAND_EXECUTOR: {
+                    TransportResource.REMOTE_COMMAND_EXECUTOR.parseAndSetParameter(value, transport, reader);
+                    break;
+                }
                 case STRICT_PEER_TO_PEER: {
                     TransportResource.STRICT_PEER_TO_PEER.parseAndSetParameter(value, transport, reader);
+                    break;
+                }
+                case TOTAL_ORDER_EXECUTOR: {
+                    TransportResource.TOTAL_ORDER_EXECUTOR.parseAndSetParameter(value, transport, reader);
                     break;
                 }
                 default: {
@@ -456,6 +464,10 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
         while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
             Element element = Element.forName(reader.getLocalName());
             switch (element) {
+                case PARTITION_HANDLING: {
+                    this.parsePartitionHandling(reader, cache, additionalConfigurationOperations);
+                    break;
+                }
                 case STATE_TRANSFER: {
                     this.parseStateTransfer(reader, cache, additionalConfigurationOperations);
                     break;
@@ -498,6 +510,10 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
         while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
             Element element = Element.forName(reader.getLocalName());
             switch (element) {
+                case PARTITION_HANDLING: {
+                    this.parsePartitionHandling(reader, cache, additionalConfigurationOperations);
+                    break;
+                }
                 case STATE_TRANSFER: {
                     this.parseStateTransfer(reader, cache, additionalConfigurationOperations);
                     break;
@@ -568,6 +584,10 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
         switch (element) {
             case BACKUPS: {
                 this.parseBackups(reader, cache, operations);
+                break;
+            }
+            case BACKUP_FOR: {
+                this.parseBackupFor(reader, cache);
                 break;
             }
             case CLUSTER_LOADER: {
@@ -1635,10 +1655,15 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             String value = reader.getAttributeValue(i);
             Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
-            if (attribute == Attribute.INDEX) {
-                CacheResource.INDEXING.parseAndSetParameter(value, node, reader);
-            } else {
-                throw ParseUtils.unexpectedAttribute(reader, i);
+            switch (attribute) {
+                case INDEX: 
+                    CacheResource.INDEXING.parseAndSetParameter(value, node, reader);
+                    break;
+                case AUTO_CONFIG:
+                    CacheResource.INDEXING_AUTO_CONFIG.parseAndSetParameter(value, node, reader);
+                    break;
+                default: 
+                    throw ParseUtils.unexpectedAttribute(reader, i);
             }
         }
 
@@ -1692,6 +1717,28 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
         }
     }
 
+   private void parseBackupFor(XMLExtendedStreamReader reader, ModelNode cache) throws XMLStreamException {
+
+      for (int i = 0; i < reader.getAttributeCount(); i++) {
+         String value = reader.getAttributeValue(i);
+         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
+         switch (attribute) {
+            case REMOTE_CACHE: {
+               CacheResource.REMOTE_CACHE.parseAndSetParameter(value, cache, reader);
+               break;
+            }
+            case REMOTE_SITE: {
+               CacheResource.REMOTE_SITE.parseAndSetParameter(value, cache, reader);
+               break;
+            }
+            default: {
+               throw ParseUtils.unexpectedAttribute(reader, i);
+            }
+         }
+      }
+      ParseUtils.requireNoContent(reader);
+   }
+
     private void parseBackup(XMLExtendedStreamReader reader, ModelNode cache, List<ModelNode> operations) throws XMLStreamException {
 
         ModelNode operation = Util.createAddOperation();
@@ -1733,6 +1780,7 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
 
         PathAddress address = PathAddress.pathAddress(cache.get(OP_ADDR)).append(ModelKeys.BACKUP, site);
         operation.get(OP_ADDR).set(address.toModelNode());
+        List<ModelNode> additionalOperations = new ArrayList<>(1);
 
         while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
             Element element = Element.forName(reader.getLocalName());
@@ -1741,6 +1789,9 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
                     this.parseTakeOffline(reader, operation);
                     break;
                 }
+                case STATE_TRANSFER:
+                   this.parseXSiteStateTransfer(reader, operation, additionalOperations);
+                   break;
                 default: {
                     throw ParseUtils.unexpectedElement(reader);
                 }
@@ -1748,6 +1799,7 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
         }
 
         operations.add(operation);
+        operations.addAll(additionalOperations);
     }
 
     private void parseTakeOffline(XMLExtendedStreamReader reader, ModelNode operation) throws XMLStreamException {
@@ -1770,6 +1822,34 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
         }
         ParseUtils.requireNoContent(reader);
     }
+
+    private void parseXSiteStateTransfer(XMLExtendedStreamReader reader, ModelNode backup, List<ModelNode> operations) throws XMLStreamException {
+       PathAddress address = PathAddress.pathAddress(backup.get(OP_ADDR)).append(ModelKeys.STATE_TRANSFER, ModelKeys.STATE_TRANSFER_NAME);
+       ModelNode operation = Util.createAddOperation(address);
+
+       for (int i = 0; i < reader.getAttributeCount(); i++) {
+            String value = reader.getAttributeValue(i);
+            Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
+            switch (attribute) {
+                case CHUNK_SIZE:
+                    BackupSiteStateTransferResource.STATE_TRANSFER_CHUNK_SIZE.parseAndSetParameter(value, operation, reader);
+                    break;
+                case TIMEOUT:
+                    BackupSiteStateTransferResource.STATE_TRANSFER_TIMEOUT.parseAndSetParameter(value, operation, reader);
+                    break;
+                case MAX_RETRIES:
+                    BackupSiteStateTransferResource.STATE_TRANSFER_MAX_RETRIES.parseAndSetParameter(value, operation, reader);
+                    break;
+                case WAIT_TIME:
+                    BackupSiteStateTransferResource.STATE_TRANSFER_WAIT_TIME.parseAndSetParameter(value, operation, reader);
+                    break;
+                default:
+                    throw ParseUtils.unexpectedAttribute(reader, i);
+            }
+       }
+       ParseUtils.requireNoContent(reader);
+       operations.add(operation);
+   }
 
     private void parseCompatibility(XMLExtendedStreamReader reader, ModelNode cache, List<ModelNode> operations) throws XMLStreamException {
         PathAddress compatibilityAddress = PathAddress.pathAddress(cache.get(OP_ADDR)).append(ModelKeys.COMPATIBILITY, ModelKeys.COMPATIBILITY_NAME);
@@ -1850,5 +1930,26 @@ public final class InfinispanSubsystemXMLReader_7_0 implements XMLElementReader<
         operations.add(authorization);
     }
 
+   private void parsePartitionHandling(XMLExtendedStreamReader reader, ModelNode cache, List<ModelNode> operations) throws XMLStreamException {
+
+      PathAddress partitionHandlingAddress = PathAddress.pathAddress(cache.get(OP_ADDR)).append(ModelKeys.PARTITION_HANDLING, ModelKeys.PARTITION_HANDLING_NAME);
+      ModelNode partitionHandling = Util.createAddOperation(partitionHandlingAddress);
+
+      for (int i = 0; i < reader.getAttributeCount(); i++) {
+         String value = reader.getAttributeValue(i);
+         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
+         switch (attribute) {
+            case ENABLED: {
+               PartitionHandlingResource.ENABLED.parseAndSetParameter(value, partitionHandling, reader);
+               break;
+            }
+            default: {
+               throw ParseUtils.unexpectedAttribute(reader, i);
+            }
+         }
+      }
+      ParseUtils.requireNoContent(reader);
+      operations.add(partitionHandling);
+   }
 
 }

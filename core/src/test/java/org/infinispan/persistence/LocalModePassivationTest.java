@@ -123,7 +123,7 @@ public class LocalModePassivationTest extends SingleCacheManagerTest {
          cache.put(i, i);
       }
       assertFalse("Data Container should not have all keys", numKeys == cache.getAdvancedCache().getDataContainer().size());
-      assertEquals(numKeys, cache.size());
+      assertEquals(numKeys, cache.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL).size());
    }
 
    public void testSizeWithEvictedEntriesAndFlags() {
@@ -133,7 +133,8 @@ public class LocalModePassivationTest extends SingleCacheManagerTest {
       }
       assertFalse("Data Container should not have all keys", numKeys == cache.getAdvancedCache().getDataContainer().size());
       assertEquals(cache.getAdvancedCache().getDataContainer().size(), cache.getAdvancedCache().withFlags(Flag.SKIP_CACHE_LOAD).size());
-      assertEquals(cache.getAdvancedCache().getDataContainer().size(), cache.getAdvancedCache().withFlags(Flag.SKIP_CACHE_STORE).size());
+      // Skip cache store only prevents writes not reads
+      assertEquals(300, cache.getAdvancedCache().withFlags(Flag.SKIP_CACHE_STORE).size());
    }
 
    public void testKeySetWithEvictedEntries() {

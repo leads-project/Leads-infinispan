@@ -18,7 +18,7 @@ public interface AdvancedCacheLoader<K, V> extends CacheLoader<K, V> {
 
    /**
     * Iterates in parallel over the entries in the storage using the threads from the <b>executor</b> pool. For each
-    * entry the {@link CacheLoaderTask#processEntry(org.infinispan.marshall.core.MarshalledEntry, TaskContext)} is
+    * entry the {@link CacheLoaderTask#processEntry(MarshalledEntry, TaskContext)} is
     * invoked. Before passing an entry to the callback task, the entry should be validated against the <b>filter</b>.
     * Implementors should build an {@link TaskContext} instance (implementation) that is fed to the {@link
     * CacheLoaderTask} on every invocation. The {@link CacheLoaderTask} might invoke {@link
@@ -37,7 +37,7 @@ public interface AdvancedCacheLoader<K, V> extends CacheLoader<K, V> {
     *                      as well
     * @throws PersistenceException in case of an error, e.g. communicating with the external storage
     */
-   void process(KeyFilter<? super K> filter, CacheLoaderTask<? super K, ? super V> task, Executor executor, boolean fetchValue, boolean fetchMetadata);
+   void process(KeyFilter<? super K> filter, CacheLoaderTask<K, V> task, Executor executor, boolean fetchValue, boolean fetchMetadata);
 
    /**
     * Returns the number of elements in the store.

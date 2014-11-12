@@ -1,17 +1,16 @@
 package org.infinispan.query.backend;
 
+import net.jcip.annotations.ThreadSafe;
+import org.infinispan.registry.ClusterRegistry;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import net.jcip.annotations.ThreadSafe;
-
-import org.infinispan.registry.ClusterRegistry;
-
 /**
- * Decorates a ClusterRegistry to provide a cache for read operations.
+ * Local cache for the ClusterRegistry.
  * Write operations are expected to happen only exceptionally, therefore this code
  * is heavily optimized for reads (at cost of writes).
  * Also we're assuming all entries are small: there is no size limit nor cleanup strategy.
@@ -22,7 +21,7 @@ import org.infinispan.registry.ClusterRegistry;
  * @author Sanne Grinovero (C) 2013 Red Hat Inc.
  */
 @ThreadSafe
-final class ReadIntensiveClusterRegistryWrapper<S,K,V> {
+final class ReadIntensiveClusterRegistryWrapper<S, K, V> {
 
    private final ClusterRegistry<S, K, V> clusterRegistry;
    private final S scope;
@@ -32,7 +31,7 @@ final class ReadIntensiveClusterRegistryWrapper<S,K,V> {
     * in the Query specific case we're only adding new class types while they are being discovered,
     * after this initial phase this is supposed to be a read-only immutable map.
     */
-   private final AtomicReference<Map<K,V>> localCache = new AtomicReference<Map<K,V>>(Collections.EMPTY_MAP);
+   private final AtomicReference<Map<K, V>> localCache = new AtomicReference<Map<K, V>>(Collections.EMPTY_MAP);
 
    ReadIntensiveClusterRegistryWrapper(ClusterRegistry<S, K, V> clusterRegistry, S scope) {
       this.clusterRegistry = clusterRegistry;
@@ -52,14 +51,7 @@ final class ReadIntensiveClusterRegistryWrapper<S,K,V> {
    }
 
    boolean containsKey(final K key) {
-      final boolean localExists = localCache.get().containsKey(key);
-      if (localExists) {
-         return true;
-      }
-      else {
-         V fetchedValue = get(key);//possibly load it into local cache
-         return fetchedValue != null;
-      }
+      return localCache.get().containsKey(key);
    }
 
    void put(final K key, final V value) {
@@ -68,28 +60,17 @@ final class ReadIntensiveClusterRegistryWrapper<S,K,V> {
    }
 
    V get(final K key) {
-      V v = localCache.get().get(key);
-      if (v!=null) {
-         return v;
-      }
-      else {
-         v = clusterRegistry.get(scope, key);
-         if (v!=null) {
-            localCacheInsert(key, v);
-         }
-         return v;
-      }
+      return localCache.get().get(key);
    }
 
    private void localCacheInsert(final K key, final V value) {
       synchronized (localCache) {
          final Map<K, V> currentContent = localCache.get();
          final int currentSize = currentContent.size();
-         if (currentSize==0) {
+         if (currentSize == 0) {
             localCache.lazySet(Collections.singletonMap(key, value));
-         }
-         else {
-            Map<K,V> updatedContent = new HashMap<K,V>(currentSize+1);
+         } else {
+            Map<K, V> updatedContent = new HashMap<K, V>(currentSize + 1);
             updatedContent.putAll(currentContent);
             updatedContent.put(key, value);
             localCache.lazySet(Collections.unmodifiableMap(updatedContent));

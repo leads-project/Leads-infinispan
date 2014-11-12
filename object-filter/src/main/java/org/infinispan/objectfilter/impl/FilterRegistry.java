@@ -2,14 +2,12 @@ package org.infinispan.objectfilter.impl;
 
 import org.infinispan.objectfilter.FilterCallback;
 import org.infinispan.objectfilter.FilterSubscription;
+import org.infinispan.objectfilter.SortField;
 import org.infinispan.objectfilter.impl.predicateindex.FilterEvalContext;
 import org.infinispan.objectfilter.impl.predicateindex.MatcherEvalContext;
-import org.infinispan.objectfilter.impl.predicateindex.Predicate;
 import org.infinispan.objectfilter.impl.predicateindex.PredicateIndex;
-import org.infinispan.objectfilter.impl.predicateindex.be.BENode;
 import org.infinispan.objectfilter.impl.predicateindex.be.BETree;
 import org.infinispan.objectfilter.impl.predicateindex.be.BETreeMaker;
-import org.infinispan.objectfilter.impl.predicateindex.be.PredicateNode;
 import org.infinispan.objectfilter.impl.syntax.BooleanExpr;
 import org.infinispan.objectfilter.impl.util.StringHelper;
 
@@ -22,30 +20,35 @@ import java.util.List;
  * @author anistor@redhat.com
  * @since 7.0
  */
-final class FilterRegistry<AttributeId extends Comparable<AttributeId>> {
+public final class FilterRegistry<TypeMetadata, AttributeMetadata, AttributeId extends Comparable<AttributeId>> {
 
-   private final String typeName;
-
-   private final PredicateIndex<AttributeId> predicateIndex = new PredicateIndex<AttributeId>();
+   private final PredicateIndex<AttributeMetadata, AttributeId> predicateIndex;
 
    private final List<FilterSubscriptionImpl> filterSubscriptions = new ArrayList<FilterSubscriptionImpl>();
 
    private final BETreeMaker<AttributeId> treeMaker;
 
-   private final BETreeMaker.AttributePathTranslator<AttributeId> attributePathTranslator;
+   private final MetadataAdapter<TypeMetadata, AttributeMetadata, AttributeId> metadataAdapter;
 
-   public FilterRegistry(BETreeMaker.AttributePathTranslator<AttributeId> attributePathTranslator, String typeName) {
-      this.attributePathTranslator = attributePathTranslator;
-      this.typeName = typeName;
-      treeMaker = new BETreeMaker<AttributeId>(attributePathTranslator);
+   private final boolean useIntervals;
+
+   public FilterRegistry(MetadataAdapter<TypeMetadata, AttributeMetadata, AttributeId> metadataAdapter, boolean useIntervals) {
+      this.metadataAdapter = metadataAdapter;
+      this.useIntervals = useIntervals;
+      treeMaker = new BETreeMaker<AttributeId>(metadataAdapter, useIntervals);
+      predicateIndex = new PredicateIndex<AttributeMetadata, AttributeId>(metadataAdapter);
    }
 
-   public String getTypeName() {
-      return typeName;
+   public MetadataAdapter<TypeMetadata, AttributeMetadata, AttributeId> getMetadataAdapter() {
+      return metadataAdapter;
    }
 
-   public boolean isEmpty() {
-      return filterSubscriptions.isEmpty();
+   public PredicateIndex<AttributeMetadata, AttributeId> getPredicateIndex() {
+      return predicateIndex;
+   }
+
+   public int getNumFilters() {
+      return filterSubscriptions.size();
    }
 
    /**
@@ -54,60 +57,53 @@ final class FilterRegistry<AttributeId extends Comparable<AttributeId>> {
     *
     * @param ctx
     */
-   public void match(MatcherEvalContext<AttributeId> ctx) {
+   public void match(MatcherEvalContext<?, AttributeMetadata, AttributeId> ctx) {
+      // try to match
       ctx.process(predicateIndex.getRoot());
 
+      // notify subscribers
       for (FilterSubscriptionImpl s : filterSubscriptions) {
          FilterEvalContext filterEvalContext = ctx.getFilterEvalContext(s);
          if (filterEvalContext.getMatchResult()) {
-            s.getCallback().onFilterResult(ctx.getInstance(), filterEvalContext.getProjection());
+            s.getCallback().onFilterResult(ctx.getInstance(), filterEvalContext.getProjection(), filterEvalContext.getSortProjection());
          }
       }
    }
 
-   public FilterSubscriptionImpl addFilter(BooleanExpr normalizedFilter, List<String> projection, final FilterCallback callback) {
+   public FilterSubscriptionImpl<TypeMetadata, AttributeMetadata, AttributeId> addFilter(String queryString, BooleanExpr normalizedFilter, List<String> projection, List<SortField> sortFields, FilterCallback callback) {
       List<List<AttributeId>> translatedProjections = null;
       if (projection != null && !projection.isEmpty()) {
          translatedProjections = new ArrayList<List<AttributeId>>(projection.size());
          for (String projectionPath : projection) {
-            translatedProjections.add(attributePathTranslator.translatePath(StringHelper.splitPropertyPath(projectionPath)));
+            translatedProjections.add(metadataAdapter.translatePropertyPath(StringHelper.splitPropertyPath(projectionPath)));
+         }
+      }
+
+      List<List<AttributeId>> translatedSortFields = null;
+      if (sortFields != null && !sortFields.isEmpty()) {
+         translatedSortFields = new ArrayList<List<AttributeId>>(sortFields.size());
+         for (SortField sortField : sortFields) {
+            translatedSortFields.add(metadataAdapter.translatePropertyPath(StringHelper.splitPropertyPath(sortField.getPath())));
          }
       }
 
       BETree beTree = treeMaker.make(normalizedFilter);
-      final FilterSubscriptionImpl<AttributeId> filterSubscription = new FilterSubscriptionImpl<AttributeId>(typeName, beTree, projection, callback, translatedProjections);
-
+      FilterSubscriptionImpl<TypeMetadata, AttributeMetadata, AttributeId> filterSubscription = new FilterSubscriptionImpl<TypeMetadata, AttributeMetadata, AttributeId>(queryString, useIntervals, metadataAdapter, beTree, callback, projection, translatedProjections, sortFields, translatedSortFields);
       filterSubscription.registerProjection(predicateIndex);
-
-      for (BENode node : beTree.getNodes()) {
-         if (node instanceof PredicateNode) {
-            final PredicateNode<AttributeId> predicateNode = (PredicateNode<AttributeId>) node;
-            Predicate.Callback predicateCallback = new Predicate.Callback() {
-               @Override
-               public void handleValue(MatcherEvalContext<?> ctx, boolean isMatching) {
-                  FilterEvalContext filterEvalContext = ctx.getFilterEvalContext(filterSubscription);
-                  predicateNode.handleChildValue(null, isMatching, filterEvalContext);
-               }
-            };
-            predicateNode.subscribe(predicateIndex, predicateCallback);
-         }
-      }
-
+      filterSubscription.subscribe(predicateIndex);
+      filterSubscription.index = filterSubscriptions.size();
       filterSubscriptions.add(filterSubscription);
       return filterSubscription;
    }
 
    public void removeFilter(FilterSubscription filterSubscription) {
-      FilterSubscriptionImpl<AttributeId> filterSubscriptionImpl = (FilterSubscriptionImpl<AttributeId>) filterSubscription;
-      filterSubscriptions.remove(filterSubscriptionImpl);
-
+      FilterSubscriptionImpl<TypeMetadata, AttributeMetadata, AttributeId> filterSubscriptionImpl = (FilterSubscriptionImpl<TypeMetadata, AttributeMetadata, AttributeId>) filterSubscription;
       filterSubscriptionImpl.unregisterProjection(predicateIndex);
-
-      for (BENode node : filterSubscriptionImpl.getBETree().getNodes()) {
-         if (node instanceof PredicateNode) {
-            PredicateNode predicateNode = (PredicateNode) node;
-            predicateNode.unsubscribe();
-         }
+      filterSubscriptionImpl.unsubscribe(predicateIndex);
+      filterSubscriptions.remove(filterSubscriptionImpl);
+      for (int i = filterSubscriptionImpl.index; i < filterSubscriptions.size(); i++) {
+         filterSubscriptions.get(i).index--;
       }
+      filterSubscriptionImpl.index = -1;
    }
 }

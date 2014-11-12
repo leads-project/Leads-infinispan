@@ -4,6 +4,7 @@ import org.infinispan.atomic.Delta;
 import org.infinispan.batch.BatchContainer;
 import org.infinispan.cache.impl.DecoratedCache;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import org.infinispan.configuration.cache.PartitionHandlingConfiguration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.context.Flag;
@@ -15,6 +16,8 @@ import org.infinispan.filter.KeyValueFilter;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.iteration.EntryIterable;
 import org.infinispan.metadata.Metadata;
+import org.infinispan.partionhandling.AvailabilityMode;
+import org.infinispan.partionhandling.impl.PartitionHandlingManager;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.security.AuthorizationManager;
 import org.infinispan.stats.Stats;
@@ -25,6 +28,7 @@ import javax.transaction.xa.XAResource;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * An advanced interface that exposes additional methods not available on {@link Cache}.
@@ -354,6 +358,21 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     * @since 5.3
     */
    V putIfAbsent(K key, V value, Metadata metadata);
+   
+   /**
+    * An overloaded form of {@link #putForExternalRead(K, V)}, which takes in an
+    * instance of {@link Metadata} which can be used to provide metadata
+    * information for the entry being stored, such as lifespan, version
+    * of value...etc. The {@link Metadata} is only stored if the call is
+    * successful.
+    *
+    * @param key key with which the specified value is to be associated
+    * @param value value to be associated with the specified key
+    * @param metadata information to store alongside the new value
+    *
+    * @since 7.0
+    */
+   void putForExternalRead(K key, V value, Metadata metadata);
 
    /**
     * Asynchronous version of {@link #put(Object, Object, Metadata)} which stores
@@ -404,7 +423,51 @@ public interface AdvancedCache<K, V> extends Cache<K, V> {
     * try/finally or try with resource idioms to ensure that any current resources are freed if an exception prevents
     * full iteration of iterator.  Note this will prevent any ongoing iterators that were created from it from
     * progressing further.</p>
-    * @param filter The filter to use.  Note this is required and for distributed caches must be serializable
+    * @param filter The filter to use.  Note this is required and for distributed caches must be serializable.  Callbacks
+    *               to the filter will never provide a key or value that will be null.
     */
    EntryIterable<K, V> filterEntries(KeyValueFilter<? super K, ? super V> filter);
+
+   /**
+    * It fetches all the keys which belong to the group.
+    * <p/>
+    * Semantically, it iterates over all the keys in memory and persistence, and performs a read operation in the keys
+    * found. Multiple invocations inside a transaction ensures that all the keys previous read are returned and it may
+    * return newly added keys to the group from other committed transactions (also known as phantom reads).
+    * <p/>
+    * The {@code map} returned is immutable and represents the group at the time of the invocation. If you want to add
+    * or remove keys from a group use {@link #put(Object, Object)} and {@link #remove(Object)}. To remove all the keys
+    * in the group use {@link #removeGroup(String)}.
+    * <p/>
+    * To improve performance you may use the {@code flag} {@link org.infinispan.context.Flag#SKIP_CACHE_LOAD} to avoid
+    * fetching the key/value from persistence. However, you will get an inconsistent snapshot of the group.
+    *
+    * @param groupName the group name.
+    * @return an immutable {@link java.util.Map} with the key/value pairs.
+    */
+   Map<K, V> getGroup(String groupName);
+
+   /**
+    * It removes all the key which belongs to a group.
+    * <p/>
+    * Semantically, it fetches the most recent group keys/values and removes them.
+    * <p/>
+    * Note that, concurrent addition perform by other transactions/threads to the group may not be removed.
+    *
+    * @param groupName the group name.
+    */
+   void removeGroup(String groupName);
+
+   /**
+    * Returns the cache's availability. In local mode this method will always return {@link AvailabilityMode#AVAILABLE}. In
+    * clustered mode, the {@link PartitionHandlingManager} is queried to obtain the availability mode.
+    */
+   AvailabilityMode getAvailability();
+
+   /**
+    * Manually change the availability of the cache.
+    * Doesn't change anything if the cache is not clustered or partition handling is not enabled
+    * ({@link PartitionHandlingConfiguration#enabled()}.
+    */
+   void setAvailability(AvailabilityMode availabilityMode);
 }

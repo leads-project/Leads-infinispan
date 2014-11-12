@@ -1,16 +1,18 @@
 package org.infinispan.interceptors;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 import javax.transaction.Status;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 
+import org.infinispan.Cache;
+import org.infinispan.commands.CommandsFactory;
 import org.infinispan.commands.VisitableCommand;
 import org.infinispan.commands.control.LockControlCommand;
+import org.infinispan.commands.read.EntryRetrievalCommand;
 import org.infinispan.commands.read.EntrySetCommand;
 import org.infinispan.commands.read.GetKeyValueCommand;
 import org.infinispan.commands.read.KeySetCommand;
+import org.infinispan.commands.read.SizeCommand;
 import org.infinispan.commands.read.ValuesCommand;
 import org.infinispan.commands.tx.AbstractTransactionBoundaryCommand;
 import org.infinispan.commands.tx.CommitCommand;
@@ -30,6 +32,9 @@ import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.base.CommandInterceptor;
+import org.infinispan.iteration.EntryIterable;
+import org.infinispan.iteration.impl.TransactionAwareEntryIterable;
+import org.infinispan.jmx.JmxStatisticsExposer;
 import org.infinispan.jmx.annotations.DataType;
 import org.infinispan.jmx.annotations.DisplayType;
 import org.infinispan.jmx.annotations.MBean;
@@ -37,6 +42,7 @@ import org.infinispan.jmx.annotations.ManagedAttribute;
 import org.infinispan.jmx.annotations.ManagedOperation;
 import org.infinispan.jmx.annotations.MeasurementType;
 import org.infinispan.remoting.rpc.RpcManager;
+import org.infinispan.transaction.LockingMode;
 import org.infinispan.transaction.impl.LocalTransaction;
 import org.infinispan.transaction.impl.RemoteTransaction;
 import org.infinispan.transaction.impl.TransactionCoordinator;
@@ -46,6 +52,8 @@ import org.infinispan.transaction.xa.recovery.RecoverableTransactionIdentifier;
 import org.infinispan.transaction.xa.recovery.RecoveryManager;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
+
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Interceptor in charge with handling transaction related operations, e.g enlisting cache as an transaction
@@ -57,7 +65,7 @@ import org.infinispan.util.logging.LogFactory;
  * @since 4.0
  */
 @MBean(objectName = "Transactions", description = "Component that manages the cache's participation in JTA transactions.")
-public class TxInterceptor extends CommandInterceptor {
+public class TxInterceptor extends CommandInterceptor implements JmxStatisticsExposer {
 
    private TransactionTable txTable;
 
@@ -69,9 +77,13 @@ public class TxInterceptor extends CommandInterceptor {
    protected RpcManager rpcManager;
 
    private static final Log log = LogFactory.getLog(TxInterceptor.class);
+   private static final boolean trace = log.isTraceEnabled();
    private RecoveryManager recoveryManager;
    private boolean isTotalOrder;
    private boolean useOnePhaseForAutoCommitTx;
+   private boolean useVersioning;
+   private CommandsFactory commandsFactory;
+   private Cache cache;
 
    @Override
    protected Log getLog() {
@@ -79,22 +91,30 @@ public class TxInterceptor extends CommandInterceptor {
    }
 
    @Inject
-   public void init(TransactionTable txTable, Configuration c, TransactionCoordinator txCoordinator, RpcManager rpcManager,
-                    RecoveryManager recoveryManager) {
-      this.cacheConfiguration = c;
+   public void init(TransactionTable txTable, Configuration configuration, TransactionCoordinator txCoordinator, RpcManager rpcManager,
+                    RecoveryManager recoveryManager, CommandsFactory commandsFactory, Cache cache) {
+      this.cacheConfiguration = configuration;
       this.txTable = txTable;
       this.txCoordinator = txCoordinator;
       this.rpcManager = rpcManager;
       this.recoveryManager = recoveryManager;
-      this.statisticsEnabled = cacheConfiguration.jmxStatistics().enabled();
-      this.isTotalOrder = c.transaction().transactionProtocol().isTotalOrder();
+      this.commandsFactory = commandsFactory;
+      this.cache = cache;
+
+      statisticsEnabled = cacheConfiguration.jmxStatistics().enabled();
+      isTotalOrder = configuration.transaction().transactionProtocol().isTotalOrder();
       useOnePhaseForAutoCommitTx = cacheConfiguration.transaction().use1PcForAutoCommitTransactions();
+      useVersioning = configuration.transaction().transactionMode().isTransactional() && configuration.locking().writeSkewCheck() &&
+            configuration.transaction().lockingMode() == LockingMode.OPTIMISTIC && configuration.versioning().enabled();
    }
 
    @Override
    public Object visitPrepareCommand(TxInvocationContext ctx, PrepareCommand command) throws Throwable {
       //if it is remote and 2PC then first log the tx only after replying mods
       if (this.statisticsEnabled) prepares.incrementAndGet();
+      if (!ctx.isOriginLocal()) {
+         ((RemoteTransaction) ctx.getCacheTransaction()).setLookedUpEntriesTopology(command.getTopologyId());
+      }
       Object result = invokeNextInterceptorAndVerifyTransaction(ctx, command);
       if (!ctx.isOriginLocal()) {
          if (command.isOnePhaseCommit()) {
@@ -114,14 +134,18 @@ public class TxInterceptor extends CommandInterceptor {
             //It is possible to receive a prepare or lock control command from a node that crashed. If that's the case rollback
             //the transaction forcefully in order to cleanup resources.
             boolean originatorMissing = !rpcManager.getTransport().getMembers().contains(command.getOrigin());
-            boolean alreadyCompleted = txTable.isTransactionCompleted(command.getGlobalTransaction());
-            if (log.isTraceEnabled()) {
+            // It is also possible that the LCC timed out on the originator's end and this node has processed
+            // a TxCompletionNotification.  So we need to check the presence of the remote transaction to
+            // see if we need to clean up any acquired locks on our end.
+            boolean alreadyCompleted = txTable.isTransactionCompleted(command.getGlobalTransaction()) ||
+                                       !txTable.containRemoteTx(command.getGlobalTransaction());
+            if (trace) {
                log.tracef("invokeNextInterceptorAndVerifyTransaction :: originatorMissing=%s, alreadyCompleted=%s",
                           originatorMissing, alreadyCompleted);
             }
 
             if (alreadyCompleted || originatorMissing) {
-               if (log.isTraceEnabled()) {
+               if (trace) {
                   log.tracef("Rolling back remote transaction %s because either already completed(%s) or originator no " +
                                    "longer in the cluster(%s).",
                              command.getGlobalTransaction(), alreadyCompleted, originatorMissing);
@@ -145,11 +169,36 @@ public class TxInterceptor extends CommandInterceptor {
       // TODO The local origin check is needed for CommitFailsTest, but it doesn't appear correct to roll back an in-doubt tx
       if (!ctx.isOriginLocal()) {
          if (txTable.isTransactionCompleted(gtx)) {
-            log.tracef("Transaction %s already completed, skipping commit", gtx);
+            if (trace) log.tracef("Transaction %s already completed, skipping commit", gtx);
             return null;
-         } else {
-            txTable.markTransactionCompleted(gtx);
          }
+
+         if (!isTotalOrder) {
+            // If a commit is received for a transaction that doesn't have its 'lookedUpEntries' populated
+            // we know for sure this transaction is 2PC and was received via state transfer but the preceding PrepareCommand
+            // was not received by local node because it was executed on the previous key owners. We need to re-prepare
+            // the transaction on local node to ensure its locks are acquired and lookedUpEntries is properly populated.
+            RemoteTransaction remoteTx = (RemoteTransaction) ctx.getCacheTransaction();
+            if (trace) {
+               log.tracef("Remote tx topology id %d and command topology is %d", remoteTx.lookedUpEntriesTopology(),
+                          command.getTopologyId());
+            }
+            if (remoteTx.lookedUpEntriesTopology() < command.getTopologyId()) {
+               PrepareCommand prepareCommand;
+               if (useVersioning) {
+                  prepareCommand = commandsFactory.buildVersionedPrepareCommand(ctx.getGlobalTransaction(), ctx.getModifications(), false);
+               } else {
+                  prepareCommand = commandsFactory.buildPrepareCommand(ctx.getGlobalTransaction(), ctx.getModifications(), false);
+               }
+               commandsFactory.initializeReplicableCommand(prepareCommand, true);
+               prepareCommand.setOrigin(ctx.getOrigin());
+               if (trace)
+                  log.tracef("Replaying the transactions received as a result of state transfer %s", prepareCommand);
+               visitPrepareCommand(ctx, prepareCommand);
+            }
+         }
+
+         txTable.markTransactionCompleted(gtx);
       }
 
       if (this.statisticsEnabled) commits.incrementAndGet();
@@ -221,6 +270,11 @@ public class TxInterceptor extends CommandInterceptor {
    }
 
    @Override
+   public Object visitSizeCommand(InvocationContext ctx, SizeCommand command) throws Throwable {
+      return enlistReadAndInvokeNext(ctx, command);
+   }
+
+   @Override
    public Object visitKeySetCommand(InvocationContext ctx, KeySetCommand command) throws Throwable {
       return enlistReadAndInvokeNext(ctx, command);
    }
@@ -243,6 +297,18 @@ public class TxInterceptor extends CommandInterceptor {
    @Override
    public Object visitGetKeyValueCommand(InvocationContext ctx, GetKeyValueCommand command) throws Throwable {
       return enlistReadAndInvokeNext(ctx, command);
+   }
+
+   @Override
+   public EntryIterable visitEntryRetrievalCommand(InvocationContext ctx, EntryRetrievalCommand command) throws Throwable {
+      // Enlistment shouldn't be needed for this command.  The remove on the iterator will internally make a remove
+      // command and the iterator itself does not place read values into the context.
+      EntryIterable iterable = (EntryIterable) super.visitEntryRetrievalCommand(ctx, command);
+      if (ctx.isInTxScope()) {
+         return new TransactionAwareEntryIterable(iterable, (TxInvocationContext<LocalTransaction>) ctx, cache);
+      } else {
+         return iterable;
+      }
    }
 
    private Object enlistReadAndInvokeNext(InvocationContext ctx, VisitableCommand command) throws Throwable {
@@ -302,6 +368,16 @@ public class TxInterceptor extends CommandInterceptor {
 
    private static boolean shouldEnlist(InvocationContext ctx) {
       return ctx.isInTxScope() && ctx.isOriginLocal();
+   }
+
+   @Override
+   public boolean getStatisticsEnabled() {
+      return isStatisticsEnabled();
+   }
+
+   @Override
+   public void setStatisticsEnabled(boolean enabled) {
+      statisticsEnabled = enabled;
    }
 
    @ManagedOperation(

@@ -2,16 +2,19 @@ package org.infinispan.interceptors.distribution;
 
 import org.infinispan.commands.FlagAffectedCommand;
 import org.infinispan.commands.remote.ClusteredGetCommand;
+import org.infinispan.commands.remote.GetKeysInGroupCommand;
 import org.infinispan.commands.write.DataWriteCommand;
 import org.infinispan.commands.write.ValueMatcher;
 import org.infinispan.commands.write.WriteCommand;
 import org.infinispan.commons.CacheException;
+import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.container.entries.InternalCacheValue;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
 import org.infinispan.distribution.DistributionManager;
 import org.infinispan.distribution.RemoteValueRetrievedListener;
+import org.infinispan.distribution.group.GroupManager;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.interceptors.ClusteringInterceptor;
 import org.infinispan.interceptors.locking.ClusteringDependentLogic;
@@ -56,6 +59,7 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
 
    protected ClusteringDependentLogic cdl;
    protected RemoteValueRetrievedListener rvrl;
+   private GroupManager groupManager;
 
    private static final Log log = LogFactory.getLog(BaseDistributionInterceptor.class);
    private static final boolean trace = log.isTraceEnabled();
@@ -67,10 +71,33 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
 
    @Inject
    public void injectDependencies(DistributionManager distributionManager, ClusteringDependentLogic cdl,
-                                  RemoteValueRetrievedListener rvrl) {
+                                  RemoteValueRetrievedListener rvrl, GroupManager groupManager) {
       this.dm = distributionManager;
       this.cdl = cdl;
       this.rvrl = rvrl;
+      this.groupManager = groupManager;
+   }
+
+   @Override
+   public final Object visitGetKeysInGroupCommand(InvocationContext ctx, GetKeysInGroupCommand command) throws Throwable {
+      final String groupName = command.getGroupName();
+      if (command.isGroupOwner()) {
+         //don't go remote if we are an owner.
+         return invokeNextInterceptor(ctx, command);
+      }
+      Map<Address, Response> responseMap = rpcManager.invokeRemotely(Collections.singleton(groupManager.getPrimaryOwner(groupName)), command,
+                                                                     rpcManager.getDefaultRpcOptions(true));
+      if (!responseMap.isEmpty()) {
+         Response response = responseMap.values().iterator().next();
+         if (response instanceof SuccessfulResponse) {
+            //noinspection unchecked
+            List<CacheEntry> cacheEntries = (List<CacheEntry>) ((SuccessfulResponse) response).getResponseValue();
+            for (CacheEntry entry : cacheEntries) {
+               entryFactory.wrapEntryForReading(ctx, entry.getKey(), entry);
+            }
+         }
+      }
+      return invokeNextInterceptor(ctx, command);
    }
 
    @Override
@@ -78,7 +105,6 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
       GlobalTransaction gtx = ctx.isInTxScope() ? ((TxInvocationContext)ctx).getGlobalTransaction() : null;
       ClusteredGetCommand get = cf.buildClusteredGetCommand(key, command.getFlags(), acquireRemoteLock, gtx);
       get.setWrite(isWrite);
-
 
       RpcOptionsBuilder rpcOptionsBuilder = rpcManager.getRpcOptionsBuilder(ResponseMode.WAIT_FOR_VALID_RESPONSE, false);
       int lastTopologyId = -1;
@@ -96,11 +122,11 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
             // Cache topology has changed or it is the first time.
             lastTopologyId = currentTopologyId;
             targets = new ArrayList<Address>(cacheTopology.getReadConsistentHash().locateOwners(key));
-         } else if (lastTopologyId == currentTopologyId) {
+         } else if (lastTopologyId == currentTopologyId && cacheTopology.getPendingCH() != null) {
             // Same topologyId, but the owners could have already installed the next topology
-            // Lets try with write consistent owners (the read owners in the next topology)
+            // Lets try with pending consistent owners (the read owners in the next topology)
             lastTopologyId = currentTopologyId + 1;
-            targets = new ArrayList<Address>(cacheTopology.getWriteConsistentHash().locateOwners(key));
+            targets = new ArrayList<Address>(cacheTopology.getPendingCH().locateOwners(key));
             // Remove already contacted nodes
             targets.removeAll(cacheTopology.getReadConsistentHash().locateOwners(key));
             if (targets.isEmpty()) {
@@ -109,8 +135,8 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
                }
                break;
             }
-         } else { // lastTopologyId > currentTopologyId
-            // We have not received a valid value from the write CH owners either, and the topology id hasn't changed
+         } else { // lastTopologyId > currentTopologyId || cacheTopology.getPendingCH() == null
+            // We have not received a valid value from the pending CH owners either, and the topology id hasn't changed
             if (trace) {
                log.tracef("No valid values found for key '%s' (topologyId=%s).", key, currentTopologyId);
             }
@@ -185,9 +211,12 @@ public abstract class BaseDistributionInterceptor extends ClusteringInterceptor 
       // TotalOrderStateTransferInterceptor doesn't set the topology id for PFERs.
       // TODO Shouldn't PFERs be executed in a tx with total order?
       boolean topologyChanged = isSync && currentTopologyId != commandTopologyId && commandTopologyId != -1;
-      if (command.isSuccessful() && topologyChanged) {
-         log.tracef("Cache topology changed while the command was executing: expected %d, got %d",
-               commandTopologyId, currentTopologyId);
+      log.tracef("Command topology id is %d, current topology id is %d, successful? %s",
+            commandTopologyId, currentTopologyId, command.isSuccessful());
+      // We need to check for topology changes on the origin even if the command was unsuccessful
+      // otherwise we execute the command on the correct primary owner, and then we still
+      // throw an OutdatedTopologyInterceptor when we return in EntryWrappingInterceptor.
+      if (topologyChanged) {
          throw new OutdatedTopologyException("Cache topology changed while the command was executing: expected " +
                commandTopologyId + ", got " + currentTopologyId);
       }

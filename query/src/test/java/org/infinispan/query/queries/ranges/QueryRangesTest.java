@@ -1,9 +1,10 @@
 package org.infinispan.query.queries.ranges;
 
-import junit.framework.Assert;
+import org.junit.Assert;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.search.Query;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.Search;
@@ -23,7 +24,7 @@ import java.util.Locale;
  *
  * @author Anna Manukyan
  */
-@Test(groups = "functional", testName = "query.queries.ranges.QueryRangesTest")
+@Test(groups = {"functional", "smoke"}, testName = "query.queries.ranges.QueryRangesTest")
 public class QueryRangesTest extends SingleCacheManagerTest {
    private Person person1;
    private Person person2;
@@ -43,8 +44,7 @@ public class QueryRangesTest extends SingleCacheManagerTest {
       ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
       cfg
             .indexing()
-            .enable()
-            .indexLocalOnly(false)
+            .index(Index.ALL)
             .addProperty("default.directory_provider", "ram")
             .addProperty("lucene_version", "LUCENE_CURRENT");
       return TestCacheManagerFactory.createCacheManager(cfg);

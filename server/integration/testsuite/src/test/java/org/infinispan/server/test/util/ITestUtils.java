@@ -74,7 +74,8 @@ public class ITestUtils {
     }
 
     public static String getAttribute(MBeanServerConnectionProvider provider, String mbean, String attr) throws Exception {
-        return provider.getConnection().getAttribute(new ObjectName(mbean), attr).toString();
+        Object jmxAttr = provider.getConnection().getAttribute(new ObjectName(mbean), attr); 
+        return jmxAttr != null ? jmxAttr.toString() : null;
     }
 
     public static void setAttribute(MBeanServerConnectionProvider provider, String mbean, String attrName, Object attrValue) throws Exception {

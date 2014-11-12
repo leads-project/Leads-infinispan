@@ -1,8 +1,8 @@
 package org.infinispan.query.dsl.embedded;
 
+import org.infinispan.Cache;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
-import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.test.fwk.CleanupAfterMethod;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.Test;
 
@@ -10,24 +10,31 @@ import org.testng.annotations.Test;
  * Verifies the functionality of DSL API iterations using ISPN directory provider.
  *
  * @author Anna Manukyan
+ * @author anistor@redhat.com
+ * @since 6.0
  */
 @Test(groups = "functional", testName = "query.dsl.embedded.IspnDirQueryDslIterationTest")
-@CleanupAfterMethod
 public class IspnDirQueryDslIterationTest extends QueryDslIterationTest {
 
+   protected static final String TEST_CACHE_NAME = "custom";
+
+   protected Cache<Object, Object> cache;
+
    @Override
-   protected EmbeddedCacheManager createCacheManager() throws Exception {
-      ConfigurationBuilder defaultConfig = getDefaultStandaloneCacheConfig(true);
+   protected void createCacheManagers() throws Throwable {
+      ConfigurationBuilder defaultConfiguration = TestCacheManagerFactory.getDefaultCacheConfiguration(true);
+      createClusteredCaches(1, defaultConfiguration);
 
-      ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
-      cfg.indexing().enable()
-            .addProperty("default.directory_provider", "infinispan")
-            .addProperty("lucene_version", "LUCENE_48");
-      cacheManager =  TestCacheManagerFactory.createCacheManager(defaultConfig);
-      cacheManager.defineConfiguration("custom", cfg.build());
+      ConfigurationBuilder cfg = TestCacheManagerFactory.getDefaultCacheConfiguration(true);
+      cfg.indexing().index(Index.ALL)
+            .addProperty("default.directory_provider", "infinispan");
 
-      cache = cacheManager.getCache("custom");
-      return cacheManager;
+      manager(0).defineConfiguration(TEST_CACHE_NAME, cfg.build());
+      cache = manager(0).getCache(TEST_CACHE_NAME);
    }
 
+   @Override
+   protected Cache<Object, Object> getCacheForQuery() {
+      return cache;
+   }
 }

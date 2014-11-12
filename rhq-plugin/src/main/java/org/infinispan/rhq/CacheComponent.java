@@ -21,6 +21,7 @@ import org.rhq.plugins.jmx.MBeanResourceComponent;
 import org.rhq.plugins.jmx.util.ObjectNameQueryUtility;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -36,6 +37,9 @@ import static org.infinispan.rhq.RhqUtil.constructNumericMeasure;
 public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent> {
    private static final Log log = LogFactory.getLog(CacheComponent.class);
 
+   private static final String STATUS_ATTRIBUTE_NAME = "CacheStatus";
+   private static final List<String> AVAILABILITY_ATTRIBUTE = Collections.singletonList(STATUS_ATTRIBUTE_NAME);
+
    private String cacheManagerName;
    private String cacheName;
 
@@ -49,6 +53,35 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
       if (log.isTraceEnabled())
          log.trace("Start cache component for cache manager "+cacheManagerName+" with cache key "+cacheName);
       super.start(context);
+   }
+
+   /**
+    * Return availability of this resource
+    *
+    * @see org.rhq.core.pluginapi.inventory.ResourceComponent#getAvailability()
+    */
+   @Override
+   public AvailabilityType getAvailability() {
+      boolean trace = log.isTraceEnabled();
+      EmsBean bean = getEmsBean();
+      try {
+         if (bean != null) {
+
+            // Refresh only the 1 attribute
+            bean.refreshAttributes(AVAILABILITY_ATTRIBUTE);
+            if ("RUNNING".equals(bean.getAttribute(STATUS_ATTRIBUTE_NAME).getValue())) {
+               if (trace)
+                  log.trace("Cache " + cacheName + " within " + cacheManagerName + " cache manager is running, so it's up.");
+               return AvailabilityType.UP;
+            }
+         }
+         if (trace)
+            log.trace("Cache status for " + cacheName + " within " + cacheManagerName + " cache manager is anything other than running, so it's down.");
+         return AvailabilityType.DOWN;
+      } catch (Exception e) {
+         if (trace) log.trace("There was an exception checking availability, so cache status is down.", e);
+         return AvailabilityType.DOWN;
+      }
    }
 
    /**
@@ -153,16 +186,15 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
    }
 
    private String namedCacheComponentPattern(String cacheManagerName, String cacheName, String componentName) {
-      return CacheDiscovery.cacheComponentPattern(cacheManagerName, componentName)
-            + ",name=" + cacheName;
+      return CacheDiscovery.cacheComponentPattern(cacheManagerName, cacheName, componentName);
    }
 
-   private EmsBean queryComponentBean(EmsConnection conn, String name) {
+   private EmsBean queryComponentBean(EmsConnection conn, String name) throws Exception {
       String componentName = name.substring(0, name.indexOf("."));
       return queryBean(conn, componentName);
    }
 
-   private EmsBean queryBean(EmsConnection conn, String componentName) {
+   private EmsBean queryBean(EmsConnection conn, String componentName) throws Exception {
       String pattern = getSingleComponentPattern(cacheManagerName, cacheName, componentName);
       if (log.isTraceEnabled()) log.trace("Pattern to query is " + pattern);
       ObjectNameQueryUtility queryUtility = new ObjectNameQueryUtility(pattern);
@@ -174,13 +206,13 @@ public class CacheComponent extends MBeanResourceComponent<CacheManagerComponent
             log.warn(String.format("MBeanServer returned spurious object %s", bean.getBeanName().getCanonicalName()));
          }
       }
-      if (log.isTraceEnabled()) log.trace("No mbean found with name " + pattern);
-      return null;
+      throw new Exception("No mbean found with name " + pattern);
    }
 
    protected static boolean isCacheComponent(EmsBean bean, String componentName) {
       EmsBeanName beanName = bean.getBeanName();
-      return "Cache".equals(beanName.getKeyProperty("type")) && componentName.equals(beanName.getKeyProperty("component"));
+      String type = beanName.getKeyProperty("type");
+      return ("Cache".equals(type) || "Query".equals(type)) && componentName.equals(beanName.getKeyProperty("component"));
    }
 
    @Override

@@ -3,16 +3,18 @@ package org.infinispan.it.osgi.persistence.leveldb;
 import static org.infinispan.it.osgi.util.IspnKarafOptions.perSuiteOptions;
 import static org.ops4j.pax.exam.CoreOptions.options;
 
-import java.io.File;
-
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
 import org.infinispan.persistence.BaseStoreFunctionalTest;
 import org.infinispan.persistence.leveldb.configuration.LevelDBStoreConfiguration;
 import org.infinispan.persistence.leveldb.configuration.LevelDBStoreConfigurationBuilder;
 import org.infinispan.test.TestingUtil;
+import org.infinispan.test.fwk.TestResourceTracker;
+import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.ops4j.pax.exam.Configuration;
 import org.ops4j.pax.exam.Option;
@@ -25,6 +27,7 @@ import org.ops4j.pax.exam.spi.reactors.PerSuite;
  */
 @RunWith(PaxExam.class)
 @ExamReactorStrategy(PerSuite.class)
+@Category(PerSuite.class)
 public class JniLevelDBStoreFunctionalTest extends BaseStoreFunctionalTest {
 
    private static String tmpDirectory;
@@ -42,7 +45,19 @@ public class JniLevelDBStoreFunctionalTest extends BaseStoreFunctionalTest {
    @AfterClass
    public static void clearTempDir() {
       TestingUtil.recursiveFileRemove(tmpDirectory);
-      new File(tmpDirectory).mkdirs();
+   }
+
+   @Before
+   @Override
+   public void setup() throws Exception {
+      TestResourceTracker.backgroundTestStarted(this);
+      super.setup();
+   }
+
+   @After
+   @Override
+   public void teardown() {
+      super.teardown();
    }
 
    @Override

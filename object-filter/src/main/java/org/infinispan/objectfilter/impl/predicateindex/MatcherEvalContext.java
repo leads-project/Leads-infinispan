@@ -1,83 +1,114 @@
 package org.infinispan.objectfilter.impl.predicateindex;
 
+import org.infinispan.objectfilter.impl.FilterRegistry;
 import org.infinispan.objectfilter.impl.FilterSubscriptionImpl;
-import org.infinispan.objectfilter.impl.predicateindex.be.PredicateNode;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * Stores processing state during the matching process of all filters registered with a Matcher.
+ *
+ * @param <TypeMetadata>      representation of entity type information, ie a Class object or anything that represents a
+ *                            type
+ * @param <AttributeMetadata> representation of attribute type information
+ * @param <AttributeId>       representation of attribute identifiers
  * @author anistor@redhat.com
  * @since 7.0
  */
-public abstract class MatcherEvalContext<AttributeId extends Comparable<AttributeId>> {
+public abstract class MatcherEvalContext<TypeMetadata, AttributeMetadata, AttributeId extends Comparable<AttributeId>> {
+
+   private FilterRegistry<TypeMetadata, AttributeMetadata, AttributeId> filterRegistry;
 
    /**
     * Current node during traversal of the attribute tree.
     */
-   protected AttributeNode<AttributeId> currentNode;
+   protected AttributeNode<AttributeMetadata, AttributeId> currentNode;
+
+   private final Map<Predicate<?>, Counter> suspendedSubscriptionCounts = new HashMap<Predicate<?>, Counter>();
+
+   private final Object instance;
+
+   private FilterEvalContext singleFilterContext;
 
    /**
     * Each filter subscription has its own evaluation context, created on demand.
     */
-   private final Map<FilterSubscriptionImpl, FilterEvalContext> filterContexts = new HashMap<FilterSubscriptionImpl, FilterEvalContext>();
-
-   private final Map<Predicate<?>, AtomicInteger> suspendedSubscriptionCounts = new HashMap<Predicate<?>, AtomicInteger>();
-
-   private final Set<PredicateNode<AttributeId>> suspendedSubscriptions = new HashSet<PredicateNode<AttributeId>>();
-
-   private final Object instance;
-
-   protected String entityTypeName;
+   private FilterEvalContext[] filterContexts;
 
    protected MatcherEvalContext(Object instance) {
       this.instance = instance;
    }
 
-   public String getEntityTypeName() {
-      return entityTypeName;
-   }
+   public abstract TypeMetadata getEntityType();
 
+   /**
+    * The instance being matched with the filters.
+    */
    public Object getInstance() {
       return instance;
    }
 
+   public void initMultiFilterContext(FilterRegistry<TypeMetadata, AttributeMetadata, AttributeId> filterRegistry) {
+      this.filterRegistry = filterRegistry;
+      filterContexts = new FilterEvalContext[filterRegistry.getNumFilters()];
+   }
+
+   public FilterEvalContext initSingleFilterContext(FilterSubscriptionImpl filterSubscription) {
+      singleFilterContext = new FilterEvalContext(this, filterSubscription);
+      return singleFilterContext;
+   }
+
+   public boolean isSingleFilter() {
+      return singleFilterContext != null;
+   }
+
    public FilterEvalContext getFilterEvalContext(FilterSubscriptionImpl filterSubscription) {
-      FilterEvalContext filterEvalContext = filterContexts.get(filterSubscription);
+      if (isSingleFilter()) {
+         return singleFilterContext;
+      }
+
+      FilterEvalContext filterEvalContext = filterContexts[filterSubscription.index];
       if (filterEvalContext == null) {
-         Object[] projection = filterSubscription.getProjection() != null ? new Object[filterSubscription.getProjection().length] : null;
-         filterEvalContext = new FilterEvalContext(filterSubscription.getBETree(), this, projection);
-         filterContexts.put(filterSubscription, filterEvalContext);
+         filterEvalContext = new FilterEvalContext(this, filterSubscription);
+         filterContexts[filterSubscription.index] = filterEvalContext;
       }
       return filterEvalContext;
    }
 
-   public void addSuspendedSubscription(PredicateNode<AttributeId> predicateNode) {
-      suspendedSubscriptions.add(predicateNode);
-      AtomicInteger counter = suspendedSubscriptionCounts.get(predicateNode.getPredicate());
-      if (counter == null) {
-         counter = new AtomicInteger();
-         suspendedSubscriptionCounts.put(predicateNode.getPredicate(), counter);
+   public void addSuspendedSubscription(Predicate<?> predicate) {
+      if (isSingleFilter()) {
+         return;
       }
-      counter.incrementAndGet();
+      Counter counter = suspendedSubscriptionCounts.get(predicate);
+      if (counter == null) {
+         counter = new Counter();
+         suspendedSubscriptionCounts.put(predicate, counter);
+      }
+      counter.value++;
    }
 
-   public boolean isSuspendedSubscription(PredicateNode<AttributeId> predicateNode) {
-      return suspendedSubscriptions.contains(predicateNode);
+   public int getSuspendedSubscriptionsCounter(Predicate<AttributeId> predicate) {
+      if (isSingleFilter()) {
+         return -1;
+      }
+
+      Counter counter = suspendedSubscriptionCounts.get(predicate);
+      return counter == null ? 0 : counter.value;
    }
 
-   public int getSuspendedSubscriptionsCounter(Predicate<?> predicate) {
-      AtomicInteger counter = suspendedSubscriptionCounts.get(predicate);
-      return counter == null ? 0 : counter.get();
+   public void match() {
+      filterRegistry.match(this);
    }
 
-   public void process(AttributeNode<AttributeId> node) {
+   public void process(AttributeNode<AttributeMetadata, AttributeId> node) {
       currentNode = node;
       processAttributes(currentNode, instance);
    }
 
-   protected abstract void processAttributes(AttributeNode<AttributeId> node, Object instance);
+   protected abstract void processAttributes(AttributeNode<AttributeMetadata, AttributeId> node, Object instance);
+
+   private static final class Counter {
+      int value;
+   }
 }

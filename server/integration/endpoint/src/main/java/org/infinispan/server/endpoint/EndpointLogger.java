@@ -146,6 +146,31 @@ public interface EndpointLogger extends BasicLogger {
    @Message(id = 10021, value = "Invalid Strength value: %s")
    IllegalStateException invalidStrength(String strengthValue);
 
-   @Message(id = 10022, value = "Endpoint '%s' requires Client Certificates, but no Trust Store is available in realm '%s'")
+   @Message(id = 10022, value = "Cannot retrieve authorization information for user %s")
+   SecurityException cannotRetrieveAuthorizationInformation(@Cause Throwable cause, String user);
+
+   @Message(id = 10023, value = "Endpoint '%s' requires Client Certificates, but no Trust Store is available in realm '%s'")
    StartException noSSLTrustStore(String endpoint, String realm);
+
+   @Message(id = 10024, value = "Invalid authorizationId %s")
+   IllegalArgumentException invalidAuthorizationId(String authorizationId);
+
+   @LogMessage(level = WARN)
+   @Message(id = 10025, value = "Unable to instantiate class \"%s\": %s")
+   void cannotInstantiateClass(String clazz, Throwable reason);
+
+   @LogMessage(level = WARN)
+   @Message(id = 10026, value = "No @NamedFactory annotation found in class: %s")
+   void noFactoryName(String clazz);
+
+   @Message(id = 10027, value = "Service not started")
+   IllegalStateException serviceNotStarted();
+
+   @Message(id = 10028, value = "%s is null")
+   String nullVar(String name);
+
+   @LogMessage(level = WARN)
+   @Message(id = 10029, value = "Ignoring duplicate marshaller deployment found in %s. A marshaller has already been installed")
+   void duplicateMarshallerDeployment(String deploymentName);
+
 }

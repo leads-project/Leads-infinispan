@@ -194,7 +194,6 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
          boolean affectsAllNodes = ctx.getCacheTransaction().hasModification(ClearCommand.class);
          Collection<Address> recipients = affectsAllNodes ? dm.getWriteConsistentHash().getMembers() :
                cdl.getOwners(getAffectedKeysFromContext(ctx));
-         recipients = recipients == null ? dm.getWriteConsistentHash().getMembers() : recipients;
          prepareOnAffectedNodes(ctx, command, recipients, defaultSynchronous);
 
          ((LocalTxInvocationContext) ctx).remoteLocksAcquired(recipients == null ? dm.getWriteConsistentHash().getMembers() : recipients);
@@ -220,8 +219,9 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
    @Override
    public Object visitRollbackCommand(TxInvocationContext ctx, RollbackCommand command) throws Throwable {
       if (shouldInvokeRemoteTxCommand(ctx)) {
-         rpcManager.invokeRemotely(getCommitNodes(ctx), command, rpcManager.getDefaultRpcOptions(
-               cacheConfiguration.transaction().syncRollbackPhase(), false));
+         boolean syncRollback = cacheConfiguration.transaction().syncRollbackPhase();
+         ResponseMode responseMode = syncRollback ? ResponseMode.SYNCHRONOUS_IGNORE_LEAVERS : ResponseMode.ASYNCHRONOUS;
+         rpcManager.invokeRemotely(getCommitNodes(ctx), command, rpcManager.getRpcOptionsBuilder(responseMode, false).build());
       }
 
       return invokeNextInterceptor(ctx, command);
@@ -320,7 +320,7 @@ public class TxDistributionInterceptor extends BaseDistributionInterceptor {
          if (trace) log.tracef("Doing a remote get for key %s", key);
 
          boolean acquireRemoteLock = false;
-         if (ctx.isInTxScope()) {
+         if (ctx.isInTxScope() && ctx.isOriginLocal()) {
             TxInvocationContext txContext = (TxInvocationContext) ctx;
             acquireRemoteLock = isWrite && isPessimisticCache && !txContext.getAffectedKeys().contains(key);
          }

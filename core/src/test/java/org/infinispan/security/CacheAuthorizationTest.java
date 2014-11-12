@@ -26,7 +26,7 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 import org.testng.annotations.Test;
 
-@Test(groups = "functional", testName = "security.SingleCacheManagerTest")
+@Test(groups = {"functional", "smoke"}, testName = "security.SingleCacheManagerTest")
 public class CacheAuthorizationTest extends SingleCacheManagerTest {
    static final Log log = LogFactory.getLog(CacheAuthorizationTest.class);
    static final Subject ADMIN;
@@ -168,7 +168,7 @@ public class CacheAuthorizationTest extends SingleCacheManagerTest {
          } catch (NoSuchMethodException e) {
             throw new Exception(
                   String.format(
-                        "Class %s needs to declare a method with the following signature: void %s(SecureCache<String, String> cache) {}\n",
+                        "Class %s needs to declare a method with the following signature: public void %s(SecureCache<String, String> cache) {}\n",
                         driver.getClass().getName(), methodName), e);
          }
       }

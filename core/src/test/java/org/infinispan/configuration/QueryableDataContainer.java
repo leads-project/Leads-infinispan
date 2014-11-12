@@ -3,7 +3,7 @@ package org.infinispan.configuration;
 import org.infinispan.filter.KeyFilter;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.filter.KeyValueFilter;
-import org.infinispan.commons.util.concurrent.ParallelIterableMap;
+import org.infinispan.commons.util.concurrent.ParallelIterableMap.KeyValueAction;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.jboss.util.NotImplementedException;
@@ -113,9 +113,9 @@ public class QueryableDataContainer implements DataContainer<Object, Object> {
    }
 
    @Override
-   public void compute(Object key, ComputeAction action) {
+   public InternalCacheEntry<Object, Object> compute(Object key, ComputeAction<Object, Object> action) {
       loggedOperations.add("compute(" + key + "," + action + ")");
-      delegate.compute(key, action);
+      return delegate.compute(key, action);
    }
 
    public Collection<String> getLoggedOperations() {
@@ -123,13 +123,13 @@ public class QueryableDataContainer implements DataContainer<Object, Object> {
    }
 
    @Override
-   public void executeTask(KeyFilter<? super Object> filter, ParallelIterableMap.KeyValueAction <? super Object, InternalCacheEntry<? super Object, ? super Object>> action)
+   public void executeTask(final KeyFilter<? super Object> filter, KeyValueAction <? super Object, InternalCacheEntry<Object, Object>> action)
          throws InterruptedException {
       throw new NotImplementedException();
    }
 
    @Override
-   public void executeTask(KeyValueFilter<? super Object, ? super Object> filter, ParallelIterableMap.KeyValueAction<? super Object, InternalCacheEntry<? super Object, ? super Object>> action) throws InterruptedException {
+   public void executeTask(final KeyValueFilter<? super Object, ? super Object> filter, KeyValueAction<? super Object, InternalCacheEntry<Object, Object>> action) throws InterruptedException {
       throw new NotImplementedException();
    }
 }

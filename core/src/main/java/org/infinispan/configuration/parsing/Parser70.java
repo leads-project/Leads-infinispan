@@ -19,6 +19,7 @@ import org.infinispan.configuration.global.ThreadPoolConfigurationBuilder;
 import org.infinispan.commons.executors.ThreadPoolExecutorFactory;
 import org.infinispan.configuration.global.TransportConfigurationBuilder;
 import org.infinispan.container.DataContainer;
+import org.infinispan.distribution.ch.ConsistentHashFactory;
 import org.infinispan.distribution.group.Grouper;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.eviction.EvictionThreadPolicy;
@@ -28,13 +29,13 @@ import org.infinispan.jmx.MBeanServerLookup;
 import org.infinispan.persistence.cluster.ClusterLoader;
 import org.infinispan.persistence.file.SingleFileStore;
 import org.infinispan.persistence.spi.CacheLoader;
+import org.infinispan.remoting.transport.Transport;
 import org.infinispan.security.AuditLogger;
 import org.infinispan.security.PrincipalRoleMapper;
 import org.infinispan.security.impl.ClusterRoleMapper;
 import org.infinispan.security.impl.CommonNameRoleMapper;
 import org.infinispan.security.impl.IdentityRoleMapper;
-import org.infinispan.transaction.LockingMode;
-import org.infinispan.transaction.TransactionProtocol;
+import org.infinispan.transaction.*;
 import org.infinispan.transaction.lookup.TransactionManagerLookup;
 import org.infinispan.util.concurrent.IsolationLevel;
 import org.infinispan.util.logging.Log;
@@ -378,8 +379,29 @@ public class Parser70 implements ConfigurationParser {
    }
 
    private void parseJGroups(XMLExtendedStreamReader reader, ConfigurationBuilderHolder holder) throws XMLStreamException {
-      // Set up default transport
-      holder.getGlobalConfigurationBuilder().transport().defaultTransport();
+      Transport transport = null;
+      for (int i = 0; i < reader.getAttributeCount(); i++) {
+         ParseUtils.requireNoNamespaceAttribute(reader, i);
+         String value = replaceProperties(reader.getAttributeValue(i));
+         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
+
+         switch (attribute) {
+            case TRANSPORT:
+               transport = Util.getInstance(value, holder.getClassLoader());
+               break;
+            default: {
+               throw ParseUtils.unexpectedAttribute(reader, i);
+            }
+         }
+      }
+
+      if (transport == null) {
+         // Set up default transport
+         holder.getGlobalConfigurationBuilder().transport().defaultTransport();
+      } else {
+         holder.getGlobalConfigurationBuilder().transport().transport(transport);
+      }
+
       while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
          Element element = Element.forName(reader.getLocalName());
          switch (element) {
@@ -676,7 +698,9 @@ public class Parser70 implements ConfigurationParser {
 
    private void parseTransport(XMLExtendedStreamReader reader, ConfigurationBuilderHolder holder) throws XMLStreamException {
       GlobalConfigurationBuilder globalBuilder = holder.getGlobalConfigurationBuilder();
-      holder.getGlobalConfigurationBuilder().transport().defaultTransport();
+      if (holder.getGlobalConfigurationBuilder().transport().getTransport() == null) {
+         holder.getGlobalConfigurationBuilder().transport().defaultTransport();
+      }
       TransportConfigurationBuilder transport = holder.getGlobalConfigurationBuilder().transport();
       for (int i = 0; i < reader.getAttributeCount(); i++) {
          String value = replaceProperties(reader.getAttributeValue(i));
@@ -781,10 +805,6 @@ public class Parser70 implements ConfigurationParser {
             log.ignoreXmlAttribute(attribute);
             break;
          }
-         case BATCHING: {
-            builder.invocationBatching().enable(Boolean.valueOf(value));
-            break;
-         }
          case STATISTICS: {
             builder.jmxStatistics().enabled(Boolean.valueOf(value));
             break;
@@ -836,6 +856,24 @@ public class Parser70 implements ConfigurationParser {
             }
          }
       }
+   }
+
+   private void parsePartitionHandling(XMLExtendedStreamReader reader, ConfigurationBuilder builder) throws XMLStreamException {
+      PartitionHandlingConfigurationBuilder ph = builder.clustering().partitionHandling();
+      for (int i = 0; i < reader.getAttributeCount(); i++) {
+         String value = replaceProperties(reader.getAttributeValue(i));
+         Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
+         switch (attribute) {
+            case ENABLED: {
+               ph.enabled(Boolean.valueOf(value));
+               break;
+            }
+            default: {
+               throw ParseUtils.unexpectedAttribute(reader, i);
+            }
+         }
+      }
+      ParseUtils.requireNoContent(reader);
    }
 
    private void parseBackup(XMLExtendedStreamReader reader, ConfigurationBuilder builder) throws XMLStreamException {
@@ -923,7 +961,6 @@ public class Parser70 implements ConfigurationParser {
 
    private void parseXSiteStateTransfer(XMLExtendedStreamReader reader, BackupConfigurationBuilder backup) throws XMLStreamException {
       for (int i = 0; i < reader.getAttributeCount(); i++) {
-         ParseUtils.requireNoNamespaceAttribute(reader, i);
          String value = replaceProperties(reader.getAttributeValue(i));
          Attribute attribute = Attribute.forName(reader.getAttributeLocalName(i));
          switch (attribute) {
@@ -933,8 +970,14 @@ public class Parser70 implements ConfigurationParser {
             case TIMEOUT:
                backup.stateTransfer().timeout(Long.parseLong(value));
                break;
+            case MAX_RETRIES:
+               backup.stateTransfer().maxRetries(Integer.parseInt(value));
+               break;
+            case WAIT_TIME:
+               backup.stateTransfer().waitTime(Long.parseLong(value));
+               break;
             default:
-               throw ParseUtils.unexpectedElement(reader);
+               throw ParseUtils.unexpectedAttribute(reader, i);
          }
       }
       ParseUtils.requireNoContent(reader);
@@ -1059,6 +1102,10 @@ public class Parser70 implements ConfigurationParser {
          }
          case BACKUP_FOR: {
             this.parseBackupFor(reader, builder);
+            break;
+         }
+         case PARTITION_HANDLING: {
+            this.parsePartitionHandling(reader, builder);
             break;
          }
          case SECURITY: {
@@ -1257,6 +1304,7 @@ public class Parser70 implements ConfigurationParser {
                builder.transaction().transactionMode(txMode.getMode());
                builder.transaction().useSynchronization(!txMode.isXAEnabled());
                builder.transaction().recovery().enabled(txMode.isRecoveryEnabled());
+               builder.invocationBatching().enable(txMode.isBatchingEnabled());
                if (txMode.isRecoveryEnabled()) {
                   builder.transaction().syncCommitPhase(true).syncRollbackPhase(true);
                }
@@ -1485,6 +1533,11 @@ public class Parser70 implements ConfigurationParser {
             }
             case CAPACITY_FACTOR: {
                builder.clustering().hash().capacityFactor(Float.parseFloat(value));
+               break;
+            }
+            case CONSISTENT_HASH_FACTORY: {
+               builder.clustering().hash().consistentHashFactory(
+                     Util.<ConsistentHashFactory>getInstance(value, holder.getClassLoader()));
                break;
             }
             default: {
@@ -1836,6 +1889,9 @@ public class Parser70 implements ConfigurationParser {
                Index index = Index.valueOf(value);
                builder.indexing().index(index);
                break;
+            case AUTO_CONFIG:
+               builder.indexing().autoConfig(Boolean.valueOf(value));
+               break;
             default:
                throw ParseUtils.unexpectedAttribute(reader, i);
          }
@@ -1880,19 +1936,22 @@ public class Parser70 implements ConfigurationParser {
    }
 
    public enum TransactionMode {
-      NONE(org.infinispan.transaction.TransactionMode.NON_TRANSACTIONAL, false, false),
-      NON_XA(org.infinispan.transaction.TransactionMode.TRANSACTIONAL, false, false),
-      NON_DURABLE_XA(org.infinispan.transaction.TransactionMode.TRANSACTIONAL, true, false),
-      FULL_XA(org.infinispan.transaction.TransactionMode.TRANSACTIONAL, true, true),
+      NONE(org.infinispan.transaction.TransactionMode.NON_TRANSACTIONAL, false, false, false),
+      BATCH(org.infinispan.transaction.TransactionMode.TRANSACTIONAL, false, false, true),
+      NON_XA(org.infinispan.transaction.TransactionMode.TRANSACTIONAL, false, false, false),
+      NON_DURABLE_XA(org.infinispan.transaction.TransactionMode.TRANSACTIONAL, true, false, false),
+      FULL_XA(org.infinispan.transaction.TransactionMode.TRANSACTIONAL, true, true, false),
       ;
       private final org.infinispan.transaction.TransactionMode mode;
       private final boolean xaEnabled;
       private final boolean recoveryEnabled;
+      private final boolean batchingEnabled;
 
-      private TransactionMode(org.infinispan.transaction.TransactionMode mode, boolean xaEnabled, boolean recoveryEnabled) {
+      private TransactionMode(org.infinispan.transaction.TransactionMode mode, boolean xaEnabled, boolean recoveryEnabled, boolean batchingEnabled) {
          this.mode = mode;
          this.xaEnabled = xaEnabled;
          this.recoveryEnabled = recoveryEnabled;
+         this.batchingEnabled = batchingEnabled;
       }
 
       public org.infinispan.transaction.TransactionMode getMode() {
@@ -1905,6 +1964,10 @@ public class Parser70 implements ConfigurationParser {
 
       public boolean isRecoveryEnabled() {
          return this.recoveryEnabled;
+      }
+
+      public boolean isBatchingEnabled() {
+         return batchingEnabled;
       }
    }
 

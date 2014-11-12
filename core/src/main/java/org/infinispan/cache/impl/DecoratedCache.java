@@ -12,9 +12,13 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.infinispan.AdvancedCache;
+import org.infinispan.commons.util.CloseableIteratorCollection;
+import org.infinispan.commons.util.CloseableIteratorSet;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.container.entries.CacheEntry;
 import org.infinispan.context.Flag;
+import org.infinispan.filter.KeyValueFilter;
+import org.infinispan.iteration.EntryIterable;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.filter.KeyFilter;
@@ -130,6 +134,31 @@ public class DecoratedCache<K, V> extends AbstractDelegatingAdvancedCache<K, V> 
    @Override
    public void putForExternalRead(K key, V value) {
       cacheImplementation.putForExternalRead(key, value, flags, classLoader.get());
+   }
+
+   @Override
+   public void putForExternalRead(K key, V value, Metadata metadata) {
+      cacheImplementation.putForExternalRead(key, value, flags, classLoader.get());
+   }
+
+   @Override
+   public void putForExternalRead(K key, V value, long lifespan, TimeUnit unit) {
+      Metadata metadata = new EmbeddedMetadata.Builder()
+       .lifespan(lifespan, unit)
+       .maxIdle(cacheImplementation.defaultMetadata.maxIdle(), MILLISECONDS)
+       .build();
+
+      cacheImplementation.putForExternalRead(key, value, metadata, flags, classLoader.get());
+   }
+
+   @Override
+   public void putForExternalRead(K key, V value, long lifespan, TimeUnit lifespanUnit, long maxIdle, TimeUnit maxIdleUnit) {
+      Metadata metadata = new EmbeddedMetadata.Builder()
+       .lifespan(lifespan, lifespanUnit)
+       .maxIdle(maxIdle, maxIdleUnit)
+       .build();
+
+      cacheImplementation.putForExternalRead(key, value, metadata, flags, classLoader.get());
    }
 
    @Override
@@ -419,17 +448,27 @@ public class DecoratedCache<K, V> extends AbstractDelegatingAdvancedCache<K, V> 
    }
 
    @Override
-   public Set<K> keySet() {
+   public CloseableIteratorSet<K> keySet() {
       return cacheImplementation.keySet(flags, classLoader.get());
    }
 
    @Override
-   public Collection<V> values() {
+   public Map<K, V> getGroup(String groupName) {
+      return cacheImplementation.getGroup(groupName, flags, getClassLoader());
+   }
+
+   @Override
+   public void removeGroup(String groupName) {
+      cacheImplementation.removeGroup(groupName, flags, getClassLoader());
+   }
+
+   @Override
+   public CloseableIteratorCollection<V> values() {
       return cacheImplementation.values(flags, classLoader.get());
    }
 
    @Override
-   public Set<Entry<K, V>> entrySet() {
+   public CloseableIteratorSet<Entry<K, V>> entrySet() {
       return cacheImplementation.entrySet(flags, classLoader.get());
    }
 
@@ -498,4 +537,9 @@ public class DecoratedCache<K, V> extends AbstractDelegatingAdvancedCache<K, V> 
       return cacheImplementation.getCacheEntry(key, flags, classLoader.get());
    }
 
+
+   @Override
+   public EntryIterable<K, V> filterEntries(KeyValueFilter<? super K, ? super V> filter) {
+      return cacheImplementation.filterEntries(filter, flags, classLoader.get());
+   }
 }

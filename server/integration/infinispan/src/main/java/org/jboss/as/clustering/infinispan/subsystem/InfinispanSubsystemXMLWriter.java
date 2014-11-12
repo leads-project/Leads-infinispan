@@ -22,10 +22,6 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
-import java.util.List;
-
-import javax.xml.stream.XMLStreamException;
-
 import org.infinispan.security.impl.ClusterRoleMapper;
 import org.infinispan.security.impl.CommonNameRoleMapper;
 import org.infinispan.security.impl.IdentityRoleMapper;
@@ -35,6 +31,9 @@ import org.jboss.dmr.ModelType;
 import org.jboss.dmr.Property;
 import org.jboss.staxmapper.XMLElementWriter;
 import org.jboss.staxmapper.XMLExtendedStreamWriter;
+
+import javax.xml.stream.XMLStreamException;
+import java.util.List;
 
 /**
  * XML writer for current Infinispan subsystem schema version.
@@ -80,7 +79,9 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
                     this.writeOptional(writer, Attribute.CLUSTER, transport, ModelKeys.CLUSTER);
                     this.writeOptional(writer, Attribute.EXECUTOR, transport, ModelKeys.EXECUTOR);
                     this.writeOptional(writer, Attribute.LOCK_TIMEOUT, transport, ModelKeys.LOCK_TIMEOUT);
+                    this.writeOptional(writer, Attribute.REMOTE_COMMAND_EXECUTOR, transport, ModelKeys.REMOTE_COMMAND_EXECUTOR);
                     this.writeOptional(writer, Attribute.STRICT_PEER_TO_PEER, transport, ModelKeys.STRICT_PEER_TO_PEER);
+                    this.writeOptional(writer, Attribute.TOTAL_ORDER_EXECUTOR, transport, ModelKeys.TOTAL_ORDER_EXECUTOR);
                     writer.writeEndElement();
                 }
 
@@ -256,6 +257,13 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
             this.writeOptional(writer, Attribute.ENABLED, stateTransfer, ModelKeys.ENABLED);
             this.writeOptional(writer, Attribute.TIMEOUT, stateTransfer, ModelKeys.TIMEOUT);
             this.writeOptional(writer, Attribute.CHUNK_SIZE, stateTransfer, ModelKeys.CHUNK_SIZE);
+            writer.writeEndElement();
+        }
+
+        if (cache.get(ModelKeys.PARTITION_HANDLING, ModelKeys.PARTITION_HANDLING_NAME).isDefined()) {
+            ModelNode partitionHandling = cache.get(ModelKeys.PARTITION_HANDLING, ModelKeys.PARTITION_HANDLING_NAME);
+            writer.writeStartElement(Element.PARTITION_HANDLING.getLocalName());
+            this.writeOptional(writer, Attribute.ENABLED, partitionHandling, ModelKeys.ENABLED);
             writer.writeEndElement();
         }
 
@@ -459,6 +467,7 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
         if (cache.get(ModelKeys.INDEXING).isDefined()|| cache.get(ModelKeys.INDEXING_PROPERTIES).isDefined()){
             writer.writeStartElement(Element.INDEXING.getLocalName());
             CacheResource.INDEXING.marshallAsAttribute(cache, writer);
+            CacheResource.INDEXING_AUTO_CONFIG.marshallAsAttribute(cache, writer);
             CacheResource.INDEXING_PROPERTIES.marshallAsElement(cache,writer);
             writer.writeEndElement();
         }
@@ -480,8 +489,29 @@ public class InfinispanSubsystemXMLWriter implements XMLElementWriter<SubsystemM
                     BackupSiteResource.TAKE_OFFLINE_MIN_WAIT.marshallAsAttribute(backup, writer);
                     writer.writeEndElement();
                 }
+                if (backup.get(ModelKeys.STATE_TRANSFER, ModelKeys.STATE_TRANSFER_NAME).isDefined()) {
+                    ModelNode stateTransfer = backup.get(ModelKeys.STATE_TRANSFER, ModelKeys.STATE_TRANSFER_NAME);
+                    if (stateTransfer.hasDefined(ModelKeys.CHUNK_SIZE)
+                          || stateTransfer.hasDefined(ModelKeys.TIMEOUT)
+                          || stateTransfer.hasDefined(ModelKeys.MAX_RETRIES)
+                          || stateTransfer.hasDefined(ModelKeys.WAIT_TIME)) {
+                       writer.writeStartElement(Element.STATE_TRANSFER.getLocalName());
+                       BackupSiteStateTransferResource.STATE_TRANSFER_CHUNK_SIZE.marshallAsAttribute(stateTransfer, writer);
+                       BackupSiteStateTransferResource.STATE_TRANSFER_TIMEOUT.marshallAsAttribute(stateTransfer, writer);
+                       BackupSiteStateTransferResource.STATE_TRANSFER_MAX_RETRIES.marshallAsAttribute(stateTransfer, writer);
+                       BackupSiteStateTransferResource.STATE_TRANSFER_WAIT_TIME.marshallAsAttribute(stateTransfer, writer);
+                       writer.writeEndElement();
+                    }
+                }
                 writer.writeEndElement();
             }
+            writer.writeEndElement();
+        }
+
+        if (cache.get(ModelKeys.REMOTE_CACHE).isDefined() || cache.get(ModelKeys.REMOTE_SITE).isDefined()) {
+            writer.writeStartElement(Element.BACKUP_FOR.getLocalName());
+            CacheResource.REMOTE_CACHE.marshallAsAttribute(cache, writer);
+            CacheResource.REMOTE_SITE.marshallAsAttribute(cache, writer);
             writer.writeEndElement();
         }
 

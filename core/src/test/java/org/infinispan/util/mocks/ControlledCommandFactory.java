@@ -2,7 +2,9 @@ package org.infinispan.util.mocks;
 
 import org.infinispan.Cache;
 import org.infinispan.commands.VisitableCommand;
+import org.infinispan.commands.read.EntryRetrievalCommand;
 import org.infinispan.container.entries.CacheEntry;
+import org.infinispan.commands.remote.GetKeysInGroupCommand;
 import org.infinispan.iteration.impl.EntryRequestCommand;
 import org.infinispan.iteration.impl.EntryResponseCommand;
 import org.infinispan.metadata.Metadata;
@@ -145,13 +147,13 @@ public class ControlledCommandFactory implements CommandsFactory {
    }
 
    @Override
-   public InvalidateCommand buildInvalidateFromL1Command(boolean forRehash, Set<Flag> flags, Collection<Object> keys) {
-      return actual.buildInvalidateFromL1Command(forRehash, flags, keys);
+   public InvalidateCommand buildInvalidateFromL1Command(Set<Flag> flags, Collection<Object> keys) {
+      return actual.buildInvalidateFromL1Command(flags, keys);
    }
 
    @Override
-   public InvalidateCommand buildInvalidateFromL1Command(Address origin, boolean forRehash, Set<Flag> flags, Collection<Object> keys) {
-      return actual.buildInvalidateFromL1Command(origin, forRehash, flags, keys);
+   public InvalidateCommand buildInvalidateFromL1Command(Address origin, Set<Flag> flags, Collection<Object> keys) {
+      return actual.buildInvalidateFromL1Command(origin, flags, keys);
    }
 
    @Override
@@ -182,6 +184,11 @@ public class ControlledCommandFactory implements CommandsFactory {
    @Override
    public EntrySetCommand buildEntrySetCommand(Set<Flag> flags) {
       return actual.buildEntrySetCommand(flags);
+   }
+
+   @Override
+   public EntryRetrievalCommand buildEntryRetrievalCommand(Set<Flag> flags, KeyValueFilter filter) {
+      return actual.buildEntryRetrievalCommand(flags, filter);
    }
 
    @Override
@@ -260,8 +267,8 @@ public class ControlledCommandFactory implements CommandsFactory {
    }
 
    @Override
-   public StateResponseCommand buildStateResponseCommand(Address sender, int viewId, Collection<StateChunk> stateChunks) {
-      return actual.buildStateResponseCommand(sender, viewId, stateChunks);
+   public StateResponseCommand buildStateResponseCommand(Address sender, int topologyId, Collection<StateChunk> stateChunks) {
+      return actual.buildStateResponseCommand(sender, topologyId, stateChunks);
    }
 
    @Override
@@ -352,13 +359,18 @@ public class ControlledCommandFactory implements CommandsFactory {
    }
 
    @Override
-   public <K, V, C> EntryRequestCommand<K, V, C> buildEntryRequestCommand(UUID identifier, Set<Integer> segments, KeyValueFilter<? super K, ? super V> filter, Converter<? super K, ? super V, C> converter) {
-      return actual.buildEntryRequestCommand(identifier, segments, filter, converter);
+   public <K, V, C> EntryRequestCommand<K, V, C> buildEntryRequestCommand(UUID identifier, Set<Integer> segments, KeyValueFilter<? super K, ? super V> filter, Converter<? super K, ? super V, C> converter, Set<Flag> flags) {
+      return actual.buildEntryRequestCommand(identifier, segments, filter, converter, flags);
    }
 
    @Override
    public <K, C> EntryResponseCommand buildEntryResponseCommand(UUID identifier, Set<Integer> completedSegments,
                                                                 Set<Integer> inDoubtSegments, Collection<CacheEntry<K, C>> values) {
       return actual.buildEntryResponseCommand(identifier, completedSegments, inDoubtSegments, values);
+   }
+
+   @Override
+   public GetKeysInGroupCommand buildGetKeysInGroupCommand(Set<Flag> flags, String groupName) {
+      return actual.buildGetKeysInGroupCommand(flags, groupName);
    }
 }

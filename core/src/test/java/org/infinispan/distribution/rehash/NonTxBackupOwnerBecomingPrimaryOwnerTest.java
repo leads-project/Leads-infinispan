@@ -1,7 +1,7 @@
 package org.infinispan.distribution.rehash;
 
 import org.infinispan.AdvancedCache;
-import org.infinispan.commands.write.PutKeyValueCommand;
+import org.infinispan.commands.write.ValueMatcher;
 import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
@@ -9,6 +9,7 @@ import org.infinispan.distribution.BlockingInterceptor;
 import org.infinispan.interceptors.distribution.NonTxDistributionInterceptor;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.partionhandling.AvailabilityMode;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.statetransfer.StateTransferInterceptor;
 import org.infinispan.test.MultipleCacheManagersTest;
@@ -39,7 +40,7 @@ import static org.testng.AssertJUnit.*;
 
 /**
  * Tests data loss during state transfer a backup owner of a key becomes the primary owner
- * modified key while a putIfAbsent() call is in progress.
+ * modified key while a write operation is in progress.
  * See https://issues.jboss.org/browse/ISPN-3357
  *
  * @author Dan Berindei
@@ -67,16 +68,35 @@ public class NonTxBackupOwnerBecomingPrimaryOwnerTest extends MultipleCacheManag
       return c;
    }
 
-   public void testPrimaryOwnerLeavingDuringPut() throws Exception {
-      doTest(false);
+   public void testPrimaryOwnerChangingDuringPut() throws Exception {
+      doTest(TestWriteOperation.PUT_CREATE);
    }
 
-   public void testPrimaryOwnerLeavingDuringPutIfAbsent() throws Exception {
-      doTest(true);
+   public void testPrimaryOwnerChangingDuringPutIfAbsent() throws Exception {
+      doTest(TestWriteOperation.PUT_IF_ABSENT);
    }
 
-   private void doTest(final boolean conditional) throws Exception {
+   public void testPrimaryOwnerChangingDuringReplace() throws Exception {
+      doTest(TestWriteOperation.REPLACE);
+   }
+
+   public void testPrimaryOwnerChangingDuringReplaceExact() throws Exception {
+      doTest(TestWriteOperation.REPLACE_EXACT);
+   }
+
+   public void testPrimaryOwnerChangingDuringRemove() throws Exception {
+      doTest(TestWriteOperation.REMOVE);
+   }
+
+   public void testPrimaryOwnerChangingDuringRemoveExact() throws Exception {
+      doTest(TestWriteOperation.REMOVE_EXACT);
+   }
+
+   private void doTest(final TestWriteOperation op) throws Exception {
       final String key = "testkey";
+      if (op.getPreviousValue() != null) {
+         cache(0, CACHE_NAME).put(key, op.getPreviousValue());
+      }
 
       CheckPoint checkPoint = new CheckPoint();
       LocalTopologyManager ltm0 = TestingUtil.extractGlobalComponent(manager(0), LocalTopologyManager.class);
@@ -118,23 +138,23 @@ public class NonTxBackupOwnerBecomingPrimaryOwnerTest extends MultipleCacheManag
       log.tracef("Rebalance started. Found key %s with current owners %s and pending owners %s", key,
             duringJoinTopology.getCurrentCH().locateOwners(key), duringJoinTopology.getPendingCH().locateOwners(key));
 
-      // Every PutKeyValueCommand will be blocked before reaching the distribution interceptor on cache1
+      // Every operation command will be blocked before reaching the distribution interceptor on cache1
       CyclicBarrier beforeCache1Barrier = new CyclicBarrier(2);
       BlockingInterceptor blockingInterceptor1 = new BlockingInterceptor(beforeCache1Barrier,
-            PutKeyValueCommand.class, false);
+            op.getCommandClass(), false, false);
       cache1.addInterceptorBefore(blockingInterceptor1, NonTxDistributionInterceptor.class);
 
-      // Every PutKeyValueCommand will be blocked after returning to the distribution interceptor on cache2
+      // Every operation command will be blocked after returning to the distribution interceptor on cache2
       CyclicBarrier afterCache2Barrier = new CyclicBarrier(2);
       BlockingInterceptor blockingInterceptor2 = new BlockingInterceptor(afterCache2Barrier,
-            PutKeyValueCommand.class, true);
+            op.getCommandClass(), true, false);
       cache2.addInterceptorBefore(blockingInterceptor2, StateTransferInterceptor.class);
 
       // Put from cache0 with cache0 as primary owner, cache2 will become the primary owner for the retry
       Future<Object> future = fork(new Callable<Object>() {
          @Override
          public Object call() throws Exception {
-            return conditional ? cache0.putIfAbsent(key, "v") : cache0.put(key, "v");
+            return op.perform(cache0, key);
          }
       });
 
@@ -156,8 +176,7 @@ public class NonTxBackupOwnerBecomingPrimaryOwnerTest extends MultipleCacheManag
       beforeCache1Barrier.await(10, TimeUnit.SECONDS);
       beforeCache1Barrier.await(10, TimeUnit.SECONDS);
 
-      // Allow the retry to proceed on cache1, if it's still a member.
-      // (In my tests, the backup was always cache0.)
+      // Allow the retry to proceed on cache1
       CacheTopology postJoinTopology = ltm0.getCacheTopology(CACHE_NAME);
       if (postJoinTopology.getCurrentCH().locateOwners(key).contains(address(1))) {
          beforeCache1Barrier.await(10, TimeUnit.SECONDS);
@@ -167,19 +186,15 @@ public class NonTxBackupOwnerBecomingPrimaryOwnerTest extends MultipleCacheManag
       afterCache2Barrier.await(10, TimeUnit.SECONDS);
       afterCache2Barrier.await(10, TimeUnit.SECONDS);
 
-      // Check that the put command didn't fail
+      // Check that the write command didn't fail
       Object result = future.get(10, TimeUnit.SECONDS);
-      if (conditional) {
-         assertNull(result);
-      } else {
-         assertTrue(result == null || "v".equals(result));
-      }
-      log.tracef("Put operation is done");
+      assertEquals(op.getReturnValueWithRetry(), result);
+      log.tracef("Write operation is done");
 
       // Check the value on all the nodes
-      assertEquals("v", cache0.get(key));
-      assertEquals("v", cache1.get(key));
-      assertEquals("v", cache2.get(key));
+      assertEquals(op.getValue(), cache0.get(key));
+      assertEquals(op.getValue(), cache1.get(key));
+      assertEquals(op.getValue(), cache2.get(key));
 
       // Check that there are no leaked locks
       assertFalse(cache0.getAdvancedCache().getLockManager().isLocked(key));
@@ -221,8 +236,8 @@ public class NonTxBackupOwnerBecomingPrimaryOwnerTest extends MultipleCacheManag
             }
             return invocation.callRealMethod();
          }
-      }).when(spyLtm).handleConsistentHashUpdate(eq(CacheContainer.DEFAULT_CACHE_NAME), any(CacheTopology.class),
-            anyInt());
+      }).when(spyLtm).handleTopologyUpdate(eq(CacheContainer.DEFAULT_CACHE_NAME), any(CacheTopology.class),
+            any(AvailabilityMode.class), anyInt());
       TestingUtil.extractGlobalComponentRegistry(manager).registerComponent(spyLtm, LocalTopologyManager.class);
    }
 }

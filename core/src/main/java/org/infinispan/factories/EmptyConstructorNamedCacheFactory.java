@@ -130,7 +130,7 @@ public class EmptyConstructorNamedCacheFactory extends AbstractNamedCacheCompone
          } else if (componentType.equals(CommitManager.class)) {
             return (T) new CommitManager(configuration.dataContainer().keyEquivalence());
          } else if (componentType.equals(XSiteStateTransferManager.class)) {
-            return (T) new XSiteStateTransferManagerImpl();
+            return (T) (configuration.sites().allBackups().isEmpty() ? null : new XSiteStateTransferManagerImpl());
          } else if (componentType.equals(XSiteStateConsumer.class)) {
             return (T) new XSiteStateConsumerImpl();
          } else if (componentType.equals(XSiteStateProvider.class)) {

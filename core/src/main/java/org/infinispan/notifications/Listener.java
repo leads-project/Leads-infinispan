@@ -205,8 +205,9 @@ public @interface Listener {
 
    /**
     * Specifies whether the event should be fired on the primary data owner of the affected key, or all nodes that see
-    * the update.  In the case of replication, this would be the coordinator.
-    *
+    * the update.
+    * <p>
+    * Note that is value is ignored when {@link org.infinispan.notifications.Listener#clustered()} is true.
     * @return true if the expectation is that only the primary data owner will fire the event, false if all nodes that
     *         see the update fire the event.
     *
@@ -216,8 +217,8 @@ public @interface Listener {
 
    /**
     * Defines whether the annotated listener is clustered or not.
-    * Important: Clustered listener can only be notified for @CacheEntryRemoved, @CacheEntryCreated and
-    * @CacheEntryModified events.
+    * Important: Clustered listener can only be notified for @CacheEntryRemoved, @CacheEntryCreated
+    * and @CacheEntryModified events.
     * @return true if the expectation is that this listener is to be a cluster listener, as in it will receive
     *         all notifications for data modifications
     * @since 7.0

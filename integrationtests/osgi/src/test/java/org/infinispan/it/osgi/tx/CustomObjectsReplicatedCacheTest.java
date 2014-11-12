@@ -11,9 +11,11 @@ import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.it.osgi.util.PaxExamUtils;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
+import org.infinispan.test.fwk.TestResourceTracker;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.ops4j.pax.exam.Configuration;
 import org.ops4j.pax.exam.Option;
@@ -28,6 +30,7 @@ import org.ops4j.pax.exam.spi.reactors.PerSuite;
  */
 @RunWith(PaxExam.class)
 @ExamReactorStrategy(PerSuite.class)
+@Category(PerSuite.class)
 public class CustomObjectsReplicatedCacheTest extends MultipleCacheManagersTest {
 
    @Override
@@ -47,6 +50,7 @@ public class CustomObjectsReplicatedCacheTest extends MultipleCacheManagersTest 
 
    @Before
    public void setUp() {
+      TestResourceTracker.backgroundTestStarted(this);
       ConfigurationBuilder c = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
       createCluster(c, 2);
    }

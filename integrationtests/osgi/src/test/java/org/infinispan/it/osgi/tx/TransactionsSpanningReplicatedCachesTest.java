@@ -5,9 +5,11 @@ import static org.ops4j.pax.exam.CoreOptions.options;
 
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.test.TestingUtil;
+import org.infinispan.test.fwk.TestResourceTracker;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.ops4j.pax.exam.Configuration;
 import org.ops4j.pax.exam.Option;
@@ -20,6 +22,7 @@ import org.ops4j.pax.exam.spi.reactors.PerSuite;
  */
 @RunWith(PaxExam.class)
 @ExamReactorStrategy(PerSuite.class)
+@Category(PerSuite.class)
 public class TransactionsSpanningReplicatedCachesTest extends org.infinispan.tx.TransactionsSpanningReplicatedCachesTest {
    @Override
    protected void createCacheManagers() {
@@ -33,6 +36,7 @@ public class TransactionsSpanningReplicatedCachesTest extends org.infinispan.tx.
 
    @Before
    public void setUp() {
+      TestResourceTracker.backgroundTestStarted(this);
       ConfigurationBuilder c = getConfiguration();
       addClusterEnabledCacheManager(c);
       addClusterEnabledCacheManager(c);

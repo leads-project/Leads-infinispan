@@ -8,22 +8,27 @@ import java.util.Iterator;
  * @author anistor@redhat.com
  * @since 7.0
  */
-public class ReflectionMatcherEvalContext extends MatcherEvalContext<String> {
+public class ReflectionMatcherEvalContext extends MatcherEvalContext<Class<?>, ReflectionHelper.PropertyAccessor, String> {
+
+   private final Class<?> entityType;
 
    public ReflectionMatcherEvalContext(Object instance) {
       super(instance);
-      entityTypeName = instance.getClass().getCanonicalName();
+      entityType = instance.getClass();
    }
 
    @Override
-   protected void processAttributes(AttributeNode<String> node, Object instance) {
-      Iterator<AttributeNode<String>> children = node.getChildrenIterator();
-      while (children.hasNext()) {
-         AttributeNode<String> childAttribute = children.next();
+   public Class<?> getEntityType() {
+      return entityType;
+   }
+
+   @Override
+   protected void processAttributes(AttributeNode<ReflectionHelper.PropertyAccessor, String> node, Object instance) {
+      for (AttributeNode<ReflectionHelper.PropertyAccessor, String> childAttribute : node.getChildren()) {
          if (instance == null) {
             processAttribute(childAttribute, null);
          } else {
-            ReflectionHelper.PropertyAccessor accessor = ReflectionHelper.getAccessor(instance.getClass(), childAttribute.getAttribute());
+            ReflectionHelper.PropertyAccessor accessor = childAttribute.getMetadata();
             if (accessor.isMultiple()) {
                Iterator valuesIt = accessor.getValueIterator(instance);
                if (valuesIt == null) {
@@ -43,7 +48,7 @@ public class ReflectionMatcherEvalContext extends MatcherEvalContext<String> {
       }
    }
 
-   private void processAttribute(AttributeNode<String> attributeNode, Object attributeValue) {
+   private void processAttribute(AttributeNode<ReflectionHelper.PropertyAccessor, String> attributeNode, Object attributeValue) {
       attributeNode.processValue(attributeValue, this);
       processAttributes(attributeNode, attributeValue);
    }

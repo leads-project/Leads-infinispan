@@ -15,9 +15,7 @@
     <property name="leveldb.patch" value="false" />
     <property name="zip.dist" value="false" />
     <property name="zip.dist.old" value="false" />
-    <property name="log.level.infinispan" value="INFO"/>
-    <property name="log.level.jgroups" value="INFO"/>
-    <property name="log.level.console" value="INFO"/>
+    <property name="trace" value="none"/>
     <property name="new.server.schema.version" value="${new.server.schema.version}"/>
 
     <filterset id="commonFilters" begintoken="${" endtoken="}">
@@ -120,7 +118,7 @@
         </copy>
     </target>
 
-    <target name="create-all-distros" depends="transform-distro1-configs" description="Create all Infinispan server home directories used in the testsuite">	
+    <target name="create-all-distros" depends="transform-distro1-configs" description="Create all Infinispan server home directories used in the testsuite">
         <copy todir="${server2.dist}">
             <fileset dir="${server1.dist}" />
         </copy>
@@ -148,6 +146,8 @@
                 <move file="${server.old.dist}-tmp/${dir.in.zip}" tofile="${server.old.dist}" />
                 <delete dir="${server.old.dist}-tmp" />
                 <transform transformDir="${server.old.dist}/standalone/configuration" in="standalone.xml" out="standalone.xml"
+                           removeRestSecurity="true"/>
+                <transform transformDir="${server.old.dist}/standalone/configuration" in="clustered.xml" out="clustered.xml"
                            removeRestSecurity="true"/>
 
                 <copy todir="${server2.old.dist}">
@@ -177,18 +177,23 @@
                    infinispanServerEndpoint="${other.parts}/rolling-upgrades-server-endpoint-${new.server.schema.version}.xml"
                    addNewHotrodSocketBinding="${other.parts}/socket-binding-hotrod-store.xml"
                    modifyMulticastAddress="${other.parts}/switch-multicast-address.xml"/>
+        <transform in="clustered.xml" out="examples/clustered-rest-rolling-upgrade.xml"
+                   modifyRemoteDestination="${other.parts}/rest-remote-destination.xml"
+                   modifyInfinispan="${infinispan.parts}/rolling-upgrades-clustered-rest-${new.server.schema.version}.xml"
+                   infinispanServerEndpoint="${other.parts}/rolling-upgrades-server-endpoint-${new.server.schema.version}.xml"
+                   addNewRestSocketBinding="${other.parts}/socket-binding-rest-store.xml"
+                   modifyMulticastAddress="${other.parts}/switch-multicast-address.xml"
+                   removeRestSecurity="true"/>
         <transform in="examples/standalone-rest-rolling-upgrade.xml" out="examples/standalone-rest-rolling-upgrade.xml"
                    modifyRemoteDestination="${other.parts}/rest-remote-destination.xml" removeRestSecurity="true"/>
-        <transform in="examples/standalone-compatibility-mode.xml" out="examples/standalone-compatibility-mode.xml"/>
+        <transform in="examples/standalone-compatibility-mode.xml" out="examples/standalone-compatibility-mode.xml" removeRestSecurity="true"/>
         <transform in="examples/clustered-two-nodes.xml" out="examples/clustered-two-nodes.xml"/>
         <transform in="examples/clustered-two-nodes2.xml" out="examples/clustered-two-nodes2.xml"/>
         <transform in="clustered.xml" out="testsuite/clustered-jmx.xml" modifyInfinispan="${infinispan.parts}/jmx.xml"/>
         <transform in="standalone.xml" out="testsuite/standalone-default-local.xml" modifyInfinispan="${infinispan.parts}/default-local.xml"/>
         <transform in="clustered.xml" out="testsuite/clustered-default-dist.xml" modifyInfinispan="${infinispan.parts}/default-dist.xml"/>
         <transform in="clustered.xml" out="testsuite/clustered-default-repl.xml" modifyInfinispan="${infinispan.parts}/default-repl.xml"/>
-        <transform in="standalone.xml" out="testsuite/standalone-with-indexing.xml" modifyInfinispan="${infinispan.parts}/indexing.xml"/>
-        <transform in="clustered.xml" out="testsuite/distributed-with-indexing.xml" modifyInfinispan="${infinispan.parts}/indexing-distributed.xml" filtering="true"/>
-        <transform in="clustered.xml" out="testsuite/clustered-with-indexing.xml" modifyInfinispan="${infinispan.parts}/indexing-clustered.xml" filtering="true"/>
+        <transform in="clustered.xml" out="testsuite/clustered-indexing.xml" modifyInfinispan="${infinispan.parts}/indexing.xml" filtering="true"/>
         <transform in="standalone.xml" out="testsuite/standalone-leveldb-local.xml" modifyInfinispan="${infinispan.parts}/leveldb-local.xml" filtering="true"/>
         <transform in="clustered.xml" out="testsuite/clustered-leveldb-dist.xml" modifyInfinispan="${infinispan.parts}/leveldb-dist.xml" filtering="true"/>
         <transform in="clustered.xml" out="testsuite/clustered-leveldb-repl.xml" modifyInfinispan="${infinispan.parts}/leveldb-repl.xml" filtering="true"/>
@@ -249,41 +254,13 @@
                    infinispanServerEndpoint="${other.parts}/cachecontainer-endpoints.xml"
                    addHotrodSocketBinding="${other.parts}/cachecontainer-hotrod-binding.xml"/>
         <transform in="clustered.xml" out="testsuite/clustered-clusteredcache.xml" modifyInfinispan="${infinispan.parts}/clusteredcache.xml" />
-        <transform in="standalone.xml" out="testsuite/jdbc-binary-no-passivation.xml" modifyInfinispan="${infinispan.parts}/jdbc-binary-no-passivation.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
+
+        <transform in="standalone.xml" out="testsuite/jdbc.xml" modifyInfinispan="${infinispan.parts}/jdbc.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
             <jdbc-conf>
-                <configure-jdbc in="@{in}" tablePrefix="BINARY_NO_PASSIVATION"/>
+                <configure-jdbc in="@{in}"/>
             </jdbc-conf>
         </transform>
-        <transform in="standalone.xml" out="testsuite/jdbc-binary-with-passivation.xml" modifyInfinispan="${infinispan.parts}/jdbc-binary-with-passivation.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
-            <jdbc-conf>
-                <configure-jdbc in="@{in}" tablePrefix="BINARY_WITH_PASSIVATION"/>
-            </jdbc-conf>
-        </transform>
-        <transform in="standalone.xml" out="testsuite/jdbc-mixed-no-passivation.xml" modifyInfinispan="${infinispan.parts}/jdbc-mixed-no-passivation.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
-            <jdbc-conf>
-                <configure-jdbc in="@{in}" tablePrefix="MIXED_NO_PASSIVATION"/>
-            </jdbc-conf>
-        </transform>
-        <transform in="standalone.xml" out="testsuite/jdbc-mixed-with-passivation.xml" modifyInfinispan="${infinispan.parts}/jdbc-mixed-with-passivation.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
-            <jdbc-conf>
-                <configure-jdbc in="@{in}" tablePrefix="MIXED_WITH_PASSIVATION"/>
-            </jdbc-conf>
-        </transform>
-        <transform in="standalone.xml" out="testsuite/jdbc-string-no-passivation.xml" modifyInfinispan="${infinispan.parts}/jdbc-string-no-passivation.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
-            <jdbc-conf>
-                <configure-jdbc in="@{in}" tablePrefix="STRING_NO_PASSIVATION"/>
-            </jdbc-conf>
-        </transform>
-        <transform in="standalone.xml" out="testsuite/jdbc-string-with-passivation.xml" modifyInfinispan="${infinispan.parts}/jdbc-string-with-passivation.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
-            <jdbc-conf>
-                <configure-jdbc in="@{in}" tablePrefix="STRING_WITH_PASSIVATION"/>
-            </jdbc-conf>
-        </transform>
-        <transform in="standalone.xml" out="testsuite/jdbc-string-async.xml" modifyInfinispan="${infinispan.parts}/jdbc-string-async.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
-            <jdbc-conf>
-                <configure-jdbc in="@{in}" tablePrefix="STRING_ASYNC"/>
-            </jdbc-conf>
-        </transform>
+
         <transform in="clustered.xml" out="testsuite/jdbc-string-multinode-fetch-state1.xml" modifyInfinispan="${infinispan.parts}/jdbc-string-multinode-fetch-state.xml" modifyDataSource="${datasource.parts}/${datasource.file}" filtering="true">
             <jdbc-conf>
                 <configure-jdbc in="@{in}" tablePrefix="STRING_MULTINODEx"/>
@@ -309,14 +286,38 @@
                 <configure-jdbc in="@{in}" tablePrefix="STRING_INVALIDATION"/>
             </jdbc-conf>
         </transform>
-    	<transform in="standalone.xml" out="testsuite/hotrod-auth.xml" 
-    	    modifyInfinispan="${infinispan.parts}/local-secured.xml"    
-    	    hotrodAuth="${infinispan.parts}/hotrod-auth.xml" />
-    	<transform in="standalone.xml" out="testsuite/hotrod-auth-krb.xml" 
-    	    modifyInfinispan="${infinispan.parts}/local-secured.xml"
-            hotrodAuth="${infinispan.parts}/hotrod-auth-krb.xml" 
-    	    addKrbOpts="${other.parts}/kerberos-properties.xml"
-    	    addKrbSecDomain="${other.parts}/kerberos-security-domain.xml" />
+        <transform in="standalone.xml" out="testsuite/hotrod-auth.xml"
+                   modifyInfinispan="${infinispan.parts}/local-secured.xml"
+                   hotrodAuth="${infinispan.parts}/hotrod-auth.xml" />
+        <transform in="clustered.xml" out="testsuite/hotrod-auth-clustered.xml"
+                   modifyInfinispan="${infinispan.parts}/clustered-secured.xml"
+                   hotrodAuth="${infinispan.parts}/hotrod-auth-clustered.xml" />
+        <transform in="clustered.xml" out="testsuite/hotrod-auth-qop.xml"
+                   modifyInfinispan="${infinispan.parts}/clustered-secured.xml"
+                   hotrodAuth="${infinispan.parts}/hotrod-auth-qop.xml" />
+        <transform in="clustered.xml" out="testsuite/hotrod-auth-ldap.xml"
+                   modifyInfinispan="${infinispan.parts}/clustered-secured.xml"
+                   hotrodAuth="${infinispan.parts}/hotrod-auth-ldap.xml"
+                   addSecRealm="${other.parts}/ldap-security-realm.xml"
+                   addConnection="${other.parts}/ldap-connection.xml"/>
+        <transform in="clustered.xml" out="testsuite/hotrod-auth-ldap-ssl.xml"
+                   modifyInfinispan="${infinispan.parts}/clustered-secured.xml"
+                   hotrodAuth="${infinispan.parts}/hotrod-auth-ldap.xml"
+                   hotrodEncrypt="${infinispan.parts}/hotrod-ssl.xml"
+                   addSecRealm="${other.parts}/ldap-security-realm-with-ssl.xml"
+                   addConnection="${other.parts}/ldap-connection-ssl.xml"/>
+        <transform in="clustered.xml" out="testsuite/hotrod-auth-krb.xml"
+                   modifyInfinispan="${infinispan.parts}/clustered-secured.xml"
+                   hotrodAuth="${infinispan.parts}/hotrod-auth-krb.xml"
+                   addKrbOpts="${other.parts}/kerberos-properties.xml"
+                   addKrbSecDomain="${other.parts}/kerberos-security-domain.xml" />
+        <transform in="clustered.xml" out="testsuite/hotrod-authz-ldap.xml" 
+                   modifyInfinispan="${infinispan.parts}/clustered-secured-ldap-roles.xml"
+                   hotrodAuth="${infinispan.parts}/hotrod-auth-krb-authz-ldap.xml"
+                   addSecRealm="${other.parts}/ldap-authz-security-realm.xml"
+                   addConnection="${other.parts}/ldap-connection.xml"
+                   addKrbOpts="${other.parts}/kerberos-properties.xml"
+                   addKrbSecDomain="${other.parts}/kerberos-security-domain.xml"/>    	
     </target>
 
     <macrodef name="transform">
@@ -334,14 +335,18 @@
         <attribute name="modifyOutboundSocketBindingHotRod" default="false"/>
         <attribute name="addHotrodSocketBinding" default="false"/>
         <attribute name="addNewHotrodSocketBinding" default="false"/>
+        <attribute name="addNewRestSocketBinding" default="false"/>
         <attribute name="removeRestSecurity" default="true"/>
         <attribute name="infinispanServerEndpoint" default="false"/>
         <attribute name="infinispanFile" default="false"/>
         <attribute name="filtering" default="false"/>
         <attribute name="addEncrypt" default="false"/>
         <attribute name="hotrodAuth" default="false"/>
+    	<attribute name="hotrodEncrypt" default="false"/>
     	<attribute name="addKrbOpts" default="false"/>
     	<attribute name="addKrbSecDomain" default="false"/>
+    	<attribute name="addSecRealm" default="false"/>
+    	<attribute name="addConnection" default="false"/>
         <element name="jdbc-conf" optional="yes"/>
         <element name="rest-sec" optional="yes"/>
 
@@ -354,19 +359,21 @@
                 <param name="modifyRelay" expression="@{modifyRelay}"/>
                 <param name="addEncrypt" expression="@{addEncrypt}"/>
                 <param name="hotrodAuth" expression="@{hotrodAuth}"/>
+            	<param name="hotrodEncrypt" expression="@{hotrodEncrypt}"/>
             	<param name="addKrbOpts" expression="@{addKrbOpts}"/>
             	<param name="addKrbSecDomain" expression="@{addKrbSecDomain}"/>
+            	<param name="addSecRealm" expression="@{addSecRealm}"/>
+            	<param name="addConnection" expression="@{addConnection}"/>
                 <param name="modifyMulticastAddress" expression="@{modifyMulticastAddress}"/>
                 <param name="modifyRemoteDestination" expression="@{modifyRemoteDestination}"/>
                 <param name="modifyOutboundSocketBindingHotRod" expression="@{modifyOutboundSocketBindingHotRod}"/>
                 <param name="addHotrodSocketBinding" expression="@{addHotrodSocketBinding}"/>
                 <param name="addNewHotrodSocketBinding" expression="@{addNewHotrodSocketBinding}"/>
+                <param name="addNewRestSocketBinding" expression="@{addNewRestSocketBinding}"/>
                 <param name="removeRestSecurity" expression="@{removeRestSecurity}"/>
                 <param name="infinispanServerEndpoint" expression="@{infinispanServerEndpoint}"/>
                 <param name="infinispanFile" expression="@{infinispanFile}"/>
-                <param name="log.level.infinispan" expression="${log.level.infinispan}"/>
-                <param name="log.level.jgroups" expression="${log.level.jgroups}"/>
-                <param name="log.level.console" expression="${log.level.console}"/>
+                <param name="trace" expression="${trace}"/>
             </xslt>
 
             <jdbc-conf/>

@@ -15,6 +15,7 @@ import org.infinispan.filter.KeyValueFilter;
 import org.infinispan.interceptors.base.CommandInterceptor;
 import org.infinispan.iteration.EntryIterable;
 import org.infinispan.metadata.Metadata;
+import org.infinispan.partionhandling.AvailabilityMode;
 import org.infinispan.remoting.rpc.RpcManager;
 import org.infinispan.security.AuthorizationManager;
 import org.infinispan.stats.Stats;
@@ -22,6 +23,7 @@ import org.infinispan.util.concurrent.locks.LockManager;
 
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
+
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -147,6 +149,16 @@ public class AbstractDelegatingAdvancedCache<K, V> extends AbstractDelegatingCac
    }
 
    @Override
+   public AvailabilityMode getAvailability() {
+      return cache.getAvailability();
+   }
+
+   @Override
+   public void setAvailability(AvailabilityMode availabilityMode) {
+      cache.setAvailability(availabilityMode);
+   }
+
+   @Override
    public AdvancedCache<K, V> withFlags(Flag... flags) {
       return this.wrapper.wrap(this.cache.withFlags(flags));
    }
@@ -192,6 +204,16 @@ public class AbstractDelegatingAdvancedCache<K, V> extends AbstractDelegatingCac
    }
 
    @Override
+   public java.util.Map<K, V> getGroup(String groupName) {
+      return cache.getGroup(groupName);
+   }
+
+   @Override
+   public void removeGroup(String groupName) {
+      cache.removeGroup(groupName);
+   }
+
+   @Override
    public V put(K key, V value, Metadata metadata) {
       return cache.put(key, value, metadata);
    }
@@ -216,8 +238,17 @@ public class AbstractDelegatingAdvancedCache<K, V> extends AbstractDelegatingCac
       return cache.putAsync(key, value, metadata);
    }
 
+   @Override
+   public void putForExternalRead(K key, V value, Metadata metadata) {
+      cache.putForExternalRead(key, value, metadata);
+   }
+
    protected final void putForExternalRead(K key, V value, EnumSet<Flag> flags, ClassLoader classLoader) {
       ((CacheImpl<K, V>) cache).putForExternalRead(key, value, flags, classLoader);
+   }
+
+   protected final void putForExternalRead(K key, V value, Metadata metadata, EnumSet<Flag> flags, ClassLoader classLoader) {
+      ((CacheImpl<K, V>) cache).putForExternalRead(key, value, metadata, flags, classLoader);
    }
 
    public interface AdvancedCacheWrapper<K, V> {

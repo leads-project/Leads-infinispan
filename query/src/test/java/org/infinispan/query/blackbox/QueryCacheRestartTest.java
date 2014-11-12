@@ -2,12 +2,11 @@ package org.infinispan.query.blackbox;
 
 import java.util.List;
 
-import junit.framework.Assert;
-
 import org.apache.lucene.search.Query;
 import org.hibernate.search.query.dsl.QueryBuilder;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.configuration.cache.InterceptorConfiguration;
 import org.infinispan.configuration.cache.InterceptorConfiguration.Position;
 import org.infinispan.interceptors.base.CommandInterceptor;
@@ -21,6 +20,8 @@ import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.Test;
 
 import static org.infinispan.test.TestingUtil.withCacheManager;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 /**
  * Tests whether query caches can restart without problems.
@@ -43,7 +44,7 @@ public class QueryCacheRestartTest extends AbstractInfinispanTest {
 
    private void queryCacheRestart(boolean localOnly) {
       ConfigurationBuilder builder = new ConfigurationBuilder();
-      builder.indexing().enable().indexLocalOnly(localOnly)
+      builder.indexing().index(localOnly ? Index.LOCAL : Index.ALL)
             .addProperty("default.directory_provider", "ram")
             .addProperty("lucene_version", "LUCENE_CURRENT");
       final NoOpInterceptor noOpInterceptor = new NoOpInterceptor();
@@ -85,7 +86,7 @@ public class QueryCacheRestartTest extends AbstractInfinispanTest {
          }
       }
 
-      Assert.fail("Expected to find interceptor " + interceptor + " among custom interceptors of cache, but it was not there.");
+      fail("Expected to find interceptor " + interceptor + " among custom interceptors of cache, but it was not there.");
    }
 
    private static void assertFindBook(Cache<Object, Object> cache) {
@@ -94,7 +95,7 @@ public class QueryCacheRestartTest extends AbstractInfinispanTest {
       Query luceneQuery = queryBuilder.keyword().onField("title").matching("infinispan").createQuery();
       CacheQuery cacheQuery = searchManager.getQuery(luceneQuery);
       List<Object> list = cacheQuery.list();
-      Assert.assertEquals(1, list.size());
+      assertEquals(1, list.size());
    }
 
    private static class NoOpInterceptor extends CommandInterceptor {

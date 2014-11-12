@@ -6,6 +6,7 @@ import java.util.Properties;
 import org.infinispan.commons.configuration.Builder;
 import org.infinispan.commons.util.TypedProperties;
 import org.infinispan.commons.util.Util;
+import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -18,6 +19,7 @@ public class IndexingConfigurationBuilder extends AbstractConfigurationChildBuil
 
    private Properties properties = new Properties();
    private Index index = Index.NONE;
+   private boolean autoConfig;
 
    IndexingConfigurationBuilder(ConfigurationBuilder builder) {
       super(builder);
@@ -153,6 +155,22 @@ public class IndexingConfigurationBuilder extends AbstractConfigurationChildBuil
       return this;
    }
 
+   /**
+    * When enabled, applies to properties default configurations based on
+    * the cache type
+    *
+    * @param autoConfig boolean
+    * @return <code>this</code>, for method chaining
+    */
+   public IndexingConfigurationBuilder autoConfig(boolean autoConfig) {
+      this.autoConfig = autoConfig;
+      return this;
+   }
+
+   public boolean autoConfig() {
+      return autoConfig;
+   }
+
    @Override
    public void validate() {
       if (index.isEnabled()) {
@@ -160,10 +178,16 @@ public class IndexingConfigurationBuilder extends AbstractConfigurationChildBuil
          if (clustering().cacheMode().isInvalidation()) {
             throw log.invalidConfigurationIndexingWithInvalidation();
          }
+      }
+   }
+
+   @Override
+   public void validate(GlobalConfiguration globalConfig) {
+      if (index.isEnabled()) {
          // Check that the query module is on the classpath.
          try {
             String clazz = "org.infinispan.query.Search";
-            Util.loadClassStrict( clazz, getClass().getClassLoader() );
+            Util.loadClassStrict( clazz, globalConfig.classLoader() );
          } catch (ClassNotFoundException e) {
             throw log.invalidConfigurationIndexingWithoutModule();
          }
@@ -172,7 +196,15 @@ public class IndexingConfigurationBuilder extends AbstractConfigurationChildBuil
 
    @Override
    public IndexingConfiguration create() {
-      return new IndexingConfiguration(TypedProperties.toTypedProperties(properties), index);
+      TypedProperties typedProperties = TypedProperties.toTypedProperties(properties);
+      if (autoConfig()) {
+         if (clustering().cacheMode().isDistributed()) {
+            IndexOverlay.DISTRIBUTED_INFINISPAN.apply(typedProperties);
+         } else {
+            IndexOverlay.NON_DISTRIBUTED_FS.apply(typedProperties);
+         }
+      }
+      return new IndexingConfiguration(typedProperties, index, autoConfig);
    }
 
    @Override
@@ -194,6 +226,7 @@ public class IndexingConfigurationBuilder extends AbstractConfigurationChildBuil
    public String toString() {
       return "IndexingConfigurationBuilder{" +
             "index=" + index +
+            ", autoConfig=" + autoConfig +
             ", properties=" + properties +
             '}';
    }

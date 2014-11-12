@@ -1,10 +1,13 @@
 package org.infinispan.objectfilter.impl.predicateindex;
 
-import com.google.protobuf.Descriptors;
 import org.infinispan.protostream.MessageContext;
 import org.infinispan.protostream.ProtobufParser;
 import org.infinispan.protostream.SerializationContext;
 import org.infinispan.protostream.TagHandler;
+import org.infinispan.protostream.descriptors.Descriptor;
+import org.infinispan.protostream.descriptors.FieldDescriptor;
+import org.infinispan.protostream.descriptors.JavaType;
+import org.infinispan.protostream.descriptors.Type;
 import org.infinispan.protostream.impl.WrappedMessageMarshaller;
 
 import java.io.IOException;
@@ -13,22 +16,30 @@ import java.io.IOException;
  * @author anistor@redhat.com
  * @since 7.0
  */
-public class ProtobufMatcherEvalContext extends MatcherEvalContext<Integer> implements TagHandler {
+public class ProtobufMatcherEvalContext extends MatcherEvalContext<Descriptor, FieldDescriptor, Integer> implements TagHandler {
+
+   private static final Object DUMMY_VALUE = new Object();
 
    private boolean payloadStarted = false;
    private int skipping = 0;
 
    private byte[] payload;
-   private Descriptors.Descriptor payloadMessageDescriptor;
+   private String entityTypeName;
+   private Descriptor payloadMessageDescriptor;
    private MessageContext messageContext;
 
    private final SerializationContext serializationContext;
-   private final Descriptors.Descriptor wrappedMessageDescriptor;
+   private final Descriptor wrappedMessageDescriptor;
 
-   public ProtobufMatcherEvalContext(Object instance, Descriptors.Descriptor wrappedMessageDescriptor, SerializationContext serializationContext) {
+   public ProtobufMatcherEvalContext(Object instance, Descriptor wrappedMessageDescriptor, SerializationContext serializationContext) {
       super(instance);
       this.wrappedMessageDescriptor = wrappedMessageDescriptor;
       this.serializationContext = serializationContext;
+   }
+
+   @Override
+   public Descriptor getEntityType() {
+      return payloadMessageDescriptor;
    }
 
    public void unwrapPayload() {
@@ -45,10 +56,10 @@ public class ProtobufMatcherEvalContext extends MatcherEvalContext<Integer> impl
 
    //todo [anistor] missing tags need to be fired with default value defined in proto schema or null if they admit null; missing messages need to be fired with null at end of the nesting level. BTW, seems like this is better to be included in Protostream as a feature
    @Override
-   public void onTag(int fieldNumber, String fieldName, Descriptors.FieldDescriptor.Type type, Descriptors.FieldDescriptor.JavaType javaType, Object tagValue) {
+   public void onTag(int fieldNumber, String fieldName, Type type, JavaType javaType, Object tagValue) {
       if (payloadStarted) {
          if (skipping == 0) {
-            AttributeNode<Integer> attrNode = currentNode.getChild(fieldNumber);
+            AttributeNode<FieldDescriptor, Integer> attrNode = currentNode.getChild(fieldNumber);
             if (attrNode != null) { // process only 'interesting' tags
                messageContext.markField(fieldNumber);
                attrNode.processValue(tagValue, this);
@@ -71,10 +82,10 @@ public class ProtobufMatcherEvalContext extends MatcherEvalContext<Integer> impl
    }
 
    @Override
-   public void onStartNested(int fieldNumber, String fieldName, Descriptors.Descriptor messageDescriptor) {
+   public void onStartNested(int fieldNumber, String fieldName, Descriptor messageDescriptor) {
       if (payloadStarted) {
          if (skipping == 0) {
-            AttributeNode<Integer> attrNode = currentNode.getChild(fieldNumber);
+            AttributeNode<FieldDescriptor, Integer> attrNode = currentNode.getChild(fieldNumber);
             if (attrNode != null) { // ignore 'uninteresting' tags
                messageContext.markField(fieldNumber);
                pushContext(fieldName, messageDescriptor);
@@ -91,7 +102,7 @@ public class ProtobufMatcherEvalContext extends MatcherEvalContext<Integer> impl
    }
 
    @Override
-   public void onEndNested(int fieldNumber, String fieldName, Descriptors.Descriptor messageDescriptor) {
+   public void onEndNested(int fieldNumber, String fieldName, Descriptor messageDescriptor) {
       if (payloadStarted) {
          if (skipping == 0) {
             popContext();
@@ -123,7 +134,7 @@ public class ProtobufMatcherEvalContext extends MatcherEvalContext<Integer> impl
    }
 
    @Override
-   protected void processAttributes(AttributeNode<Integer> node, Object instance) {
+   protected void processAttributes(AttributeNode<FieldDescriptor, Integer> node, Object instance) {
       try {
          ProtobufParser.INSTANCE.parse(this, payloadMessageDescriptor, payload);
       } catch (IOException e) {
@@ -131,7 +142,7 @@ public class ProtobufMatcherEvalContext extends MatcherEvalContext<Integer> impl
       }
    }
 
-   private void pushContext(String fieldName, Descriptors.Descriptor messageDescriptor) {
+   private void pushContext(String fieldName, Descriptor messageDescriptor) {
       messageContext = new MessageContext<MessageContext>(messageContext, fieldName, messageDescriptor);
    }
 
@@ -141,16 +152,34 @@ public class ProtobufMatcherEvalContext extends MatcherEvalContext<Integer> impl
    }
 
    private void processMissingFields() {
-      for (Descriptors.FieldDescriptor fd : messageContext.getMessageDescriptor().getFields()) {
-         AttributeNode<Integer> attrNode = currentNode.getChild(fd.getNumber());
-         if (attrNode != null && !messageContext.isFieldMarked(fd.getNumber())) {
-            //todo [anistor] can a repeated field have a default value?
-            Object defaultValue = fd.isRepeated()
-                  || fd.getType() == Descriptors.FieldDescriptor.Type.MESSAGE
-                  || fd.getType() == Descriptors.FieldDescriptor.Type.GROUP
-                  || fd.toProto().getDefaultValue().isEmpty() ? null : fd.getDefaultValue();
-            attrNode.processValue(defaultValue, this);
+      for (FieldDescriptor fd : messageContext.getMessageDescriptor().getFields()) {
+         AttributeNode<FieldDescriptor, Integer> attributeNode = currentNode.getChild(fd.getNumber());
+         boolean fieldSeen = messageContext.isFieldMarked(fd.getNumber());
+         if (attributeNode != null && (fd.isRepeated() || !fieldSeen)) {
+            if (fd.isRepeated()) {
+               // Repeated fields can't have default values but we need to at least take care of IS [NOT] NULL predicates
+               if (fieldSeen) {
+                  // Here we use a dummy value since it would not matter anyway for IS [NOT] NULL
+                  attributeNode.processValue(DUMMY_VALUE, this);
+               } else {
+                  processNullAttribute(attributeNode);
+               }
+            } else {
+               if (fd.getJavaType() == JavaType.MESSAGE) {
+                  processNullAttribute(attributeNode);
+               } else {
+                  Object defaultValue = fd.hasDefaultValue() ? fd.getDefaultValue() : null;
+                  attributeNode.processValue(defaultValue, this);
+               }
+            }
          }
+      }
+   }
+
+   private void processNullAttribute(AttributeNode<FieldDescriptor, Integer> attributeNode) {
+      attributeNode.processValue(null, this);
+      for (AttributeNode<FieldDescriptor, Integer> childAttribute : attributeNode.getChildren()) {
+         processNullAttribute(childAttribute);
       }
    }
 }

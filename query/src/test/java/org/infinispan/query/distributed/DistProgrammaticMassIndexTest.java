@@ -1,6 +1,8 @@
 package org.infinispan.query.distributed;
 
-import junit.framework.Assert;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
@@ -8,8 +10,10 @@ import org.hibernate.search.infinispan.InfinispanIntegration;
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.Search;
+import org.infinispan.query.helper.StaticTestingErrorHandler;
 import org.infinispan.query.queries.faceting.Car;
 import org.testng.annotations.Test;
 
@@ -22,19 +26,16 @@ import static org.infinispan.query.helper.TestQueryHelperFactory.createQueryPars
  *
  * @author Anna Manukyan
  */
-@Test(groups = /*functional*/"unstable", testName = "query.distributed.DistProgrammaticMassIndexTest", description = "Unstable, see https://issues.jboss.org/browse/ISPN-4012")
+@Test(groups = "functional", testName = "query.distributed.DistProgrammaticMassIndexTest")
 public class DistProgrammaticMassIndexTest extends DistributedMassIndexingTest {
 
    @Override
    protected void createCacheManagers() throws Throwable {
       ConfigurationBuilder cacheCfg = getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false);
       cacheCfg.indexing()
-            .enable()
-            .indexLocalOnly(true)
-            .addProperty("hibernate.search.default.indexmanager", "org.infinispan.query.indexmanager.InfinispanIndexManager")
-            .addProperty("hibernate.search.default.directory_provider", "infinispan")
-            .addProperty("hibernate.search.default.exclusive_index_use", "false")
-            .addProperty("lucene_version", "LUCENE_48");
+            .index(Index.LOCAL)
+            .addProperty("default.indexmanager", "org.infinispan.query.indexmanager.InfinispanIndexManager")
+            .addProperty("error_handler", "org.infinispan.query.helper.StaticTestingErrorHandler");
       cacheCfg.clustering().stateTransfer().fetchInMemoryState(true);
       List<Cache<String, Car>> cacheList = createClusteredCaches(NUM_NODES, cacheCfg);
 
@@ -52,12 +53,6 @@ public class DistProgrammaticMassIndexTest extends DistributedMassIndexingTest {
       }
    }
 
-   @Test(groups = "unstable")
-   @Override
-   public void testReindexing() throws Exception {
-      super.testReindexing();
-   }
-
    protected void verifyFindsCar(Cache cache, int count, String carMake) {
       QueryParser queryParser = createQueryParser("make");
 
@@ -65,12 +60,13 @@ public class DistProgrammaticMassIndexTest extends DistributedMassIndexingTest {
          Query luceneQuery = queryParser.parse(carMake);
          CacheQuery cacheQuery = Search.getSearchManager(cache).getQuery(luceneQuery, Car.class);
 
-         Assert.assertEquals(count, cacheQuery.getResultSize());
+         assertEquals(count, cacheQuery.getResultSize());
 
       } catch(ParseException ex) {
          ex.printStackTrace();
-         Assert.fail("Failed due to: " + ex.getMessage());
+         fail("Failed due to: " + ex.getMessage());
       }
+      StaticTestingErrorHandler.assertAllGood(cache);
    }
 
 }

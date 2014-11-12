@@ -1,21 +1,5 @@
 package org.infinispan.jcache;
 
-import static org.infinispan.jcache.RIMBeanServerRegistrationUtility.ObjectNameType.CONFIGURATION;
-import static org.infinispan.jcache.RIMBeanServerRegistrationUtility.ObjectNameType.STATISTICS;
-
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Properties;
-import java.util.Set;
-
-import javax.cache.Cache;
-import javax.cache.CacheManager;
-import javax.cache.configuration.Configuration;
-import javax.cache.spi.CachingProvider;
-
 import org.infinispan.AdvancedCache;
 import org.infinispan.commons.util.FileLookup;
 import org.infinispan.commons.util.InfinispanCollections;
@@ -28,6 +12,21 @@ import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.util.logging.LogFactory;
+
+import javax.cache.Cache;
+import javax.cache.CacheManager;
+import javax.cache.configuration.Configuration;
+import javax.cache.spi.CachingProvider;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Properties;
+import java.util.Set;
+
+import static org.infinispan.jcache.RIMBeanServerRegistrationUtility.ObjectNameType.CONFIGURATION;
+import static org.infinispan.jcache.RIMBeanServerRegistrationUtility.ObjectNameType.STATISTICS;
 
 /**
  * Infinispan's implementation of {@link javax.cache.CacheManager}.
@@ -182,12 +181,9 @@ public class JCacheManager implements CacheManager {
 
             cache = new JCache<K, V>(ispnCache, this, adapter);
             caches.put(cache.getName(), cache);
-         }
-         else {
-            // re-register attempt with different configuration
-            if (cache.getConfiguration(Configuration.class).equals(configuration))
-               throw log.cacheAlreadyRegistered(cacheName,
-                     cache.getConfiguration(Configuration.class), configuration);
+         } else {
+            throw log.cacheAlreadyRegistered(cacheName,
+                  cache.getConfiguration(Configuration.class), configuration);
          }
 
          return unchecked(cache);
@@ -223,7 +219,7 @@ public class JCacheManager implements CacheManager {
       return cfgType != null && cfgType.equals(type);
    }
 
-   public <K, V> Cache<K, V> configureCache(String cacheName, AdvancedCache<K, V> ispnCache) {
+   public <K, V> Cache<K, V> getOrCreateCache(String cacheName, AdvancedCache<K, V> ispnCache) {
       synchronized (caches) {
          JCache<?, ?> cache = caches.get(cacheName);
          if (cache == null) {

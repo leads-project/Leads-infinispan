@@ -3,17 +3,20 @@ package org.infinispan.commons.util;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.hash.Hash;
-import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.logging.Log;
 import org.infinispan.commons.logging.LogFactory;
+import org.infinispan.commons.marshall.Marshaller;
 
 import javax.naming.Context;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.ObjectOutput;
 import java.io.OutputStream;
+import java.io.Reader;
+import java.io.StringWriter;
 import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MonitorInfo;
@@ -45,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 public final class Util {
 
    private static final boolean IS_ARRAYS_DEBUG = Boolean.getBoolean("infinispan.arrays.debug");
+   private static final boolean IS_OSGI_CONTEXT;
 
    public static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
    public static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
@@ -56,6 +60,16 @@ public final class Util {
     * for different java vendors.
     */
    private static final String javaVendor = SecurityActions.getProperty("java.vendor", "");
+
+   static {
+      boolean osgi = false;
+      try {
+         osgi = Util.class.getClassLoader() instanceof org.osgi.framework.BundleReference;
+      } catch (NoClassDefFoundError ex) {
+         // Ignore
+      }
+      IS_OSGI_CONTEXT = osgi;
+   }
 
    /**
     * <p>
@@ -88,28 +102,28 @@ public final class Util {
 
    /**
     * Tries to determine if the code is running in an OSGi context.
-    * 
+    *
     * @return true if an OSGi context is detected
     */
    public static boolean isOSGiContext() {
-      ClassLoader cl = Util.class.getClassLoader();
-      boolean result = false;
-      try {
-         result = cl instanceof org.osgi.framework.BundleReference;
-      } catch (NoClassDefFoundError ex) {
-         // OSGi bundle not on the classpath. Ignore.
-      }
-      return result;
+      return IS_OSGI_CONTEXT;
    }
 
    public static ClassLoader[] getClassLoaders(ClassLoader appClassLoader) {
-      return new ClassLoader[] {
-            appClassLoader,  // User defined classes
-            OsgiClassLoader.getInstance(), // OSGi bundle context needs to be on top of TCCL, system CL, etc.
-            Util.class.getClassLoader(), // Infinispan classes (not always on TCCL [modular env])
-            ClassLoader.getSystemClassLoader(), // Used when load time instrumentation is in effect
-            Thread.currentThread().getContextClassLoader() //Used by jboss-as stuff
-            };
+      if (isOSGiContext()) {
+         return new ClassLoader[] { appClassLoader,   // User defined classes
+               OsgiClassLoader.getInstance(),         // OSGi bundle context needs to be on top of TCCL, system CL, etc.
+               Util.class.getClassLoader(),           // Infinispan classes (not always on TCCL [modular env])
+               ClassLoader.getSystemClassLoader(),    // Used when load time instrumentation is in effect
+               Thread.currentThread().getContextClassLoader() //Used by jboss-as stuff
+         };
+      } else {
+         return new ClassLoader[] { appClassLoader,   // User defined classes
+               Util.class.getClassLoader(),           // Infinispan classes (not always on TCCL [modular env])
+               ClassLoader.getSystemClassLoader(),    // Used when load time instrumentation is in effect
+               Thread.currentThread().getContextClassLoader() //Used by jboss-as stuff
+         };
+      }
    }
 
    /**
@@ -154,6 +168,22 @@ public final class Util {
          }
          else
             throw new IllegalStateException();
+   }
+
+   public static InputStream getResourceAsStream(String resourcePath, ClassLoader userClassLoader) {
+      if (resourcePath.startsWith("/")) {
+         resourcePath = resourcePath.substring(1);
+      }
+      InputStream is = null;
+      for (ClassLoader cl : getClassLoaders(userClassLoader)) {
+         if (cl != null) {
+            is = cl.getResourceAsStream(resourcePath);
+            if (is != null) {
+               break;
+            }
+         }
+      }
+      return is;
    }
 
    private static Method getFactoryMethod(Class<?> c) {
@@ -341,6 +371,28 @@ public final class Util {
          is.close();
       }
    }
+
+    /**
+     * Reads the given InputStream fully, closes the stream and returns the result as a String.
+     *
+     * @param is the stream to read
+     * @return the UTF-8 string
+     * @throws java.io.IOException in case of stream read errors
+     */
+    public static String read(InputStream is) throws IOException {
+       try {
+          final Reader reader = new InputStreamReader(is, "UTF-8");
+          StringWriter writer = new StringWriter();
+          char[] buf = new char[1024];
+          int len;
+          while ((len = reader.read(buf)) != -1) {
+             writer.write(buf, 0, len);
+          }
+          return writer.toString();
+       } finally {
+          is.close();
+       }
+    }
 
    public static void close(Closeable cl) {
       if (cl == null) return;
@@ -676,7 +728,7 @@ public final class Util {
     * @return the size of each segment
     */
    public static int getSegmentSize(int numSegments) {
-      return (int)Math.ceil((float)Integer.MAX_VALUE / numSegments);
+      return (int)Math.ceil((double)(1L << 31) / numSegments);
    }
 
    public static boolean isIBMJavaVendor() {

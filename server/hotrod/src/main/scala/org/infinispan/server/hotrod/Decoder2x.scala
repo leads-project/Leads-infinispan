@@ -1,15 +1,17 @@
 package org.infinispan.server.hotrod
 
+import javax.net.ssl.SSLPeerUnverifiedException
+
 import io.netty.buffer.ByteBuf
 import io.netty.channel.Channel
-import io.netty.channel.ChannelHandlerContext
 import java.io.IOException
-import java.security.PrivilegedAction
-import javax.security.auth.Subject
-import javax.security.sasl.SaslServer
+import org.infinispan.IllegalLifecycleStateException
+import org.infinispan.commons.CacheException
 import org.infinispan.container.entries.CacheEntry
 import org.infinispan.container.versioning.NumericVersion
-import org.infinispan.context.Flag.{SKIP_CACHE_LOAD, IGNORE_RETURN_VALUES}
+import org.infinispan.context.Flag.{SKIP_CACHE_LOAD, SKIP_INDEXING, IGNORE_RETURN_VALUES}
+import org.infinispan.distexec.mapreduce._
+import org.infinispan.remoting.transport.jgroups.SuspectException
 import org.infinispan.server.core.Operation._
 import org.infinispan.server.core._
 import org.infinispan.server.core.transport.ExtendedByteBuf._
@@ -23,14 +25,9 @@ import scala.annotation.switch
 import scala.collection.JavaConverters._
 import javax.security.sasl.Sasl
 import io.netty.channel.ChannelHandlerContext
-import io.netty.handler.codec.ReplayingDecoder
-import org.infinispan.server.core.PartialResponse
-import io.netty.util.concurrent.DefaultEventExecutorGroup
-import org.infinispan.commons.util.Util
 import javax.security.auth.Subject
 import java.security.PrivilegedAction
 import javax.security.sasl.SaslServer
-import org.infinispan.server.core.security.SaslUtils
 import io.netty.handler.ssl.SslHandler
 import java.util.ArrayList
 import java.security.Principal
@@ -41,6 +38,7 @@ import java.util.HashMap
 import scala.collection.immutable
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import org.infinispan.server.core.transport.SaslQopHandler
 
 /**
  * HotRod protocol decoder specific for specification version 2.0.
@@ -79,6 +77,7 @@ object Decoder2x extends AbstractVersionedDecoder with ServerConstants with Log 
          case 0x23 => (AuthRequest, true)
          case 0x25 => (AddClientListenerRequest, false)
          case 0x27 => (RemoveClientListenerRequest, false)
+         case 0x29 => (SizeRequest, true)
          case _ => throw new HotRodUnknownOperationException(
             "Unknown operation: " + streamOp, version, messageId)
       }
@@ -154,9 +153,28 @@ object Decoder2x extends AbstractVersionedDecoder with ServerConstants with Log 
       createResponse(header, toResponse(header.op), KeyDoesNotExist, null)
 
    private def createResponse(h: HotRodHeader, op: OperationResponse, st: OperationStatus, prev: Array[Byte]): AnyRef = {
-      if (hasFlag(h, ForceReturnPreviousValue))
-         new ResponseWithPrevious(h.version, h.messageId, h.cacheName,
-            h.clientIntel, op, st, h.topologyId, if (prev == null) None else Some(prev))
+      if (hasFlag(h, ForceReturnPreviousValue)) {
+         val adjustedStatus = (h.op, st) match {
+            case (PutRequest, Success) => SuccessWithPrevious
+            case (PutIfAbsentRequest, OperationNotExecuted) => NotExecutedWithPrevious
+            case (ReplaceRequest, Success) => SuccessWithPrevious
+            case (ReplaceIfUnmodifiedRequest, Success) => SuccessWithPrevious
+            case (ReplaceIfUnmodifiedRequest, OperationNotExecuted) => NotExecutedWithPrevious
+            case (RemoveRequest, Success) => SuccessWithPrevious
+            case (RemoveIfUnmodifiedRequest, Success) => SuccessWithPrevious
+            case (RemoveIfUnmodifiedRequest, OperationNotExecuted) => NotExecutedWithPrevious
+            case _ => st
+         }
+
+         adjustedStatus match {
+            case SuccessWithPrevious | NotExecutedWithPrevious =>
+               new ResponseWithPrevious(h.version, h.messageId, h.cacheName,
+                  h.clientIntel, op, adjustedStatus, h.topologyId, if (prev == null) None else Some(prev))
+            case _ =>
+               new Response(h.version, h.messageId, h.cacheName, h.clientIntel, op, adjustedStatus, h.topologyId)
+         }
+
+      }
       else
          new Response(h.version, h.messageId, h.cacheName, h.clientIntel, op, st, h.topologyId)
    }
@@ -225,6 +243,7 @@ object Decoder2x extends AbstractVersionedDecoder with ServerConstants with Log 
                val clientResponse = readRangedBytes(buffer)
                val serverChallenge = decoder.saslServer.evaluateResponse(clientResponse)
                if (decoder.saslServer.isComplete) {
+                  ctx.channel.writeAndFlush(new AuthResponse(h.version, h.messageId, h.cacheName, h.clientIntel, serverChallenge, h.topologyId))
                   val extraPrincipals = new ArrayList[Principal]
                   val id = normalizeAuthorizationId(decoder.saslServer.getAuthorizationID)
                   extraPrincipals.add(new SimpleUserPrincipal(id))
@@ -232,15 +251,29 @@ object Decoder2x extends AbstractVersionedDecoder with ServerConstants with Log 
                   val sslHandler = ctx.pipeline.get("ssl").asInstanceOf[SslHandler]
                   try {
                      if (sslHandler != null) extraPrincipals.add(sslHandler.engine.getSession.getPeerPrincipal)
-                  } // Ignore any SSLPeerUnverifiedExceptions
+                  } catch { // Ignore any SSLPeerUnverifiedExceptions
+                     case e: SSLPeerUnverifiedException => // ignore
+                  }
                   decoder.subject = decoder.callbackHandler.getSubjectUserInfo(extraPrincipals).getSubject
-                  decoder.saslServer.dispose
-                  decoder.callbackHandler = null
-                  decoder.saslServer = null
+                  val qop = decoder.saslServer.getNegotiatedProperty(Sasl.QOP).asInstanceOf[String];
+                  if (qop != null && (qop.equalsIgnoreCase("auth-int") || qop.equalsIgnoreCase("auth-conf"))) {
+                     val qopHandler = new SaslQopHandler(decoder.saslServer)
+                     ctx.pipeline.addBefore("decoder", "saslQop", qopHandler)
+                  } else {
+                     decoder.saslServer.dispose
+                     decoder.callbackHandler = null
+                     decoder.saslServer = null
+                  }
+                  None
+               } else {
+                  new AuthResponse(h.version, h.messageId, h.cacheName, h.clientIntel, serverChallenge, h.topologyId)
                }
-               new AuthResponse(h.version, h.messageId, h.cacheName, h.clientIntel, serverChallenge, h.topologyId)
             }
          }
+         case SizeRequest =>
+            val size = cache.size()
+            new SizeResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
+               h.topologyId, size)
       }
    }
 
@@ -300,10 +333,11 @@ object Decoder2x extends AbstractVersionedDecoder with ServerConstants with Log 
          }
          case AddClientListenerRequest =>
             val listenerId = readRangedBytes(buffer)
+            val includeState = if (buffer.readByte() == 0) false else true
             val filterFactoryInfo = readNamedFactory(buffer)
             val converterFactoryInfo = readNamedFactory(buffer)
             val reg = server.getClientListenerRegistry
-            reg.addClientListener(ch, h, listenerId, cache, filterFactoryInfo, converterFactoryInfo)
+            reg.addClientListener(ch, h, listenerId, cache, includeState, filterFactoryInfo, converterFactoryInfo)
             createSuccessResponse(h, null)
          case RemoveClientListenerRequest =>
             val listenerId = readRangedBytes(buffer)
@@ -375,20 +409,44 @@ object Decoder2x extends AbstractVersionedDecoder with ServerConstants with Log 
 
    override def createErrorResponse(h: HotRodHeader, t: Throwable): ErrorResponse = {
       t match {
+         case _ : SuspectException => createNodeSuspectedErrorResponse(h, t)
+         case e: IllegalLifecycleStateException =>
+            new ErrorResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
+               IllegalLifecycleState, h.topologyId, t.toString)
          case i: IOException =>
             new ErrorResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
                ParseError, h.topologyId, i.toString)
          case t: TimeoutException =>
             new ErrorResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
                OperationTimedOut, h.topologyId, t.toString)
-         case t: Throwable =>
-            new ErrorResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
-               ServerError, h.topologyId, t.toString)
+         case c: CacheException => c.getCause match {
+            // JGroups exceptions come wrapped up
+            case _ : org.jgroups.SuspectedException => createNodeSuspectedErrorResponse(h, t)
+            case _ => createServerErrorResponse(h, t)
+         }
+         case t: Throwable => createServerErrorResponse(h, t)
       }
+   }
+
+   private def createNodeSuspectedErrorResponse(h: HotRodHeader, t: Throwable): ErrorResponse = {
+      new ErrorResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
+         NodeSuspected, h.topologyId, t.toString)
+   }
+
+   private def createServerErrorResponse(h: HotRodHeader, t: Throwable): ErrorResponse = {
+      new ErrorResponse(h.version, h.messageId, h.cacheName, h.clientIntel,
+         ServerError, h.topologyId, t.toString)
    }
 
    override def getOptimizedCache(h: HotRodHeader, c: Cache): Cache = {
       var optCache = c
+      h.op match {
+         case PutIfAbsentRequest | ReplaceRequest | ReplaceIfUnmodifiedRequest
+              | RemoveIfUnmodifiedRequest if !isCacheTransactional(optCache) =>
+            warnConditionalOperationNonTransactional(h.op.toString)
+         case _ => // no-op
+      }
+
       if (hasFlag(h, SkipCacheLoader)) {
          h.op match {
             case PutRequest
@@ -403,6 +461,18 @@ object Decoder2x extends AbstractVersionedDecoder with ServerConstants with Log 
             case _ =>
          }
       }
+      if (hasFlag(h, SkipIndexing)) {
+         h.op match {
+            case PutRequest
+                 | PutIfAbsentRequest
+                 | RemoveRequest
+                 | RemoveIfUnmodifiedRequest
+                 | ReplaceRequest
+                 | ReplaceIfUnmodifiedRequest =>
+               optCache = optCache.withFlags(SKIP_INDEXING)
+            case _ =>
+         }
+      }
       if (!hasFlag(h, ForceReturnPreviousValue)) {
          h.op match {
             case PutRequest
@@ -410,9 +480,15 @@ object Decoder2x extends AbstractVersionedDecoder with ServerConstants with Log 
                optCache = optCache.withFlags(IGNORE_RETURN_VALUES)
             case _ =>
          }
+      } else {
+         if (!isCacheTransactional(optCache))
+            warnForceReturnPreviousNonTransactional(h.op.toString)
       }
       optCache
    }
+
+   private def isCacheTransactional(c: Cache): Boolean =
+      SecurityActions.getCacheConfiguration(c).transaction().transactionMode().isTransactional
 
    def normalizeAuthorizationId(id: String): String = {
       val realm = id.indexOf('@')

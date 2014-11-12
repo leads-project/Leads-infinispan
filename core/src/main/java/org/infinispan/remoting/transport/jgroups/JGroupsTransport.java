@@ -5,12 +5,14 @@ import static org.infinispan.factories.KnownComponentNames.GLOBAL_MARSHALLER;
 import static org.infinispan.factories.KnownComponentNames.REMOTE_COMMAND_EXECUTOR;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -36,6 +38,7 @@ import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.jmx.JmxUtil;
 import org.infinispan.notifications.cachemanagerlistener.CacheManagerNotifier;
+import org.infinispan.partionhandling.impl.PartitionHandlingManager;
 import org.infinispan.remoting.InboundInvocationHandler;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.rpc.ResponseFilter;
@@ -93,7 +96,7 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
    public static final String CONFIGURATION_XML = "configurationXml";
    public static final String CONFIGURATION_FILE = "configurationFile";
    public static final String CHANNEL_LOOKUP = "channelLookup";
-   protected static final String DEFAULT_JGROUPS_CONFIGURATION_FILE = "jgroups-udp.xml";
+   protected static final String DEFAULT_JGROUPS_CONFIGURATION_FILE = "default-configs/default-jgroups-udp.xml";
 
    static final Log log = LogFactory.getLog(JGroupsTransport.class);
    static final boolean trace = log.isTraceEnabled();
@@ -363,14 +366,21 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
 
          if (channel == null && props.containsKey(CONFIGURATION_FILE)) {
             cfg = props.getProperty(CONFIGURATION_FILE);
-            URL conf = fileLookup.lookupFileLocation(cfg, configuration.classLoader());
-            if (conf == null) {
+            Collection<URL> confs = null;
+            try {
+               confs = fileLookup.lookupFileLocations(cfg, configuration.classLoader());
+            } catch (IOException io) {
+               //ignore, we check confs later for various states
+            }
+            if (confs.isEmpty()) {
                throw new CacheConfigurationException(CONFIGURATION_FILE
                         + " property specifies value " + cfg + " that could not be read!",
                         new FileNotFoundException(cfg));
+            } else if (confs.size() > 1) {
+               log.ambiguousConfigurationFiles(Util.toStr(confs));
             }
             try {
-               channel = new JChannel(conf);
+               channel = new JChannel(confs.iterator().next());
             } catch (Exception e) {
                log.errorCreatingChannelFromConfigFile(cfg);
                throw new CacheException(e);
@@ -645,9 +655,9 @@ public class JGroupsTransport extends AbstractTransport implements MembershipLis
 
       // Delta view debug log for large cluster
       if (log.isDebugEnabled() && oldMembers != null) {
-         List<Address> joined = new ArrayList(members);
+         List<Address> joined = new ArrayList<Address>(members);
          joined.removeAll(oldMembers);
-         List<Address> left = new ArrayList(oldMembers);
+         List<Address> left = new ArrayList<Address>(oldMembers);
          left.removeAll(members);
          log.debugf("Joined: %s, Left: %s", joined, left);
       }

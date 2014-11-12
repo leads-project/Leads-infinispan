@@ -1,10 +1,11 @@
 package org.infinispan.objectfilter.impl.predicateindex;
 
 import org.infinispan.objectfilter.impl.FilterSubscriptionImpl;
+import org.infinispan.objectfilter.impl.MetadataAdapter;
+import org.infinispan.objectfilter.impl.predicateindex.be.PredicateNode;
 
-import java.util.Collections;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -13,22 +14,27 @@ import java.util.Map;
  * @author anistor@redhat.com
  * @since 7.0
  */
-public class AttributeNode<AttributeId extends Comparable<AttributeId>> {
+public class AttributeNode<AttributeMetadata, AttributeId extends Comparable<AttributeId>> {
 
-   //todo [anistor] add here all metadata so it is precomputed and the MatcherEvalContext is simplified and more efficient
+   private static final AttributeNode[] EMPTY_CHILDREN = new AttributeNode[0];
 
    // this is never null, except for the root node
    private final AttributeId attribute;
 
-   public Object metadata;
+   // property metadata for an intermediate or leaf node. This is never null, except for the root node
+   private final AttributeMetadata metadata;
+
+   private final MetadataAdapter<?, AttributeMetadata, AttributeId> metadataAdapter;
 
    // this is never null, except for the root node
-   private final AttributeNode<AttributeId> parent;
+   private final AttributeNode<AttributeMetadata, AttributeId> parent;
 
    /**
     * Child attributes.
     */
-   private Map<AttributeId, AttributeNode<AttributeId>> children;
+   private Map<AttributeId, AttributeNode<AttributeMetadata, AttributeId>> children;
+
+   private AttributeNode<AttributeMetadata, AttributeId>[] childrenArray = EMPTY_CHILDREN;
 
    /**
     * Root node must not have predicates. This field is always null for root node. Non-leaf nodes can only have
@@ -42,28 +48,44 @@ public class AttributeNode<AttributeId extends Comparable<AttributeId>> {
     */
    private Projections projections;
 
-   AttributeNode(AttributeId attribute, AttributeNode<AttributeId> parent) {
+   /**
+    * Constructor used only for the root node.
+    */
+   protected AttributeNode(MetadataAdapter<?, AttributeMetadata, AttributeId> metadataAdapter) {
+      this.attribute = null;
+      this.parent = null;
+      this.metadataAdapter = metadataAdapter;
+      this.metadata = null;
+   }
+
+   private AttributeNode(AttributeId attribute, AttributeNode<AttributeMetadata, AttributeId> parent) {
       this.attribute = attribute;
       this.parent = parent;
+      metadataAdapter = parent.metadataAdapter;
+      metadata = metadataAdapter.makeChildAttributeMetadata(parent.metadata, attribute);
    }
 
    public AttributeId getAttribute() {
       return attribute;
    }
 
-   public AttributeNode<AttributeId> getParent() {
+   public AttributeMetadata getMetadata() {
+      return metadata;
+   }
+
+   public AttributeNode<AttributeMetadata, AttributeId> getParent() {
       return parent;
    }
 
-   public Iterator<AttributeNode<AttributeId>> getChildrenIterator() {
-      return children != null ? children.values().iterator() : Collections.<AttributeNode<AttributeId>>emptyList().iterator();
+   public AttributeNode<AttributeMetadata, AttributeId>[] getChildren() {
+      return childrenArray;
    }
 
    /**
     * @param attribute
     * @return the child or null if not found
     */
-   public AttributeNode<AttributeId> getChild(AttributeId attribute) {
+   public AttributeNode<AttributeMetadata, AttributeId> getChild(AttributeId attribute) {
       if (children != null) {
          return children.get(attribute);
       }
@@ -71,7 +93,7 @@ public class AttributeNode<AttributeId extends Comparable<AttributeId>> {
    }
 
    public int getNumChildren() {
-      return children != null ? children.size() : 0;
+      return childrenArray.length;
    }
 
    public boolean hasPredicates() {
@@ -82,7 +104,7 @@ public class AttributeNode<AttributeId extends Comparable<AttributeId>> {
       return projections != null && projections.hasProjections();
    }
 
-   public void processValue(Object attributeValue, MatcherEvalContext<AttributeId> ctx) {
+   public void processValue(Object attributeValue, MatcherEvalContext<?, AttributeMetadata, AttributeId> ctx) {
       if (projections != null) {
          projections.processProjections(ctx, attributeValue);
       }
@@ -98,17 +120,19 @@ public class AttributeNode<AttributeId extends Comparable<AttributeId>> {
     * @param attribute
     * @return the added or existing child
     */
-   public AttributeNode<AttributeId> addChild(AttributeId attribute) {
-      AttributeNode<AttributeId> child;
+   public AttributeNode<AttributeMetadata, AttributeId> addChild(AttributeId attribute) {
+      AttributeNode<AttributeMetadata, AttributeId> child;
       if (children == null) {
-         children = new HashMap<AttributeId, AttributeNode<AttributeId>>();
-         child = new AttributeNode<AttributeId>(attribute, this);
+         children = new HashMap<AttributeId, AttributeNode<AttributeMetadata, AttributeId>>();
+         child = new AttributeNode<AttributeMetadata, AttributeId>(attribute, this);
          children.put(attribute, child);
+         rebuildChildrenArray();
       } else {
          child = children.get(attribute);
          if (child == null) {
-            child = new AttributeNode<AttributeId>(attribute, this);
+            child = new AttributeNode<AttributeMetadata, AttributeId>(attribute, this);
             children.put(attribute, child);
+            rebuildChildrenArray();
          }
       }
       return child;
@@ -124,23 +148,29 @@ public class AttributeNode<AttributeId extends Comparable<AttributeId>> {
       if (children == null) {
          throw new IllegalArgumentException("No child found : " + attribute);
       }
-      AttributeNode<AttributeId> child = children.get(attribute);
+      AttributeNode<AttributeMetadata, AttributeId> child = children.get(attribute);
       if (child == null) {
          throw new IllegalArgumentException("No child found : " + attribute);
       }
       children.remove(attribute);
+      rebuildChildrenArray();
    }
 
-   public void addPredicateSubscription(PredicateIndex.Subscription subscription) {
+   private void rebuildChildrenArray() {
+      Collection<AttributeNode<AttributeMetadata, AttributeId>> childrenCollection = children.values();
+      childrenArray = childrenCollection.toArray(new AttributeNode[childrenCollection.size()]);
+   }
+
+   public Predicates.Subscription<AttributeId> addPredicateSubscription(PredicateNode<AttributeId> predicateNode, FilterSubscriptionImpl filterSubscription) {
       if (predicates == null) {
-         predicates = new Predicates();
+         predicates = new Predicates(filterSubscription.isUseIntervals() && metadataAdapter.isComparableProperty(metadata));
       }
-      predicates.addPredicate(subscription);
+      return predicates.addPredicateSubscription(predicateNode, filterSubscription);
    }
 
-   public void removePredicateSubscription(PredicateIndex.Subscription subscription) {
+   public void removePredicateSubscription(Predicates.Subscription<AttributeId> subscription) {
       if (predicates != null) {
-         predicates.removePredicate(subscription);
+         predicates.removePredicateSubscription(subscription);
       } else {
          throw new IllegalStateException("Reached illegal state");
       }

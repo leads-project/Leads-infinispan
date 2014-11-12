@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -19,9 +20,11 @@ import org.infinispan.commands.remote.CacheRpcCommand;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
+import org.infinispan.jmx.JmxStatisticsExposer;
 import org.infinispan.jmx.annotations.DataType;
 import org.infinispan.jmx.annotations.DisplayType;
 import org.infinispan.jmx.annotations.MBean;
@@ -54,7 +57,7 @@ import org.infinispan.util.logging.LogFactory;
  * @since 4.0
  */
 @MBean(objectName = "RpcManager", description = "Manages all remote calls to remote cache instances in the cluster.")
-public class RpcManagerImpl implements RpcManager {
+public class RpcManagerImpl implements RpcManager, JmxStatisticsExposer {
 
    private static final Log log = LogFactory.getLog(RpcManagerImpl.class);
    private static final boolean trace = log.isTraceEnabled();
@@ -101,14 +104,21 @@ public class RpcManagerImpl implements RpcManager {
 
    @ManagedAttribute(description = "Retrieves the committed view.", displayName = "Committed view", dataType = DataType.TRAIT)
    public String getCommittedViewAsString() {
-      return localTopologyManager == null ? "N/A" : String.valueOf(localTopologyManager.getCacheTopology(cacheName)
-            .getCurrentCH());
+      CacheTopology cacheTopology = stateTransferManager.getCacheTopology();
+      if (cacheTopology == null)
+         return "N/A";
+
+      return cacheTopology.getCurrentCH().getMembers().toString();
    }
 
    @ManagedAttribute(description = "Retrieves the pending view.", displayName = "Pending view", dataType = DataType.TRAIT)
    public String getPendingViewAsString() {
-      return localTopologyManager == null ? "N/A" : String.valueOf(localTopologyManager.getCacheTopology(cacheName)
-            .getPendingCH());
+      CacheTopology cacheTopology = stateTransferManager.getCacheTopology();
+      if (cacheTopology == null)
+         return "N/A";
+
+      ConsistentHash pendingCH = cacheTopology.getPendingCH();
+      return pendingCH != null ? pendingCH.getMembers().toString() : "null";
    }
 
    private boolean useReplicationQueue(boolean sync) {
@@ -278,11 +288,14 @@ public class RpcManagerImpl implements RpcManager {
 //               }
 //            }
          Map<Address, Response> result = t.invokeRemotely(recipients, rpc, options.responseMode(), options.timeUnit().toMillis(options.timeout()),
-                                                          !options.fifoOrder(), options.responseFilter(), options.totalOrder(),
-                                                          configuration.clustering().cacheMode().isDistributed());
+               !options.fifoOrder(), options.responseFilter(), options.totalOrder(),
+               configuration.clustering().cacheMode().isDistributed());
          if (statisticsEnabled) replicationCount.incrementAndGet();
          if (trace) log.tracef("Response(s) to %s is %s", rpc, result);
          return result;
+      } catch (InterruptedException e) {
+         Thread.currentThread().interrupt();
+         throw new CacheException("Thread interrupted while invoking RPC", e);
       } catch (CacheException e) {
          log.trace("replication exception: ", e);
          if (statisticsEnabled) replicationFailures.incrementAndGet();
@@ -297,6 +310,28 @@ public class RpcManagerImpl implements RpcManager {
             totalReplicationTime.getAndAdd(timeTaken);
          }
       }
+   }
+
+   @Override
+   public void invokeRemotelyInFuture(final NotifyingNotifiableFuture<Map<Address, Response>> future,
+                                      final Collection<Address> recipients, final ReplicableCommand rpc,
+                                      final RpcOptions options) {
+      if (trace) log.tracef("%s invoking in future call %s to recipient list %s with options %s", t.getAddress(),
+                            rpc, recipients, options);
+      Callable<Map<Address, Response>> c = new Callable<Map<Address, Response>>() {
+         @Override
+         public Map<Address, Response> call() throws Exception {
+            try {
+               final Map<Address, Response> result = invokeRemotely(recipients, rpc, options);
+               future.notifyDone(result);
+               return result;
+            } catch (RuntimeException e) {
+               future.notifyException(e);
+               throw e;
+            }
+         }
+      };
+      future.setFuture(asyncExecutor.submit(c));
    }
 
    @Override
@@ -358,6 +393,11 @@ public class RpcManagerImpl implements RpcManager {
    @ManagedAttribute(description = "Enables or disables the gathering of statistics by this component", displayName = "Statistics enabled", dataType = DataType.TRAIT, writable = true)
    public boolean isStatisticsEnabled() {
       return statisticsEnabled;
+   }
+
+   @Override
+   public boolean getStatisticsEnabled() {
+      return isStatisticsEnabled();
    }
 
    /**

@@ -11,6 +11,7 @@ import java.util.TimeZone;
 
 /**
  * Generates a JPA query to satisfy the condition created with the builder.
+ * TODO This class is not immutable and thread safe.
  *
  * @author anistor@redhat.com
  * @since 6.0
@@ -265,7 +266,16 @@ public class JPAQueryGenerator implements Visitor<String> {
 
    private void appendArgument(StringBuilder sb, Object argument) {
       if (argument instanceof String) {
-         sb.append('\'').append(argument).append('\''); //todo [anistor] need to ensure proper string escaping. this is just a dummy attempt
+         sb.append('\'');
+         String stringLiteral = argument.toString();
+         for (int i = 0; i < stringLiteral.length(); i++) {
+            char c = stringLiteral.charAt(i);
+            if (c == '\'') {
+               sb.append('\'');
+            }
+            sb.append(c);
+         }
+         sb.append('\'');
          return;
       }
 
@@ -315,11 +325,15 @@ public class JPAQueryGenerator implements Visitor<String> {
       }
 
       if (argument instanceof Date) {
-         sb.append('\'').append(getDateFormatter().format(argument)).append('\'');
+         sb.append('\'').append(renderDate((Date) argument)).append('\'');
          return;
       }
 
       sb.append(argument);
+   }
+
+   protected String renderDate(Date argument) {
+      return getDateFormatter().format(argument);
    }
 
    private DateFormat getDateFormatter() {

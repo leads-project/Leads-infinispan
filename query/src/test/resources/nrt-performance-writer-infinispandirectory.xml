@@ -23,8 +23,6 @@
             <property name="default.chunk_size">128000</property>
             <property name="default.metadata_cachename">LuceneIndexesMetadataOWR</property>
             <property name="default.data_cachename">LuceneIndexesDataOWR</property>
-            <!-- This index is dedicated to the current node -->
-            <property name="default.exclusive_index_use">true</property>
             <!-- The default is 10, but we don't want to waste many cycles in merging
              (tune for writes at cost of reader fragmentation) -->
             <property name="default.indexwriter.merge_factor">30</property>
@@ -36,8 +34,8 @@
             <property name="default.​locking_strategy">native</property>
             <!-- Enable sharding on writers -->
             <property name="default.sharding_strategy.nbr_of_shards">6</property>
-            <!-- No need to be backwards compatible regarding Lucene version -->
-            <property name="lucene_version">LUCENE_48</property>
+            <!-- Enable error safety net -->
+            <property name="error_handler">org.infinispan.query.helper.StaticTestingErrorHandler</property>
          </indexing>
          <!--  For our test we don't want to keep all data in memory: throw some away -->
          <eviction max-entries="200" strategy="LIRS" />

@@ -22,13 +22,12 @@
 package org.jboss.as.clustering.jgroups.subsystem;
 
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
+import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import junit.framework.Assert;
 
 import org.jboss.as.clustering.subsystem.ClusteringSubsystemTest;
 import org.jboss.as.controller.PathAddress;
@@ -61,7 +60,7 @@ public class JGroupsSubsystemTest extends ClusteringSubsystemTest {
         // create a collection of resources in the test which are not removed by a "remove" command
         // i.e. all resources of form /subsystem=jgroups/stack=maximal/protocol=*
 
-        String[] protocolList = { "MPING", "MERGE2", "FD_SOCK", "FD", "VERIFY_SUSPECT", "pbcast.NAKACK2", "UNICAST2", "pbcast.STABLE", "pbcast.GMS", "UFC", "MFC", "FRAG2", "RSVP" };
+        String[] protocolList = { "MPING", "MERGE3", "FD_SOCK", "FD", "VERIFY_SUSPECT", "pbcast.NAKACK2", "UNICAST3", "pbcast.STABLE", "pbcast.GMS", "UFC", "MFC", "FRAG2", "RSVP" };
         PathAddress subsystem = PathAddress.pathAddress(PathElement.pathElement(SUBSYSTEM, JGroupsExtension.SUBSYSTEM_NAME));
         PathAddress stack = subsystem.append(PathElement.pathElement(ModelKeys.STACK, "maximal"));
         List<PathAddress> addresses = new ArrayList<PathAddress>();
@@ -82,11 +81,11 @@ public class JGroupsSubsystemTest extends ClusteringSubsystemTest {
         List<ModelNode> protocols = model.require("protocols").asList();
         Set<String> keys = model.get("protocol").keys();
 
-        Assert.assertEquals(protocols.size(), keys.size());
+        assertEquals(protocols.size(), keys.size());
         int i = 0;
         for (String key : keys) {
             String name = protocols.get(i).asString();
-            Assert.assertEquals(key, name);
+            assertEquals(key, name);
             i++;
         }
     }

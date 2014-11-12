@@ -62,6 +62,7 @@ public abstract class AbstractRemoteCacheManagerIT {
         config.balancingStrategy("org.infinispan.server.test.client.hotrod.HotRodTestRequestBalancingStrategy")
                 .forceReturnValues(true)
                 .tcpNoDelay(false)
+                .tcpKeepAlive(true)
                 .pingOnStartup(false)
                 .transportFactory("org.infinispan.server.test.client.hotrod.HotRodTestTransportFactory")
                 .marshaller("org.infinispan.server.test.client.hotrod.HotRodTestMarshaller")
@@ -238,17 +239,17 @@ public abstract class AbstractRemoteCacheManagerIT {
         TcpTransportFactory ttf = (TcpTransportFactory) getTransportFactoryField(of);
 
         // perform first simulated operation
-        tt = (TcpTransport) ttf.getTransport(null);
+        tt = (TcpTransport) ttf.getTransport(null, rci.getName().getBytes());
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         serverAddrSequence.append(sock_addr.getAddress().getHostAddress() + ":" + sock_addr.getPort()).append(" ");
 
-        tt = (TcpTransport) ttf.getTransport(null);
+        tt = (TcpTransport) ttf.getTransport(null, rci.getName().getBytes());
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         serverAddrSequence.append(sock_addr.getAddress().getHostAddress() + ":" + sock_addr.getPort()).append(" ");
 
-        tt = (TcpTransport) ttf.getTransport(null);
+        tt = (TcpTransport) ttf.getTransport(null, rci.getName().getBytes());
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         serverAddrSequence.append(sock_addr.getAddress().getHostAddress() + ":" + sock_addr.getPort());
@@ -306,13 +307,13 @@ public abstract class AbstractRemoteCacheManagerIT {
         OperationsFactory of = getOperationsFactoryField(rci);
         TcpTransportFactory ttf = (TcpTransportFactory) getTransportFactoryField(of);
         // perform first simulated operation
-        tt = (TcpTransport) ttf.getTransport(null);
+        tt = (TcpTransport) ttf.getTransport(null, rci.getName().getBytes());
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         assertEquals("load balancing first request: server address expected " + hostport0 + ", actual server address "
                 + sock_addr, sock_addr, hostport0);
 
-        tt = (TcpTransport) ttf.getTransport(null);
+        tt = (TcpTransport) ttf.getTransport(null, rci.getName().getBytes());
         sock_addr = (InetSocketAddress) tt.getServerAddress();
         ttf.releaseTransport(tt);
         assertEquals("load balancing second request: server address expected " + hostport0 + ", actual server address"
@@ -359,6 +360,7 @@ public abstract class AbstractRemoteCacheManagerIT {
 
         assertEquals(config.forceReturnValues(), Boolean.parseBoolean(getForceReturnValueProperty(rc)));
         assertEquals(config.tcpNoDelay(), Boolean.parseBoolean(getTcpNoDelayProperty(rc)));
+        assertEquals(config.tcpKeepAlive(), Boolean.parseBoolean(getTcpKeepAliveProperty(rc)));
         assertEquals(config.maxRetries(), Integer.parseInt(getMaxRetries(rc)));
 
         // pingOnStartup and asyncExecutorFactory compared only with the configuration itself
@@ -386,11 +388,10 @@ public abstract class AbstractRemoteCacheManagerIT {
     }
 
     private String getRequestBalancingStrategyProperty(RemoteCache rc) throws Exception {
-
         RemoteCacheImpl rci = (RemoteCacheImpl) rc;
         OperationsFactory of = getOperationsFactoryField(rci);
         TcpTransportFactory ttf = (TcpTransportFactory) getTransportFactoryField(of);
-        RequestBalancingStrategy rbs = ttf.getBalancer();
+        RequestBalancingStrategy rbs = ttf.getBalancer(RemoteCacheManager.cacheNameBytes());
         return rbs.getClass().getName();
     }
 
@@ -441,6 +442,15 @@ public abstract class AbstractRemoteCacheManagerIT {
         return Boolean.toString(tcpNoDelay);
     }
 
+    private String getTcpKeepAliveProperty(RemoteCache rc) throws Exception {
+
+        RemoteCacheImpl rci = (RemoteCacheImpl) rc;
+        OperationsFactory of = getOperationsFactoryField(rci);
+        TcpTransportFactory ttf = (TcpTransportFactory) getTransportFactoryField(of);
+        boolean tcpKeepAlive = ttf.isTcpKeepAlive();
+        return Boolean.toString(tcpKeepAlive);
+    }
+
     private String getMaxRetries(RemoteCache rc) throws Exception {
         RemoteCacheImpl rci = (RemoteCacheImpl) rc;
         OperationsFactory of = getOperationsFactoryField(rci);
@@ -469,7 +479,7 @@ public abstract class AbstractRemoteCacheManagerIT {
         RemoteCacheImpl rci = (RemoteCacheImpl) rc;
         OperationsFactory of = getOperationsFactoryField(rci);
         TcpTransportFactory ttf = (TcpTransportFactory) getTransportFactoryField(of);
-        ConsistentHash ch = ttf.getConsistentHash();
+        ConsistentHash ch = ttf.getConsistentHash(((RemoteCacheImpl) rc).getName().getBytes());
         return ch.getClass().getName();
     }
 

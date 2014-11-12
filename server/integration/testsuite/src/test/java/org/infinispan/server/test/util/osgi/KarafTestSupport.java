@@ -7,7 +7,7 @@ import org.junit.Assert;
 import org.ops4j.pax.exam.CoreOptions;
 import org.ops4j.pax.exam.Option;
 import org.ops4j.pax.exam.TestProbeBuilder;
-import org.ops4j.pax.exam.junit.ProbeBuilder;
+import org.ops4j.pax.exam.ProbeBuilder;
 import org.ops4j.pax.exam.karaf.options.KarafDistributionOption;
 import org.ops4j.pax.exam.options.MavenArtifactProvisionOption;
 import org.osgi.framework.Bundle;
@@ -17,13 +17,16 @@ import org.osgi.framework.Constants;
 import javax.inject.Inject;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.net.URL;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+
+import static org.ops4j.pax.exam.CoreOptions.composite;
+import static org.ops4j.pax.exam.CoreOptions.systemProperty;
+import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFilePut;
 
 /**
  * Class copied from JBoss Fuse project (FuseTestSupport class) and modified.
@@ -219,7 +222,24 @@ public class KarafTestSupport {
     @ProbeBuilder
     public TestProbeBuilder probeConfiguration(TestProbeBuilder probe) {
         probe.setHeader(Constants.DYNAMICIMPORT_PACKAGE, "*,org.apache.felix.service.*;status=provisional");
+        probe.setHeader(Constants.EXPORT_PACKAGE, "org.infinispan.server.test.client.hotrod.osgi");
         return probe;
     }
 
+    /**
+     * If custom Maven local repositories are used PAX URL needs to know about it.
+     *
+     * This method will return a composit option with the settings required for PAX EXAM to find
+     * the custom Maven local repo.
+     */
+    public static Option localRepoForPAXUrl() throws Exception {
+        String localRepo = System.getProperty("localRepository");
+
+        if (localRepo == null) {
+           return null;
+        }
+
+        return composite(systemProperty("org.ops4j.pax.url.mvn.localRepository").value(localRepo),
+                         editConfigurationFilePut("etc/org.ops4j.pax.url.mvn.cfg", "org.ops4j.pax.url.mvn.localRepository", localRepo));
+    }
 }

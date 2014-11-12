@@ -1,6 +1,7 @@
 package org.infinispan.configuration.parsing;
 
 import org.infinispan.Version;
+import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.commons.equivalence.ByteArrayEquivalence;
 import org.infinispan.commons.executors.BlockingThreadPoolExecutorFactory;
 import org.infinispan.commons.executors.CachedThreadPoolExecutorFactory;
@@ -19,7 +20,7 @@ import org.infinispan.configuration.cache.SingleFileStoreConfiguration;
 import org.infinispan.configuration.cache.VersioningScheme;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.configuration.global.ShutdownHookBehavior;
-import org.infinispan.configuration.module.MyModuleConfiguration;
+import org.infinispan.distribution.ch.impl.SyncConsistentHashFactory;
 import org.infinispan.eviction.EvictionStrategy;
 import org.infinispan.factories.threads.DefaultThreadFactory;
 import org.infinispan.interceptors.InvocationContextInterceptor;
@@ -200,11 +201,11 @@ public class UnifiedXmlFileParsingTest extends AbstractInfinispanTest {
             assertEquals(3000, c.locking().concurrencyLevel());
             assertEquals(IsolationLevel.REPEATABLE_READ, c.locking().isolationLevel()); // Converted to REPEATABLE_READ by builder
             assertTrue(c.locking().useLockStriping());
-            assertEquals(TransactionMode.TRANSACTIONAL, c.transaction().transactionMode()); // Non durable XA
-            assertFalse(c.transaction().useSynchronization()); // Non durable XA
-            assertFalse(c.transaction().recovery().enabled()); // Non durable XA
-            assertTrue(c.transaction().syncCommitPhase()); // Non durable XA - default configuration value
-            assertTrue(c.transaction().syncRollbackPhase()); // Non durable XA - side effect of cache manager creation
+            assertEquals(TransactionMode.TRANSACTIONAL, c.transaction().transactionMode()); // Batching, non XA
+            assertTrue(c.transaction().useSynchronization()); // Batching, non XA
+            assertFalse(c.transaction().recovery().enabled()); // Batching, non XA
+            assertTrue(c.transaction().syncCommitPhase()); // Batching, non XA - default configuration value
+            assertTrue(c.transaction().syncRollbackPhase()); // Batching, non XA - side effect of cache manager creation
             assertEquals(LockingMode.PESSIMISTIC, c.transaction().lockingMode());
             assertEquals(61000, c.transaction().cacheStopTimeout());
             assertEquals(21000, c.eviction().maxEntries());
@@ -227,7 +228,9 @@ public class UnifiedXmlFileParsingTest extends AbstractInfinispanTest {
             assertEquals(4, c.clustering().hash().numOwners());
             assertEquals(35000, c.clustering().sync().replTimeout());
             assertEquals(2, c.clustering().hash().numSegments());
+            assertTrue(c.clustering().hash().consistentHashFactory() instanceof SyncConsistentHashFactory);
             assertFalse(c.clustering().async().asyncMarshalling());
+            assertTrue(c.clustering().partitionHandling().enabled());
             assertTrue(c.jmxStatistics().enabled());
             assertEquals(31500, c.locking().lockAcquisitionTimeout());
             assertEquals(3500, c.locking().concurrencyLevel());
@@ -429,6 +432,19 @@ public class UnifiedXmlFileParsingTest extends AbstractInfinispanTest {
             assertTrue(c.storeAsBinary().storeKeysAsBinary());
             assertFalse(c.storeAsBinary().storeValuesAsBinary());
          }
+      });
+   }
+
+   @Test(expectedExceptions = CacheConfigurationException.class)
+   public void testUnsupportedConfiguration() throws Exception {
+      withCacheManager(new CacheManagerCallable(
+            TestCacheManagerFactory.fromXml("configs/unified/old.xml", true)) {
+
+               @Override
+               public void call() {
+                  fail("Parsing an unsupported file should have failed.");
+               }
+
       });
    }
 

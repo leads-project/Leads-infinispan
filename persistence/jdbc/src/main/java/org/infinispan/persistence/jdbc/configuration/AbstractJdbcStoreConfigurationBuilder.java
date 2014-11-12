@@ -8,7 +8,8 @@ import org.infinispan.commons.logging.LogFactory;
 import org.infinispan.commons.CacheConfigurationException;
 import org.infinispan.configuration.cache.AbstractStoreConfigurationBuilder;
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
-import org.infinispan.persistence.jdbc.Dialect;
+import org.infinispan.configuration.global.GlobalConfiguration;
+import org.infinispan.persistence.jdbc.DatabaseType;
 import org.infinispan.persistence.jdbc.connectionfactory.ConnectionFactory;
 import org.infinispan.persistence.jdbc.logging.Log;
 
@@ -18,7 +19,7 @@ public abstract class AbstractJdbcStoreConfigurationBuilder<T extends AbstractJd
    private static final Log log = LogFactory.getLog(AbstractJdbcStoreConfigurationBuilder.class, Log.class);
    protected ConnectionFactoryConfigurationBuilder<ConnectionFactoryConfiguration> connectionFactory;
    protected boolean manageConnectionFactory = true;
-   protected Dialect dialect;
+   protected DatabaseType databaseType;
 
    public AbstractJdbcStoreConfigurationBuilder(PersistenceConfigurationBuilder builder) {
       super(builder);
@@ -72,8 +73,8 @@ public abstract class AbstractJdbcStoreConfigurationBuilder<T extends AbstractJd
       return self();
    }
 
-   public S dialect(Dialect dialect) {
-      this.dialect = dialect;
+   public S dialect(DatabaseType databaseType) {
+      this.databaseType = databaseType;
       return self();
    }
 
@@ -85,6 +86,15 @@ public abstract class AbstractJdbcStoreConfigurationBuilder<T extends AbstractJd
       } else if (!manageConnectionFactory && connectionFactory != null) {
          throw log.unmanagedConnectionFactory();
       }
+
+      if (connectionFactory != null) {
+         connectionFactory.validate();
+      }
+   }
+
+   @Override
+   public void validate(GlobalConfiguration globalConfig) {
+      // Can't validate global config with connection factory
    }
 
    @Override
@@ -93,7 +103,7 @@ public abstract class AbstractJdbcStoreConfigurationBuilder<T extends AbstractJd
       connectionFactory(cfb);
       connectionFactory.read(template.connectionFactory());
       manageConnectionFactory = template.manageConnectionFactory();
-      dialect = template.dialect();
+      databaseType = template.dialect();
 
       return super.read(template);
    }

@@ -7,7 +7,7 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
-import org.infinispan.test.fwk.TestCacheManagerFactory;
+import org.infinispan.test.fwk.TestResourceTracker;
 import org.infinispan.test.fwk.TransportFlags;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.util.logging.Log;
@@ -22,7 +22,9 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertEquals;
 
 @Test(groups = "functional", testName = "statetransfer.StateTransferFunctionalTest")
@@ -58,15 +60,17 @@ public class StateTransferFunctionalTest extends MultipleCacheManagersTest {
 
    protected void createCacheManagers() throws Throwable {
       configurationBuilder = getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, true);
-      configurationBuilder.transaction().lockingMode(LockingMode.PESSIMISTIC);
+      configurationBuilder.transaction()
+            .lockingMode(LockingMode.PESSIMISTIC)
+            .useSynchronization(false)
+            .recovery().disable();
       configurationBuilder.clustering().sync().replTimeout(30000);
       configurationBuilder.clustering().stateTransfer().fetchInMemoryState(true);
       configurationBuilder.locking().useLockStriping(false); // reduces the odd chance of a key collision and deadlock
    }
 
    protected EmbeddedCacheManager createCacheManager() {
-      EmbeddedCacheManager cm = addClusterEnabledCacheManager(new TransportFlags().withMerge(true));
-      cm.defineConfiguration(cacheName, configurationBuilder.build());
+      EmbeddedCacheManager cm = addClusterEnabledCacheManager(configurationBuilder, new TransportFlags().withMerge(true));
       return cm;
    }
 
@@ -99,26 +103,20 @@ public class StateTransferFunctionalTest extends MultipleCacheManagersTest {
       }
    }
 
-   private static class WritingThread extends Thread {
+   private static class WritingTask implements Callable<Integer> {
       private final Cache<Object, Object> cache;
       private final boolean tx;
       private volatile boolean stop;
-      private volatile int result;
       private TransactionManager tm;
 
-      WritingThread(Cache<Object, Object> cache, boolean tx) {
-         super("WriterThread," + cache.getCacheManager().getAddress());
+      WritingTask(Cache<Object, Object> cache, boolean tx) {
          this.cache = cache;
          this.tx = tx;
          if (tx) tm = TestingUtil.getTransactionManager(cache);
-         setDaemon(true);
       }
 
-      public int result() {
-         return result;
-      }
-
-      public void run() {
+      @Override
+      public Integer call() throws Exception {
          int c = 0;
          while (!stop) {
             boolean success = false;
@@ -130,9 +128,12 @@ public class StateTransferFunctionalTest extends MultipleCacheManagersTest {
                   tm.commit();
                success = true;
                c++;
+
+               // Without this, the writing thread would occupy 1 core completely before the 2nd node joins.
+               Thread.sleep(1);
             } catch (Exception e) {
-               log.errorf("Error writing key test%s", c, e);
-               stopThread();
+               log.errorf(e, "Error writing key test%s", c);
+               stop();
             } finally {
                if (tx && !success) {
                   try {
@@ -143,10 +144,10 @@ public class StateTransferFunctionalTest extends MultipleCacheManagersTest {
                }
             }
          }
-         result = c;
+         return c;
       }
 
-      public void stopThread() {
+      public void stop() {
          stop = true;
       }
    }
@@ -248,25 +249,22 @@ public class StateTransferFunctionalTest extends MultipleCacheManagersTest {
       logTestEnd(m);
    }
 
-   @Test (timeOut = 120000)
    public void testSTWithWritingNonTxThread(Method m) throws Exception {
-      TestCacheManagerFactory.backgroundTestStarted(this);
+      TestResourceTracker.backgroundTestStarted(this);
       testCount++;
       logTestStart(m);
       writingThreadTest(false);
       logTestEnd(m);
    }
 
-   @Test (timeOut = 120000, groups = "unstable")
    public void testSTWithWritingTxThread(Method m) throws Exception {
-      TestCacheManagerFactory.backgroundTestStarted(this);
+      TestResourceTracker.backgroundTestStarted(this);
       testCount++;
       logTestStart(m);
       writingThreadTest(true);
       logTestEnd(m);
    }
 
-   @Test
    public void testInitialStateTransferAfterRestart(Method m) throws Exception {
       testCount++;
       logTestStart(m);
@@ -311,20 +309,18 @@ public class StateTransferFunctionalTest extends MultipleCacheManagersTest {
       cache1.put("delay", value);
       value.enableDelay();
 
-      WritingThread writerThread = new WritingThread(cache3, tx);
-      writerThread.start();
+      WritingTask writingTask = new WritingTask(cache3, tx);
+      Future<Integer> future = fork(writingTask);
 
       JoiningNode node2 = new JoiningNode(createCacheManager());
       cache2 = node2.getCache(cacheName);
 
       node2.waitForJoin(60000, cache1, cache2, cache3);
 
-      writerThread.stopThread();
-      writerThread.join();
+      writingTask.stop();
+      int count = future.get(60, SECONDS);
 
       node2.verifyStateTransfer(new CacheVerifier(cache2));
-
-      int count = writerThread.result();
 
       for (int c = 0; c < count; c++) {
          assertEquals(c, cache2.get("test" + c));
@@ -357,21 +353,19 @@ public class StateTransferFunctionalTest extends MultipleCacheManagersTest {
       cache1.put("delay", value);
       value.enableDelay();
 
-      WritingThread writerThread = new WritingThread(cache1, tx);
-      writerThread.start();
+      WritingTask writingTask = new WritingTask(cache1, tx);
+      Future<Integer> future = fork(writingTask);
       verifyInitialData(cache1);
 
       JoiningNode node2 = new JoiningNode(createCacheManager());
       cache2 = node2.getCache(cacheName);
       node2.waitForJoin(60000, cache1, cache2);
 
-      writerThread.stopThread();
-      writerThread.join();
+      writingTask.stop();
+      int count = future.get(60, SECONDS);
 
       verifyInitialData(cache1);
       node2.verifyStateTransfer(new CacheVerifier(cache2));
-
-      int count = writerThread.result();
 
       for (int c = 0; c < count; c++) {
          assertEquals(c, cache2.get("test" + c));

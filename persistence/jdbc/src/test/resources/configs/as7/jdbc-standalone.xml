@@ -196,10 +196,10 @@
                     <property name="timeout">5000</property>
                     <property name="num_initial_members">5</property>
                 </protocol>
-                <protocol type="MERGE2"/>
+                <protocol type="MERGE3"/>
                 <protocol type="FD_SOCK" socket-binding="jgroups-udp-fd"/>
                 <protocol type="FD_ALL"/>
-                <protocol type="pbcast.NAKACK"/>
+                <protocol type="pbcast.NAKACK2"/>
                 <protocol type="UNICAST3">
                 </protocol>
                 <protocol type="pbcast.STABLE">
@@ -248,14 +248,14 @@
                     <property name="oob_thread_pool.rejection_policy">discard</property>
                 </transport>
                 <protocol type="MPING" socket-binding="jgroups-mping"/>
-                <protocol type="MERGE2"/>
+                <protocol type="MERGE3"/>
                 <protocol type="FD_SOCK" socket-binding="jgroups-tcp-fd"/>
                 <protocol type="FD"/>
                 <protocol type="VERIFY_SUSPECT"/>
-                <protocol type="pbcast.NAKACK">
+                <protocol type="pbcast.NAKACK2">
                     <property name="use_mcast_xmit">false</property>
                 </protocol>
-                <protocol type="UNICAST2">
+                <protocol type="UNICAST3">
                 </protocol>
                 <protocol type="pbcast.STABLE">
                     <property name="stability_delay">500</property>
@@ -263,10 +263,6 @@
                     <property name="max_bytes">1m</property>
                 </protocol>
                 <protocol type="pbcast.GMS"/>
-                <protocol type="UFC">
-                    <property name="max_credits">2m</property>
-                    <property name="min_threshold">0.40</property>
-                </protocol>
                 <protocol type="MFC">
                     <property name="max_credits">2m</property>
                     <property name="min_threshold">0.40</property>

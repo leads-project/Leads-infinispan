@@ -6,6 +6,7 @@ import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.container.DataContainer;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.impl.ImmutableContext;
+import org.infinispan.distribution.DistributionManager;
 import org.infinispan.eviction.PassivationManager;
 import org.infinispan.factories.annotations.Inject;
 import org.infinispan.factories.annotations.Start;
@@ -23,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.infinispan.persistence.PersistenceUtil.internalMetadata;
+import static org.infinispan.persistence.manager.PersistenceManager.AccessMode.BOTH;
 
 public class PassivationManagerImpl implements PassivationManager {
 
@@ -38,16 +40,19 @@ public class PassivationManagerImpl implements PassivationManager {
    private TimeService timeService;
    private static final boolean trace = log.isTraceEnabled();
    private MarshalledEntryFactory marshalledEntryFactory;
+   private DistributionManager distributionManager;
 
    @Inject
    public void inject(PersistenceManager persistenceManager, CacheNotifier notifier, Configuration cfg, DataContainer container,
-                      TimeService timeService, MarshalledEntryFactory marshalledEntryFactory) {
+                      TimeService timeService, MarshalledEntryFactory marshalledEntryFactory,
+                      DistributionManager distributionManager) {
       this.persistenceManager = persistenceManager;
       this.notifier = notifier;
       this.cfg = cfg;
       this.container = container;
       this.timeService = timeService;
       this.marshalledEntryFactory = marshalledEntryFactory;
+      this.distributionManager = distributionManager;
    }
 
    @Start(priority = 12)
@@ -63,10 +68,14 @@ public class PassivationManagerImpl implements PassivationManager {
       return enabled;
    }
 
+   private boolean isL1Key(Object key) {
+      return distributionManager != null && !distributionManager.getLocality(key).isLocal();
+   }
+
    @Override
    public void passivate(InternalCacheEntry entry) {
-      if (enabled && entry != null) {
-         Object key = entry.getKey();
+      Object key;
+      if (enabled && entry != null && !isL1Key(key = entry.getKey())) {
          // notify listeners that this entry is about to be passivated
          notifier.notifyCacheEntryPassivated(key, entry.getValue(), true,
                ImmutableContext.INSTANCE, null);
@@ -74,7 +83,7 @@ public class PassivationManagerImpl implements PassivationManager {
          try {
             MarshalledEntry marshalledEntry = marshalledEntryFactory.newMarshalledEntry(entry.getKey(), entry.getValue(),
                                                                                         internalMetadata(entry));
-            persistenceManager.writeToAllStores(marshalledEntry, false);
+            persistenceManager.writeToAllStores(marshalledEntry, BOTH);
             if (statsEnabled) passivations.getAndIncrement();
          } catch (CacheException e) {
             log.unableToPassivateEntry(key, e);
@@ -93,7 +102,7 @@ public class PassivationManagerImpl implements PassivationManager {
          for (InternalCacheEntry e : container) {
             if (trace) log.tracef("Passivating %s", e.getKey());
             persistenceManager.writeToAllStores(marshalledEntryFactory.newMarshalledEntry(e.getKey(), e.getValue(),
-                                                                        internalMetadata(e)), false);
+                                                                        internalMetadata(e)), BOTH);
          }
          log.passivatedEntries(container.size(),
                                Util.prettyPrintTime(timeService.timeDuration(start, TimeUnit.MILLISECONDS)));
@@ -103,6 +112,16 @@ public class PassivationManagerImpl implements PassivationManager {
    @Override
    public long getPassivations() {
       return passivations.get();
+   }
+
+   @Override
+   public boolean getStatisticsEnabled() {
+      return statsEnabled;
+   }
+
+   @Override
+   public void setStatisticsEnabled(boolean enabled) {
+      statsEnabled = enabled;
    }
 
    @Override

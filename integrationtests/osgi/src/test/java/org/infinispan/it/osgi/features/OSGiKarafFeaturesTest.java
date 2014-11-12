@@ -11,6 +11,7 @@ import org.infinispan.it.osgi.util.MavenUtils;
 import org.infinispan.it.osgi.util.PaxExamUtils;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import org.ops4j.pax.exam.Configuration;
 import org.ops4j.pax.exam.Option;
@@ -19,7 +20,6 @@ import org.ops4j.pax.exam.TestProbeBuilder;
 import org.ops4j.pax.exam.junit.PaxExam;
 import org.ops4j.pax.exam.spi.reactors.ExamReactorStrategy;
 import org.ops4j.pax.exam.spi.reactors.PerClass;
-import org.ops4j.pax.exam.spi.reactors.PerSuite;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
@@ -30,6 +30,7 @@ import org.osgi.framework.ServiceReference;
  */
 @RunWith(PaxExam.class)
 @ExamReactorStrategy(PerClass.class)
+@Category(PerClass.class)
 public class OSGiKarafFeaturesTest {
    private static final String PROP_PROJECT_VERSION = "project.version";
 
@@ -64,12 +65,16 @@ public class OSGiKarafFeaturesTest {
 
       checkInstall(service, "infinispan-commons", "infinispan-commons", version);
       checkInstall(service, "infinispan-core", "infinispan-core", version);
-      checkInstall(service, "infinispan-client-hotrod", "hotrod-client", version);
-      checkInstall(service, "infinispan-client-hotrod", "hotrod-client-with-query", version);
+      checkInstall(service, "infinispan-client-hotrod", /* deprecated */ "hotrod-client", version);
+      checkInstall(service, "infinispan-client-hotrod", /* deprecated */ "hotrod-client-with-query", version);
+      checkInstall(service, "infinispan-client-hotrod", "infinispan-client-hotrod", version);
+      checkInstall(service, "infinispan-client-hotrod", "infinispan-client-hotrod-with-query", version);
       checkInstall(service, "infinispan-cachestore-jdbc", "infinispan-cachestore-jdbc", version);
       checkInstall(service, "infinispan-cachestore-remote", "infinispan-cachestore-remote", version);
       checkInstall(service, "infinispan-cachestore-leveldb", "infinispan-cachestore-leveldb-jni", version);
       checkInstall(service, "infinispan-cachestore-leveldb", "infinispan-cachestore-leveldb-java", version);
+      checkInstall(service, "infinispan-cachestore-jpa", "infinispan-cachestore-jpa", version);
+      checkInstall(service, "infinispan-osgi", "infinispan-osgi", version);
    }
 
    private void checkInstall(FeaturesService service, String artifactId, String feature, String version) throws Exception {

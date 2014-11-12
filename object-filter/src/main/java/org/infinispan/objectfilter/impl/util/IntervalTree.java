@@ -1,7 +1,6 @@
 package org.infinispan.objectfilter.impl.util;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -15,9 +14,9 @@ import java.util.List;
  * @author anistor@redhat.com
  * @since 7.0
  */
-public final class IntervalTree<K, V> {
+public final class IntervalTree<K extends Comparable<K>, V> {
 
-   public static final class Node<K, V> {
+   public static final class Node<K extends Comparable<K>, V> {
 
       /**
        * The interval. The low value is the key of this node within the search tree.
@@ -71,13 +70,7 @@ public final class IntervalTree<K, V> {
     */
    private Node<K, V> root;
 
-   /**
-    * Comparator used for ordering Intervals.
-    */
-   private final Comparator<K> comparator;
-
-   public IntervalTree(Comparator<K> comparator) {
-      this.comparator = comparator;
+   public IntervalTree() {
       sentinel = new Node<K, V>();
       sentinel.left = sentinel;
       sentinel.right = sentinel;
@@ -86,9 +79,9 @@ public final class IntervalTree<K, V> {
    }
 
    private int compare(K k1, K k2) {
-      if (k1 == Interval.MINUS_INF || k2 == Interval.PLUS_INF) return -1;
-      if (k1 == Interval.PLUS_INF || k2 == Interval.MINUS_INF) return 1;
-      return comparator.compare(k1, k2);
+      if (k1 == Interval.getMinusInf() || k2 == Interval.getPlusInf()) return -1;
+      if (k1 == Interval.getPlusInf() || k2 == Interval.getMinusInf()) return 1;
+      return k1.compareTo(k2);
    }
 
    private K max(K k1, K k2) {
@@ -96,7 +89,8 @@ public final class IntervalTree<K, V> {
    }
 
    private boolean compareLowerBound(Interval<K> i1, Interval<K> i2) {
-      return compare(i1.low, i2.low) < 0 || compare(i1.low, i2.low) == 0 && (i1.includeLower || !i2.includeUpper);
+      int res = compare(i1.low, i2.low);
+      return res < 0 || res == 0 && (i1.includeLower || !i2.includeUpper);
    }
 
    /**
@@ -106,10 +100,12 @@ public final class IntervalTree<K, V> {
     * with it, or is to the right of i2.
     */
    private int compareIntervals(Interval<K> i1, Interval<K> i2) {
-      if (compare(i1.up, i2.low) < 0 || compare(i1.up, i2.low) <= 0 && (!i1.includeUpper || !i2.includeLower)) {
+      int res1 = compare(i1.up, i2.low);
+      if (res1 < 0 || res1 <= 0 && (!i1.includeUpper || !i2.includeLower)) {
          return -1;
       }
-      if (compare(i2.up, i1.low) < 0 || compare(i2.up, i1.low) <= 0 && (!i2.includeUpper || !i1.includeLower)) {
+      int res2 = compare(i2.up, i1.low);
+      if (res2 < 0 || res2 <= 0 && (!i2.includeUpper || !i1.includeLower)) {
          return 1;
       }
       return 0;
@@ -287,7 +283,7 @@ public final class IntervalTree<K, V> {
    }
 
    public void remove(Node<K, V> n) {
-      n.max = Interval.getMinusInf();
+      n.max = Interval.<K>getMinusInf();
       for (Node<K, V> i = n.parent; i != root; i = i.parent) {
          i.max = max(i.left.max, i.right.max);
          if (i.parent == root) {
@@ -429,22 +425,32 @@ public final class IntervalTree<K, V> {
     */
    public List<Node<K, V>> stab(K k) {
       Interval<K> i = new Interval<K>(k, true, k, true);
-      List<Node<K, V>> nodes = new ArrayList<Node<K, V>>();
-      findOverlap(root.left, i, nodes);
+      final List<Node<K, V>> nodes = new ArrayList<Node<K, V>>();
+      findOverlap(root.left, i, new NodeCallback<K, V>() {
+         @Override
+         public void handle(Node<K, V> node) {
+            nodes.add(node);
+         }
+      });
       return nodes;
    }
 
-   private void findOverlap(Node<K, V> n, Interval<K> i, List<Node<K, V>> results) {
+   public void stab(K k, NodeCallback<K, V> nodeCallback) {
+      Interval<K> i = new Interval<K>(k, true, k, true);
+      findOverlap(root.left, i, nodeCallback);
+   }
+
+   private void findOverlap(Node<K, V> n, Interval<K> i, NodeCallback<K, V> nodeCallback) {
       if (n == sentinel || compare(i.low, n.max) > 0) {
          return;
       }
 
       if (n.left != sentinel) {
-         findOverlap(n.left, i, results);
+         findOverlap(n.left, i, nodeCallback);
       }
 
       if (compareIntervals(n.interval, i) == 0) {
-         results.add(n);
+         nodeCallback.handle(n);
       }
 
       if (compareIntervals(i, n.interval) < 0) {
@@ -452,7 +458,7 @@ public final class IntervalTree<K, V> {
       }
 
       if (n.right != sentinel) {
-         findOverlap(n.right, i, results);
+         findOverlap(n.right, i, nodeCallback);
       }
    }
 
@@ -488,8 +494,8 @@ public final class IntervalTree<K, V> {
       return null;
    }
 
-   public interface NodeCallback<K, V> {
-      void handle(Node<K, V> n);
+   public interface NodeCallback<K extends Comparable<K>, V> {
+      void handle(Node<K, V> node);
    }
 
    public void inorderTraversal(NodeCallback<K, V> nodeCallback) {
@@ -514,6 +520,9 @@ public final class IntervalTree<K, V> {
                sb.append(", ");
             }
             sb.append(n.interval);
+            sb.append("->{");
+            sb.append(n.value);
+            sb.append('}');
          }
       });
       return sb.toString();

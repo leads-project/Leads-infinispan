@@ -2,13 +2,15 @@ package org.infinispan.query.impl;
 
 import java.util.concurrent.ExecutorService;
 
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.search.Query;
 import org.hibernate.hql.ast.spi.EntityNamesResolver;
-import org.hibernate.search.engine.SearchFactory;
 import org.hibernate.search.query.dsl.EntityContext;
 import org.hibernate.search.query.engine.spi.TimeoutExceptionFactory;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
+import org.hibernate.search.stat.Statistics;
 import org.infinispan.AdvancedCache;
+import org.infinispan.commons.util.Util;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.MassIndexer;
 import org.infinispan.query.Transformer;
@@ -17,6 +19,7 @@ import org.infinispan.query.clustered.ClusteredCacheQueryImpl;
 import org.infinispan.query.dsl.QueryFactory;
 import org.infinispan.query.dsl.embedded.LuceneQuery;
 import org.infinispan.query.dsl.embedded.impl.EmbeddedLuceneQueryFactory;
+import org.infinispan.query.dsl.embedded.impl.QueryCache;
 import org.infinispan.query.impl.massindex.MapReduceMassIndexer;
 import org.infinispan.query.spi.SearchManagerImplementor;
 
@@ -33,6 +36,7 @@ public class SearchManagerImpl implements SearchManagerImplementor {
    private final AdvancedCache<?, ?> cache;
    private final SearchFactoryIntegrator searchFactory;
    private final QueryInterceptor queryInterceptor;
+   private final QueryCache queryCache;
    private TimeoutExceptionFactory timeoutExceptionFactory;
 
    public SearchManagerImpl(AdvancedCache<?, ?> cache) {
@@ -42,6 +46,7 @@ public class SearchManagerImpl implements SearchManagerImplementor {
       this.cache = cache;
       this.searchFactory = ComponentRegistryUtils.getComponent(cache, SearchFactoryIntegrator.class);
       this.queryInterceptor = ComponentRegistryUtils.getQueryInterceptor(cache);
+      this.queryCache = ComponentRegistryUtils.getQueryCache(cache);
    }
 
    @Override
@@ -51,14 +56,14 @@ public class SearchManagerImpl implements SearchManagerImplementor {
          public Class<?> getClassFromName(String entityName) {
             Class clazz;
             try {
-               clazz = Class.forName(entityName);  //todo [anistor] any potential class loading issues in AS ?
+               clazz = Util.loadClassStrict(entityName, null);
             } catch (ClassNotFoundException e) {
                return null;
             }
             return queryInterceptor.isIndexed(clazz) ? clazz : null;
          }
       };
-      return new EmbeddedLuceneQueryFactory(this, entityNamesResolver);
+      return new EmbeddedLuceneQueryFactory(this, queryCache, entityNamesResolver);
    }
 
    /* (non-Javadoc)
@@ -108,8 +113,8 @@ public class SearchManagerImpl implements SearchManagerImplementor {
    /* (non-Javadoc)
     * @see org.infinispan.query.SearchManager#getSearchFactory()
     */
-   @Override
-   public SearchFactory getSearchFactory() {
+   @Override @Deprecated
+   public SearchFactoryIntegrator getSearchFactory() {
       return searchFactory;
    }
 
@@ -117,6 +122,21 @@ public class SearchManagerImpl implements SearchManagerImplementor {
    public MassIndexer getMassIndexer() {
       // TODO: Should a new instance be created every time?
       return new MapReduceMassIndexer(cache, searchFactory);
+   }
+
+   @Override
+   public Analyzer getAnalyzer(String name) {
+      return searchFactory.getAnalyzer(name);
+   }
+
+   @Override
+   public Statistics getStatistics() {
+      return searchFactory.getStatistics();
+   }
+
+   @Override
+   public Analyzer getAnalyzer(Class<?> clazz) {
+      return searchFactory.getAnalyzer(clazz);
    }
 
 }

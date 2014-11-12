@@ -21,6 +21,8 @@ import static org.testng.AssertJUnit.assertTrue;
 public class ControlledConsistentHashFactory extends BaseControlledConsistentHashFactory {
    private volatile List<int[]> ownerIndexes;
 
+   private volatile List<Address> membersToUse;
+
    /**
     * Create a consistent hash factory with a single segment.
     */
@@ -44,7 +46,7 @@ public class ControlledConsistentHashFactory extends BaseControlledConsistentHas
 
    private int[] concatOwners(int primaryOwnerIndex, int[] backupOwnerIndexes) {
       int[] firstSegmentOwners;
-      if (backupOwnerIndexes == null) {
+      if (backupOwnerIndexes == null || backupOwnerIndexes.length == 0) {
          firstSegmentOwners = new int[]{primaryOwnerIndex};
       } else {
          firstSegmentOwners = new int[backupOwnerIndexes.length + 1];
@@ -78,15 +80,20 @@ public class ControlledConsistentHashFactory extends BaseControlledConsistentHas
             .getGlobalComponentRegistry().getComponent(ClusterTopologyManager.class);
       assertTrue("triggerRebalance must be called on the coordinator node",
             cacheManager.getTransport().isCoordinator());
-      clusterTopologyManager.triggerRebalance(cache.getName());
+      clusterTopologyManager.forceRebalance(cache.getName());
    }
 
    @Override
    protected List<Address> createOwnersCollection(List<Address> members, int numberOfOwners, int segmentIndex) {
       int[] segmentOwnerIndexes = ownerIndexes.get(segmentIndex);
-      List<Address> owners = new ArrayList(segmentOwnerIndexes.length);
+      List<Address> owners = new ArrayList<>(segmentOwnerIndexes.length);
       for (int index : segmentOwnerIndexes) {
-         if (index < members.size()) {
+         if (membersToUse != null) {
+            Address owner = membersToUse.get(index);
+            if (members.contains(owner)) {
+               owners.add(owner);
+            }
+         }  else  if (index < members.size()) {
             owners.add(members.get(index));
          }
       }
@@ -95,5 +102,12 @@ public class ControlledConsistentHashFactory extends BaseControlledConsistentHas
          owners.add(members.get(0));
       }
       return owners;
+   }
+
+   /**
+    * @param membersToUse Owner indexes will be in this list, instead of the current list of members
+    */
+   public void setMembersToUse(List<Address> membersToUse) {
+      this.membersToUse = membersToUse;
    }
 }

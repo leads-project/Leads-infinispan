@@ -2,6 +2,7 @@ package org.infinispan.marshall;
 
 import org.infinispan.Cache;
 import org.infinispan.commons.util.Util;
+import org.infinispan.container.InternalEntryFactoryImpl;
 import org.infinispan.metadata.EmbeddedMetadata;
 import org.infinispan.atomic.impl.AtomicHashMap;
 import org.infinispan.commands.ReplicableCommand;
@@ -216,7 +217,7 @@ public class VersionAwareMarshallerTest extends AbstractInfinispanTest {
 
       // SizeCommand does not have an empty constructor, so doesn't look to be one that is marshallable.
 
-      GetKeyValueCommand c4 = new GetKeyValueCommand("key", Collections.<Flag>emptySet(), false);
+      GetKeyValueCommand c4 = new GetKeyValueCommand("key", Collections.<Flag>emptySet(), false, new InternalEntryFactoryImpl());
       byte[] bytes = marshaller.objectToByteBuffer(c4);
       GetKeyValueCommand rc4 = (GetKeyValueCommand) marshaller.objectFromByteBuffer(bytes);
       assert rc4.getCommandId() == c4.getCommandId() : "Writen[" + c4.getCommandId() + "] and read[" + rc4.getCommandId() + "] objects should be the same";
@@ -237,7 +238,7 @@ public class VersionAwareMarshallerTest extends AbstractInfinispanTest {
       assert rc7.getCommandId() == c7.getCommandId() : "Writen[" + c7.getCommandId() + "] and read[" + rc7.getCommandId() + "] objects should be the same";
       assert Arrays.equals(rc7.getParameters(), c7.getParameters()) : "Writen[" + c7.getParameters() + "] and read[" + rc7.getParameters() + "] objects should be the same";
 
-      InvalidateCommand c71 = new InvalidateL1Command(false, null, null, null, null, Collections.<Flag>emptySet(), "key1", "key2");
+      InvalidateCommand c71 = new InvalidateL1Command(null, null, null, null, Collections.<Flag>emptySet(), "key1", "key2");
       bytes = marshaller.objectToByteBuffer(c71);
       InvalidateCommand rc71 = (InvalidateCommand) marshaller.objectFromByteBuffer(bytes);
       assert rc71.getCommandId() == c71.getCommandId() : "Writen[" + c71.getCommandId() + "] and read[" + rc71.getCommandId() + "] objects should be the same";

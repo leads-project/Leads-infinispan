@@ -1,6 +1,6 @@
 package org.infinispan.query.queries.spatial;
 
-import junit.framework.Assert;
+import static org.junit.Assert.assertEquals;
 import org.apache.lucene.search.Query;
 import org.hibernate.search.annotations.Field;
 import org.hibernate.search.annotations.Indexed;
@@ -10,6 +10,7 @@ import org.hibernate.search.annotations.Store;
 import org.hibernate.search.query.dsl.Unit;
 import org.hibernate.search.spatial.Coordinates;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.Search;
@@ -26,7 +27,7 @@ import java.util.List;
  *
  * @author Anna Manukyan
  */
-@Test(groups = "functional", testName = "query.queries.spatial.QuerySpatialTest")
+@Test(groups = {"functional", "smoke"}, testName = "query.queries.spatial.QuerySpatialTest")
 public class QuerySpatialTest extends SingleCacheManagerTest {
 
    public QuerySpatialTest() {
@@ -37,8 +38,7 @@ public class QuerySpatialTest extends SingleCacheManagerTest {
    protected EmbeddedCacheManager createCacheManager() throws Exception {
       ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
       cfg.indexing()
-         .enable()
-            .indexLocalOnly(false)
+            .index(Index.ALL)
             .addProperty("default.directory_provider", "ram")
             .addProperty("lucene_version", "LUCENE_CURRENT");
       return TestCacheManagerFactory.createCacheManager(cfg);
@@ -57,7 +57,7 @@ public class QuerySpatialTest extends SingleCacheManagerTest {
       CacheQuery cacheQuery = Search.getSearchManager(cache).getQuery(query);
       List<Object> found = cacheQuery.list();
 
-      Assert.assertEquals(0, found.size());
+      assertEquals(0, found.size());
 
       query = Search.getSearchManager(cache).buildQueryBuilderForClass(CitySpatial.class).get().spatial()
             .onCoordinates("city_location")
@@ -66,7 +66,7 @@ public class QuerySpatialTest extends SingleCacheManagerTest {
       cacheQuery = Search.getSearchManager(cache).getQuery(query);
       found = cacheQuery.list();
 
-      Assert.assertEquals(1, found.size());
+      assertEquals(1, found.size());
    }
 
    private void loadData() {

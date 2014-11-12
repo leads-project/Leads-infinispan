@@ -1,11 +1,11 @@
 package org.jboss.as.clustering.infinispan.subsystem;
 
+import org.jboss.as.controller.descriptions.StandardResourceDescriptionResolver;
+
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
-
-import org.jboss.as.controller.descriptions.StandardResourceDescriptionResolver;
 
 /**
  * Custom resource description resolver to handle resources structured in a class hierarchy
@@ -93,47 +93,53 @@ public class InfinispanResourceDescriptionResolver extends StandardResourceDescr
     static {
         sharedAttributeResolver = new HashMap<String, String>();
         // shared cache attributes
-        sharedAttributeResolver.put(CacheResource.BATCHING.getName(), "cache");
-        sharedAttributeResolver.put(CacheResource.CACHE_MODULE.getName(), "cache");
-        sharedAttributeResolver.put(CacheResource.INDEXING.getName(), "cache");
-        sharedAttributeResolver.put(CacheResource.INDEXING_PROPERTIES.getName(), "cache");
-        sharedAttributeResolver.put(CacheResource.JNDI_NAME.getName(), "cache");
-        sharedAttributeResolver.put(CacheResource.NAME.getName(), "cache");
-        sharedAttributeResolver.put(CacheResource.START.getName(), "cache");
-        sharedAttributeResolver.put(CacheResource.STATISTICS.getName(), "cache");
+        sharedAttributeResolver.put(ModelKeys.BATCHING, "cache");
+        sharedAttributeResolver.put(ModelKeys.MODULE, "cache");
+        sharedAttributeResolver.put(ModelKeys.INDEXING, "cache");
+        sharedAttributeResolver.put(ModelKeys.AUTO_CONFIG, "cache");
+        sharedAttributeResolver.put(ModelKeys.INDEXING_PROPERTIES, "cache");
+        sharedAttributeResolver.put(ModelKeys.JNDI_NAME, "cache");
+        sharedAttributeResolver.put(ModelKeys.NAME, "cache");
+        sharedAttributeResolver.put(ModelKeys.REMOTE_CACHE, "cache");
+        sharedAttributeResolver.put(ModelKeys.REMOTE_SITE, "cache");
+        sharedAttributeResolver.put(ModelKeys.START, "cache");
+        sharedAttributeResolver.put(ModelKeys.STATISTICS, "cache");
 
-        sharedAttributeResolver.put(ClusteredCacheResource.ASYNC_MARSHALLING.getName(), "clustered-cache");
-        sharedAttributeResolver.put(ClusteredCacheResource.MODE.getName(), "clustered-cache");
-        sharedAttributeResolver.put(ClusteredCacheResource.QUEUE_FLUSH_INTERVAL.getName(), "clustered-cache");
-        sharedAttributeResolver.put(ClusteredCacheResource.QUEUE_SIZE.getName(), "clustered-cache");
-        sharedAttributeResolver.put(ClusteredCacheResource.REMOTE_TIMEOUT.getName(), "clustered-cache");
+        sharedAttributeResolver.put(ModelKeys.ASYNC_MARSHALLING, "clustered-cache");
+        sharedAttributeResolver.put(ModelKeys.CACHE_AVAILABILITY, "clustered-cache");
+        sharedAttributeResolver.put(ModelKeys.MODE, "clustered-cache");
+        sharedAttributeResolver.put(ModelKeys.QUEUE_FLUSH_INTERVAL, "clustered-cache");
+        sharedAttributeResolver.put(ModelKeys.QUEUE_SIZE, "clustered-cache");
+        sharedAttributeResolver.put(ModelKeys.REMOTE_TIMEOUT, "clustered-cache");
 
-        sharedAttributeResolver.put(BaseStoreResource.PROPERTIES.getName(), "loader");
+        sharedAttributeResolver.put(ModelKeys.PROPERTIES, "loader");
 
-        sharedAttributeResolver.put(BaseStoreResource.FETCH_STATE.getName(), "store");
-        sharedAttributeResolver.put(BaseStoreResource.PASSIVATION.getName(), "store");
-        sharedAttributeResolver.put(BaseStoreResource.PRELOAD.getName(), "store");
-        sharedAttributeResolver.put(BaseStoreResource.PURGE.getName(), "store");
-        sharedAttributeResolver.put(BaseStoreResource.READ_ONLY.getName(), "store");
-        sharedAttributeResolver.put(BaseStoreResource.SHARED.getName(), "store");
-        sharedAttributeResolver.put(BaseStoreResource.SINGLETON.getName(), "store");
-        sharedAttributeResolver.put(BaseStoreResource.PROPERTY.getName(), "store");
-        sharedAttributeResolver.put(BaseStoreResource.PROPERTIES.getName(), "store");
+        sharedAttributeResolver.put(ModelKeys.FETCH_STATE, "store");
+        sharedAttributeResolver.put(ModelKeys.PASSIVATION, "store");
+        sharedAttributeResolver.put(ModelKeys.PRELOAD, "store");
+        sharedAttributeResolver.put(ModelKeys.PURGE, "store");
+        sharedAttributeResolver.put(ModelKeys.READ_ONLY, "store");
+        sharedAttributeResolver.put(ModelKeys.SHARED, "store");
+        sharedAttributeResolver.put(ModelKeys.SINGLETON, "store");
+        sharedAttributeResolver.put(ModelKeys.PROPERTY, "store");
+        sharedAttributeResolver.put(ModelKeys.PROPERTIES, "store");
 
-        sharedAttributeResolver.put(BaseJDBCStoreResource.DATA_SOURCE.getName(), "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.DIALECT.getName(), "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.BATCH_SIZE.getName(), "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.FETCH_SIZE.getName(), "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.PREFIX.getName(), "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.ID_COLUMN.getName() + ".column", "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.DATA_COLUMN.getName() + ".column", "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.TIMESTAMP_COLUMN.getName() + ".column", "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.ENTRY_TABLE.getName() + "table", "jdbc-store");
-        sharedAttributeResolver.put(BaseJDBCStoreResource.BUCKET_TABLE.getName() + "table", "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.DATASOURCE, "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.DIALECT, "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.BATCH_SIZE, "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.FETCH_SIZE, "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.PREFIX, "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.ID_COLUMN + ".column", "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.DATA_COLUMN + ".column", "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.TIMESTAMP_COLUMN + ".column", "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.ENTRY_TABLE + "table", "jdbc-store");
+        sharedAttributeResolver.put(ModelKeys.BUCKET_TABLE + "table", "jdbc-store");
 
         // shared cache metrics
         sharedAttributeResolver.put(MetricKeys.AVERAGE_READ_TIME, "cache");
+        sharedAttributeResolver.put(MetricKeys.AVERAGE_REMOVE_TIME, "cache");
         sharedAttributeResolver.put(MetricKeys.AVERAGE_WRITE_TIME, "cache");
+        sharedAttributeResolver.put(MetricKeys.CACHE_NAME, "cache");
         sharedAttributeResolver.put(MetricKeys.CACHE_STATUS, "cache");
         sharedAttributeResolver.put(MetricKeys.COMMITS, "cache");
         sharedAttributeResolver.put(MetricKeys.CONCURRENCY_LEVEL, "cache");
@@ -153,6 +159,7 @@ public class InfinispanResourceDescriptionResolver extends StandardResourceDescr
         sharedAttributeResolver.put(MetricKeys.ROLLBACKS, "cache");
         sharedAttributeResolver.put(MetricKeys.STORES, "cache");
         sharedAttributeResolver.put(MetricKeys.TIME_SINCE_RESET, "cache");
+        sharedAttributeResolver.put(MetricKeys.VERSION, "cache");
 
         sharedAttributeResolver.put(MetricKeys.AVERAGE_REPLICATION_TIME, "clustered-cache");
         sharedAttributeResolver.put(MetricKeys.REPLICATION_COUNT, "clustered-cache");
@@ -174,6 +181,7 @@ public class InfinispanResourceDescriptionResolver extends StandardResourceDescr
         sharedAttributeResolver.put(ModelKeys.EVICTION, null);
         sharedAttributeResolver.put(ModelKeys.EXPIRATION, null);
         sharedAttributeResolver.put(ModelKeys.STATE_TRANSFER, null);
+        sharedAttributeResolver.put(ModelKeys.PARTITION_HANDLING, null);
         sharedAttributeResolver.put(ModelKeys.BACKUP, null);
         sharedAttributeResolver.put(ModelKeys.LOADER, null);
         sharedAttributeResolver.put(ModelKeys.COMPATIBILITY, null);

@@ -5,6 +5,7 @@ import org.infinispan.query.dsl.FilterConditionContext;
 import org.infinispan.query.dsl.FilterConditionEndContext;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryBuilder;
+import org.infinispan.query.dsl.QueryFactory;
 import org.infinispan.query.dsl.SortOrder;
 
 import java.util.ArrayList;
@@ -16,8 +17,11 @@ import java.util.List;
  */
 public abstract class BaseQueryBuilder<T extends Query> implements QueryBuilder<T>, Visitable {
 
+   protected final QueryFactory queryFactory;
+
    /**
-    * The fully qualified name of the entity being queried. It can be a Java Class name or a Protobuf message type name.
+    * The fully qualified name of the entity being queried. It can be a Java Class name or a Protobuf message type
+    * name.
     */
    protected final String rootTypeName;
 
@@ -34,10 +38,11 @@ public abstract class BaseQueryBuilder<T extends Query> implements QueryBuilder<
 
    protected int maxResults = -1;
 
-   protected BaseQueryBuilder(String rootTypeName) {
+   protected BaseQueryBuilder(QueryFactory queryFactory, String rootTypeName) {
       if (rootTypeName == null) {
          throw new IllegalArgumentException("rootTypeName cannot be null");
       }
+      this.queryFactory = queryFactory;
       this.rootTypeName = rootTypeName;
    }
 
@@ -70,12 +75,18 @@ public abstract class BaseQueryBuilder<T extends Query> implements QueryBuilder<
 
    @Override
    public QueryBuilder<T> startOffset(long startOffset) {
+      if (startOffset < 0) {
+         throw new IllegalArgumentException("startOffset cannot be less than 0");
+      }
       this.startOffset = startOffset;
       return this;
    }
 
    @Override
    public QueryBuilder<T> maxResults(int maxResults) {
+      if (maxResults <= 0) {
+         throw new IllegalArgumentException("maxResults must be greater than 0");
+      }
       this.maxResults = maxResults;
       return this;
    }
@@ -89,7 +100,7 @@ public abstract class BaseQueryBuilder<T extends Query> implements QueryBuilder<
       if (filterCondition != null) {
          throw new IllegalStateException("Sentence already started. Cannot use 'having(..)' again.");
       }
-      AttributeCondition attributeCondition = new AttributeCondition(attributePath);
+      AttributeCondition attributeCondition = new AttributeCondition(queryFactory, attributePath);
       attributeCondition.setQueryBuilder(this);
       filterCondition = attributeCondition;
       return attributeCondition;
@@ -100,7 +111,7 @@ public abstract class BaseQueryBuilder<T extends Query> implements QueryBuilder<
       if (filterCondition != null) {
          throw new IllegalStateException("Sentence already started. Cannot use 'not()' again.");
       }
-      IncompleteCondition incompleteCondition = new IncompleteCondition();
+      IncompleteCondition incompleteCondition = new IncompleteCondition(queryFactory);
       incompleteCondition.setQueryBuilder(this);
       filterCondition = incompleteCondition;
       return incompleteCondition.not();
@@ -108,11 +119,23 @@ public abstract class BaseQueryBuilder<T extends Query> implements QueryBuilder<
 
    @Override
    public FilterConditionContext not(FilterConditionContext fcc) {
+      if (fcc == null) {
+         throw new IllegalArgumentException("Argument cannot be null");
+      }
+
       if (filterCondition != null) {
          throw new IllegalStateException("Sentence already started. Cannot use 'not(..)' again.");
       }
 
-      NotCondition notCondition = new NotCondition((BaseCondition) fcc);
+      BaseCondition baseCondition = ((BaseCondition) fcc).getRoot();
+      if (baseCondition.queryFactory != queryFactory) {
+         throw new IllegalArgumentException("The given condition was created by a different factory");
+      }
+      if (baseCondition.queryBuilder != null) {
+         throw new IllegalArgumentException("The given condition is already in use by another builder");
+      }
+
+      NotCondition notCondition = new NotCondition(queryFactory, baseCondition);
       notCondition.setQueryBuilder(this);
       filterCondition = notCondition;
       return filterCondition;

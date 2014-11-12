@@ -26,7 +26,6 @@ import java.util.Arrays;
 public class SampleConfigFilesCorrectnessTest {
    private static final Log log = LogFactory.getLog(SampleConfigFilesCorrectnessTest.class);
 
-   public String configFolder;
    public String configRoot;
    private InMemoryAppender appender;
    private Level oldLevel;
@@ -38,9 +37,7 @@ public class SampleConfigFilesCorrectnessTest {
       log4jLogger.setLevel(Level.WARN);
       appender = new InMemoryAppender();
       log4jLogger.addAppender(appender);
-      configFolder = getConfigFolder();
-      configRoot = "src" + File.separator + "main" + File.separator
-            + "release" + File.separator + "etc" + File.separator + configFolder;
+      configRoot = "../distribution/src/main/release/common/configs/config-samples".replaceAll("/", File.separator);
    }
 
    @AfterMethod
@@ -77,6 +74,7 @@ public class SampleConfigFilesCorrectnessTest {
          log.tracef("file.getAbsolutePath() = %s");
       }
       return file.list(new FilenameFilter() {
+         @Override
          public boolean accept(File dir, String name) {
             // Exclude JGroups config files as well as all EC2 configurations (as these won't have proper credentials set)
             return name.endsWith(".xml") && !name.startsWith("jgroups") && !name.contains("ec2");
@@ -94,10 +92,6 @@ public class SampleConfigFilesCorrectnessTest {
       return file;
    }
 
-   public String getConfigFolder() {
-      return "config-samples";
-   }
-
    private static class InMemoryAppender extends AppenderSkeleton {
       String[] TOLERABLE_WARNINGS =
             {
@@ -110,7 +104,8 @@ public class SampleConfigFilesCorrectnessTest {
                   "S3_PING could not be substituted",
                   "This might lead to performance problems. Please set your", // TCP and UDP send/recv buffer warnings
                   "stateRetrieval's 'alwaysProvideInMemoryState' attribute is no longer in use",
-                  "unable to find an address other than loopback for IP version IPv4"
+                  "unable to find an address other than loopback for IP version IPv4",
+                  "Partition handling doesn't work for replicated caches, it will be ignored"
             };
       String unknownWarning;
 
@@ -122,6 +117,7 @@ public class SampleConfigFilesCorrectnessTest {
        */
       private Thread loggerThread = Thread.currentThread();
 
+      @Override
       protected void append(LoggingEvent event) {
          if (event.getLevel().equals(Level.WARN) && isExpectedThread()) {
             boolean skipPrinting = false;
@@ -138,10 +134,12 @@ public class SampleConfigFilesCorrectnessTest {
          }
       }
 
+      @Override
       public boolean requiresLayout() {
          return false;
       }
 
+      @Override
       public void close() {
          //do nothing
       }

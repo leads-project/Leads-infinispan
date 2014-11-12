@@ -1,25 +1,9 @@
 package org.infinispan.query.backend;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
-import javax.transaction.Transaction;
-import javax.transaction.TransactionManager;
-import javax.transaction.TransactionSynchronizationRegistry;
-
 import org.hibernate.search.backend.TransactionContext;
 import org.hibernate.search.backend.spi.Work;
 import org.hibernate.search.backend.spi.WorkType;
 import org.hibernate.search.backend.spi.Worker;
-import org.hibernate.search.engine.spi.EntityIndexBinding;
-import org.hibernate.search.engine.spi.SearchFactoryImplementor;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
 import org.infinispan.Cache;
 import org.infinispan.commands.FlagAffectedCommand;
@@ -55,6 +39,16 @@ import org.infinispan.registry.ClusterRegistry;
 import org.infinispan.registry.ScopedKey;
 import org.infinispan.util.logging.LogFactory;
 
+import javax.transaction.TransactionManager;
+import javax.transaction.TransactionSynchronizationRegistry;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * This interceptor will be created when the System Property "infinispan.query.indexLocalOnly" is "false"
  * <p/>
@@ -68,17 +62,19 @@ import org.infinispan.util.logging.LogFactory;
  * @author anistor@redhat.com
  * @since 4.0
  */
-public class QueryInterceptor extends CommandInterceptor {
+public final class QueryInterceptor extends CommandInterceptor {
 
-   private final boolean isManualIndexing;
+   private final IndexModificationStrategy indexingMode;
    private final SearchFactoryIntegrator searchFactory;
-   private final Lock mutating = new ReentrantLock();
    private final KeyTransformationHandler keyTransformationHandler = new KeyTransformationHandler();
    private final KnownClassesRegistryListener registryListener = new KnownClassesRegistryListener();
+   private final AtomicBoolean stopping = new AtomicBoolean(false);
 
    private ReadIntensiveClusterRegistryWrapper<String, Class<?>, Boolean> clusterRegistry;
 
-   private SearchWorkCreator<Object> searchWorkCreator = new DefaultSearchWorkCreator<Object>();
+   private SearchWorkCreator<Object> searchWorkCreator = new DefaultSearchWorkCreator<>();
+
+   private SearchFactoryHandler searchFactoryHandler;
 
    private DataContainer dataContainer;
    protected TransactionManager transactionManager;
@@ -92,37 +88,44 @@ public class QueryInterceptor extends CommandInterceptor {
       return log;
    }
 
-   public QueryInterceptor(SearchFactoryIntegrator searchFactory) {
+   public QueryInterceptor(SearchFactoryIntegrator searchFactory, IndexModificationStrategy indexingMode) {
       this.searchFactory = searchFactory;
-      isManualIndexing = ((SearchFactoryImplementor)searchFactory).getIndexingStrategy().equals("manual");
+      this.indexingMode = indexingMode;
    }
 
    @Inject
    @SuppressWarnings("unused")
    protected void injectDependencies(TransactionManager transactionManager,
-                                  TransactionSynchronizationRegistry transactionSynchronizationRegistry,
-                                  Cache cache,
-                                  ClusterRegistry<String, Class<?>, Boolean> clusterRegistry,
-                                  DataContainer dataContainer,
-                                  @ComponentName(KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR) ExecutorService e) {
+                                     TransactionSynchronizationRegistry transactionSynchronizationRegistry,
+                                     Cache cache,
+                                     ClusterRegistry<String, Class<?>, Boolean> clusterRegistry,
+                                     DataContainer dataContainer,
+                                     @ComponentName(KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR) ExecutorService e) {
       this.transactionManager = transactionManager;
       this.transactionSynchronizationRegistry = transactionSynchronizationRegistry;
       this.asyncExecutor = e;
       this.dataContainer = dataContainer;
       this.clusterRegistry = new ReadIntensiveClusterRegistryWrapper(clusterRegistry, "QueryKnownClasses#" + cache.getName());
+      this.searchFactoryHandler = new SearchFactoryHandler(this.searchFactory, this.clusterRegistry, new TransactionHelper(transactionManager));
    }
 
    @Start
    protected void start() {
       clusterRegistry.addListener(registryListener);
-      for (Class<?> c : clusterRegistry.keys()) {
-         enableClass(c);
-      }
+      Set<Class<?>> keys = clusterRegistry.keys();
+      Class<?>[] array = keys.toArray(new Class<?>[keys.size()]);
+      //Important to enable them all in a single call, much more efficient:
+      enableClasses(array);
+      stopping.set(false);
    }
 
    @Stop
    protected void stop() {
       clusterRegistry.removeListener(registryListener);
+   }
+
+   public void prepareForStopping() {
+      stopping.set(true);
    }
 
    @Listener
@@ -131,20 +134,20 @@ public class QueryInterceptor extends CommandInterceptor {
       @CacheEntryCreated
       public void created(CacheEntryCreatedEvent<ScopedKey<String, Class>, Boolean> e) {
          if (!e.isOriginLocal() && !e.isPre() && e.getValue()) {
-            enableClass(e.getKey().getKey());
+            searchFactoryHandler.handleClusterRegistryRegistration(e.getKey().getKey());
          }
       }
 
       @CacheEntryModified
       public void modified(CacheEntryModifiedEvent<ScopedKey<String, Class>, Boolean> e) {
          if (!e.isOriginLocal() && !e.isPre() && e.getValue()) {
-            enableClass(e.getKey().getKey());
+            searchFactoryHandler.handleClusterRegistryRegistration(e.getKey().getKey());
          }
       }
    }
 
    protected boolean shouldModifyIndexes(FlagAffectedCommand command, InvocationContext ctx) {
-      return !isManualIndexing && !command.hasFlag(Flag.SKIP_INDEXING);
+      return indexingMode.shouldModifyIndexes(command, ctx);
    }
 
    /**
@@ -202,7 +205,7 @@ public class QueryInterceptor extends CommandInterceptor {
    private void purgeAllIndexes(TransactionContext transactionContext) {
       transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
       for (Class c : clusterRegistry.keys()) {
-         if (isIndexed(c)) {
+         if (searchFactoryHandler.isIndexed(c)) {
             //noinspection unchecked
             performSearchWorks(searchWorkCreator.createPerEntityTypeWorks(c, WorkType.PURGE_ALL), transactionContext);
          }
@@ -222,20 +225,19 @@ public class QueryInterceptor extends CommandInterceptor {
 
    private void performSearchWork(Object value, Serializable id, WorkType workType, TransactionContext transactionContext) {
       if (value == null) throw new NullPointerException("Cannot handle a null value!");
-      Collection<Work<Object>> works = searchWorkCreator.createPerEntityWorks(value, id, workType);
+      Collection<Work> works = searchWorkCreator.createPerEntityWorks(value, id, workType);
       performSearchWorks(works, transactionContext);
    }
 
-   private <T> void performSearchWorks(Collection<Work<T>> works, TransactionContext transactionContext) {
+   private void performSearchWorks(Collection<Work> works, TransactionContext transactionContext) {
       Worker worker = searchFactory.getWorker();
-      for (Work<T> work : works) {
+      for (Work work : works) {
          worker.performWork(work, transactionContext);
       }
    }
 
    public boolean isIndexed(final Class<?> c) {
-      final EntityIndexBinding indexBinding = this.searchFactory.getIndexBinding(c);
-      return indexBinding != null;
+      return searchFactoryHandler.isIndexed(c);
    }
 
    private Object extractValue(Object wrappedValue) {
@@ -245,82 +247,12 @@ public class QueryInterceptor extends CommandInterceptor {
          return wrappedValue;
    }
 
-   public void enableClasses(Class<?>[] classes) {
-      if (classes == null || classes.length == 0) {
-         return;
-      }
-      enableClassesIncrementally(classes, false);
-   }
-
-   private void enableClassesIncrementally(Class<?>[] classes, boolean locked) {
-      ArrayList<Class<?>> toAdd = null;
-      for (Class<?> type : classes) {
-         if (!clusterRegistry.containsKey(type)) {
-            if (toAdd==null)
-               toAdd = new ArrayList<Class<?>>(classes.length);
-            toAdd.add(type);
-         }
-      }
-      if (toAdd == null) {
-         return;
-      }
-      if (locked) {
-         final Transaction transaction = suspend();
-         try {
-            // we need to preserve the state of this flag manually because addClasses will cause reconfiguration and the flag is lost
-            boolean isStatisticsEnabled = searchFactory.getStatistics().isStatisticsEnabled();
-            searchFactory.addClasses(toAdd.toArray(new Class[toAdd.size()]));
-            searchFactory.getStatistics().setStatisticsEnabled(isStatisticsEnabled);
-         } finally {
-            resume(transaction);
-         }
-         for (Class<?> type : toAdd) {
-            clusterRegistry.put(type, isIndexed(type));
-         }
-      } else {
-         mutating.lock();
-         try {
-            enableClassesIncrementally(classes, true);
-         } finally {
-            mutating.unlock();
-         }
-      }
-   }
-
-   private void enableClass(Class<?> clazz) {
-      if (isIndexed(clazz)) {
-         return;
-      }
-      mutating.lock();
-      try {
-         final Transaction transaction = suspend();
-         try {
-            searchFactory.addClasses(new Class[]{clazz});
-         } finally {
-            resume(transaction);
-         }
-      } finally {
-         mutating.unlock();
-      }
+   public void enableClasses(Class[] classes) {
+      searchFactoryHandler.enableClasses(classes);
    }
 
    public boolean updateKnownTypesIfNeeded(Object value) {
-      if ( value != null ) {
-         Class<?> potentialNewType = value.getClass();
-         if (!clusterRegistry.containsKey(potentialNewType)) {
-            mutating.lock();
-            try {
-               enableClassesIncrementally( new Class[]{potentialNewType}, true);
-            }
-            finally {
-               mutating.unlock();
-            }
-         }
-         return clusterRegistry.get(potentialNewType);
-      }
-      else {
-         return false;
-      }
+      return searchFactoryHandler.updateKnownTypesIfNeeded(value);
    }
 
    public void registerKeyTransformer(Class<?> keyClass, Class<? extends Transformer> transformerClass) {
@@ -335,15 +267,14 @@ public class QueryInterceptor extends CommandInterceptor {
       return keyTransformationHandler;
    }
 
-   public void enableClasses(Set<Class> knownIndexedTypes) {
-      Class[] classes = knownIndexedTypes.toArray(new Class[knownIndexedTypes.size()]);
-      enableClasses(classes);
-   }
-
    public SearchFactoryIntegrator getSearchFactory() {
       return searchFactory;
    }
 
+   /**
+    * Customize work creation during indexing
+    * @param searchWorkCreator custom {@link org.infinispan.query.backend.SearchWorkCreator} 
+    */
    public void setSearchWorkCreator(SearchWorkCreator<Object> searchWorkCreator) {
       this.searchWorkCreator = searchWorkCreator;
    }
@@ -364,20 +295,17 @@ public class QueryInterceptor extends CommandInterceptor {
       final WriteCommand[] writeCommands = command.getModifications();
       final Object[] stateBeforePrepare = new Object[writeCommands.length];
 
-      for (int i=0; i<writeCommands.length; i++) {
+      for (int i = 0; i < writeCommands.length; i++) {
          final WriteCommand writeCommand = writeCommands[i];
          if (writeCommand instanceof PutKeyValueCommand) {
             InternalCacheEntry internalCacheEntry = dataContainer.get(((PutKeyValueCommand) writeCommand).getKey());
             stateBeforePrepare[i] = internalCacheEntry != null ? internalCacheEntry.getValue() : null;
-         }
-         else if (writeCommand instanceof PutMapCommand) {
+         } else if (writeCommand instanceof PutMapCommand) {
             stateBeforePrepare[i] = getPreviousValues(((PutMapCommand) writeCommand).getMap().keySet());
-         }
-         else if (writeCommand instanceof RemoveCommand) {
+         } else if (writeCommand instanceof RemoveCommand) {
             InternalCacheEntry internalCacheEntry = dataContainer.get(((RemoveCommand) writeCommand).getKey());
             stateBeforePrepare[i] = internalCacheEntry != null ? internalCacheEntry.getValue() : null;
-         }
-         else if (writeCommand instanceof ReplaceCommand) {
+         } else if (writeCommand instanceof ReplaceCommand) {
             InternalCacheEntry internalCacheEntry = dataContainer.get(((ReplaceCommand) writeCommand).getKey());
             stateBeforePrepare[i] = internalCacheEntry != null ? internalCacheEntry.getValue() : null;
          }
@@ -387,22 +315,18 @@ public class QueryInterceptor extends CommandInterceptor {
 
       if (ctx.isTransactionValid()) {
          final TransactionContext transactionContext = makeTransactionalEventContext();
-         for (int i=0; i<writeCommands.length; i++) {
+         for (int i = 0; i < writeCommands.length; i++) {
             final WriteCommand writeCommand = writeCommands[i];
             if (writeCommand instanceof PutKeyValueCommand) {
                processPutKeyValueCommand((PutKeyValueCommand) writeCommand, ctx, stateBeforePrepare[i], transactionContext);
-            }
-            else if (writeCommand instanceof PutMapCommand) {
+            } else if (writeCommand instanceof PutMapCommand) {
                processPutMapCommand((PutMapCommand) writeCommand, ctx, (Map<Object, Object>) stateBeforePrepare[i], transactionContext);
-            }
-            else if (writeCommand instanceof RemoveCommand) {
+            } else if (writeCommand instanceof RemoveCommand) {
                processRemoveCommand((RemoveCommand) writeCommand, ctx, stateBeforePrepare[i], transactionContext);
-            }
-            else if (writeCommand instanceof ReplaceCommand) {
+            } else if (writeCommand instanceof ReplaceCommand) {
                processReplaceCommand((ReplaceCommand) writeCommand, ctx, stateBeforePrepare[i], transactionContext);
-            }
-            else if (writeCommand instanceof ClearCommand) {
-               processClearCommand((ClearCommand)writeCommand, ctx, transactionContext);
+            } else if (writeCommand instanceof ClearCommand) {
+               processClearCommand((ClearCommand) writeCommand, ctx, transactionContext);
             }
          }
       }
@@ -432,12 +356,12 @@ public class QueryInterceptor extends CommandInterceptor {
          final boolean usingSkipIndexCleanupFlag = usingSkipIndexCleanup(command);
          Object[] parameters = command.getParameters();
          Object p2 = extractValue(parameters[2]);
-         final boolean newValueIsIndexed = updateKnownTypesIfNeeded( p2 );
+         final boolean newValueIsIndexed = updateKnownTypesIfNeeded(p2);
          Object key = extractValue(command.getKey());
 
-         if (! usingSkipIndexCleanupFlag) {
+         if (!usingSkipIndexCleanupFlag) {
             final Object p1 = extractValue(parameters[1]);
-            final boolean originalIsIndexed = updateKnownTypesIfNeeded( p1 );
+            final boolean originalIsIndexed = updateKnownTypesIfNeeded(p1);
             if (p1 != null && originalIsIndexed) {
                transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
                removeFromIndexes(p1, key, transactionContext);
@@ -508,13 +432,13 @@ public class QueryInterceptor extends CommandInterceptor {
    private void processPutKeyValueCommand(final PutKeyValueCommand command, final InvocationContext ctx, final Object previousValue, TransactionContext transactionContext) {
       final boolean usingSkipIndexCleanupFlag = usingSkipIndexCleanup(command);
       //whatever the new type, we might still need to cleanup for the previous value (and schedule removal first!)
-      if (!usingSkipIndexCleanupFlag && updateKnownTypesIfNeeded(previousValue)) {
+      Object value = extractValue(command.getValue());
+      if (!usingSkipIndexCleanupFlag && updateKnownTypesIfNeeded(previousValue) && shouldRemove(value, previousValue)) {
          if (shouldModifyIndexes(command, ctx)) {
             transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
             removeFromIndexes(previousValue, extractValue(command.getKey()), transactionContext);
          }
       }
-      Object value = extractValue(command.getValue());
       if (updateKnownTypesIfNeeded(value)) {
          if (shouldModifyIndexes(command, ctx)) {
             // This means that the entry is just modified so we need to update the indexes and not add to them.
@@ -522,6 +446,10 @@ public class QueryInterceptor extends CommandInterceptor {
             updateIndexes(usingSkipIndexCleanupFlag, value, extractValue(command.getKey()), transactionContext);
          }
       }
+   }
+
+   private boolean shouldRemove(Object value, Object previousValue) {
+      return !(value == null || previousValue == null) && !value.getClass().equals(previousValue.getClass());
    }
 
    /**
@@ -541,32 +469,16 @@ public class QueryInterceptor extends CommandInterceptor {
       return new TransactionalEventTransactionContext(transactionManager, transactionSynchronizationRegistry);
    }
 
-   private Transaction suspend()  {
-      if (transactionManager == null) {
-         return null;
-      }
-      try {
-         return transactionManager.suspend();
-      } catch (Exception e) {
-         //ignored
-      }
-      return null;
-   }
-
-   private void resume(Transaction transaction) {
-      if (transaction == null || transactionManager == null) {
-         return;
-      }
-      try {
-         transactionManager.resume(transaction);
-      } catch (Exception e) {
-         //ignored;
-      }
-   }
-
    private boolean usingSkipIndexCleanup(final LocalFlagAffectedCommand command) {
       return command != null && command.hasFlag(Flag.SKIP_INDEX_CLEANUP);
    }
 
+   public IndexModificationStrategy getIndexModificationMode() {
+      return indexingMode;
+   }
+
+   public boolean isStopping() {
+      return stopping.get();
+   }
 
 }
