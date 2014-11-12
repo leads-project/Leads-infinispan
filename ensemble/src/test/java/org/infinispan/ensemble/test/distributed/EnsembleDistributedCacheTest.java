@@ -68,9 +68,9 @@ public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
 
       EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page1.getUrl());
       if (!frontierMode || location.equals(cache.getFrontierCache()))
-         assertEquals(query.list().size(), 1);
+         assertEquals(1,query.list().size());
       else
-         assertEquals(query.list().size(), 0);
+         assertEquals(0,query.list().size());
 
    }
 

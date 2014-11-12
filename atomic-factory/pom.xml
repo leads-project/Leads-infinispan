@@ -4,10 +4,9 @@
     <parent>
         <groupId>org.infinispan</groupId>
         <artifactId>infinispan-parent</artifactId>
-        <version>7.0.0-SNAPSHOT</version>
+        <version>7.0.1-SNAPSHOT</version>
         <relativePath>../parent/pom.xml</relativePath>
     </parent>
-
 
     <artifactId>infinispan-atomic-factory</artifactId>
     <name>Infinispan Atomic Fatory</name>
@@ -44,7 +43,6 @@
 
     </dependencies>
 
-
     <build>
         <plugins>
             <plugin>
@@ -60,6 +58,5 @@
             </plugin>
         </plugins>
     </build>
-
 
 </project>

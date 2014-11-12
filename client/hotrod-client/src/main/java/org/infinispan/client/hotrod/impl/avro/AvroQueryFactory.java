@@ -27,7 +27,7 @@ public class AvroQueryFactory extends BaseQueryFactory<Query> {
 
     @Override
     public QueryBuilder<Query> from(String entityType) {
-        return new AvroQueryBuilder(cache, GenericData.Record.class.getName());
+        return new AvroQueryBuilder(cache, this, GenericData.Record.class.getName());
     }
 
 }

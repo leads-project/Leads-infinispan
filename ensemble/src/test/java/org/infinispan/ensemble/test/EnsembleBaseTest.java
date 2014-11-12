@@ -41,7 +41,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
     @Override
     protected int numberOfNodes() {
-        return 8;
+        return 3;
     }
 
     @Test

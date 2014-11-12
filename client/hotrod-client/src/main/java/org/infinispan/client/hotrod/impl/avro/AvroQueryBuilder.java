@@ -5,13 +5,14 @@ import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
 import org.infinispan.query.dsl.Query;
+import org.infinispan.query.dsl.QueryFactory;
 import org.infinispan.query.dsl.impl.BaseQueryBuilder;
 import org.infinispan.query.dsl.impl.JPAQueryGenerator;
+
 /**
- * // TODO: Document this
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 7.0
  */
 public class AvroQueryBuilder extends BaseQueryBuilder<Query> {
 
@@ -19,8 +20,8 @@ public class AvroQueryBuilder extends BaseQueryBuilder<Query> {
 
     private RemoteCacheImpl cache;
 
-    public AvroQueryBuilder(RemoteCacheImpl c, String entityType) {
-        super(GenericData.Record.class.getName());
+    public AvroQueryBuilder(RemoteCacheImpl c, QueryFactory qf, String entityType) {
+        super(qf,GenericData.Record.class.getName());
         cache = c;
     }
 

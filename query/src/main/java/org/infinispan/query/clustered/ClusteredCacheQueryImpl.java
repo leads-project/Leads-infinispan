@@ -142,7 +142,6 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
       }
 
       this.resultSize = resultSize;
-      assert resultSize!=0;
       return topDocsResponses;
    }
 
