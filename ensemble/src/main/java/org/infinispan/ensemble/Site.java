@@ -8,10 +8,14 @@ import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.ensemble.cache.SiteEnsembleCache;
 import org.infinispan.ensemble.indexing.Indexable;
 import org.infinispan.manager.CacheContainer;
+import org.infinispan.util.KeyValuePair;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  *
@@ -26,104 +30,115 @@ import java.net.URL;
 public class Site extends Indexable {
 
 
-    //
-    // CLASS FIELDS
-    //
-    private transient static final Log log = LogFactory.getLog(Site.class);
-    private transient static Site localSite;
+   //
+   // CLASS FIELDS
+   //
+   private transient static final Log log = LogFactory.getLog(Site.class);
+   private transient static Site localSite;
 
-    //
-    // OBJECT FIELDS
-    //
+   //
+   // OBJECT FIELDS
+   //
 
-    private String name;
-    private transient boolean isLocal;
-    private transient RemoteCacheManager container;
+   private String name;
+   private transient boolean isLocal;
+   private transient RemoteCacheManager container;
 
-    public static Site valueOf(String servers, Marshaller marshaller, boolean isLocal){
+   public static Site valueOf(String servers, Marshaller marshaller, boolean isLocal){
 
-        ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+      ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
 
-        if (marshaller != null)
-            configurationBuilder.marshaller(marshaller);
+      if (marshaller != null)
+         configurationBuilder.marshaller(marshaller);
 
-        for(String server : servers.split(",")) {
-            String host;
-            int port;
-            if (server.contains(":")) {
-                host = server.split(":")[0];
-                port = Integer.valueOf(server.split(":")[1]);
-            } else {
-                host = server;
-                port = ConfigurationProperties.DEFAULT_HOTROD_PORT;
-            }
-            configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
-        }
+      // we shuffle as HotRod provides only RoundRobin balancing strategy
 
-        return new Site(servers,new RemoteCacheManager(configurationBuilder.build(),true),isLocal);
-    }
+      List<KeyValuePair<String,Integer>> serverList = new ArrayList<>();
+      for(String server : servers.split(",")) {
+         String host;
+         int port;
+         if (server.contains(":")) {
+            host = server.split(":")[0];
+            port = Integer.valueOf(server.split(":")[1]);
+         } else {
+            host = server;
+            port = ConfigurationProperties.DEFAULT_HOTROD_PORT;
+         }
+         serverList.add(new KeyValuePair<>(host,port));
+      }
 
-    //
-    // OBJECT METHODS
-    //
+      Collections.shuffle(serverList);
 
-    public Site(String name, RemoteCacheManager container, boolean isLocal) {
-        this.name = name;
-        this.isLocal = isLocal;
-        this.container= container;
-        synchronized(this.getClass()){
-            if(isLocal && localSite==null)
-                localSite = this;
-        }
-    }
+      for(KeyValuePair<String,Integer> server : serverList) {
+         String host = server.getKey();
+         int port = server.getValue();
+         configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
+      }
 
-    public Site(URL url, boolean isLocal) {
-        name = url.toString();
-        container = new RemoteCacheManager(url.getHost(), url.getPort(), true);
-        this.isLocal = isLocal;
-    }
+      return new Site(servers,new RemoteCacheManager(configurationBuilder.build(),true),isLocal);
+   }
 
-    public Site(String name, URL url, boolean isLocal) {
-        this.name = name;
-        container = new RemoteCacheManager(url.getHost(), url.getPort(), true);
-        this.isLocal = isLocal;
-    }
+   //
+   // OBJECT METHODS
+   //
 
+   public Site(String name, RemoteCacheManager container, boolean isLocal) {
+      this.name = name;
+      this.isLocal = isLocal;
+      this.container= container;
+      synchronized(this.getClass()){
+         if(isLocal && localSite==null)
+            localSite = this;
+      }
+   }
 
-    public boolean isLocal(){
-        return isLocal;
-    }
+   public Site(URL url, boolean isLocal) {
+      name = url.toString();
+      container = new RemoteCacheManager(url.getHost(), url.getPort(), true);
+      this.isLocal = isLocal;
+   }
 
-    public String getName(){
-        return name;
-    }
-
-    public RemoteCacheManager getManager(){
-        return container;
-    }
-
-    public <K,V> SiteEnsembleCache<K,V> getCache(String name){
-        return new SiteEnsembleCache<>(this,container.getCache(name));
-    }
-
-    public <K,V> SiteEnsembleCache<K,V> getCache(){
-        return  getCache(CacheContainer.DEFAULT_CACHE_NAME);
-    }
-
-    public boolean isOwner(RemoteCache remoteCache){
-        return container.equals(remoteCache.getRemoteCacheManager());
-    }
-
-    @Override
-    public boolean equals(Object o){
-        if( !(o instanceof Site) ) return false;
-        return ((Site)o).getName().equals(this.getName());
-    }
+   public Site(String name, URL url, boolean isLocal) {
+      this.name = name;
+      container = new RemoteCacheManager(url.getHost(), url.getPort(), true);
+      this.isLocal = isLocal;
+   }
 
 
-    @Override
-    public String toString(){
-        return "@"+name;
-    }
+   public boolean isLocal(){
+      return isLocal;
+   }
+
+   public String getName(){
+      return name;
+   }
+
+   public RemoteCacheManager getManager(){
+      return container;
+   }
+
+   public <K,V> SiteEnsembleCache<K,V> getCache(String name){
+      return new SiteEnsembleCache<>(this,container.getCache(name));
+   }
+
+   public <K,V> SiteEnsembleCache<K,V> getCache(){
+      return  getCache(CacheContainer.DEFAULT_CACHE_NAME);
+   }
+
+   public boolean isOwner(RemoteCache remoteCache){
+      return container.equals(remoteCache.getRemoteCacheManager());
+   }
+
+   @Override
+   public boolean equals(Object o){
+      if( !(o instanceof Site) ) return false;
+      return ((Site)o).getName().equals(this.getName());
+   }
+
+
+   @Override
+   public String toString(){
+      return "@"+name;
+   }
 
 }
