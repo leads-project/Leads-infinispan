@@ -60,7 +60,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       // putIfAbsent
       assert cache().putIfAbsent(page2.getUrl(),page2)==null;
       assert cache().get(page2.getUrl()).equals(page2);
-      cache().putIfAbsent(page1.getUrl(),page2);
+      assert cache().putIfAbsent(page1.getUrl(),page2).equals(page1);
       assert cache().get(page1.getUrl()).equals(page1);
 
    }
