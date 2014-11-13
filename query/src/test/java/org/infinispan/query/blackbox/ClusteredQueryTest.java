@@ -59,6 +59,8 @@ public class ClusteredQueryTest extends MultipleCacheManagersTest {
             .addProperty("default.directory_provider", "ram")
             .addProperty("error_handler", "org.infinispan.query.helper.StaticTestingErrorHandler")
             .addProperty("lucene_version", "LUCENE_CURRENT");
+      cacheCfg.clustering().hash().numOwners(1);
+      cacheCfg.clustering().cacheMode(CacheMode.DIST_SYNC);
       enhanceConfig(cacheCfg);
       List<Cache<String, Person>> caches = createClusteredCaches(2, cacheCfg);
       cacheAMachine1 = caches.get(0);

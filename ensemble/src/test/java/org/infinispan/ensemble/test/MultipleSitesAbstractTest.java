@@ -5,6 +5,7 @@ import org.infinispan.client.hotrod.test.HotRodClientTestingUtil;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
+import org.infinispan.configuration.cache.Index;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
 import org.infinispan.lifecycle.ComponentStatus;
 import org.infinispan.manager.EmbeddedCacheManager;
@@ -40,7 +41,7 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
 
    @Override
    protected void createCacheManagers() throws Throwable {
-      ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.REPL_SYNC, false));
+      ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
       createSites(numberOfSites(), numberOfNodes(), builder);
    }
 
@@ -91,7 +92,7 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
       ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
       builder.indexing()
             .enable()
-            .indexLocalOnly(true)
+            .index(Index.OWNER)
             .addProperty("default.directory_provider", "ram")
             .addProperty("lucene_version", "LUCENE_CURRENT");
       builder.clustering().hash().numOwners(1);

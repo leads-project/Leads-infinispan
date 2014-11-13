@@ -20,6 +20,7 @@ import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.context.Flag;
 import org.infinispan.context.InvocationContext;
 import org.infinispan.context.impl.TxInvocationContext;
+import org.infinispan.distribution.DistributionManager;
 import org.infinispan.factories.KnownComponentNames;
 import org.infinispan.factories.annotations.ComponentName;
 import org.infinispan.factories.annotations.Inject;
@@ -78,6 +79,7 @@ public final class QueryInterceptor extends CommandInterceptor {
 
    private DataContainer dataContainer;
    protected TransactionManager transactionManager;
+   protected DistributionManager distributionManager;
    protected TransactionSynchronizationRegistry transactionSynchronizationRegistry;
    protected ExecutorService asyncExecutor;
 
@@ -102,6 +104,7 @@ public final class QueryInterceptor extends CommandInterceptor {
                                      DataContainer dataContainer,
                                      @ComponentName(KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR) ExecutorService e) {
       this.transactionManager = transactionManager;
+      this.distributionManager = cache.getAdvancedCache().getDistributionManager();
       this.transactionSynchronizationRegistry = transactionSynchronizationRegistry;
       this.asyncExecutor = e;
       this.dataContainer = dataContainer;
@@ -146,8 +149,8 @@ public final class QueryInterceptor extends CommandInterceptor {
       }
    }
 
-   protected boolean shouldModifyIndexes(FlagAffectedCommand command, InvocationContext ctx) {
-      return indexingMode.shouldModifyIndexes(command, ctx);
+   protected boolean shouldModifyIndexes(FlagAffectedCommand command, InvocationContext ctx, boolean isOwner) {
+      return indexingMode.shouldModifyIndexes(command, ctx, isOwner);
    }
 
    /**
@@ -352,7 +355,9 @@ public final class QueryInterceptor extends CommandInterceptor {
     * @param transactionContext Optional for lazy initialization, or reuse an existing context.
     */
    private void processReplaceCommand(final ReplaceCommand command, final InvocationContext ctx, final Object valueReplaced, TransactionContext transactionContext) {
-      if (valueReplaced != null && command.isSuccessful() && shouldModifyIndexes(command, ctx)) {
+      if (valueReplaced != null
+            && command.isSuccessful()
+            && shouldModifyIndexes(command, ctx, distributionManager.getLocality(command.getKey()).isLocal())) {
          final boolean usingSkipIndexCleanupFlag = usingSkipIndexCleanup(command);
          Object[] parameters = command.getParameters();
          Object p2 = extractValue(parameters[2]);
@@ -383,7 +388,9 @@ public final class QueryInterceptor extends CommandInterceptor {
     * @param transactionContext Optional for lazy initialization, or reuse an existing context.
     */
    private void processRemoveCommand(final RemoveCommand command, final InvocationContext ctx, final Object valueRemoved, TransactionContext transactionContext) {
-      if (command.isSuccessful() && !command.isNonExistent() && shouldModifyIndexes(command, ctx)) {
+      if (command.isSuccessful()
+            && !command.isNonExistent()
+            && shouldModifyIndexes(command, ctx, distributionManager.getLocality(command.getKey()).isLocal())) {
          final Object value = extractValue(valueRemoved);
          if (updateKnownTypesIfNeeded(value)) {
             transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
@@ -401,7 +408,7 @@ public final class QueryInterceptor extends CommandInterceptor {
     * @param transactionContext
     */
    private void processPutMapCommand(final PutMapCommand command, final InvocationContext ctx, final Map<Object, Object> previousValues, TransactionContext transactionContext) {
-      if (shouldModifyIndexes(command, ctx)) {
+      if (shouldModifyIndexes(command, ctx, true)) { // TODO handle locality of a map command
          Map<Object, Object> dataMap = command.getMap();
          final boolean usingSkipIndexCleanupFlag = usingSkipIndexCleanup(command);
          // Loop through all the keys and put those key-value pairings into lucene.
@@ -434,13 +441,13 @@ public final class QueryInterceptor extends CommandInterceptor {
       //whatever the new type, we might still need to cleanup for the previous value (and schedule removal first!)
       Object value = extractValue(command.getValue());
       if (!usingSkipIndexCleanupFlag && updateKnownTypesIfNeeded(previousValue) && shouldRemove(value, previousValue)) {
-         if (shouldModifyIndexes(command, ctx)) {
+         if (shouldModifyIndexes(command, ctx, distributionManager.getLocality(command.getKey()).isLocal())) {
             transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
             removeFromIndexes(previousValue, extractValue(command.getKey()), transactionContext);
          }
       }
       if (updateKnownTypesIfNeeded(value)) {
-         if (shouldModifyIndexes(command, ctx)) {
+         if (shouldModifyIndexes(command, ctx, distributionManager.getLocality(command.getKey()).isLocal())) {
             // This means that the entry is just modified so we need to update the indexes and not add to them.
             transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
             updateIndexes(usingSkipIndexCleanupFlag, value, extractValue(command.getKey()), transactionContext);
@@ -460,7 +467,7 @@ public final class QueryInterceptor extends CommandInterceptor {
     * @param transactionContext Optional for lazy initialization, or to reuse an existing transactional context.
     */
    private void processClearCommand(final ClearCommand command, final InvocationContext ctx, TransactionContext transactionContext) {
-      if (shouldModifyIndexes(command, ctx)) {
+      if (shouldModifyIndexes(command, ctx, true)) {
          purgeAllIndexes(transactionContext);
       }
    }

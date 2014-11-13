@@ -20,7 +20,7 @@ public class SearchMappingProviderImpl implements ProgrammaticSearchMappingProvi
                 .indexed()
                 .classBridgeInstance(new ValueWrapperFieldBridge())
                 .norms(Norms.NO)
-                .analyze(Analyze.YES)
-                .store(Store.YES);
+                .analyze(Analyze.NO)
+                .store(Store.NO);
     }
 }

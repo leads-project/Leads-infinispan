@@ -16,73 +16,74 @@ import static org.testng.Assert.assertEquals;
 
 
 /**
-  *
+ *
  * @author Pierre Sutra
  * @since 6.0
  */
 public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence, WebPage> {
 
-    public static final String cacheName = "testCache";
+   public static final String cacheName = "testCache";
 
-    @Override
-    protected Class<WebPage> valueClass(){
-        return WebPage.class;
-    }
+   @Override
+   protected Class<WebPage> valueClass(){
+      return WebPage.class;
+   }
 
-    @Override
-    protected Class<CharSequence> keyClass(){
-        return CharSequence.class;
-    }
+   @Override
+   protected Class<CharSequence> keyClass(){
+      return CharSequence.class;
+   }
 
-    @Override
-    protected int numberOfSites() {
-        return 1;
-    }
+   @Override
+   protected int numberOfSites() {
+      return 1;
+   }
 
-    @Override
-    protected int numberOfNodes() {
-        return 3;
-    }
+   @Override
+   protected int numberOfNodes() {
+      return 5;
+   }
 
-    @Test
-    public void baseOperations() {
+   @Test
+   public void baseOperations() {
 
-        WebPage page1 = somePage();
-        WebPage page2 = somePage();
+      WebPage page1 = somePage();
+      WebPage page2 = somePage();
 
-        org.infinispan.Cache c  = this.manager(0).getCache(cacheName,false);
+      org.infinispan.Cache c  = this.manager(0).getCache(cacheName,false);
 
-        // get, put
-        cache().put(page1.getUrl(),page1);
-        assert cache().containsKey(page1.getUrl());
-        assert cache().get(page1.getUrl()).equals(page1);
+      // get, put
+      cache().put(page1.getUrl(),page1);
+      assert cache().containsKey(page1.getUrl());
+      assert cache().get(page1.getUrl()).equals(page1);
 
-        // putIfAbsent
-        assert cache().putIfAbsent(page2.getUrl(),page2)==null;
-        assert cache().get(page2.getUrl()).equals(page2);
-        cache().putIfAbsent(page1.getUrl(),page2);
-        assert cache().get(page1.getUrl()).equals(page1);
-    }
+      // putIfAbsent
+      assert cache().putIfAbsent(page2.getUrl(),page2)==null;
+      assert cache().get(page2.getUrl()).equals(page2);
+      cache().putIfAbsent(page1.getUrl(),page2);
+      assert cache().get(page1.getUrl()).equals(page1);
 
-    @Test
-    public void baseQuery(){
-        QueryFactory qf = Search.getQueryFactory(cache());
+   }
 
-        WebPage page1 = somePage();
-        cache().put(page1.getUrl(),page1);
-        WebPage page2 = somePage();
-        cache().put(page2.getUrl(),page2);
+   @Test
+   public void baseQuery(){
+      QueryFactory qf = Search.getQueryFactory(cache());
 
-        QueryBuilder qb = qf.from(WebPage.class);
-        Query query = qb.build();
-        List list = query.list();
-        assertEquals(list.size(),2);
+      WebPage page1 = somePage();
+      cache().put(page1.getUrl(),page1);
+      WebPage page2 = somePage();
+      cache().put(page2.getUrl(),page2);
 
-        qb = qf.from(WebPage.class);
-        qb.having("url").eq(page1.getUrl());
-        query = qb.build();
-        assertEquals(query.list().get(0), page1);
-    }
+      QueryBuilder qb = qf.from(WebPage.class);
+      Query query = qb.build();
+      List list = query.list();
+      assertEquals(list.size(),2);
+
+      qb = qf.from(WebPage.class);
+      qb.having("url").eq(page1.getUrl());
+      query = qb.build();
+      assertEquals(query.list().get(0), page1);
+   }
 
    @Test
    public void pagination() {
@@ -114,11 +115,28 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
    }
 
-    @Override
-    public List<String> cacheNames(){
-        List<String> cacheNames = new ArrayList<>();
-        cacheNames.add(cacheName);
-        return cacheNames;
-    }
+   @Test
+   public void update(){
+
+      int NITERATIONS = 100;
+
+      WebPage page1 = somePage();
+      for (int i=0; i <NITERATIONS; i++){
+         WebPage page = somePage();
+         cache().put(page1.getUrl(),page);
+         assert cache().get(page1.getUrl()).equals(page);
+      }
+
+      QueryFactory qf = Search.getQueryFactory(cache());
+      Query query = qf.from(WebPage.class).build();
+      assertEquals(query.list().size(),1);
+   }
+
+   @Override
+   public List<String> cacheNames(){
+      List<String> cacheNames = new ArrayList<>();
+      cacheNames.add(cacheName);
+      return cacheNames;
+   }
 
 }
