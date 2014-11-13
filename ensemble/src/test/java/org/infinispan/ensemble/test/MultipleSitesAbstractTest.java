@@ -92,7 +92,7 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
       ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
       builder.indexing()
             .enable()
-            .index(Index.OWNER)
+            .index(Index.LOCAL)
             .addProperty("default.directory_provider", "ram")
             .addProperty("lucene_version", "LUCENE_CURRENT");
       builder.clustering().hash().numOwners(1);

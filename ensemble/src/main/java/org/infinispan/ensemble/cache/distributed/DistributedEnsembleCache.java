@@ -95,12 +95,11 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
    @Override
    public boolean containsKey(Object o) {
       for (EnsembleCache cache : caches){
-//         if (frontierMode) {      // FIXME
-//            if (cache.equals(frontierCache) && cache.containsKey(o)) {
-//               return true;
-//            }
-//         } else if (cache.containsKey(o)) {
-         if (cache.containsKey(o)) {
+         if (frontierMode) {
+            if (cache.equals(frontierCache) && cache.containsKey(o)) {
+               return true;
+            }
+         } else if (cache.containsKey(o)) {
             return true;
          }
       }

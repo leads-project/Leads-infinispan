@@ -6,16 +6,14 @@ package org.infinispan.configuration.cache;
  * @author Paul Ferraro
  */
 public enum Index {
-   NONE, OWNER, LOCAL, ALL;
+   NONE, LOCAL, ALL;
 
    public boolean isEnabled() {
-      return this == LOCAL || this == ALL || this == OWNER;
+      return this == LOCAL || this == ALL;
    }
 
    public boolean isLocalOnly() {
       return this == LOCAL;
    }
-
-   public boolean isOwner() { return this==OWNER; }
 
 }
