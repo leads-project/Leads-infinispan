@@ -327,6 +327,7 @@ public class LifecycleManager extends AbstractModuleLifecycle {
       externalizerMap.put(ExternalizerIds.LUCENE_QUERY_MATCH_ALL, new LuceneMatchAllQueryExternalizer());
       externalizerMap.put(ExternalizerIds.LUCENE_BYTES_REF, new LuceneBytesRefExternalizer());
       externalizerMap.put(ExternalizerIds.LUCENE_QUERY_RANGE_TERM, new LuceneTermRangeQueryExternalizer());
+      externalizerMap.put(ExternalizerIds.LUCENE_WILDCARD_QUERY, new LuceneWildcardQuery());
    }
 
 }

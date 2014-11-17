@@ -66,7 +66,7 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
    @Override
    public CacheQuery firstResult(int firstResult) {
       this.firstResult = firstResult;
-      return this;
+      return super.firstResult(firstResult);
    }
 
    @Override
@@ -103,8 +103,8 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
             ClusteredQueryCommand command = ClusteredQueryCommand.createEagerIterator(hSearchQuery, cache);
             HashMap<UUID, ClusteredTopDocs> topDocsResponses = broadcastQuery(command);
 
-            for (ClusteredTopDocs docs : topDocsResponses.values())
-               assert docs.getTopDocs().scoreDocs.length <= getNodeMaxResults();
+//            for (ClusteredTopDocs docs : topDocsResponses.values())
+//               assert docs.getTopDocs().scoreDocs.length <= getNodeMaxResults();
 
             return new DistributedIterator(sort,
                   fetchOptions.getFetchSize(), this.resultSize, maxResults,
@@ -127,7 +127,7 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
 
    // number of results of each node of cluster
    private int getNodeMaxResults() {
-      return maxResults + firstResult;
+      return maxResults;
    }
 
    private HashMap<UUID, ClusteredTopDocs> broadcastQuery(ClusteredQueryCommand command) {

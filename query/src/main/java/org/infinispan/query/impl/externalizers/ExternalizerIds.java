@@ -41,4 +41,6 @@ public interface ExternalizerIds {
 
    Integer LUCENE_QUERY_RANGE_TERM = 1614;
 
+   Integer LUCENE_WILDCARD_QUERY = 1615;
+
 }
