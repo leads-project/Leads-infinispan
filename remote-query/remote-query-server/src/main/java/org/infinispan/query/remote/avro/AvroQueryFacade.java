@@ -104,7 +104,7 @@ public class AvroQueryFacade implements QueryFacade {
          }
 
          Response response = new Response();
-         response.setNumResults(list.size());
+         response.setNumResults(cacheQuery.getResultSize());
          response.setResults(results);
          return responseAvroMarshaller.objectToByteBuffer(response);
 

@@ -14,13 +14,12 @@ import org.infinispan.query.ResultIterator;
 import org.infinispan.query.backend.KeyTransformationHandler;
 import org.infinispan.query.impl.CacheQueryImpl;
 import org.infinispan.query.impl.ComponentRegistryUtils;
-import org.infinispan.remoting.responses.Response;
+import org.infinispan.util.logging.Log;
+import org.infinispan.util.logging.LogFactory;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.infinispan.util.logging.LogFactory;
-import org.infinispan.util.logging.Log;
 
 
 /**
@@ -41,7 +40,7 @@ public class ClusteredCacheQueryImpl extends CacheQueryImpl {
 
    // like QueryHits.DEFAULT_TOP_DOC_RETRIEVAL_SIZE = 100;
    // (just to have the same default size of not clustered queries)
-   private int maxResults = 100;
+   private int maxResults = 1000000; // FIXME
 
    private int firstResult = 0;
 

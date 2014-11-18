@@ -10,76 +10,76 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * // TODO: Document this
  *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
+ * @since 7.0
  */
 public class AvroRemoteQuery implements Query {
 
-    protected final RemoteCacheImpl cache;
-    protected final String jpqlString;
-    protected final long startOffset; //todo can this really be long or it has to be int due to limitations in query module?
-    protected final int maxResults;
+   protected final RemoteCacheImpl cache;
+   protected final String jpqlString;
+   protected final long startOffset; //todo can this really be long or it has to be int due to limitations in query module?
+   protected final int maxResults;
 
-    protected List results = null;
-    protected int totalResults;
+   protected List results = null;
+   protected int numResults;
 
 
-    public AvroRemoteQuery(RemoteCacheImpl cache, String jpqlString, long startOffset, int maxResults) {
-        this.cache = cache;
-        this.jpqlString = jpqlString;
-        this.startOffset = startOffset;
-        this.maxResults = maxResults;
+   public AvroRemoteQuery(RemoteCacheImpl cache, String jpqlString, long startOffset, int maxResults) {
+      this.cache = cache;
+      this.jpqlString = jpqlString;
+      this.startOffset = startOffset;
+      this.maxResults = maxResults;
 
-    }
+   }
 
-    public RemoteCacheImpl getCache() {
-        return cache;
-    }
+   public RemoteCacheImpl getCache() {
+      return cache;
+   }
 
-    public String getJpqlString() {
-        return jpqlString;
-    }
+   public String getJpqlString() {
+      return jpqlString;
+   }
 
-    public long getStartOffset() {
-        return startOffset;
-    }
+   public long getStartOffset() {
+      return startOffset;
+   }
 
-    public int getMaxResults() {
-        return maxResults;
-    }
+   public int getMaxResults() {
+      return maxResults;
+   }
 
-    protected List<Object> executeQuery() {
+   protected List<Object> executeQuery() {
 
-        List<Object> results;
-        AvroQueryOperation op = cache.getOperationsFactory().newAvroQueryOperation(this);
-        Response response = op.execute();
-        results = new ArrayList<>(response.getResults().size());
-        for (ByteBuffer byteBuffer : response.getResults()) {
-            try {
-                results.add(cache.getRemoteCacheManager().getMarshaller().objectFromByteBuffer(byteBuffer.array()));
-            } catch (IOException | ClassNotFoundException e) {
-                e.printStackTrace();
-            }
-        }
-        return results;
-    }
+      List<Object> results;
+      AvroQueryOperation op = cache.getOperationsFactory().newAvroQueryOperation(this);
+      Response response = op.execute();
+      results = new ArrayList<>(response.getResults().size());
+      for (ByteBuffer byteBuffer : response.getResults()) {
+         try {
+            results.add(cache.getRemoteCacheManager().getMarshaller().objectFromByteBuffer(byteBuffer.array()));
+         } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+         }
+      }
+      numResults = response.getNumResults();
+      return results;
+   }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T> List<T> list() {
-        if (results == null) {
-            results = executeQuery();
-        }
+   @Override
+   @SuppressWarnings("unchecked")
+   public synchronized <T> List<T> list() {
+      if (results == null) {
+         results = executeQuery();
+      }
 
-        return (List<T>) results;
-    }
+      return (List<T>) results;
+   }
 
-    @Override
-    public int getResultSize() {
-        list();
-        return totalResults;
-    }
+   @Override
+   public int getResultSize() {
+      list();
+      return numResults;
+   }
 
 }
