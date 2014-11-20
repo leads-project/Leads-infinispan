@@ -1,9 +1,12 @@
 package org.infinispan.ensemble.cache.distributed;
 
 import org.infinispan.commons.CacheException;
+import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.ensemble.cache.EnsembleCache;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Pierre Sutra
@@ -93,6 +96,25 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
    }
 
    @Override
+   public NotifyingFuture<V> putAsync(K key, V value){
+      return partitioner.locate(key).putAsync(key,value);
+   }
+
+   @Override
+   public void putAll(Map<? extends K, ? extends V> map) {
+      Map<EnsembleCache,Map<K,V>> maps = new HashMap<>();
+      for (K key : map.keySet()) {
+         EnsembleCache dest = partitioner.locate(key);
+         if (!maps.containsKey(dest))
+            maps.put(dest, new HashMap<K,V>());
+         maps.get(dest).put(key,map.get(key));
+      }
+      for (EnsembleCache dest : maps.keySet()) {
+         dest.putAll(maps.get(dest));
+      }
+   }
+
+   @Override
    public boolean containsKey(Object o) {
       for (EnsembleCache cache : caches){
          if (frontierMode) {
@@ -116,5 +138,20 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
    public V remove(Object o) {
       return partitioner.locate((K) o).remove(o);
    }
+
+   @Override
+   public void stop(){
+      for (EnsembleCache cache : caches) {
+         cache.stop();
+      }
+   }
+
+   @Override
+   public void start(){
+      for (EnsembleCache cache : caches) {
+         cache.start();
+      }
+   }
+
 
 }

@@ -47,7 +47,7 @@ public class AvroQueryFacade implements QueryFacade {
       try {
 
          Request request = (Request) requestAvroMarshaller.objectFromByteBuffer(query);
-         log.info(request.toString());
+         log.debug(request.toString());
 
          SearchManager sm = Search.getSearchManager(cache);
 

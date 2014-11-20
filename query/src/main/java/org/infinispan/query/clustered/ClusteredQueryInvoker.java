@@ -2,6 +2,8 @@ package org.infinispan.query.clustered;
 
 import org.hibernate.search.exception.SearchException;
 import org.infinispan.Cache;
+import org.infinispan.commons.util.concurrent.NotifyingFutureImpl;
+import org.infinispan.commons.util.concurrent.NotifyingNotifiableFuture;
 import org.infinispan.remoting.responses.Response;
 import org.infinispan.remoting.responses.SuccessfulResponse;
 import org.infinispan.remoting.rpc.ResponseMode;
@@ -18,6 +20,7 @@ import java.util.concurrent.*;
  * 
  * @author Israel Lacerra <israeldl@gmail.com>
  * @author Sanne Grinovero <sanne@infinispan.org> (C) 2011 Red Hat Inc.
+ * @author Pierre Sutra
  * @since 5.1
  */
 public class ClusteredQueryInvoker {
@@ -47,7 +50,9 @@ public class ClusteredQueryInvoker {
     *           Id of the query
     * @return The value of index doc of the query with queryId on node at address
     */
-   public Object getValue(int doc, Address address, UUID queryId) {
+   public Object getValue(int doc, Address address, UUID queryId)
+         throws SearchException {
+
       ClusteredQueryCommand clusteredQuery = ClusteredQueryCommand.retrieveKeyFromLazyQuery(
                localCacheInstance, queryId, doc);
 
@@ -77,26 +82,21 @@ public class ClusteredQueryInvoker {
     * @param clusteredQuery
     * @return A list with all responses
     */
-   public List<QueryResponse> broadcast(ClusteredQueryCommand clusteredQuery) {
-      // invoke on own node
-      Future<QueryResponse> localResponse = localInvoke(clusteredQuery);
-      Map<Address, Response> responses = rpcManager.invokeRemotely(null, clusteredQuery, rpcOptions);
+   public List<QueryResponse> broadcast(ClusteredQueryCommand clusteredQuery)
+         throws SearchException {
 
-      for(Response response : responses.values()) {
-         assert response.isSuccessful();
-      }
-
-      List<QueryResponse> objects = cast(responses);
-      final QueryResponse localReturnValue;
+      List<QueryResponse> ret;
       try {
-         localReturnValue = localResponse.get();
-      } catch (InterruptedException e1) {
-         throw new SearchException("interrupted while searching locally", e1);
-      } catch (ExecutionException e1) {
+         NotifyingNotifiableFuture<Map<Address, Response>> remoteFutures = new NotifyingFutureImpl<>();
+         rpcManager.invokeRemotelyInFuture(remoteFutures, null, clusteredQuery, rpcOptions);
+         Future<QueryResponse> localFuture = localInvoke(clusteredQuery);
+         ret=cast(remoteFutures.get());
+         ret.add(localFuture.get());
+      } catch (InterruptedException | ExecutionException e1) {
          throw new SearchException("Exception while searching locally", e1);
       }
-      objects.add(localReturnValue);
-      return objects;
+
+      return ret;
    }
 
    private Future<QueryResponse> localInvoke(ClusteredQueryCommand clusteredQuery) {
