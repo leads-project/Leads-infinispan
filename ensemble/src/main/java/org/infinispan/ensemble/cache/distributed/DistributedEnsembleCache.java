@@ -96,6 +96,11 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
    }
 
    @Override
+   public NotifyingFuture<V> putIfAbsentAsync(K key, V value) {
+      return partitioner.locate(key).putIfAbsentAsync(key,value);
+   }
+
+   @Override
    public NotifyingFuture<V> putAsync(K key, V value){
       return partitioner.locate(key).putAsync(key,value);
    }

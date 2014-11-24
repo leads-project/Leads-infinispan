@@ -13,6 +13,7 @@ import org.infinispan.remoting.transport.Transport;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.fwk.TransportFlags;
+import org.infinispan.transaction.TransactionMode;
 import org.testng.annotations.AfterClass;
 
 import java.util.ArrayList;
@@ -97,6 +98,7 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
             .addProperty("lucene_version", "LUCENE_CURRENT");
       builder.clustering().hash().numOwners(1);
       builder.jmxStatistics().enable();
+      builder.transaction().transactionMode(TransactionMode.TRANSACTIONAL);
       Configuration configuration = builder.build();
       for (int i = 0; i < nsites; i++) {
          for (int j = 0; j < nnodes; j++) {

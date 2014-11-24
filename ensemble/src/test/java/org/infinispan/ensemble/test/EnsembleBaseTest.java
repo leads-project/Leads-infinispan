@@ -1,6 +1,7 @@
 package org.infinispan.ensemble.test;
 
 import example.avro.WebPage;
+import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.ensemble.search.Search;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryBuilder;
@@ -9,7 +10,11 @@ import org.infinispan.query.dsl.SortOrder;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import static org.infinispan.client.hotrod.avro.AvroTestHelper.somePage;
 import static org.testng.Assert.assertEquals;
@@ -41,7 +46,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
    @Override
    protected int numberOfNodes() {
-      return 5;
+      return 1;
    }
 
    @Test
@@ -50,8 +55,6 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       WebPage page1 = somePage();
       WebPage page2 = somePage();
 
-      org.infinispan.Cache c  = this.manager(0).getCache(cacheName,false);
-
       // get, put
       cache().put(page1.getUrl(),page1);
       assert cache().containsKey(page1.getUrl());
@@ -59,10 +62,32 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
       // putIfAbsent
       assert cache().putIfAbsent(page2.getUrl(),page2)==null;
+      cache().putIfAbsent(page1.getUrl(),page2);
       assert cache().get(page2.getUrl()).equals(page2);
-      assert cache().putIfAbsent(page1.getUrl(),page2).equals(page1);
-      assert cache().get(page1.getUrl()).equals(page1);
 
+   }
+
+   @Test
+   public void asyncBaseOperations() {
+
+      final int PAGES=100;
+
+      List<NotifyingFuture<WebPage>> futures = new ArrayList<>();
+      for (int i=0; i<PAGES; i++) {
+         WebPage page = somePage();
+         futures.add(
+               cache().putIfAbsentAsync(page.getUrl(), page));
+      }
+
+      for (NotifyingFuture<WebPage> future : futures) {
+         try {
+            AssertJUnit.assertEquals(null, future.get());
+         } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+         }
+      }
+
+      AssertJUnit.assertEquals(PAGES,cache().size());
    }
 
    @Test
@@ -83,6 +108,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       qb.having("url").eq(page1.getUrl());
       query = qb.build();
       assertEquals(query.list().get(0), page1);
+
    }
 
    @Test

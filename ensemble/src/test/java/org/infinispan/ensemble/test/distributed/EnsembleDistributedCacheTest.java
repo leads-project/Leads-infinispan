@@ -47,13 +47,29 @@ public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
    @Test
    @Override
    public void baseOperations() {
+
       WebPage page1 = somePage();
-      cache().put(page1.getUrl(), page1);
-      EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page1.getUrl());
+      WebPage page2 = somePage();
+
+      // get, put
+      cache().put(page1.getUrl(),page1);
+      assert cache().containsKey(page1.getUrl()) || frontierMode;
+      assert cache().get(page1.getUrl()).equals(page1);
+
+      // putIfAbsent
+      assert cache().putIfAbsent(page2.getUrl(),page2)==null;
+      cache().putIfAbsent(page1.getUrl(),page2);
+      assert cache().get(page2.getUrl()).equals(page2) || frontierMode;
+
+      // Frontier mode check
+      WebPage page3 = somePage();
+      cache().put(page3.getUrl(), page3);
+      EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page3.getUrl());
       if (!frontierMode || location.equals(cache.getFrontierCache()))
-         assert cache.containsKey(page1.getUrl());
+         assert cache.containsKey(page3.getUrl());
       else
-         assert !cache.containsKey(page1.getUrl());
+         assert !cache.containsKey(page3.getUrl());
+
    }
 
    @Test

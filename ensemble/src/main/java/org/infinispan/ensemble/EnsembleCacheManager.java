@@ -179,14 +179,19 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
     //
 
     public void clear(){
+       throw new UnsupportedOperationException();
     }
 
     @Override
     public void start() {
+       // nothing to do here
     }
 
     @Override
     public void stop() {
+       for (Site site : sites.values()) {
+          site.getManager().stop();
+       }
     }
 
     //

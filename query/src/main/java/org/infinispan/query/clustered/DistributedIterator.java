@@ -96,7 +96,7 @@ public class DistributedIterator implements ResultIterator {
    @Override
    public final boolean hasNext() {
       int nextIndex = currentIndex + 1;
-      if (firstResult + nextIndex >= resultSize || nextIndex >= maxResults) {
+      if (firstResult + nextIndex >= resultSize || nextIndex == maxResults) {
          return false;
       }
       return true;
