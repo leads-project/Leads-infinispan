@@ -51,7 +51,7 @@ public class AvroQueryFacade implements QueryFacade {
 
          SearchManager sm = Search.getSearchManager(cache);
 
-         SearchFactoryIntegrator searchFactory = (SearchFactoryIntegrator) sm.getSearchFactory();
+         SearchFactoryIntegrator searchFactory = sm.getSearchFactory();
          QueryBuilder qb = sm.buildQueryBuilderForClass(GenericData.Record.class).get(); // FIXME
          QueryParser qp = new QueryParser();
 
@@ -68,7 +68,7 @@ public class AvroQueryFacade implements QueryFacade {
                new FieldBridgeProvider() {
                   @Override
                   public FieldBridge getFieldBridge(String s, String s2) {
-                     return new ValueWrapperFieldBridge();
+                     return new AvroValueWrapperFieldBridge();
                   }
                });
 
