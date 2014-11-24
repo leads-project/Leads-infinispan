@@ -1,19 +1,21 @@
                           package org.infinispan.query.remote.avro;
 
+import org.apache.avro.generic.GenericData;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.compat.TypeConverter;
 import org.infinispan.context.Flag;
 import org.infinispan.interceptors.compat.BaseTypeConverterInterceptor;
 
+import java.io.IOException;
 import java.util.Set;
 
 /**
- * Converts the (Avro encoded) binary values put in remote caches to a hibernate-search indexing-enabled wrapper object
+ * Converts the (Protobuf encoded) binary values put in remote caches to a hibernate-search indexing-enabled wrapper object
  * that has the proper FieldBridge to decode the data and construct the Lucene document to be indexed.
  *
  * Only operations that have the flag Flag.OPERATION_HOTROD are intercepted.
  *
- * @author Pierre Sutra
+ * @author anistor@redhat.com
  * @since 6.0
  */
 public class RemoteAvroValueWrapperInterceptor extends BaseTypeConverterInterceptor {
@@ -62,7 +64,7 @@ public class RemoteAvroValueWrapperInterceptor extends BaseTypeConverterIntercep
    }
 
    /**
-    * A converter that wraps/unwraps a GenericData.Record into a byte[].
+    * A converter that wraps/unwraps the value (a byte[]) into a AvroValueWrapper.
     */
    private static class AvroValueWrapperTypeConverter extends PassThroughTypeConverter {
 
@@ -70,18 +72,24 @@ public class RemoteAvroValueWrapperInterceptor extends BaseTypeConverterIntercep
 
       @Override
       public Object boxValue(Object value) {
-         if (value instanceof byte[]) {
-             return new AvroValueWrapper((byte[]) value);
-         }
-         return value;
+         if (value instanceof byte[])
+             try {
+                 return externalizer.objectFromByteBuffer((byte[])value);
+             } catch (IOException | ClassNotFoundException e) {
+                 e.printStackTrace();
+             }
+          return value;
       }
 
       @Override
       public Object unboxValue(Object target) {
-         if (target instanceof AvroValueWrapper) {
-             return ((AvroValueWrapper) target).getBinary();
-         }
-         return target;
+         if (target instanceof GenericData.Record)
+             try {
+                 return externalizer.objectToByteBuffer(target);
+             } catch (IOException e) {
+                 e.printStackTrace();
+             }
+          return target;
       }
    }
 }

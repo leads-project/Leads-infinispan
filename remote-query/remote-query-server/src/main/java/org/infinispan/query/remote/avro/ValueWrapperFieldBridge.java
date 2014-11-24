@@ -10,7 +10,6 @@ import org.apache.lucene.util.BytesRef;
 import org.hibernate.search.bridge.LuceneOptions;
 import org.hibernate.search.bridge.TwoWayFieldBridge;
 
-import java.io.IOException;
 import java.util.Map;
 
 
@@ -19,58 +18,45 @@ import java.util.Map;
  * @author Pierre Sutra
  * @since 7.0
  */
-public class AvroValueWrapperFieldBridge implements TwoWayFieldBridge{
+public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
 
    public static final String NULL="__null__";
    public static final String DELIMITER = "::";
 
-   public GenericRecordExternalizer externalizer;
-
-   public AvroValueWrapperFieldBridge(){
-      externalizer = new GenericRecordExternalizer();
-   }
-
    @Override
    public void set(String name, Object value, Document document, LuceneOptions luceneOptions) {
-      AvroValueWrapper valueWrapper = (AvroValueWrapper) value;
-
-      try {
-         GenericData.Record record =  (GenericData.Record) externalizer.objectFromByteBuffer(valueWrapper.getBinary());
-         Schema schema = record.getSchema();
-         StringField stringField;
-         for(Schema.Field field : schema.getFields()) {
-            if (record.get(field.name()) != null) {
-               switch (field.schema().getType()) {
-               case MAP:
-                  Map<?, ?> map = (Map) record.get(field.name());
-                  for (Object k : map.keySet()) {
-                     stringField = new StringField(
-                           field.name(),
-                           k.toString() + DELIMITER + (map.get(k) != null ? map.get(k).toString() : NULL),
-                           Field.Store.YES);
-                     addField(stringField, document);
-                  }
-                  break;
-               default:
+      GenericData.Record record = (GenericData.Record) value;
+      Schema schema = record.getSchema();
+      StringField stringField;
+      for(Schema.Field field : schema.getFields()){
+         if (record.get(field.name())!=null){
+            switch (field.schema().getType()){
+            case MAP:
+               Map<?,?> map = (Map) record.get(field.name());
+               for(Object k: map.keySet()) {
                   stringField = new StringField(
                         field.name(),
-                        record.get(field.name()).toString(),
+                        k.toString()+DELIMITER+(map.get(k)!=null ? map.get(k).toString() : NULL),
                         Field.Store.YES);
-                  addField(stringField, document);
+                  addField(stringField,document);
                }
-            } else {
+               break;
+            default:
                stringField = new StringField(
                      field.name(),
-                     NULL,
+                     record.get(field.name()).toString(),
                      Field.Store.YES);
                addField(stringField, document);
             }
+         }else{
+            stringField = new StringField(
+                  field.name(),
+                  NULL,
+                  Field.Store.YES);
+            addField(stringField,document);
          }
 
-      } catch (IOException | ClassNotFoundException e) {
-         e.printStackTrace();
       }
-
    }
 
    @Override

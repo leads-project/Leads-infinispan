@@ -1,5 +1,6 @@
 package org.infinispan.query.remote.avro;
 
+import org.apache.avro.generic.GenericData;
 import org.hibernate.search.annotations.Analyze;
 import org.hibernate.search.annotations.Norms;
 import org.hibernate.search.annotations.Store;
@@ -15,9 +16,9 @@ import org.infinispan.query.spi.ProgrammaticSearchMappingProvider;
 public class SearchMappingProviderImpl implements ProgrammaticSearchMappingProvider {
     @Override
     public void defineMappings(Cache cache, SearchMapping searchMapping) {
-        searchMapping.entity(AvroValueWrapper.class)
+        searchMapping.entity(GenericData.Record.class)
                 .indexed()
-                .classBridgeInstance(new AvroValueWrapperFieldBridge())
+                .classBridgeInstance(new ValueWrapperFieldBridge())
                 .norms(Norms.NO)
                 .analyze(Analyze.NO)
                 .store(Store.NO);

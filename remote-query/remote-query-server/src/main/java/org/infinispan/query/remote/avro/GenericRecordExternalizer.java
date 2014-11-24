@@ -17,9 +17,10 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
+ * // TODO: Document this
  *
- * @author Pierre Sutra
- * @since 7.0
+ * @author otrack
+ * @since 4.0
  */
 public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.Record> {
 
