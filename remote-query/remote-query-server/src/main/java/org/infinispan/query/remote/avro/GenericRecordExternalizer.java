@@ -1,5 +1,6 @@
 package org.infinispan.query.remote.avro;
 
+import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
@@ -23,6 +24,7 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
 
    private JBossMarshaller marshaller;
    private DatumReader<GenericData.Record> reader;
+   private Schema schema;
 
    public GenericRecordExternalizer(){
       marshaller = new JBossMarshaller();
@@ -74,6 +76,9 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
       try {
          ByteArrayInputStream bais = new ByteArrayInputStream(buf);
          DataFileStream<GenericData.Record>  stream = new DataFileStream<>(bais,reader);
+         if (schema==null)
+            schema = stream.getSchema(); // FIXME this damn thread local usage.
+         reader.setSchema(schema);
          if(!stream.hasNext())
             throw new IOException("Stream is empty.");
          Object ret = stream.next();
