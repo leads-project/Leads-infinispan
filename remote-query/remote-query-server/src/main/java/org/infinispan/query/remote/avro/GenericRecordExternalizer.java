@@ -25,6 +25,7 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
    private DatumReader<GenericData.Record> reader;
 
    public GenericRecordExternalizer(){
+      marshaller = new JBossMarshaller();
       reader = new GenericDatumReader<>();
    }
 
@@ -32,8 +33,6 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
    public Set<Class<? extends GenericData.Record>> getTypeClasses() {
       Set<Class<? extends GenericData.Record>> set = new HashSet<>();
       set.add(GenericData.Record.class);
-      marshaller = new JBossMarshaller();
-      reader = new GenericDatumReader<>();
       return set;
    }
 
