@@ -21,7 +21,8 @@ import java.util.Set;
   */
 public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.Record> {
 
-   private JBossMarshaller marshaller = new JBossMarshaller();
+   private JBossMarshaller marshaller;
+   private DatumReader<GenericData.Record> reader;
 
    public GenericRecordExternalizer(){
    }
@@ -30,6 +31,8 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
    public Set<Class<? extends GenericData.Record>> getTypeClasses() {
       Set<Class<? extends GenericData.Record>> set = new HashSet<>();
       set.add(GenericData.Record.class);
+      marshaller = new JBossMarshaller();
+      reader = new GenericDatumReader<>();
       return set;
    }
 
@@ -70,9 +73,7 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
    public Object objectFromByteBuffer(byte[] buf) throws IOException, ClassNotFoundException {
       try {
          ByteArrayInputStream bais = new ByteArrayInputStream(buf);
-         DatumReader<GenericData.Record> reader = new GenericDatumReader<>();
-         DataFileStream<GenericData.Record> stream = null;
-         stream = new DataFileStream<>(bais,reader);
+         DataFileStream<GenericData.Record>  stream = new DataFileStream<>(bais,reader);
          if(!stream.hasNext())
             throw new IOException("Stream is empty.");
          Object ret = stream.next();

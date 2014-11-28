@@ -19,23 +19,26 @@ import java.lang.reflect.Method;
 
 
 /**
- *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
  */
 public class AvroMarshaller<T> extends AbstractMarshaller{
 
    private Class<T> clazz;
    private Schema schema;
-   private GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
+   private GenericJBossMarshaller marshaller;
+   private SpecificDatumReader<T> reader;
+   private GenericDatumWriter<T> writer;
 
    public AvroMarshaller(Class<T> c) {
       clazz = c;
+      marshaller = new GenericJBossMarshaller();
       try {
          schema = getSchema(clazz.newInstance());
       } catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
          e.printStackTrace();
       }
+      reader = new SpecificDatumReader<>(clazz);
+      writer = new GenericDatumWriter<>(schema);
    }
 
    @Override
@@ -46,7 +49,6 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
          return marshaller.objectToBuffer(o.toString());
       }else{
          ByteArrayOutputStream baos = new ByteArrayOutputStream();
-         GenericDatumWriter<T> writer = new GenericDatumWriter<>(schema);
          DataFileWriter<T> dataFileWriter = new DataFileWriter<>(writer);
          dataFileWriter.create(schema,baos);
          dataFileWriter.append((T) o);
@@ -59,7 +61,6 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
    public Object objectFromByteBuffer(byte[] buf, int offset, int length) throws IOException, ClassNotFoundException {
       try{
          Object ret = null;
-         SpecificDatumReader<T> reader = new SpecificDatumReader<>(clazz);
          DataFileReader<T> dataFileReader = new DataFileReader<>(new SeekableByteArrayInput(buf),reader);
          if(dataFileReader.hasNext())
             ret = dataFileReader.next();
