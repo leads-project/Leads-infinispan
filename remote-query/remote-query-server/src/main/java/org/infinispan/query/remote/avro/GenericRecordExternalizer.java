@@ -25,6 +25,7 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
    private DatumReader<GenericData.Record> reader;
 
    public GenericRecordExternalizer(){
+      reader = new GenericDatumReader<>();
    }
 
    @Override
