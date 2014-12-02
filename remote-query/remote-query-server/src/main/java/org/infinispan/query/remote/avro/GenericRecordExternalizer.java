@@ -6,7 +6,6 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.infinispan.commons.io.UnsignedNumeric;
 import org.infinispan.commons.marshall.AbstractExternalizer;
@@ -16,20 +15,23 @@ import org.infinispan.query.remote.ExternalizerIds;
 import java.io.*;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author Pierre Sutra
   */
 public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.Record> {
 
+   // FIXME this damn thread local usage.
+   private static ConcurrentMap<String,Schema> schemas = new ConcurrentHashMap<>();
+
    private JBossMarshaller marshaller;
-   private DatumReader<GenericData.Record> reader;
-   private Schema schema;
 
    public GenericRecordExternalizer(){
       marshaller = new JBossMarshaller();
-      reader = new GenericDatumReader<>();
    }
+
 
    @Override
    public Set<Class<? extends GenericData.Record>> getTypeClasses() {
@@ -75,10 +77,13 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
    public Object objectFromByteBuffer(byte[] buf) throws IOException, ClassNotFoundException {
       try {
          ByteArrayInputStream bais = new ByteArrayInputStream(buf);
+         GenericDatumReader<GenericData.Record> reader = new GenericDatumReader<>();
          DataFileStream<GenericData.Record>  stream = new DataFileStream<>(bais,reader);
-         if (schema==null)
-            schema = stream.getSchema(); // FIXME this damn thread local usage.
-         reader.setSchema(schema);
+         Schema schema = stream.getSchema();
+         if (!schemas.containsKey(schema.getFullName()))
+            schemas.putIfAbsent(schema.getFullName(),schema);
+         reader.setSchema(schemas.get(schema.getFullName()));
+         reader.setExpected(schemas.get(schema.getFullName()));
          if(!stream.hasNext())
             throw new IOException("Stream is empty.");
          Object ret = stream.next();
