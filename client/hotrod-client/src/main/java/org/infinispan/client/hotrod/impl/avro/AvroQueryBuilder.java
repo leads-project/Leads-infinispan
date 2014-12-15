@@ -20,7 +20,7 @@ public class AvroQueryBuilder extends BaseQueryBuilder<Query> {
 
     private RemoteCacheImpl cache;
 
-    public AvroQueryBuilder(RemoteCacheImpl c, QueryFactory qf, String entityType) {
+    public AvroQueryBuilder(RemoteCacheImpl c, QueryFactory qf) {
         super(qf,GenericData.Record.class.getName());
         cache = c;
     }

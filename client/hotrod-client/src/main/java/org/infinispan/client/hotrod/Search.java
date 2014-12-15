@@ -1,7 +1,7 @@
 package org.infinispan.client.hotrod;
 
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
-import org.infinispan.client.hotrod.impl.avro.AvroQueryFactory;
+import org.infinispan.client.hotrod.impl.query.RemoteQueryFactory;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.dsl.QueryFactory;
 
@@ -19,6 +19,6 @@ public final class Search {
          throw new IllegalArgumentException("cache parameter cannot be null");
       }
 
-      return new AvroQueryFactory((RemoteCacheImpl) cache);
+      return new RemoteQueryFactory((RemoteCacheImpl) cache);
    }
 }

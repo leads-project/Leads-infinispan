@@ -1,6 +1,5 @@
 package org.infinispan.query.remote.avro;
 
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecordBuilder;
@@ -11,7 +10,6 @@ import org.hibernate.hql.lucene.LuceneProcessingChain;
 import org.hibernate.hql.lucene.LuceneQueryParsingResult;
 import org.hibernate.hql.lucene.spi.FieldBridgeProvider;
 import org.hibernate.search.bridge.FieldBridge;
-import org.hibernate.search.query.dsl.QueryBuilder;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
 import org.infinispan.AdvancedCache;
 import org.infinispan.query.CacheQuery;
@@ -27,6 +25,8 @@ import org.infinispan.util.logging.LogFactory;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -39,7 +39,7 @@ public class AvroQueryFacade implements QueryFacade {
 
    private AvroMarshaller<Request> requestAvroMarshaller= new AvroMarshaller<>(Request.class);
    private AvroMarshaller<Response> responseAvroMarshaller = new AvroMarshaller<>(Response.class);
-   private GenericRecordExternalizer externalizer = new GenericRecordExternalizer();
+   private GenericRecordExternalizer recordExternalizer = new GenericRecordExternalizer();
 
    @Override
    public byte[] query(AdvancedCache<byte[], byte[]> cache, byte[] query) {
@@ -91,14 +91,14 @@ public class AvroQueryFacade implements QueryFacade {
             }
          }else{
             for (Object o: list) {
-               GenericData.Record record = (GenericData.Record) externalizer.objectFromByteBuffer((byte[])o);
+               GenericData.Record record = (GenericData.Record) recordExternalizer.objectFromByteBuffer((byte[]) o);
                GenericRecordBuilder builder = new GenericRecordBuilder(record.getSchema());
                GenericData.Record copy = builder.build();
                for(Schema.Field f : record.getSchema().getFields()){
                   if (parsingResult.getProjections().contains(f.name()))
                      copy.put(f.name(),record.get(f.name()));
                }
-               results.add(ByteBuffer.wrap(externalizer.objectToByteBuffer(copy)));
+               results.add(ByteBuffer.wrap(recordExternalizer.objectToByteBuffer(copy)));
             }
          }
 

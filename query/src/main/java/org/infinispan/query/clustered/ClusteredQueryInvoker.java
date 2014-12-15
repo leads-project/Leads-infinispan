@@ -35,8 +35,9 @@ public class ClusteredQueryInvoker {
       this.asyncExecutor = asyncExecutor;
       this.rpcManager = localCacheInstance.getAdvancedCache().getComponentRegistry().getLocalComponent(RpcManager.class);
       this.localCacheInstance = localCacheInstance;
-      this.myAddress = localCacheInstance.getAdvancedCache().getRpcManager().getAddress();
-      this.rpcOptions = rpcManager.getRpcOptionsBuilder(ResponseMode.SYNCHRONOUS).timeout(10000, TimeUnit.MILLISECONDS).build();
+      this.myAddress = rpcManager.getAddress();
+      this.rpcOptions = rpcManager.getRpcOptionsBuilder(ResponseMode.SYNCHRONOUS)
+            .timeout(10000, TimeUnit.MILLISECONDS).build();
    }
 
    /**

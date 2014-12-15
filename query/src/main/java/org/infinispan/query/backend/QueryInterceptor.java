@@ -447,7 +447,7 @@ public final class QueryInterceptor extends CommandInterceptor {
          }
       }
       if (updateKnownTypesIfNeeded(value)) {
-         if (shouldModifyIndexes(command, ctx, distributionManager.getLocality(command.getKey()).isLocal())) {
+         if (shouldModifyIndexes(command, ctx, distributionManager==null || distributionManager.getLocality(command.getKey()).isLocal())) {
             // This means that the entry is just modified so we need to update the indexes and not add to them.
             transactionContext = transactionContext == null ? makeTransactionalEventContext() : transactionContext;
             updateIndexes(usingSkipIndexCleanupFlag, value, extractValue(command.getKey()), transactionContext);

@@ -1,19 +1,15 @@
 package org.infinispan.query.remote.client.avro;
 
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileReader;
-import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.io.*;
 import org.apache.avro.specific.SpecificDatumReader;
-import org.apache.avro.util.Utf8;
 import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.commons.io.ByteBufferImpl;
 import org.infinispan.commons.marshall.AbstractMarshaller;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -27,7 +23,6 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
    private Schema schema;
    private GenericJBossMarshaller marshaller;
    private SpecificDatumReader<T> reader;
-   private GenericDatumWriter<T> writer;
 
    public AvroMarshaller(Class<T> c) {
       clazz = c;
@@ -38,36 +33,36 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
          e.printStackTrace();
       }
       reader = new SpecificDatumReader<>(clazz);
-      writer = new GenericDatumWriter<>(schema);
    }
 
    @Override
    protected ByteBuffer objectToBuffer(Object o, int estimatedSize) throws IOException, InterruptedException {
-      if (!isMarshallable(o)){
+      if (!isMarshallable(o)) {
          return marshaller.objectToBuffer(o);
-      }else if (o instanceof Utf8){
+      } else if (o instanceof Schema) {
          return marshaller.objectToBuffer(o.toString());
-      }else{
+      } else {
          ByteArrayOutputStream baos = new ByteArrayOutputStream();
-         DataFileWriter<T> dataFileWriter = new DataFileWriter<>(writer);
-         dataFileWriter.create(schema,baos);
-         dataFileWriter.append((T) o);
-         dataFileWriter.close();
-         return new ByteBufferImpl(baos.toByteArray(),0,baos.size());
+         ObjectOutputStream oos = new ObjectOutputStream(baos);
+         oos.writeObject((schema.getFullName()));
+         BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(baos, null);
+         DatumWriter datumWriter = new GenericDatumWriter(schema);
+         datumWriter.write(o, encoder);
+         encoder.flush();
+         return new ByteBufferImpl(baos.toByteArray(), 0, baos.size());
       }
    }
 
    @Override
    public Object objectFromByteBuffer(byte[] buf, int offset, int length) throws IOException, ClassNotFoundException {
       try{
-         Object ret = null;
-         DataFileReader<T> dataFileReader = new DataFileReader<>(new SeekableByteArrayInput(buf),reader);
-         if(dataFileReader.hasNext())
-            ret = dataFileReader.next();
-         dataFileReader.close();
-         return ret;
+         ByteArrayInputStream bais = new ByteArrayInputStream(buf);
+         ObjectInputStream ois = new ObjectInputStream(bais);
+         Object o =  ois.readObject(); // we skip the schema string
+         Decoder decoder = DecoderFactory.get().binaryDecoder( bais, null );
+         return reader.read( null, decoder );
       } catch (IOException e) {
-         return marshaller.objectFromByteBuffer(buf, offset, length);
+         return Schema.parse((String) marshaller.objectFromByteBuffer(buf, offset, length));
       }
    }
 
@@ -88,7 +83,7 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
       if (o==null)
          return false;
       try {
-         if (clazz.isAssignableFrom(o.getClass()) || Utf8.class.isAssignableFrom(o.getClass()))
+         if (clazz.isAssignableFrom(o.getClass()) || Schema.class.isAssignableFrom(o.getClass()))
             return true;
       } catch (Exception e) {
          // ignore this

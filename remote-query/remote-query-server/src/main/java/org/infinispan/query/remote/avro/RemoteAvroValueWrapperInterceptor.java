@@ -1,4 +1,4 @@
-                          package org.infinispan.query.remote.avro;
+package org.infinispan.query.remote.avro;
 
 import org.apache.avro.generic.GenericData;
 import org.infinispan.commons.marshall.Marshaller;

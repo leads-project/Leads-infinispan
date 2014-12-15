@@ -16,19 +16,21 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * // TODO: Document this
- *
- * @author otrack
+ * @author ¨Pierre Sutra
  * @since 4.0
  */
 public class AvroQueryOperation extends RetryOnFailureOperation<Response> {
 
    private AvroRemoteQuery remoteQuery;
+   private AvroMarshaller<Request> requestAvroMarshaller;
+   private AvroMarshaller<Response> responseAvroMarshaller;
 
    public AvroQueryOperation(Codec codec, TransportFactory transportFactory, byte[] cacheName,
          AtomicInteger topologyId, Flag[] flags, AvroRemoteQuery query) {
       super(codec, transportFactory, cacheName, topologyId, flags);
       this.remoteQuery = query;
+      this.requestAvroMarshaller = new AvroMarshaller<>(Request.class);
+      this.responseAvroMarshaller = new AvroMarshaller<>(Response.class);
    }
 
    @Override
@@ -46,12 +48,11 @@ public class AvroQueryOperation extends RetryOnFailureOperation<Response> {
 
       try {
 
-         AvroMarshaller<Request> requestAvroMarshaller = new AvroMarshaller<>(Request.class);
          transport.writeArray(requestAvroMarshaller.objectToBuffer(queryRequest).getBuf());
          transport.flush();
          readHeaderAndValidate(transport, params);
          byte[] responseBytes = transport.readArray();
-         AvroMarshaller<Response> responseAvroMarshaller = new AvroMarshaller<>(Response.class);
+
          return (Response) responseAvroMarshaller.objectFromByteBuffer(responseBytes);
 
       } catch (IOException | InterruptedException | ClassNotFoundException e) {

@@ -11,6 +11,7 @@ import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
+import org.infinispan.query.remote.avro.AvroSchemaManager;
 import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.Test;
@@ -31,87 +32,88 @@ import static org.junit.Assert.assertNotNull;
 @Test(groups = "functional", testName = "AvroWrapperIndexingTest")
 public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
 
-    @Override
-    protected EmbeddedCacheManager createCacheManager() throws Exception {
-        ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
-        cfg.transaction()
-                .indexing().enable()
-                .addProperty("default.directory_provider", "ram")
-                .addProperty("lucene_version", "LUCENE_CURRENT");
+   @Override
+   protected EmbeddedCacheManager createCacheManager() throws Exception {
+      ConfigurationBuilder cfg = getDefaultStandaloneCacheConfig(true);
+      cfg.transaction()
+            .indexing().enable()
+            .addProperty("default.directory_provider", "ram")
+            .addProperty("lucene_version", "LUCENE_CURRENT");
 
-        EmbeddedCacheManager cacheManager = TestCacheManagerFactory.createCacheManager(cfg);
-        cacheManager.getCache(); //TODO this ensures the GlobalComponentRegistry is initialised right now, but it's not the cleanest way
-        return cacheManager;
-    }
+      EmbeddedCacheManager cacheManager = TestCacheManagerFactory.createCacheManager(cfg);
+      cacheManager.getCache(); //TODO this ensures the GlobalComponentRegistry is initialised right now, but it's not the cleanest way
+      return cacheManager;
+   }
 
-    public void testIndexingWithWrapper() throws Exception {
-        User user = new User();
-        user.setName("Alice");
+   public void testIndexingWithWrapper() throws Exception {
+      User user = new User();
+      user.setName("Alice");
 
-        org.apache.avro.Schema schema = user.getSchema();
-        GenericRecord guser = new GenericData.Record(schema);
-        guser.put("name",user.getName());
-        cache.put("user", guser);
+      org.apache.avro.Schema schema = user.getSchema();
+      AvroSchemaManager.getInstance().storeSchema(schema);
+      GenericRecord guser = new GenericData.Record(schema);
+      guser.put("name",user.getName());
+      cache.put("user", guser);
 
-        SearchManager sm = Search.getSearchManager(cache);
+      SearchManager sm = Search.getSearchManager(cache);
 
-        SearchFactoryImplementor searchFactory = (SearchFactoryImplementor) sm.getSearchFactory();
-        assertNotNull(searchFactory.getIndexManagerHolder().getIndexManager(GenericData.Record.class.getName()));
+      SearchFactoryImplementor searchFactory = (SearchFactoryImplementor) sm.getSearchFactory();
+      assertNotNull(searchFactory.getIndexManagerHolder().getIndexManager(GenericData.Record.class.getName()));
 
-        Query luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
-                .get()
-                .keyword()
-                .onField("name")
-                .ignoreFieldBridge()
-                .ignoreAnalyzer()
-                .matching("Alice")
-                .createQuery();
+      Query luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
+            .get()
+            .keyword()
+            .onField("name")
+            .ignoreFieldBridge()
+            .ignoreAnalyzer()
+            .matching("Alice")
+            .createQuery();
 
-        System.out.println(luceneQuery.toString());
+      System.out.println(luceneQuery.toString());
 
-        List<Object> list = sm.getQuery(luceneQuery).list();
-        assertEquals(1, list.size());
+      List<Object> list = sm.getQuery(luceneQuery).list();
+      assertEquals(1, list.size());
 
-        luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
-                .get()
-                .range()
-                .onField("name")
-                .ignoreFieldBridge()
-                .ignoreAnalyzer()
-                .above("Bob")
-                .createQuery();
+      luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
+            .get()
+            .range()
+            .onField("name")
+            .ignoreFieldBridge()
+            .ignoreAnalyzer()
+            .above("Bob")
+            .createQuery();
 
-        list = sm.getQuery(luceneQuery).list();
-        assertEquals(0, list.size());
+      list = sm.getQuery(luceneQuery).list();
+      assertEquals(0, list.size());
 
-    }
+   }
 
-    public void testIndexingWithWrapper2() throws Exception {
-        WebPage page = new WebPage();
-        page.setUrl("http://www.test.com");
-        Map<CharSequence,CharSequence> outlinks = new HashMap<>();
-        outlinks.put("1","http://www.example.com");
-        page.setOutlinks(outlinks);
+   public void testIndexingWithWrapper2() throws Exception {
+      WebPage page = new WebPage();
+      page.setUrl("http://www.test.com");
+      Map<CharSequence,CharSequence> outlinks = new HashMap<>();
+      outlinks.put("1","http://www.example.com");
+      page.setOutlinks(outlinks);
 
-        SearchManager sm = Search.getSearchManager(cache);
+      SearchManager sm = Search.getSearchManager(cache);
 
-        cache.put("page",page);
+      cache.put("page",page);
 
-        SearchFactoryImplementor searchFactory = (SearchFactoryImplementor) sm.getSearchFactory();
-        assertNotNull(searchFactory.getIndexManagerHolder().getIndexManager(GenericData.Record.class.getName()));
+      SearchFactoryImplementor searchFactory = (SearchFactoryImplementor) sm.getSearchFactory();
+      assertNotNull(searchFactory.getIndexManagerHolder().getIndexManager(GenericData.Record.class.getName()));
 
-        Query luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
-                .get()
-                .keyword()
-                .onField("outlinks")
-                .ignoreFieldBridge()
-                .ignoreAnalyzer()
-                .matching(outlinks)
-                .createQuery();
+      Query luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
+            .get()
+            .keyword()
+            .onField("outlinks")
+            .ignoreFieldBridge()
+            .ignoreAnalyzer()
+            .matching(outlinks)
+            .createQuery();
 
-        List<Object> list = list = sm.getQuery(luceneQuery).list();
-        // assertEquals(1, list.size());
+      List<Object> list = list = sm.getQuery(luceneQuery).list();
+      // assertEquals(1, list.size());
 
-    }
+   }
 
 }
