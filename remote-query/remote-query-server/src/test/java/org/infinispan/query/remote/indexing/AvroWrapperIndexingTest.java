@@ -11,7 +11,7 @@ import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
-import org.infinispan.query.remote.avro.AvroSchemaManager;
+import org.infinispan.query.remote.client.avro.AvroSupport;
 import org.infinispan.test.SingleCacheManagerTest;
 import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.Test;
@@ -42,6 +42,7 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
 
       EmbeddedCacheManager cacheManager = TestCacheManagerFactory.createCacheManager(cfg);
       cacheManager.getCache(); //TODO this ensures the GlobalComponentRegistry is initialised right now, but it's not the cleanest way
+      AvroSupport.registerSchema(cache,User.getClassSchema());
       return cacheManager;
    }
 
@@ -50,7 +51,6 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
       user.setName("Alice");
 
       org.apache.avro.Schema schema = user.getSchema();
-      AvroSchemaManager.getInstance().storeSchema(schema);
       GenericRecord guser = new GenericData.Record(schema);
       guser.put("name",user.getName());
       cache.put("user", guser);

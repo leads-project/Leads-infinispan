@@ -55,6 +55,9 @@ public class AvroQueryTest extends SingleCacheManagerTest {
 
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
+      if (cacheManager != null)
+         return cacheManager;
+
       GlobalConfigurationBuilder gcb = new GlobalConfigurationBuilder().clusteredDefault();
       ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
       builder.indexing().enable()
@@ -74,7 +77,7 @@ public class AvroQueryTest extends SingleCacheManagerTest {
       remoteCacheManager = new RemoteCacheManager(clientBuilder.build());
       remoteCache = remoteCacheManager.getCache(TEST_CACHE_NAME);
       qf = AvroSearch.getQueryFactory(remoteCache);
-      AvroSupport.registerSchema(cacheManager,Employee.getClassSchema());
+      AvroSupport.registerSchema(remoteCache,Employee.getClassSchema());
       return cacheManager;
    }
 
@@ -88,7 +91,7 @@ public class AvroQueryTest extends SingleCacheManagerTest {
    // Tests
 
    @Test
-   public void testAttributeQuery() throws Exception {
+   public void etestAttributeQuery() throws Exception {
       remoteCache.put(1, createEmployee1());
       remoteCache.put(2, createEmployee2());
 

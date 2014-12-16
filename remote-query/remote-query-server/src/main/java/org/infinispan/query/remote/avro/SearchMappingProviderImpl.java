@@ -6,6 +6,7 @@ import org.hibernate.search.annotations.Norms;
 import org.hibernate.search.annotations.Store;
 import org.hibernate.search.cfg.SearchMapping;
 import org.infinispan.Cache;
+import org.infinispan.query.remote.client.avro.AvroSchemaManager;
 import org.infinispan.query.spi.ProgrammaticSearchMappingProvider;
 
 /**
@@ -22,5 +23,6 @@ public class SearchMappingProviderImpl implements ProgrammaticSearchMappingProvi
                 .norms(Norms.NO)
                 .analyze(Analyze.NO)
                 .store(Store.NO);
+       AvroSchemaManager.setInstance(new AvroSchemaManager(cache));
     }
 }

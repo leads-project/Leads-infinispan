@@ -61,8 +61,13 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
          Object o =  ois.readObject(); // we skip the schema string
          Decoder decoder = DecoderFactory.get().binaryDecoder( bais, null );
          return reader.read( null, decoder );
-      } catch (IOException e) {
-         return Schema.parse((String) marshaller.objectFromByteBuffer(buf, offset, length));
+      } catch (Exception e) {
+         Object o = marshaller.objectFromByteBuffer(buf, offset, length);
+         try {
+            return Schema.parse((String)o);
+         } catch (Exception e1) {
+            return o;
+         }
       }
    }
 
@@ -83,7 +88,8 @@ public class AvroMarshaller<T> extends AbstractMarshaller{
       if (o==null)
          return false;
       try {
-         if (clazz.isAssignableFrom(o.getClass()) || Schema.class.isAssignableFrom(o.getClass()))
+         if (clazz.isAssignableFrom(o.getClass())
+               || Schema.class.isAssignableFrom(o.getClass()))
             return true;
       } catch (Exception e) {
          // ignore this

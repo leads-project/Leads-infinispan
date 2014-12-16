@@ -22,7 +22,6 @@ import static java.util.Collections.EMPTY_LIST;
 import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
 import static org.infinispan.test.TestingUtil.blockUntilCacheStatusAchieved;
 
-
 /**
  *
  * @author Pierre Sutra

@@ -7,8 +7,9 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.*;
 import org.infinispan.commons.io.UnsignedNumeric;
 import org.infinispan.commons.marshall.AbstractExternalizer;
-import org.infinispan.marshall.core.JBossMarshaller;
+import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.query.remote.ExternalizerIds;
+import org.infinispan.query.remote.client.avro.AvroSchemaManager;
 
 import java.io.*;
 import java.util.HashSet;
@@ -19,10 +20,10 @@ import java.util.Set;
   */
 public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.Record> {
 
-   private JBossMarshaller marshaller;
+   private GenericJBossMarshaller marshaller;
 
    public GenericRecordExternalizer(){
-      marshaller = new JBossMarshaller();
+      marshaller = new GenericJBossMarshaller();
    }
 
    @Override
@@ -78,8 +79,13 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
          Decoder decoder = DecoderFactory.get().binaryDecoder( bais, null );
          GenericDatumReader<GenericData.Record> reader = new GenericDatumReader<>(schema);
          return reader.read( null, decoder );
-      } catch (IOException e) {
-         return Schema.parse((String) marshaller.objectFromByteBuffer(buf));
+      } catch (Exception e) {
+         Object o = marshaller.objectFromByteBuffer(buf);
+         try {
+            return Schema.parse((String)o);
+         } catch (Exception e1) {
+            return o;
+         }
       }
    }
 
