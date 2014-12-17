@@ -1,6 +1,7 @@
 package org.infinispan.query.remote.client.avro;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericContainer;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.*;
 import org.apache.avro.specific.SpecificDatumReader;
@@ -17,7 +18,7 @@ import java.lang.reflect.Method;
 /**
  * @author Pierre Sutra
  */
-public class AvroMarshaller<T> extends AbstractMarshaller{
+public class AvroMarshaller<T extends GenericContainer> extends AbstractMarshaller{
 
    private Class<T> clazz;
    private Schema schema;

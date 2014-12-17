@@ -42,7 +42,7 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
 
       EmbeddedCacheManager cacheManager = TestCacheManagerFactory.createCacheManager(cfg);
       cacheManager.getCache(); //TODO this ensures the GlobalComponentRegistry is initialised right now, but it's not the cleanest way
-      AvroSupport.registerSchema(cache,User.getClassSchema());
+      AvroSupport.registerSchema(cacheManager,User.getClassSchema());
       return cacheManager;
    }
 

@@ -102,7 +102,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
    //
    public void loadSchema(Schema schema, String cacheName) {
       for (Site site :sites()) {
-         AvroSupport.registerSchema(site.getCache(cacheName), schema);
+         AvroSupport.registerSchema(site.getManager(), schema);
       }
    }
 

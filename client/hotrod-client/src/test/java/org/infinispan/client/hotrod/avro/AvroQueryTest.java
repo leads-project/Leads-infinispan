@@ -77,7 +77,7 @@ public class AvroQueryTest extends SingleCacheManagerTest {
       remoteCacheManager = new RemoteCacheManager(clientBuilder.build());
       remoteCache = remoteCacheManager.getCache(TEST_CACHE_NAME);
       qf = AvroSearch.getQueryFactory(remoteCache);
-      AvroSupport.registerSchema(remoteCache,Employee.getClassSchema());
+      AvroSupport.registerSchema(remoteCacheManager,Employee.getClassSchema());
       return cacheManager;
    }
 

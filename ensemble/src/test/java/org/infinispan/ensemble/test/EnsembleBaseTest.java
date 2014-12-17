@@ -86,7 +86,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
          }
       }
 
-      AssertJUnit.assertEquals(PAGES+1,cache().size()); // FIXME schema
+      AssertJUnit.assertEquals(PAGES,cache().size());
    }
 
    @Test

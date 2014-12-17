@@ -5,11 +5,14 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.io.*;
+import org.infinispan.commons.io.ByteBuffer;
+import org.infinispan.commons.io.ByteBufferImpl;
 import org.infinispan.commons.io.UnsignedNumeric;
 import org.infinispan.commons.marshall.AbstractExternalizer;
+import org.infinispan.commons.marshall.BufferSizePredictor;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.query.remote.ExternalizerIds;
-import org.infinispan.query.remote.client.avro.AvroSchemaManager;
 
 import java.io.*;
 import java.util.HashSet;
@@ -18,7 +21,7 @@ import java.util.Set;
 /**
  * @author Pierre Sutra
   */
-public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.Record> {
+public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.Record> implements Marshaller{
 
    private GenericJBossMarshaller marshaller;
 
@@ -49,6 +52,10 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
       byte[] in = new byte[len];
       input.readFully(in);
       return (GenericData.Record) objectFromByteBuffer(in,schema);
+   }
+
+   @Override public byte[] objectToByteBuffer(Object obj, int estimatedSize) throws IOException, InterruptedException {
+      return objectToByteBuffer(obj);
    }
 
    public byte[] objectToByteBuffer(Object o) throws IOException{
@@ -87,6 +94,24 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
             return o;
          }
       }
+   }
+
+   @Override public Object objectFromByteBuffer(byte[] buf, int offset, int length)
+         throws IOException, ClassNotFoundException {
+      return objectFromByteBuffer(buf);
+   }
+
+   @Override public ByteBuffer objectToBuffer(Object o) throws IOException, InterruptedException {
+      byte[] buf = objectToByteBuffer(o);
+      return new ByteBufferImpl(buf, 0, buf.length);
+   }
+
+   @Override public boolean isMarshallable(Object o) throws Exception {
+      return true;
+   }
+
+   @Override public BufferSizePredictor getBufferSizePredictor(Object o) {
+      return null;  // TODO: Customise this generated block
    }
 
    public Object objectFromByteBuffer(byte[] buf, Schema schema) throws IOException, ClassNotFoundException {
