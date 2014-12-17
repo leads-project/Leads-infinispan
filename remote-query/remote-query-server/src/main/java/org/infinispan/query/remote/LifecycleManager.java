@@ -18,8 +18,8 @@ import org.infinispan.lifecycle.AbstractModuleLifecycle;
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.objectfilter.impl.ProtobufMatcher;
-import org.infinispan.query.remote.avro.AvroSchemaManager;
-import org.infinispan.query.remote.avro.GenericRecordExternalizer;
+import org.infinispan.query.remote.avro.AvroExternalizer;
+import org.infinispan.query.remote.avro.AvroMetadataManager;
 import org.infinispan.query.remote.avro.RemoteAvroValueWrapperInterceptor;
 import org.infinispan.query.remote.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -39,14 +39,14 @@ public class LifecycleManager extends AbstractModuleLifecycle {
    @Override
    public void cacheManagerStarting(GlobalComponentRegistry gcr, GlobalConfiguration globalCfg) {
       Map<Integer, AdvancedExternalizer<?>> externalizerMap = globalCfg.serialization().advancedExternalizers();
-      externalizerMap.put(ExternalizerIds.AVRO_VALUE_WRAPPER, new GenericRecordExternalizer());
+      externalizerMap.put(ExternalizerIds.AVRO_VALUE_WRAPPER, new AvroExternalizer());
    }
 
    @Override
    public void cacheManagerStarted(GlobalComponentRegistry gcr) {
       EmbeddedCacheManager cacheManager = gcr.getComponent(EmbeddedCacheManager.class);
       initProtobufMetadataManager((DefaultCacheManager) cacheManager, gcr);
-      AvroSchemaManager.setInstance(new AvroSchemaManager((DefaultCacheManager)cacheManager));
+      AvroMetadataManager.setInstance(new AvroMetadataManager((DefaultCacheManager) cacheManager));
    }
 
    private void initProtobufMetadataManager(DefaultCacheManager cacheManager, GlobalComponentRegistry gcr) {

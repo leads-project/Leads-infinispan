@@ -15,7 +15,7 @@ import org.infinispan.AdvancedCache;
 import org.infinispan.query.CacheQuery;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
-import org.infinispan.query.remote.client.avro.AvroMarshaller;
+import org.infinispan.query.remote.client.avro.AvroSpecificMarshaller;
 import org.infinispan.query.remote.client.avro.Request;
 import org.infinispan.query.remote.client.avro.Response;
 import org.infinispan.query.remote.logging.Log;
@@ -25,8 +25,6 @@ import org.infinispan.util.logging.LogFactory;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -37,9 +35,10 @@ public class AvroQueryFacade implements QueryFacade {
 
    private static final Log log = LogFactory.getLog(AvroQueryFacade.class, Log.class);
 
-   private AvroMarshaller<Request> requestAvroMarshaller= new AvroMarshaller<>(Request.class);
-   private AvroMarshaller<Response> responseAvroMarshaller = new AvroMarshaller<>(Response.class);
-   private GenericRecordExternalizer recordExternalizer = new GenericRecordExternalizer();
+   private AvroSpecificMarshaller<Request> requestAvroMarshaller= new AvroSpecificMarshaller<>(Request.class);
+   private AvroSpecificMarshaller<Response> responseAvroMarshaller = new AvroSpecificMarshaller<>(Response.class);
+
+   private AvroExternalizer genericAvroMarshaller = new AvroExternalizer();
 
    @Override
    public byte[] query(AdvancedCache<byte[], byte[]> cache, byte[] query) {
@@ -91,14 +90,14 @@ public class AvroQueryFacade implements QueryFacade {
             }
          }else{
             for (Object o: list) {
-               GenericData.Record record = (GenericData.Record) recordExternalizer.objectFromByteBuffer((byte[]) o);
+               GenericData.Record record = (GenericData.Record) genericAvroMarshaller.objectFromByteBuffer((byte[]) o);
                GenericRecordBuilder builder = new GenericRecordBuilder(record.getSchema());
                GenericData.Record copy = builder.build();
                for(Schema.Field f : record.getSchema().getFields()){
                   if (parsingResult.getProjections().contains(f.name()))
                      copy.put(f.name(),record.get(f.name()));
                }
-               results.add(ByteBuffer.wrap(recordExternalizer.objectToByteBuffer(copy)));
+               results.add(ByteBuffer.wrap(genericAvroMarshaller.objectToByteBuffer(copy)));
             }
          }
 

@@ -68,7 +68,7 @@ public class RemoteAvroValueWrapperInterceptor extends BaseTypeConverterIntercep
     */
    private static class AvroValueWrapperTypeConverter extends PassThroughTypeConverter {
 
-      GenericRecordExternalizer externalizer = new GenericRecordExternalizer();
+      AvroExternalizer externalizer = new AvroExternalizer();
 
       @Override
       public Object boxValue(Object value) {

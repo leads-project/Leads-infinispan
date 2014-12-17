@@ -41,12 +41,12 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
    @Override
    protected int numberOfSites() {
-      return 1;
+      return 2;
    }
 
    @Override
    protected int numberOfNodes() {
-      return 1;
+      return 2;
    }
 
    @Test
@@ -131,7 +131,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
                .startOffset(i)
                .orderBy("url", SortOrder.ASC)
                .build();
-         assertEquals(1,query.list().size());
+         assertEquals(query.list().size(),1);
          WebPage page = (WebPage) query.list().get(0);
          retrieved.put(page.getUrl().toString(),page);
       }
@@ -149,7 +149,9 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       for (int i=0; i <NITERATIONS; i++){
          WebPage page = somePage();
          cache().put(page1.getUrl(),page);
-         assert cache().get(page1.getUrl()).equals(page);
+         WebPage page2 = cache().get(page1.getUrl());
+         assert  page2!=null;
+         assert page2.equals(page);
       }
 
       QueryFactory qf = Search.getQueryFactory(cache());

@@ -8,8 +8,10 @@ import org.infinispan.commons.api.BasicCacheContainer;
  */
 public class AvroSupport {
 
+   public static final String AVRO_METADATA_CACHE_NAME = "__avro_metadata";
+
    public static void registerSchema(BasicCacheContainer container, Schema schema) {
-      container.getCache("__avro_metadata").put(schema.getFullName(), schema);
+      container.getCache(AVRO_METADATA_CACHE_NAME).put(schema.getFullName(), schema);
    }
 
 }
