@@ -26,7 +26,7 @@ public abstract class EnsembleAbstractTest<K,T> extends MultipleSitesAbstractTes
       super.createCacheManagers();
       manager = new EnsembleCacheManager(sites(),new AvroMarshaller<>(valueClass()),new LocalIndexBuilder());
       for (String cacheName : cacheNames())
-         manager.loadSchema(valueClass().newInstance().getSchema(),cacheName);
+         manager.loadSchema(valueClass().newInstance().getSchema());
    }
 
    @AfterMethod(alwaysRun = true)

@@ -69,6 +69,12 @@ public class GenericRecordExternalizer extends AbstractExternalizer<GenericData.
          datumWriter.write(record,encoder);
          encoder.flush();
          return baos.toByteArray();
+      } else if (o instanceof Schema) {
+         try {
+            return marshaller.objectToByteBuffer(o.toString());
+         } catch (InterruptedException e) {
+            e.printStackTrace();
+         }
       }
       try {
          return marshaller.objectToByteBuffer(o);
