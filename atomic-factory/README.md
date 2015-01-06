@@ -15,8 +15,9 @@ set.add("something"); // some call examples
 System.out.println(set.toString())
 set.addAll(set);
 factory.disposeInstanceOf(HashSet.class, "set", true); // to store in a persistent way the object
-Additional examples are provided in org.infinispan.AtomicObjectFactoryTest, as well as in the web crawler demo.
 ```
+
+Additional examples are provided in org.infinispan.AtomicObjectFactoryTest.
 
 ## Limitations
 
@@ -29,5 +30,4 @@ We built the factory on top of the transactional facility of Infinispan.
 In more details, when the object is created, we store both a local copy and a proxy registered as a cache listener.
 We serialize every call in a transaction consisting of a single put operation.
 When the call is de-serialized its applied to the local copy and, in case the calling process was local,
-the return value is returned (this mechanism is implemented via a future object).
-
+the tentative call value is returned (this mechanism is implemented as a future object).
