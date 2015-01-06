@@ -1,15 +1,15 @@
-package org.infinispan.atomic;
+package org.infinispan.atomic.container;
 
 /**
 * *
 * @author Pierre Sutra
 * @since 6.0
 */
-class AtomicObjectCallInvoke extends AtomicObjectCall{
+class CallInvoke extends Call {
     String method;
     Object[] arguments;
 
-    public AtomicObjectCallInvoke(long id, String m, Object[] args) {
+    public CallInvoke(long id, String m, Object[] args) {
         super(id);
         method = m;
         arguments = args;

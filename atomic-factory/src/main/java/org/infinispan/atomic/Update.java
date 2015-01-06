@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * To declare a method as read-only.
+ * To declare a method as modifying the state of the object.
  *
  * @author Pierre Sutra
  * @since 7.0

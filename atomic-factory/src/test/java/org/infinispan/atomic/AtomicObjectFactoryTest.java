@@ -27,7 +27,7 @@ import java.util.concurrent.Future;
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
     private static int NCALLS= 1000;
-    private static int NCACHES = 4;
+    private static int NCACHES = 3;
     private static List<Cache> caches = new ArrayList<Cache>();
 
     private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
@@ -41,24 +41,24 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
         AtomicObjectFactory factory = new AtomicObjectFactory(cache);
 
         // 1 - Basic Usage
-        Set<String> set = (Set)factory.getInstanceOf(HashSet.class, "set");
+        Set<String> set = factory.getInstanceOf(HashSet.class, "set");
         set.add("smthing");
         assert set.contains("smthing");
         assert set.size()==1;
 
         // 2 - Persistence
         factory.disposeInstanceOf(HashSet.class, "set", true);
-        set = (Set<String>)factory.getInstanceOf(HashSet.class, "set", false, null, false);
+        set = factory.getInstanceOf(HashSet.class, "set", false, null, false);
         assert set.contains("smthing");
 
         // 3 - Optimistic execution
-        ArrayList<String> list = (ArrayList<String>)factory.getInstanceOf(ArrayList.class, "list", true);
+        ArrayList list = factory.getInstanceOf(ArrayList.class, "list", true);
         assert !list.contains("foo");
         assert !cache.containsKey("list");
 
     }
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void basicPerformanceTest() throws Exception{
 
         EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
@@ -94,13 +94,13 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
             caches.add(cache);
             factory = new AtomicObjectFactory(cache);
             factories.add(factory);
-            set = (HashSet) factory.getInstanceOf(HashSet.class, "aset", false, null, false);
+            set = factory.getInstanceOf(HashSet.class, "aset", false, null, false);
             set.add(-1); // to synchronize the copies
             sets.add(set);
         }
 
         for(Set s : sets){
-            futures.add(service.submit(new ExerciceAtomicSetTask(s, NCALLS)));
+            futures.add(service.submit(new ExerciseAtomicSetTask(s, NCALLS)));
         }
 
         Integer total = 0;
@@ -124,13 +124,13 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
         cache1 = manager1.getCache();
         factory1 = new AtomicObjectFactory(cache1);
-        set1 = (HashSet) factory1.getInstanceOf(HashSet.class, "persist");
+        set1 = factory1.getInstanceOf(HashSet.class, "persist");
         set1.add("smthing");
         factory1.disposeInstanceOf(HashSet.class,"persist",true);
 
         cache2 = manager2.getCache();
         factory2 = new AtomicObjectFactory(cache2);
-        set2 = (HashSet) factory2.getInstanceOf(HashSet.class, "persist", true, null, false);
+        set2 = factory2.getInstanceOf(HashSet.class, "persist", true, null, false);
         assert set2.contains("smthing");
 
     }
@@ -170,12 +170,12 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
     // INNER CLASSES
     //
 
-    private class ExerciceAtomicSetTask implements Callable<Integer>{
+    private class ExerciseAtomicSetTask implements Callable<Integer>{
 
         private int ncalls;
         private Set set;
 
-        public ExerciceAtomicSetTask(Set s, int n){
+        public ExerciseAtomicSetTask(Set s, int n){
             ncalls = n;
             set = s;
         }
@@ -187,7 +187,6 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
                 boolean r = set.add(i);
                 if(r){
                     ret ++;
-                    System.out.println("BING "+i);
                 }
             }
             return  ret;

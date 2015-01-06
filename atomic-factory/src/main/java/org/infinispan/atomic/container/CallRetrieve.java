@@ -1,12 +1,12 @@
-package org.infinispan.atomic;
+package org.infinispan.atomic.container;
 
 /**
 *
 * @author Pierre Sutra
 * @since 6.0
 */
-class AtomicObjectCallRetrieve extends AtomicObjectCall{
-    public AtomicObjectCallRetrieve(long id) {
+class CallRetrieve extends Call {
+    public CallRetrieve(long id) {
         super(id);
     }
 

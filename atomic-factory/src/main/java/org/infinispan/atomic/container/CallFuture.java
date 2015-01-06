@@ -1,4 +1,4 @@
-package org.infinispan.atomic;
+package org.infinispan.atomic.container;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -9,11 +9,11 @@ import java.util.concurrent.TimeoutException;
 * @author Pierre Sutra
 * @since 6.0
 */
-class AtomicObjectCallFuture implements Future<Object> {
+class CallFuture implements Future<Object> {
     private Object ret;
     private int state; // 0 => init, 1 => done, -1 => cancelled
 
-    public AtomicObjectCallFuture(){
+    public CallFuture(){
         ret = null;
         state = 0;
     }

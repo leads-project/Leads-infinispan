@@ -1,6 +1,6 @@
-package org.infinispan.atomic.collections;
+package org.infinispan.atomic.sharded.collections;
 
-import org.infinispan.atomic.AtomicObject;
+import org.infinispan.atomic.Updatable;
 import org.infinispan.atomic.AtomicObjectFactory;
 import org.infinispan.atomic.Update;
 import org.infinispan.util.logging.Log;
@@ -24,7 +24,7 @@ import java.util.*;
  * @since 7.0
  *
  */
-public class ShardedTreeMap<K extends Comparable<K>,V> extends AtomicObject implements SortedMap<K, V>
+public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable implements SortedMap<K, V>
 {
 
     private static Log log = LogFactory.getLog(ShardedTreeMap.class);
@@ -255,8 +255,8 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends AtomicObject impl
     private TreeMap<K,V> allocateTree(K k){
         log.debug("Allocating "+k);
         if(forest.get(k)==null){
-            TreeMap treeMap = AtomicObjectFactory.forCache(this.cache).getInstanceOf(
-                    TreeMap.class, this.key.toString()+":"+k.toString(), true, null, false);
+            TreeMap treeMap = AtomicObjectFactory.forCache(this.getCache()).getInstanceOf(
+                    TreeMap.class, this.getKey().toString()+":"+k.toString(), true, null, false);
             forest.put(k, treeMap);
             log.debug("... done ");
         }
@@ -272,8 +272,8 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends AtomicObject impl
         }
         for(K k : toUnallocate){
             log.debug("Unallocate "+k);
-            AtomicObjectFactory.forCache(this.cache).disposeInstanceOf(
-                    TreeMap.class, this.key.toString()+":"+k.toString(), true);
+            AtomicObjectFactory.forCache(this.getCache()).disposeInstanceOf(
+                    TreeMap.class, this.getKey().toString()+":"+k.toString(), true);
             forest.put(k,null);
         }
 

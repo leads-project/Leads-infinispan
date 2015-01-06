@@ -1,4 +1,4 @@
-package org.infinispan.atomic;
+package org.infinispan.atomic.container;
 
 import java.io.Serializable;
 
@@ -8,9 +8,9 @@ import java.io.Serializable;
 * @author Pierre Sutra
 * @since 6.0
 */
-abstract class AtomicObjectCall implements Serializable {
+abstract class Call implements Serializable {
     long callID;
-    public AtomicObjectCall(long id){
+    public Call(long id){
         callID = id;
     }
 

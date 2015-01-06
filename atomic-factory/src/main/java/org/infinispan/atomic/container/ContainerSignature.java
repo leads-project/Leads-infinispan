@@ -1,4 +1,4 @@
-package org.infinispan.atomic;
+package org.infinispan.atomic.container;
 
 /**
 *
@@ -6,12 +6,12 @@ package org.infinispan.atomic;
 * @since 7.0
  *
 */
-public class AtomicObjectContainerSignature {
+public class ContainerSignature {
 
     private Class clazz;
     private Object key;
 
-    public AtomicObjectContainerSignature(Class c, Object k){
+    public ContainerSignature(Class c, Object k){
         clazz = c;
         key = k;
     }
@@ -23,10 +23,10 @@ public class AtomicObjectContainerSignature {
 
     @Override
     public boolean equals(Object o){
-        if (!(o instanceof AtomicObjectContainerSignature))
+        if (!(o instanceof ContainerSignature))
             return false;
-        return ((AtomicObjectContainerSignature)o).clazz.equals(this.clazz)
-                && ((AtomicObjectContainerSignature)o).key.equals(this.key);
+        return ((ContainerSignature)o).clazz.equals(this.clazz)
+                && ((ContainerSignature)o).key.equals(this.key);
     }
 
     @Override

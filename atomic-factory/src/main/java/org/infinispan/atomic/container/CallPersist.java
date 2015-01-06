@@ -1,13 +1,13 @@
-package org.infinispan.atomic;
+package org.infinispan.atomic.container;
 
 /**
 *
 * @author Pierre Sutra
 * @since 6.0
 */
-class AtomicObjectCallPersist extends AtomicObjectCall{
+class CallPersist extends Call {
     Object object;
-    public AtomicObjectCallPersist(long id, Object o) {
+    public CallPersist(long id, Object o) {
         super(id);
         object = o;
     }

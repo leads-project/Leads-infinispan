@@ -1,4 +1,4 @@
-package org.infinispan.atomic.collections;
+package org.infinispan.atomic.sharded.collections;
 
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;
