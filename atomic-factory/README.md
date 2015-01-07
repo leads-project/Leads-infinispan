@@ -31,8 +31,8 @@ as well as the object itself.
 
 The factory is described in Section 4 of the paper untitled "On the Support of
 Versioning in Distributed Key-Value Stores" published at the 33rd IEEE Symposium on Reliable Distributed Systems
-(SRDS'14). A preprint version of this paper is available at the following address:
-https://drive.google.com/open?id=0BwFkGepvBDQoTEdPS0x6VXhqMW8&authuser=0.
+(SRDS'14). A preprint version of this paper is available at the following [address]
+(https://drive.google.com/open?id=0BwFkGepvBDQoTEdPS0x6VXhqMW8&authuser=0).
 
 ### High-level Implementation Details
 
