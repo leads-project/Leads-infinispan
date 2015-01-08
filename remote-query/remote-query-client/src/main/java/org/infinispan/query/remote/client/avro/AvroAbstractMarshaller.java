@@ -12,6 +12,7 @@ import org.infinispan.commons.marshall.BufferSizePredictor;
 import org.infinispan.commons.marshall.Marshaller;
 
 import java.io.*;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -34,8 +35,7 @@ public abstract class AvroAbstractMarshaller extends AbstractExternalizer implem
    @Override
    public void writeObject(ObjectOutput output, Object o) throws IOException {
       byte[] out = objectToByteBuffer(o);
-      output.write(out.length);
-      output.write(out);
+      output.writeObject(out);
    }
 
    @Override
@@ -58,10 +58,9 @@ public abstract class AvroAbstractMarshaller extends AbstractExternalizer implem
          GenericContainer container = (GenericContainer) o;
          oos.writeObject((container.getSchema().getFullName()));
          DatumWriter<GenericContainer> datumWriter = new GenericDatumWriter<>(container.getSchema());
-         BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder( baos, null );
+         BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(baos, null);
          datumWriter.write(container,encoder);
          encoder.flush();
-         return baos.toByteArray();
       } else if (o instanceof Schema) {
          oos.write(SCHEMA);
          oos.writeObject(o.toString());
@@ -76,15 +75,15 @@ public abstract class AvroAbstractMarshaller extends AbstractExternalizer implem
 
    @Override
    public Object readObject(ObjectInput input) throws IOException, ClassNotFoundException {
-      int len = input.read();
-      byte[] buff = new byte[len];
-      input.readFully(buff);
-      return objectFromByteBuffer(buff);
+      return objectFromByteBuffer((byte[]) input.readObject());
    }
 
    @Override
    public Object objectFromByteBuffer(byte[] buf, int offset, int length)
          throws IOException, ClassNotFoundException {
+      if (offset!=0||length!=buf.length) {
+         objectFromByteBuffer(Arrays.copyOfRange(buf, offset, length));
+      }
       return objectFromByteBuffer(buf);
    }
 
@@ -105,7 +104,7 @@ public abstract class AvroAbstractMarshaller extends AbstractExternalizer implem
          case OTHER:
             return ois.readObject();
          }
-      } catch (InterruptedException e) {
+      } catch (Exception e) {
          e.printStackTrace();
       }
       throw new IOException("cannot unmarshall");

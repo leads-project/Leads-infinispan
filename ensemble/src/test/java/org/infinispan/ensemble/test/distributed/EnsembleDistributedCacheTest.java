@@ -52,23 +52,23 @@ public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
       WebPage page2 = somePage();
 
       // get, put
-      cache().put(page1.getUrl(),page1);
-      assert frontierMode || cache().containsKey(page1.getUrl());
-      assert frontierMode || cache().get(page1.getUrl()).equals(page1);
+      cache().put(page1.getKey(),page1);
+      assert frontierMode || cache().containsKey(page1.getKey());
+      assert frontierMode || cache().get(page1.getKey()).equals(page1);
 
       // putIfAbsent
-      assert cache().putIfAbsent(page2.getUrl(),page2)==null;
-      cache().putIfAbsent(page1.getUrl(),page2);
-      assert frontierMode || cache().get(page2.getUrl()).equals(page2);
+      assert cache().putIfAbsent(page2.getKey(),page2)==null;
+      cache().putIfAbsent(page1.getKey(),page2);
+      assert frontierMode || cache().get(page2.getKey()).equals(page2);
 
       // Frontier mode check
       WebPage page3= somePage();
-      cache().put(page3.getUrl(), page3);
-      EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page3.getUrl());
+      cache().put(page3.getKey(), page3);
+      EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page3.getKey());
       if (!frontierMode || location.equals(cache.getFrontierCache()))
-         assert cache.containsKey(page3.getUrl());
+         assert cache.containsKey(page3.getKey());
       else
-         assert !cache.containsKey(page3.getUrl());
+         assert !cache.containsKey(page3.getKey());
 
    }
 
@@ -80,9 +80,9 @@ public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
       Query query = qb.build();
 
       WebPage page1 = somePage();
-      cache().put(page1.getUrl(), page1);
+      cache().put(page1.getKey(), page1);
 
-      EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page1.getUrl());
+      EnsembleCache<CharSequence, WebPage> location = partitioner.locate(page1.getKey());
       if (!frontierMode || location.equals(cache.getFrontierCache()))
          assertEquals(1,query.list().size());
       else

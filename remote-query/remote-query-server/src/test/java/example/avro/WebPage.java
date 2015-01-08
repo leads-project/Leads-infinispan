@@ -3,18 +3,37 @@
  * 
  * DO NOT EDIT DIRECTLY
  */
-package example.avro;
+package example.avro;  
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class WebPage extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"WebPage\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"url\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"content\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"parsedContent\",\"type\":{\"type\":\"array\",\"items\":\"string\"},\"default\":{}},{\"name\":\"outlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"headers\",\"type\":[\"null\",{\"type\":\"map\",\"values\":[\"null\",\"string\"]}],\"default\":null},{\"name\":\"metadata\",\"type\":{\"type\":\"record\",\"name\":\"Metadata\",\"fields\":[{\"name\":\"version\",\"type\":\"int\",\"default\":0},{\"name\":\"data\",\"type\":{\"type\":\"map\",\"values\":\"string\"},\"default\":{}}]},\"default\":null}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"WebPage\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"key\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"baseUrl\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"status\",\"type\":\"int\",\"default\":0},{\"name\":\"fetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevFetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"fetchInterval\",\"type\":\"int\",\"default\":0},{\"name\":\"retriesSinceFetch\",\"type\":\"int\",\"default\":0},{\"name\":\"modifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevModifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"protocolStatus\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"ProtocolStatus\",\"namespace\":\"org.apache.nutch.storage\",\"fields\":[{\"name\":\"code\",\"type\":\"int\",\"default\":0},{\"name\":\"args\",\"type\":{\"type\":\"array\",\"items\":\"string\"},\"default\":[]},{\"name\":\"lastModified\",\"type\":\"long\",\"default\":0}]}],\"default\":null},{\"name\":\"content\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"contentType\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"prevSignature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"signature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"title\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"text\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"parseStatus\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"ParseStatus\",\"namespace\":\"org.apache.nutch.storage\",\"fields\":[{\"name\":\"majorCode\",\"type\":\"int\",\"default\":0},{\"name\":\"minorCode\",\"type\":\"int\",\"default\":0},{\"name\":\"args\",\"type\":{\"type\":\"array\",\"items\":\"string\"},\"default\":[]}]}],\"default\":null},{\"name\":\"score\",\"type\":\"float\",\"default\":0},{\"name\":\"reprUrl\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"headers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"outlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"inlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"markers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"metadata\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"bytes\"]},\"default\":{}},{\"name\":\"batchId\",\"type\":[\"null\",\"string\"],\"default\":null}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
-  @Deprecated public java.lang.CharSequence url;
+  @Deprecated public java.lang.CharSequence key;
+  @Deprecated public java.lang.CharSequence baseUrl;
+  @Deprecated public int status;
+  @Deprecated public long fetchTime;
+  @Deprecated public long prevFetchTime;
+  @Deprecated public int fetchInterval;
+  @Deprecated public int retriesSinceFetch;
+  @Deprecated public long modifiedTime;
+  @Deprecated public long prevModifiedTime;
+  @Deprecated public org.apache.nutch.storage.ProtocolStatus protocolStatus;
   @Deprecated public java.nio.ByteBuffer content;
-  @Deprecated public java.util.List<java.lang.CharSequence> parsedContent;
-  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks;
+  @Deprecated public java.lang.CharSequence contentType;
+  @Deprecated public java.nio.ByteBuffer prevSignature;
+  @Deprecated public java.nio.ByteBuffer signature;
+  @Deprecated public java.lang.CharSequence title;
+  @Deprecated public java.lang.CharSequence text;
+  @Deprecated public org.apache.nutch.storage.ParseStatus parseStatus;
+  @Deprecated public float score;
+  @Deprecated public java.lang.CharSequence reprUrl;
   @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers;
-  @Deprecated public example.avro.Metadata metadata;
+  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks;
+  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> inlinks;
+  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> markers;
+  @Deprecated public java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> metadata;
+  @Deprecated public java.lang.CharSequence batchId;
 
   /**
    * Default constructor.  Note that this does not initialize fields
@@ -26,25 +45,63 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * All-args constructor.
    */
-  public WebPage(java.lang.CharSequence url, java.nio.ByteBuffer content, java.util.List<java.lang.CharSequence> parsedContent, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers, example.avro.Metadata metadata) {
-    this.url = url;
+  public WebPage(java.lang.CharSequence key, java.lang.CharSequence baseUrl, java.lang.Integer status, java.lang.Long fetchTime, java.lang.Long prevFetchTime, java.lang.Integer fetchInterval, java.lang.Integer retriesSinceFetch, java.lang.Long modifiedTime, java.lang.Long prevModifiedTime, org.apache.nutch.storage.ProtocolStatus protocolStatus, java.nio.ByteBuffer content, java.lang.CharSequence contentType, java.nio.ByteBuffer prevSignature, java.nio.ByteBuffer signature, java.lang.CharSequence title, java.lang.CharSequence text, org.apache.nutch.storage.ParseStatus parseStatus, java.lang.Float score, java.lang.CharSequence reprUrl, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> inlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> markers, java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> metadata, java.lang.CharSequence batchId) {
+    this.key = key;
+    this.baseUrl = baseUrl;
+    this.status = status;
+    this.fetchTime = fetchTime;
+    this.prevFetchTime = prevFetchTime;
+    this.fetchInterval = fetchInterval;
+    this.retriesSinceFetch = retriesSinceFetch;
+    this.modifiedTime = modifiedTime;
+    this.prevModifiedTime = prevModifiedTime;
+    this.protocolStatus = protocolStatus;
     this.content = content;
-    this.parsedContent = parsedContent;
-    this.outlinks = outlinks;
+    this.contentType = contentType;
+    this.prevSignature = prevSignature;
+    this.signature = signature;
+    this.title = title;
+    this.text = text;
+    this.parseStatus = parseStatus;
+    this.score = score;
+    this.reprUrl = reprUrl;
     this.headers = headers;
+    this.outlinks = outlinks;
+    this.inlinks = inlinks;
+    this.markers = markers;
     this.metadata = metadata;
+    this.batchId = batchId;
   }
 
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
   // Used by DatumWriter.  Applications should not call. 
   public java.lang.Object get(int field$) {
     switch (field$) {
-    case 0: return url;
-    case 1: return content;
-    case 2: return parsedContent;
-    case 3: return outlinks;
-    case 4: return headers;
-    case 5: return metadata;
+    case 0: return key;
+    case 1: return baseUrl;
+    case 2: return status;
+    case 3: return fetchTime;
+    case 4: return prevFetchTime;
+    case 5: return fetchInterval;
+    case 6: return retriesSinceFetch;
+    case 7: return modifiedTime;
+    case 8: return prevModifiedTime;
+    case 9: return protocolStatus;
+    case 10: return content;
+    case 11: return contentType;
+    case 12: return prevSignature;
+    case 13: return signature;
+    case 14: return title;
+    case 15: return text;
+    case 16: return parseStatus;
+    case 17: return score;
+    case 18: return reprUrl;
+    case 19: return headers;
+    case 20: return outlinks;
+    case 21: return inlinks;
+    case 22: return markers;
+    case 23: return metadata;
+    case 24: return batchId;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -52,29 +109,183 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
-    case 0: url = (java.lang.CharSequence)value$; break;
-    case 1: content = (java.nio.ByteBuffer)value$; break;
-    case 2: parsedContent = (java.util.List<java.lang.CharSequence>)value$; break;
-    case 3: outlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 4: headers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 5: metadata = (example.avro.Metadata)value$; break;
+    case 0: key = (java.lang.CharSequence)value$; break;
+    case 1: baseUrl = (java.lang.CharSequence)value$; break;
+    case 2: status = (java.lang.Integer)value$; break;
+    case 3: fetchTime = (java.lang.Long)value$; break;
+    case 4: prevFetchTime = (java.lang.Long)value$; break;
+    case 5: fetchInterval = (java.lang.Integer)value$; break;
+    case 6: retriesSinceFetch = (java.lang.Integer)value$; break;
+    case 7: modifiedTime = (java.lang.Long)value$; break;
+    case 8: prevModifiedTime = (java.lang.Long)value$; break;
+    case 9: protocolStatus = (org.apache.nutch.storage.ProtocolStatus)value$; break;
+    case 10: content = (java.nio.ByteBuffer)value$; break;
+    case 11: contentType = (java.lang.CharSequence)value$; break;
+    case 12: prevSignature = (java.nio.ByteBuffer)value$; break;
+    case 13: signature = (java.nio.ByteBuffer)value$; break;
+    case 14: title = (java.lang.CharSequence)value$; break;
+    case 15: text = (java.lang.CharSequence)value$; break;
+    case 16: parseStatus = (org.apache.nutch.storage.ParseStatus)value$; break;
+    case 17: score = (java.lang.Float)value$; break;
+    case 18: reprUrl = (java.lang.CharSequence)value$; break;
+    case 19: headers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 20: outlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 21: inlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 22: markers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 23: metadata = (java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer>)value$; break;
+    case 24: batchId = (java.lang.CharSequence)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
 
   /**
-   * Gets the value of the 'url' field.
+   * Gets the value of the 'key' field.
    */
-  public java.lang.CharSequence getUrl() {
-    return url;
+  public java.lang.CharSequence getKey() {
+    return key;
   }
 
   /**
-   * Sets the value of the 'url' field.
+   * Sets the value of the 'key' field.
    * @param value the value to set.
    */
-  public void setUrl(java.lang.CharSequence value) {
-    this.url = value;
+  public void setKey(java.lang.CharSequence value) {
+    this.key = value;
+  }
+
+  /**
+   * Gets the value of the 'baseUrl' field.
+   */
+  public java.lang.CharSequence getBaseUrl() {
+    return baseUrl;
+  }
+
+  /**
+   * Sets the value of the 'baseUrl' field.
+   * @param value the value to set.
+   */
+  public void setBaseUrl(java.lang.CharSequence value) {
+    this.baseUrl = value;
+  }
+
+  /**
+   * Gets the value of the 'status' field.
+   */
+  public java.lang.Integer getStatus() {
+    return status;
+  }
+
+  /**
+   * Sets the value of the 'status' field.
+   * @param value the value to set.
+   */
+  public void setStatus(java.lang.Integer value) {
+    this.status = value;
+  }
+
+  /**
+   * Gets the value of the 'fetchTime' field.
+   */
+  public java.lang.Long getFetchTime() {
+    return fetchTime;
+  }
+
+  /**
+   * Sets the value of the 'fetchTime' field.
+   * @param value the value to set.
+   */
+  public void setFetchTime(java.lang.Long value) {
+    this.fetchTime = value;
+  }
+
+  /**
+   * Gets the value of the 'prevFetchTime' field.
+   */
+  public java.lang.Long getPrevFetchTime() {
+    return prevFetchTime;
+  }
+
+  /**
+   * Sets the value of the 'prevFetchTime' field.
+   * @param value the value to set.
+   */
+  public void setPrevFetchTime(java.lang.Long value) {
+    this.prevFetchTime = value;
+  }
+
+  /**
+   * Gets the value of the 'fetchInterval' field.
+   */
+  public java.lang.Integer getFetchInterval() {
+    return fetchInterval;
+  }
+
+  /**
+   * Sets the value of the 'fetchInterval' field.
+   * @param value the value to set.
+   */
+  public void setFetchInterval(java.lang.Integer value) {
+    this.fetchInterval = value;
+  }
+
+  /**
+   * Gets the value of the 'retriesSinceFetch' field.
+   */
+  public java.lang.Integer getRetriesSinceFetch() {
+    return retriesSinceFetch;
+  }
+
+  /**
+   * Sets the value of the 'retriesSinceFetch' field.
+   * @param value the value to set.
+   */
+  public void setRetriesSinceFetch(java.lang.Integer value) {
+    this.retriesSinceFetch = value;
+  }
+
+  /**
+   * Gets the value of the 'modifiedTime' field.
+   */
+  public java.lang.Long getModifiedTime() {
+    return modifiedTime;
+  }
+
+  /**
+   * Sets the value of the 'modifiedTime' field.
+   * @param value the value to set.
+   */
+  public void setModifiedTime(java.lang.Long value) {
+    this.modifiedTime = value;
+  }
+
+  /**
+   * Gets the value of the 'prevModifiedTime' field.
+   */
+  public java.lang.Long getPrevModifiedTime() {
+    return prevModifiedTime;
+  }
+
+  /**
+   * Sets the value of the 'prevModifiedTime' field.
+   * @param value the value to set.
+   */
+  public void setPrevModifiedTime(java.lang.Long value) {
+    this.prevModifiedTime = value;
+  }
+
+  /**
+   * Gets the value of the 'protocolStatus' field.
+   */
+  public org.apache.nutch.storage.ProtocolStatus getProtocolStatus() {
+    return protocolStatus;
+  }
+
+  /**
+   * Sets the value of the 'protocolStatus' field.
+   * @param value the value to set.
+   */
+  public void setProtocolStatus(org.apache.nutch.storage.ProtocolStatus value) {
+    this.protocolStatus = value;
   }
 
   /**
@@ -93,33 +304,123 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   }
 
   /**
-   * Gets the value of the 'parsedContent' field.
+   * Gets the value of the 'contentType' field.
    */
-  public java.util.List<java.lang.CharSequence> getParsedContent() {
-    return parsedContent;
+  public java.lang.CharSequence getContentType() {
+    return contentType;
   }
 
   /**
-   * Sets the value of the 'parsedContent' field.
+   * Sets the value of the 'contentType' field.
    * @param value the value to set.
    */
-  public void setParsedContent(java.util.List<java.lang.CharSequence> value) {
-    this.parsedContent = value;
+  public void setContentType(java.lang.CharSequence value) {
+    this.contentType = value;
   }
 
   /**
-   * Gets the value of the 'outlinks' field.
+   * Gets the value of the 'prevSignature' field.
    */
-  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getOutlinks() {
-    return outlinks;
+  public java.nio.ByteBuffer getPrevSignature() {
+    return prevSignature;
   }
 
   /**
-   * Sets the value of the 'outlinks' field.
+   * Sets the value of the 'prevSignature' field.
    * @param value the value to set.
    */
-  public void setOutlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-    this.outlinks = value;
+  public void setPrevSignature(java.nio.ByteBuffer value) {
+    this.prevSignature = value;
+  }
+
+  /**
+   * Gets the value of the 'signature' field.
+   */
+  public java.nio.ByteBuffer getSignature() {
+    return signature;
+  }
+
+  /**
+   * Sets the value of the 'signature' field.
+   * @param value the value to set.
+   */
+  public void setSignature(java.nio.ByteBuffer value) {
+    this.signature = value;
+  }
+
+  /**
+   * Gets the value of the 'title' field.
+   */
+  public java.lang.CharSequence getTitle() {
+    return title;
+  }
+
+  /**
+   * Sets the value of the 'title' field.
+   * @param value the value to set.
+   */
+  public void setTitle(java.lang.CharSequence value) {
+    this.title = value;
+  }
+
+  /**
+   * Gets the value of the 'text' field.
+   */
+  public java.lang.CharSequence getText() {
+    return text;
+  }
+
+  /**
+   * Sets the value of the 'text' field.
+   * @param value the value to set.
+   */
+  public void setText(java.lang.CharSequence value) {
+    this.text = value;
+  }
+
+  /**
+   * Gets the value of the 'parseStatus' field.
+   */
+  public org.apache.nutch.storage.ParseStatus getParseStatus() {
+    return parseStatus;
+  }
+
+  /**
+   * Sets the value of the 'parseStatus' field.
+   * @param value the value to set.
+   */
+  public void setParseStatus(org.apache.nutch.storage.ParseStatus value) {
+    this.parseStatus = value;
+  }
+
+  /**
+   * Gets the value of the 'score' field.
+   */
+  public java.lang.Float getScore() {
+    return score;
+  }
+
+  /**
+   * Sets the value of the 'score' field.
+   * @param value the value to set.
+   */
+  public void setScore(java.lang.Float value) {
+    this.score = value;
+  }
+
+  /**
+   * Gets the value of the 'reprUrl' field.
+   */
+  public java.lang.CharSequence getReprUrl() {
+    return reprUrl;
+  }
+
+  /**
+   * Sets the value of the 'reprUrl' field.
+   * @param value the value to set.
+   */
+  public void setReprUrl(java.lang.CharSequence value) {
+    this.reprUrl = value;
   }
 
   /**
@@ -138,9 +439,54 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   }
 
   /**
+   * Gets the value of the 'outlinks' field.
+   */
+  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getOutlinks() {
+    return outlinks;
+  }
+
+  /**
+   * Sets the value of the 'outlinks' field.
+   * @param value the value to set.
+   */
+  public void setOutlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+    this.outlinks = value;
+  }
+
+  /**
+   * Gets the value of the 'inlinks' field.
+   */
+  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getInlinks() {
+    return inlinks;
+  }
+
+  /**
+   * Sets the value of the 'inlinks' field.
+   * @param value the value to set.
+   */
+  public void setInlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+    this.inlinks = value;
+  }
+
+  /**
+   * Gets the value of the 'markers' field.
+   */
+  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getMarkers() {
+    return markers;
+  }
+
+  /**
+   * Sets the value of the 'markers' field.
+   * @param value the value to set.
+   */
+  public void setMarkers(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+    this.markers = value;
+  }
+
+  /**
    * Gets the value of the 'metadata' field.
    */
-  public example.avro.Metadata getMetadata() {
+  public java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> getMetadata() {
     return metadata;
   }
 
@@ -148,8 +494,23 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'metadata' field.
    * @param value the value to set.
    */
-  public void setMetadata(example.avro.Metadata value) {
+  public void setMetadata(java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> value) {
     this.metadata = value;
+  }
+
+  /**
+   * Gets the value of the 'batchId' field.
+   */
+  public java.lang.CharSequence getBatchId() {
+    return batchId;
+  }
+
+  /**
+   * Sets the value of the 'batchId' field.
+   * @param value the value to set.
+   */
+  public void setBatchId(java.lang.CharSequence value) {
+    this.batchId = value;
   }
 
   /** Creates a new WebPage RecordBuilder */
@@ -173,12 +534,31 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   public static class Builder extends org.apache.avro.specific.SpecificRecordBuilderBase<WebPage>
     implements org.apache.avro.data.RecordBuilder<WebPage> {
 
-    private java.lang.CharSequence url;
+    private java.lang.CharSequence key;
+    private java.lang.CharSequence baseUrl;
+    private int status;
+    private long fetchTime;
+    private long prevFetchTime;
+    private int fetchInterval;
+    private int retriesSinceFetch;
+    private long modifiedTime;
+    private long prevModifiedTime;
+    private org.apache.nutch.storage.ProtocolStatus protocolStatus;
     private java.nio.ByteBuffer content;
-    private java.util.List<java.lang.CharSequence> parsedContent;
-    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks;
+    private java.lang.CharSequence contentType;
+    private java.nio.ByteBuffer prevSignature;
+    private java.nio.ByteBuffer signature;
+    private java.lang.CharSequence title;
+    private java.lang.CharSequence text;
+    private org.apache.nutch.storage.ParseStatus parseStatus;
+    private float score;
+    private java.lang.CharSequence reprUrl;
     private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers;
-    private example.avro.Metadata metadata;
+    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks;
+    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> inlinks;
+    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> markers;
+    private java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> metadata;
+    private java.lang.CharSequence batchId;
 
     /** Creates a new Builder */
     private Builder() {
@@ -188,83 +568,453 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     /** Creates a Builder by copying an existing Builder */
     private Builder(example.avro.WebPage.Builder other) {
       super(other);
-      if (isValidValue(fields()[0], other.url)) {
-        this.url = data().deepCopy(fields()[0].schema(), other.url);
+      if (isValidValue(fields()[0], other.key)) {
+        this.key = data().deepCopy(fields()[0].schema(), other.key);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.content)) {
-        this.content = data().deepCopy(fields()[1].schema(), other.content);
+      if (isValidValue(fields()[1], other.baseUrl)) {
+        this.baseUrl = data().deepCopy(fields()[1].schema(), other.baseUrl);
         fieldSetFlags()[1] = true;
       }
-      if (isValidValue(fields()[2], other.parsedContent)) {
-        this.parsedContent = data().deepCopy(fields()[2].schema(), other.parsedContent);
+      if (isValidValue(fields()[2], other.status)) {
+        this.status = data().deepCopy(fields()[2].schema(), other.status);
         fieldSetFlags()[2] = true;
       }
-      if (isValidValue(fields()[3], other.outlinks)) {
-        this.outlinks = data().deepCopy(fields()[3].schema(), other.outlinks);
+      if (isValidValue(fields()[3], other.fetchTime)) {
+        this.fetchTime = data().deepCopy(fields()[3].schema(), other.fetchTime);
         fieldSetFlags()[3] = true;
       }
-      if (isValidValue(fields()[4], other.headers)) {
-        this.headers = data().deepCopy(fields()[4].schema(), other.headers);
+      if (isValidValue(fields()[4], other.prevFetchTime)) {
+        this.prevFetchTime = data().deepCopy(fields()[4].schema(), other.prevFetchTime);
         fieldSetFlags()[4] = true;
       }
-      if (isValidValue(fields()[5], other.metadata)) {
-        this.metadata = data().deepCopy(fields()[5].schema(), other.metadata);
+      if (isValidValue(fields()[5], other.fetchInterval)) {
+        this.fetchInterval = data().deepCopy(fields()[5].schema(), other.fetchInterval);
         fieldSetFlags()[5] = true;
+      }
+      if (isValidValue(fields()[6], other.retriesSinceFetch)) {
+        this.retriesSinceFetch = data().deepCopy(fields()[6].schema(), other.retriesSinceFetch);
+        fieldSetFlags()[6] = true;
+      }
+      if (isValidValue(fields()[7], other.modifiedTime)) {
+        this.modifiedTime = data().deepCopy(fields()[7].schema(), other.modifiedTime);
+        fieldSetFlags()[7] = true;
+      }
+      if (isValidValue(fields()[8], other.prevModifiedTime)) {
+        this.prevModifiedTime = data().deepCopy(fields()[8].schema(), other.prevModifiedTime);
+        fieldSetFlags()[8] = true;
+      }
+      if (isValidValue(fields()[9], other.protocolStatus)) {
+        this.protocolStatus = data().deepCopy(fields()[9].schema(), other.protocolStatus);
+        fieldSetFlags()[9] = true;
+      }
+      if (isValidValue(fields()[10], other.content)) {
+        this.content = data().deepCopy(fields()[10].schema(), other.content);
+        fieldSetFlags()[10] = true;
+      }
+      if (isValidValue(fields()[11], other.contentType)) {
+        this.contentType = data().deepCopy(fields()[11].schema(), other.contentType);
+        fieldSetFlags()[11] = true;
+      }
+      if (isValidValue(fields()[12], other.prevSignature)) {
+        this.prevSignature = data().deepCopy(fields()[12].schema(), other.prevSignature);
+        fieldSetFlags()[12] = true;
+      }
+      if (isValidValue(fields()[13], other.signature)) {
+        this.signature = data().deepCopy(fields()[13].schema(), other.signature);
+        fieldSetFlags()[13] = true;
+      }
+      if (isValidValue(fields()[14], other.title)) {
+        this.title = data().deepCopy(fields()[14].schema(), other.title);
+        fieldSetFlags()[14] = true;
+      }
+      if (isValidValue(fields()[15], other.text)) {
+        this.text = data().deepCopy(fields()[15].schema(), other.text);
+        fieldSetFlags()[15] = true;
+      }
+      if (isValidValue(fields()[16], other.parseStatus)) {
+        this.parseStatus = data().deepCopy(fields()[16].schema(), other.parseStatus);
+        fieldSetFlags()[16] = true;
+      }
+      if (isValidValue(fields()[17], other.score)) {
+        this.score = data().deepCopy(fields()[17].schema(), other.score);
+        fieldSetFlags()[17] = true;
+      }
+      if (isValidValue(fields()[18], other.reprUrl)) {
+        this.reprUrl = data().deepCopy(fields()[18].schema(), other.reprUrl);
+        fieldSetFlags()[18] = true;
+      }
+      if (isValidValue(fields()[19], other.headers)) {
+        this.headers = data().deepCopy(fields()[19].schema(), other.headers);
+        fieldSetFlags()[19] = true;
+      }
+      if (isValidValue(fields()[20], other.outlinks)) {
+        this.outlinks = data().deepCopy(fields()[20].schema(), other.outlinks);
+        fieldSetFlags()[20] = true;
+      }
+      if (isValidValue(fields()[21], other.inlinks)) {
+        this.inlinks = data().deepCopy(fields()[21].schema(), other.inlinks);
+        fieldSetFlags()[21] = true;
+      }
+      if (isValidValue(fields()[22], other.markers)) {
+        this.markers = data().deepCopy(fields()[22].schema(), other.markers);
+        fieldSetFlags()[22] = true;
+      }
+      if (isValidValue(fields()[23], other.metadata)) {
+        this.metadata = data().deepCopy(fields()[23].schema(), other.metadata);
+        fieldSetFlags()[23] = true;
+      }
+      if (isValidValue(fields()[24], other.batchId)) {
+        this.batchId = data().deepCopy(fields()[24].schema(), other.batchId);
+        fieldSetFlags()[24] = true;
       }
     }
     
     /** Creates a Builder by copying an existing WebPage instance */
     private Builder(example.avro.WebPage other) {
             super(example.avro.WebPage.SCHEMA$);
-      if (isValidValue(fields()[0], other.url)) {
-        this.url = data().deepCopy(fields()[0].schema(), other.url);
+      if (isValidValue(fields()[0], other.key)) {
+        this.key = data().deepCopy(fields()[0].schema(), other.key);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.content)) {
-        this.content = data().deepCopy(fields()[1].schema(), other.content);
+      if (isValidValue(fields()[1], other.baseUrl)) {
+        this.baseUrl = data().deepCopy(fields()[1].schema(), other.baseUrl);
         fieldSetFlags()[1] = true;
       }
-      if (isValidValue(fields()[2], other.parsedContent)) {
-        this.parsedContent = data().deepCopy(fields()[2].schema(), other.parsedContent);
+      if (isValidValue(fields()[2], other.status)) {
+        this.status = data().deepCopy(fields()[2].schema(), other.status);
         fieldSetFlags()[2] = true;
       }
-      if (isValidValue(fields()[3], other.outlinks)) {
-        this.outlinks = data().deepCopy(fields()[3].schema(), other.outlinks);
+      if (isValidValue(fields()[3], other.fetchTime)) {
+        this.fetchTime = data().deepCopy(fields()[3].schema(), other.fetchTime);
         fieldSetFlags()[3] = true;
       }
-      if (isValidValue(fields()[4], other.headers)) {
-        this.headers = data().deepCopy(fields()[4].schema(), other.headers);
+      if (isValidValue(fields()[4], other.prevFetchTime)) {
+        this.prevFetchTime = data().deepCopy(fields()[4].schema(), other.prevFetchTime);
         fieldSetFlags()[4] = true;
       }
-      if (isValidValue(fields()[5], other.metadata)) {
-        this.metadata = data().deepCopy(fields()[5].schema(), other.metadata);
+      if (isValidValue(fields()[5], other.fetchInterval)) {
+        this.fetchInterval = data().deepCopy(fields()[5].schema(), other.fetchInterval);
         fieldSetFlags()[5] = true;
+      }
+      if (isValidValue(fields()[6], other.retriesSinceFetch)) {
+        this.retriesSinceFetch = data().deepCopy(fields()[6].schema(), other.retriesSinceFetch);
+        fieldSetFlags()[6] = true;
+      }
+      if (isValidValue(fields()[7], other.modifiedTime)) {
+        this.modifiedTime = data().deepCopy(fields()[7].schema(), other.modifiedTime);
+        fieldSetFlags()[7] = true;
+      }
+      if (isValidValue(fields()[8], other.prevModifiedTime)) {
+        this.prevModifiedTime = data().deepCopy(fields()[8].schema(), other.prevModifiedTime);
+        fieldSetFlags()[8] = true;
+      }
+      if (isValidValue(fields()[9], other.protocolStatus)) {
+        this.protocolStatus = data().deepCopy(fields()[9].schema(), other.protocolStatus);
+        fieldSetFlags()[9] = true;
+      }
+      if (isValidValue(fields()[10], other.content)) {
+        this.content = data().deepCopy(fields()[10].schema(), other.content);
+        fieldSetFlags()[10] = true;
+      }
+      if (isValidValue(fields()[11], other.contentType)) {
+        this.contentType = data().deepCopy(fields()[11].schema(), other.contentType);
+        fieldSetFlags()[11] = true;
+      }
+      if (isValidValue(fields()[12], other.prevSignature)) {
+        this.prevSignature = data().deepCopy(fields()[12].schema(), other.prevSignature);
+        fieldSetFlags()[12] = true;
+      }
+      if (isValidValue(fields()[13], other.signature)) {
+        this.signature = data().deepCopy(fields()[13].schema(), other.signature);
+        fieldSetFlags()[13] = true;
+      }
+      if (isValidValue(fields()[14], other.title)) {
+        this.title = data().deepCopy(fields()[14].schema(), other.title);
+        fieldSetFlags()[14] = true;
+      }
+      if (isValidValue(fields()[15], other.text)) {
+        this.text = data().deepCopy(fields()[15].schema(), other.text);
+        fieldSetFlags()[15] = true;
+      }
+      if (isValidValue(fields()[16], other.parseStatus)) {
+        this.parseStatus = data().deepCopy(fields()[16].schema(), other.parseStatus);
+        fieldSetFlags()[16] = true;
+      }
+      if (isValidValue(fields()[17], other.score)) {
+        this.score = data().deepCopy(fields()[17].schema(), other.score);
+        fieldSetFlags()[17] = true;
+      }
+      if (isValidValue(fields()[18], other.reprUrl)) {
+        this.reprUrl = data().deepCopy(fields()[18].schema(), other.reprUrl);
+        fieldSetFlags()[18] = true;
+      }
+      if (isValidValue(fields()[19], other.headers)) {
+        this.headers = data().deepCopy(fields()[19].schema(), other.headers);
+        fieldSetFlags()[19] = true;
+      }
+      if (isValidValue(fields()[20], other.outlinks)) {
+        this.outlinks = data().deepCopy(fields()[20].schema(), other.outlinks);
+        fieldSetFlags()[20] = true;
+      }
+      if (isValidValue(fields()[21], other.inlinks)) {
+        this.inlinks = data().deepCopy(fields()[21].schema(), other.inlinks);
+        fieldSetFlags()[21] = true;
+      }
+      if (isValidValue(fields()[22], other.markers)) {
+        this.markers = data().deepCopy(fields()[22].schema(), other.markers);
+        fieldSetFlags()[22] = true;
+      }
+      if (isValidValue(fields()[23], other.metadata)) {
+        this.metadata = data().deepCopy(fields()[23].schema(), other.metadata);
+        fieldSetFlags()[23] = true;
+      }
+      if (isValidValue(fields()[24], other.batchId)) {
+        this.batchId = data().deepCopy(fields()[24].schema(), other.batchId);
+        fieldSetFlags()[24] = true;
       }
     }
 
-    /** Gets the value of the 'url' field */
-    public java.lang.CharSequence getUrl() {
-      return url;
+    /** Gets the value of the 'key' field */
+    public java.lang.CharSequence getKey() {
+      return key;
     }
     
-    /** Sets the value of the 'url' field */
-    public example.avro.WebPage.Builder setUrl(java.lang.CharSequence value) {
+    /** Sets the value of the 'key' field */
+    public example.avro.WebPage.Builder setKey(java.lang.CharSequence value) {
       validate(fields()[0], value);
-      this.url = value;
+      this.key = value;
       fieldSetFlags()[0] = true;
       return this; 
     }
     
-    /** Checks whether the 'url' field has been set */
-    public boolean hasUrl() {
+    /** Checks whether the 'key' field has been set */
+    public boolean hasKey() {
       return fieldSetFlags()[0];
     }
     
-    /** Clears the value of the 'url' field */
-    public example.avro.WebPage.Builder clearUrl() {
-      url = null;
+    /** Clears the value of the 'key' field */
+    public example.avro.WebPage.Builder clearKey() {
+      key = null;
       fieldSetFlags()[0] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'baseUrl' field */
+    public java.lang.CharSequence getBaseUrl() {
+      return baseUrl;
+    }
+    
+    /** Sets the value of the 'baseUrl' field */
+    public example.avro.WebPage.Builder setBaseUrl(java.lang.CharSequence value) {
+      validate(fields()[1], value);
+      this.baseUrl = value;
+      fieldSetFlags()[1] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'baseUrl' field has been set */
+    public boolean hasBaseUrl() {
+      return fieldSetFlags()[1];
+    }
+    
+    /** Clears the value of the 'baseUrl' field */
+    public example.avro.WebPage.Builder clearBaseUrl() {
+      baseUrl = null;
+      fieldSetFlags()[1] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'status' field */
+    public java.lang.Integer getStatus() {
+      return status;
+    }
+    
+    /** Sets the value of the 'status' field */
+    public example.avro.WebPage.Builder setStatus(int value) {
+      validate(fields()[2], value);
+      this.status = value;
+      fieldSetFlags()[2] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'status' field has been set */
+    public boolean hasStatus() {
+      return fieldSetFlags()[2];
+    }
+    
+    /** Clears the value of the 'status' field */
+    public example.avro.WebPage.Builder clearStatus() {
+      fieldSetFlags()[2] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'fetchTime' field */
+    public java.lang.Long getFetchTime() {
+      return fetchTime;
+    }
+    
+    /** Sets the value of the 'fetchTime' field */
+    public example.avro.WebPage.Builder setFetchTime(long value) {
+      validate(fields()[3], value);
+      this.fetchTime = value;
+      fieldSetFlags()[3] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'fetchTime' field has been set */
+    public boolean hasFetchTime() {
+      return fieldSetFlags()[3];
+    }
+    
+    /** Clears the value of the 'fetchTime' field */
+    public example.avro.WebPage.Builder clearFetchTime() {
+      fieldSetFlags()[3] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'prevFetchTime' field */
+    public java.lang.Long getPrevFetchTime() {
+      return prevFetchTime;
+    }
+    
+    /** Sets the value of the 'prevFetchTime' field */
+    public example.avro.WebPage.Builder setPrevFetchTime(long value) {
+      validate(fields()[4], value);
+      this.prevFetchTime = value;
+      fieldSetFlags()[4] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'prevFetchTime' field has been set */
+    public boolean hasPrevFetchTime() {
+      return fieldSetFlags()[4];
+    }
+    
+    /** Clears the value of the 'prevFetchTime' field */
+    public example.avro.WebPage.Builder clearPrevFetchTime() {
+      fieldSetFlags()[4] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'fetchInterval' field */
+    public java.lang.Integer getFetchInterval() {
+      return fetchInterval;
+    }
+    
+    /** Sets the value of the 'fetchInterval' field */
+    public example.avro.WebPage.Builder setFetchInterval(int value) {
+      validate(fields()[5], value);
+      this.fetchInterval = value;
+      fieldSetFlags()[5] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'fetchInterval' field has been set */
+    public boolean hasFetchInterval() {
+      return fieldSetFlags()[5];
+    }
+    
+    /** Clears the value of the 'fetchInterval' field */
+    public example.avro.WebPage.Builder clearFetchInterval() {
+      fieldSetFlags()[5] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'retriesSinceFetch' field */
+    public java.lang.Integer getRetriesSinceFetch() {
+      return retriesSinceFetch;
+    }
+    
+    /** Sets the value of the 'retriesSinceFetch' field */
+    public example.avro.WebPage.Builder setRetriesSinceFetch(int value) {
+      validate(fields()[6], value);
+      this.retriesSinceFetch = value;
+      fieldSetFlags()[6] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'retriesSinceFetch' field has been set */
+    public boolean hasRetriesSinceFetch() {
+      return fieldSetFlags()[6];
+    }
+    
+    /** Clears the value of the 'retriesSinceFetch' field */
+    public example.avro.WebPage.Builder clearRetriesSinceFetch() {
+      fieldSetFlags()[6] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'modifiedTime' field */
+    public java.lang.Long getModifiedTime() {
+      return modifiedTime;
+    }
+    
+    /** Sets the value of the 'modifiedTime' field */
+    public example.avro.WebPage.Builder setModifiedTime(long value) {
+      validate(fields()[7], value);
+      this.modifiedTime = value;
+      fieldSetFlags()[7] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'modifiedTime' field has been set */
+    public boolean hasModifiedTime() {
+      return fieldSetFlags()[7];
+    }
+    
+    /** Clears the value of the 'modifiedTime' field */
+    public example.avro.WebPage.Builder clearModifiedTime() {
+      fieldSetFlags()[7] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'prevModifiedTime' field */
+    public java.lang.Long getPrevModifiedTime() {
+      return prevModifiedTime;
+    }
+    
+    /** Sets the value of the 'prevModifiedTime' field */
+    public example.avro.WebPage.Builder setPrevModifiedTime(long value) {
+      validate(fields()[8], value);
+      this.prevModifiedTime = value;
+      fieldSetFlags()[8] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'prevModifiedTime' field has been set */
+    public boolean hasPrevModifiedTime() {
+      return fieldSetFlags()[8];
+    }
+    
+    /** Clears the value of the 'prevModifiedTime' field */
+    public example.avro.WebPage.Builder clearPrevModifiedTime() {
+      fieldSetFlags()[8] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'protocolStatus' field */
+    public org.apache.nutch.storage.ProtocolStatus getProtocolStatus() {
+      return protocolStatus;
+    }
+    
+    /** Sets the value of the 'protocolStatus' field */
+    public example.avro.WebPage.Builder setProtocolStatus(org.apache.nutch.storage.ProtocolStatus value) {
+      validate(fields()[9], value);
+      this.protocolStatus = value;
+      fieldSetFlags()[9] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'protocolStatus' field has been set */
+    public boolean hasProtocolStatus() {
+      return fieldSetFlags()[9];
+    }
+    
+    /** Clears the value of the 'protocolStatus' field */
+    public example.avro.WebPage.Builder clearProtocolStatus() {
+      protocolStatus = null;
+      fieldSetFlags()[9] = false;
       return this;
     }
 
@@ -275,71 +1025,220 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'content' field */
     public example.avro.WebPage.Builder setContent(java.nio.ByteBuffer value) {
-      validate(fields()[1], value);
+      validate(fields()[10], value);
       this.content = value;
-      fieldSetFlags()[1] = true;
+      fieldSetFlags()[10] = true;
       return this; 
     }
     
     /** Checks whether the 'content' field has been set */
     public boolean hasContent() {
-      return fieldSetFlags()[1];
+      return fieldSetFlags()[10];
     }
     
     /** Clears the value of the 'content' field */
     public example.avro.WebPage.Builder clearContent() {
       content = null;
-      fieldSetFlags()[1] = false;
+      fieldSetFlags()[10] = false;
       return this;
     }
 
-    /** Gets the value of the 'parsedContent' field */
-    public java.util.List<java.lang.CharSequence> getParsedContent() {
-      return parsedContent;
+    /** Gets the value of the 'contentType' field */
+    public java.lang.CharSequence getContentType() {
+      return contentType;
     }
     
-    /** Sets the value of the 'parsedContent' field */
-    public example.avro.WebPage.Builder setParsedContent(java.util.List<java.lang.CharSequence> value) {
-      validate(fields()[2], value);
-      this.parsedContent = value;
-      fieldSetFlags()[2] = true;
+    /** Sets the value of the 'contentType' field */
+    public example.avro.WebPage.Builder setContentType(java.lang.CharSequence value) {
+      validate(fields()[11], value);
+      this.contentType = value;
+      fieldSetFlags()[11] = true;
       return this; 
     }
     
-    /** Checks whether the 'parsedContent' field has been set */
-    public boolean hasParsedContent() {
-      return fieldSetFlags()[2];
+    /** Checks whether the 'contentType' field has been set */
+    public boolean hasContentType() {
+      return fieldSetFlags()[11];
     }
     
-    /** Clears the value of the 'parsedContent' field */
-    public example.avro.WebPage.Builder clearParsedContent() {
-      parsedContent = null;
-      fieldSetFlags()[2] = false;
+    /** Clears the value of the 'contentType' field */
+    public example.avro.WebPage.Builder clearContentType() {
+      contentType = null;
+      fieldSetFlags()[11] = false;
       return this;
     }
 
-    /** Gets the value of the 'outlinks' field */
-    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getOutlinks() {
-      return outlinks;
+    /** Gets the value of the 'prevSignature' field */
+    public java.nio.ByteBuffer getPrevSignature() {
+      return prevSignature;
     }
     
-    /** Sets the value of the 'outlinks' field */
-    public example.avro.WebPage.Builder setOutlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-      validate(fields()[3], value);
-      this.outlinks = value;
-      fieldSetFlags()[3] = true;
+    /** Sets the value of the 'prevSignature' field */
+    public example.avro.WebPage.Builder setPrevSignature(java.nio.ByteBuffer value) {
+      validate(fields()[12], value);
+      this.prevSignature = value;
+      fieldSetFlags()[12] = true;
       return this; 
     }
     
-    /** Checks whether the 'outlinks' field has been set */
-    public boolean hasOutlinks() {
-      return fieldSetFlags()[3];
+    /** Checks whether the 'prevSignature' field has been set */
+    public boolean hasPrevSignature() {
+      return fieldSetFlags()[12];
     }
     
-    /** Clears the value of the 'outlinks' field */
-    public example.avro.WebPage.Builder clearOutlinks() {
-      outlinks = null;
-      fieldSetFlags()[3] = false;
+    /** Clears the value of the 'prevSignature' field */
+    public example.avro.WebPage.Builder clearPrevSignature() {
+      prevSignature = null;
+      fieldSetFlags()[12] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'signature' field */
+    public java.nio.ByteBuffer getSignature() {
+      return signature;
+    }
+    
+    /** Sets the value of the 'signature' field */
+    public example.avro.WebPage.Builder setSignature(java.nio.ByteBuffer value) {
+      validate(fields()[13], value);
+      this.signature = value;
+      fieldSetFlags()[13] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'signature' field has been set */
+    public boolean hasSignature() {
+      return fieldSetFlags()[13];
+    }
+    
+    /** Clears the value of the 'signature' field */
+    public example.avro.WebPage.Builder clearSignature() {
+      signature = null;
+      fieldSetFlags()[13] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'title' field */
+    public java.lang.CharSequence getTitle() {
+      return title;
+    }
+    
+    /** Sets the value of the 'title' field */
+    public example.avro.WebPage.Builder setTitle(java.lang.CharSequence value) {
+      validate(fields()[14], value);
+      this.title = value;
+      fieldSetFlags()[14] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'title' field has been set */
+    public boolean hasTitle() {
+      return fieldSetFlags()[14];
+    }
+    
+    /** Clears the value of the 'title' field */
+    public example.avro.WebPage.Builder clearTitle() {
+      title = null;
+      fieldSetFlags()[14] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'text' field */
+    public java.lang.CharSequence getText() {
+      return text;
+    }
+    
+    /** Sets the value of the 'text' field */
+    public example.avro.WebPage.Builder setText(java.lang.CharSequence value) {
+      validate(fields()[15], value);
+      this.text = value;
+      fieldSetFlags()[15] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'text' field has been set */
+    public boolean hasText() {
+      return fieldSetFlags()[15];
+    }
+    
+    /** Clears the value of the 'text' field */
+    public example.avro.WebPage.Builder clearText() {
+      text = null;
+      fieldSetFlags()[15] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'parseStatus' field */
+    public org.apache.nutch.storage.ParseStatus getParseStatus() {
+      return parseStatus;
+    }
+    
+    /** Sets the value of the 'parseStatus' field */
+    public example.avro.WebPage.Builder setParseStatus(org.apache.nutch.storage.ParseStatus value) {
+      validate(fields()[16], value);
+      this.parseStatus = value;
+      fieldSetFlags()[16] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'parseStatus' field has been set */
+    public boolean hasParseStatus() {
+      return fieldSetFlags()[16];
+    }
+    
+    /** Clears the value of the 'parseStatus' field */
+    public example.avro.WebPage.Builder clearParseStatus() {
+      parseStatus = null;
+      fieldSetFlags()[16] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'score' field */
+    public java.lang.Float getScore() {
+      return score;
+    }
+    
+    /** Sets the value of the 'score' field */
+    public example.avro.WebPage.Builder setScore(float value) {
+      validate(fields()[17], value);
+      this.score = value;
+      fieldSetFlags()[17] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'score' field has been set */
+    public boolean hasScore() {
+      return fieldSetFlags()[17];
+    }
+    
+    /** Clears the value of the 'score' field */
+    public example.avro.WebPage.Builder clearScore() {
+      fieldSetFlags()[17] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'reprUrl' field */
+    public java.lang.CharSequence getReprUrl() {
+      return reprUrl;
+    }
+    
+    /** Sets the value of the 'reprUrl' field */
+    public example.avro.WebPage.Builder setReprUrl(java.lang.CharSequence value) {
+      validate(fields()[18], value);
+      this.reprUrl = value;
+      fieldSetFlags()[18] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'reprUrl' field has been set */
+    public boolean hasReprUrl() {
+      return fieldSetFlags()[18];
+    }
+    
+    /** Clears the value of the 'reprUrl' field */
+    public example.avro.WebPage.Builder clearReprUrl() {
+      reprUrl = null;
+      fieldSetFlags()[18] = false;
       return this;
     }
 
@@ -350,46 +1249,146 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'headers' field */
     public example.avro.WebPage.Builder setHeaders(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-      validate(fields()[4], value);
+      validate(fields()[19], value);
       this.headers = value;
-      fieldSetFlags()[4] = true;
+      fieldSetFlags()[19] = true;
       return this; 
     }
     
     /** Checks whether the 'headers' field has been set */
     public boolean hasHeaders() {
-      return fieldSetFlags()[4];
+      return fieldSetFlags()[19];
     }
     
     /** Clears the value of the 'headers' field */
     public example.avro.WebPage.Builder clearHeaders() {
       headers = null;
-      fieldSetFlags()[4] = false;
+      fieldSetFlags()[19] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'outlinks' field */
+    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getOutlinks() {
+      return outlinks;
+    }
+    
+    /** Sets the value of the 'outlinks' field */
+    public example.avro.WebPage.Builder setOutlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+      validate(fields()[20], value);
+      this.outlinks = value;
+      fieldSetFlags()[20] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'outlinks' field has been set */
+    public boolean hasOutlinks() {
+      return fieldSetFlags()[20];
+    }
+    
+    /** Clears the value of the 'outlinks' field */
+    public example.avro.WebPage.Builder clearOutlinks() {
+      outlinks = null;
+      fieldSetFlags()[20] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'inlinks' field */
+    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getInlinks() {
+      return inlinks;
+    }
+    
+    /** Sets the value of the 'inlinks' field */
+    public example.avro.WebPage.Builder setInlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+      validate(fields()[21], value);
+      this.inlinks = value;
+      fieldSetFlags()[21] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'inlinks' field has been set */
+    public boolean hasInlinks() {
+      return fieldSetFlags()[21];
+    }
+    
+    /** Clears the value of the 'inlinks' field */
+    public example.avro.WebPage.Builder clearInlinks() {
+      inlinks = null;
+      fieldSetFlags()[21] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'markers' field */
+    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getMarkers() {
+      return markers;
+    }
+    
+    /** Sets the value of the 'markers' field */
+    public example.avro.WebPage.Builder setMarkers(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+      validate(fields()[22], value);
+      this.markers = value;
+      fieldSetFlags()[22] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'markers' field has been set */
+    public boolean hasMarkers() {
+      return fieldSetFlags()[22];
+    }
+    
+    /** Clears the value of the 'markers' field */
+    public example.avro.WebPage.Builder clearMarkers() {
+      markers = null;
+      fieldSetFlags()[22] = false;
       return this;
     }
 
     /** Gets the value of the 'metadata' field */
-    public example.avro.Metadata getMetadata() {
+    public java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> getMetadata() {
       return metadata;
     }
     
     /** Sets the value of the 'metadata' field */
-    public example.avro.WebPage.Builder setMetadata(example.avro.Metadata value) {
-      validate(fields()[5], value);
+    public example.avro.WebPage.Builder setMetadata(java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> value) {
+      validate(fields()[23], value);
       this.metadata = value;
-      fieldSetFlags()[5] = true;
+      fieldSetFlags()[23] = true;
       return this; 
     }
     
     /** Checks whether the 'metadata' field has been set */
     public boolean hasMetadata() {
-      return fieldSetFlags()[5];
+      return fieldSetFlags()[23];
     }
     
     /** Clears the value of the 'metadata' field */
     public example.avro.WebPage.Builder clearMetadata() {
       metadata = null;
-      fieldSetFlags()[5] = false;
+      fieldSetFlags()[23] = false;
+      return this;
+    }
+
+    /** Gets the value of the 'batchId' field */
+    public java.lang.CharSequence getBatchId() {
+      return batchId;
+    }
+    
+    /** Sets the value of the 'batchId' field */
+    public example.avro.WebPage.Builder setBatchId(java.lang.CharSequence value) {
+      validate(fields()[24], value);
+      this.batchId = value;
+      fieldSetFlags()[24] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'batchId' field has been set */
+    public boolean hasBatchId() {
+      return fieldSetFlags()[24];
+    }
+    
+    /** Clears the value of the 'batchId' field */
+    public example.avro.WebPage.Builder clearBatchId() {
+      batchId = null;
+      fieldSetFlags()[24] = false;
       return this;
     }
 
@@ -397,12 +1396,31 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     public WebPage build() {
       try {
         WebPage record = new WebPage();
-        record.url = fieldSetFlags()[0] ? this.url : (java.lang.CharSequence) defaultValue(fields()[0]);
-        record.content = fieldSetFlags()[1] ? this.content : (java.nio.ByteBuffer) defaultValue(fields()[1]);
-        record.parsedContent = fieldSetFlags()[2] ? this.parsedContent : (java.util.List<java.lang.CharSequence>) defaultValue(fields()[2]);
-        record.outlinks = fieldSetFlags()[3] ? this.outlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[3]);
-        record.headers = fieldSetFlags()[4] ? this.headers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[4]);
-        record.metadata = fieldSetFlags()[5] ? this.metadata : (example.avro.Metadata) defaultValue(fields()[5]);
+        record.key = fieldSetFlags()[0] ? this.key : (java.lang.CharSequence) defaultValue(fields()[0]);
+        record.baseUrl = fieldSetFlags()[1] ? this.baseUrl : (java.lang.CharSequence) defaultValue(fields()[1]);
+        record.status = fieldSetFlags()[2] ? this.status : (java.lang.Integer) defaultValue(fields()[2]);
+        record.fetchTime = fieldSetFlags()[3] ? this.fetchTime : (java.lang.Long) defaultValue(fields()[3]);
+        record.prevFetchTime = fieldSetFlags()[4] ? this.prevFetchTime : (java.lang.Long) defaultValue(fields()[4]);
+        record.fetchInterval = fieldSetFlags()[5] ? this.fetchInterval : (java.lang.Integer) defaultValue(fields()[5]);
+        record.retriesSinceFetch = fieldSetFlags()[6] ? this.retriesSinceFetch : (java.lang.Integer) defaultValue(fields()[6]);
+        record.modifiedTime = fieldSetFlags()[7] ? this.modifiedTime : (java.lang.Long) defaultValue(fields()[7]);
+        record.prevModifiedTime = fieldSetFlags()[8] ? this.prevModifiedTime : (java.lang.Long) defaultValue(fields()[8]);
+        record.protocolStatus = fieldSetFlags()[9] ? this.protocolStatus : (org.apache.nutch.storage.ProtocolStatus) defaultValue(fields()[9]);
+        record.content = fieldSetFlags()[10] ? this.content : (java.nio.ByteBuffer) defaultValue(fields()[10]);
+        record.contentType = fieldSetFlags()[11] ? this.contentType : (java.lang.CharSequence) defaultValue(fields()[11]);
+        record.prevSignature = fieldSetFlags()[12] ? this.prevSignature : (java.nio.ByteBuffer) defaultValue(fields()[12]);
+        record.signature = fieldSetFlags()[13] ? this.signature : (java.nio.ByteBuffer) defaultValue(fields()[13]);
+        record.title = fieldSetFlags()[14] ? this.title : (java.lang.CharSequence) defaultValue(fields()[14]);
+        record.text = fieldSetFlags()[15] ? this.text : (java.lang.CharSequence) defaultValue(fields()[15]);
+        record.parseStatus = fieldSetFlags()[16] ? this.parseStatus : (org.apache.nutch.storage.ParseStatus) defaultValue(fields()[16]);
+        record.score = fieldSetFlags()[17] ? this.score : (java.lang.Float) defaultValue(fields()[17]);
+        record.reprUrl = fieldSetFlags()[18] ? this.reprUrl : (java.lang.CharSequence) defaultValue(fields()[18]);
+        record.headers = fieldSetFlags()[19] ? this.headers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[19]);
+        record.outlinks = fieldSetFlags()[20] ? this.outlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[20]);
+        record.inlinks = fieldSetFlags()[21] ? this.inlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[21]);
+        record.markers = fieldSetFlags()[22] ? this.markers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[22]);
+        record.metadata = fieldSetFlags()[23] ? this.metadata : (java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer>) defaultValue(fields()[23]);
+        record.batchId = fieldSetFlags()[24] ? this.batchId : (java.lang.CharSequence) defaultValue(fields()[24]);
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);

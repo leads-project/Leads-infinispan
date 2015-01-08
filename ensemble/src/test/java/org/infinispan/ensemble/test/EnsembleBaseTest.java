@@ -41,12 +41,12 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
    @Override
    protected int numberOfSites() {
-      return 2;
+      return 1;
    }
 
    @Override
    protected int numberOfNodes() {
-      return 2;
+      return 3;
    }
 
    @Test
@@ -55,14 +55,14 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       WebPage page2 = somePage();
 
       // get
-      cache().put(page1.getUrl(),page1);
-      assert cache().containsKey(page1.getUrl());
-      assert cache().get(page1.getUrl()).equals(page1);
+      cache().put(page1.getKey(),page1);
+      assert cache().containsKey(page1.getKey());
+      assert cache().get(page1.getKey()).equals(page1);
 
       // putIfAbsent
-      assert cache().putIfAbsent(page2.getUrl(),page2)==null;
-      cache().putIfAbsent(page1.getUrl(),page2);
-      assert cache().get(page2.getUrl()).equals(page2);
+      assert cache().putIfAbsent(page2.getKey(),page2)==null;
+      cache().putIfAbsent(page1.getKey(),page2);
+      assert cache().get(page2.getKey()).equals(page2);
 
    }
 
@@ -75,7 +75,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       for (int i=0; i<PAGES; i++) {
          WebPage page = somePage();
          futures.add(
-               cache().putIfAbsentAsync(page.getUrl(), page));
+               cache().putIfAbsentAsync(page.getKey(), page));
       }
 
       for (NotifyingFuture<WebPage> future : futures) {
@@ -94,9 +94,9 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       QueryFactory qf = Search.getQueryFactory(cache());
 
       WebPage page1 = somePage();
-      cache().put(page1.getUrl(),page1);
+      cache().put(page1.getKey(),page1);
       WebPage page2 = somePage();
-      cache().put(page2.getUrl(),page2);
+      cache().put(page2.getKey(),page2);
 
       QueryBuilder qb = qf.from(WebPage.class);
       Query query = qb.build();
@@ -104,7 +104,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       assertEquals(list.size(),2);
 
       qb = qf.from(WebPage.class);
-      qb.having("url").eq(page1.getUrl());
+      qb.having("url").eq(page1.getKey());
       query = qb.build();
       assertEquals(query.list().get(0), page1);
 
@@ -118,8 +118,8 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       Map<String, WebPage> added = new HashMap<>();
       for(int i=0; i<NPAGES; i++) {
          WebPage page = somePage();
-         cache().put(page.getUrl(), page);
-         added.put(page.getUrl().toString(), page);
+         cache().put(page.getKey(), page);
+         added.put(page.getKey().toString(), page);
       }
 
       QueryFactory qf = Search.getQueryFactory(cache());
@@ -133,7 +133,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
                .build();
          assertEquals(query.list().size(),1);
          WebPage page = (WebPage) query.list().get(0);
-         retrieved.put(page.getUrl().toString(),page);
+         retrieved.put(page.getKey().toString(),page);
       }
 
       AssertJUnit.assertEquals(added.size(), retrieved.size());
@@ -148,8 +148,8 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       WebPage page1 = somePage();
       for (int i=0; i <NITERATIONS; i++){
          WebPage page = somePage();
-         cache().put(page1.getUrl(),page);
-         WebPage page2 = cache().get(page1.getUrl());
+         cache().put(page1.getKey(),page);
+         WebPage page2 = cache().get(page1.getKey());
          assert  page2!=null;
          assert page2.equals(page);
       }
