@@ -11,32 +11,12 @@
         {"name": "retriesSinceFetch", "type": "int", "default":0},
         {"name": "modifiedTime", "type": "long", "default":0},
         {"name": "prevModifiedTime", "type": "long", "default":0},
-        {"name": "protocolStatus", "type": ["null", {
-            "name": "ProtocolStatus",
-            "type": "record",
-            "namespace": "org.apache.nutch.storage",
-            "fields": [
-                {"name": "code", "type": "int", "default":0},
-                {"name": "args", "type": {"type": "array", "items": "string"}, "default":[]},
-                {"name": "lastModified", "type": "long", "default":0}
-            ]
-            }], "default":null},
         {"name": "content", "type": ["null","bytes"], "default":null},
         {"name": "contentType", "type": ["null","string"], "default":null},
         {"name": "prevSignature", "type": ["null","bytes"], "default":null},
         {"name": "signature", "type": ["null","bytes"], "default":null},
         {"name": "title", "type": ["null","string"], "default":null},
         {"name": "text", "type": ["null","string"], "default":null},
-        {"name": "parseStatus", "type": ["null", {
-            "name": "ParseStatus",
-            "type": "record",
-            "namespace": "org.apache.nutch.storage",
-            "fields": [
-                {"name": "majorCode", "type": "int", "default":0},
-                {"name": "minorCode", "type": "int", "default":0},
-                {"name": "args", "type": {"type": "array", "items": "string"}, "default":[]}
-            ]
-            }], "default":null},
         {"name": "score", "type": "float", "default":0},
         {"name": "reprUrl", "type": ["null","string"], "default":null},
         {"name": "headers", "type": {"type":"map", "values": ["null","string"]}, "default":{}},
