@@ -3,19 +3,17 @@
  * 
  * DO NOT EDIT DIRECTLY
  */
-package example.avro;
-
+package example.avro;  
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class Employee extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Employee\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"dateOfBirth\",\"type\":\"long\",\"default\":0},{\"name\":\"ssn\",\"type\":\"string\",\"default\":\"\"},{\"name\":\"salary\",\"type\":\"int\",\"default\":0},{\"name\":\"boss\",\"type\":[\"null\",\"Employee\",\"string\"],\"default\":null},{\"name\":\"webpage\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"WebPage\",\"fields\":[{\"name\":\"url\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"content\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"parsedContent\",\"type\":{\"type\":\"array\",\"items\":\"string\"},\"default\":{}},{\"name\":\"outlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"headers\",\"type\":[\"null\",{\"type\":\"map\",\"values\":[\"null\",\"string\"]}],\"default\":null},{\"name\":\"metadata\",\"type\":{\"type\":\"record\",\"name\":\"Metadata\",\"fields\":[{\"name\":\"version\",\"type\":\"int\",\"default\":0},{\"name\":\"data\",\"type\":{\"type\":\"map\",\"values\":\"string\"},\"default\":{}}]},\"default\":null}]}],\"default\":null}],\"default\":null}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Employee\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"dateOfBirth\",\"type\":\"long\",\"default\":0},{\"name\":\"ssn\",\"type\":\"string\",\"default\":\"\"},{\"name\":\"salary\",\"type\":\"int\",\"default\":0},{\"name\":\"boss\",\"type\":[\"null\",\"Employee\",\"string\"],\"default\":null}],\"default\":null}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
   @Deprecated public java.lang.CharSequence name;
   @Deprecated public long dateOfBirth;
   @Deprecated public java.lang.CharSequence ssn;
   @Deprecated public int salary;
   @Deprecated public java.lang.Object boss;
-  @Deprecated public WebPage webpage;
 
   /**
    * Default constructor.  Note that this does not initialize fields
@@ -27,13 +25,12 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
   /**
    * All-args constructor.
    */
-  public Employee(java.lang.CharSequence name, java.lang.Long dateOfBirth, java.lang.CharSequence ssn, java.lang.Integer salary, java.lang.Object boss, WebPage webpage) {
+  public Employee(java.lang.CharSequence name, java.lang.Long dateOfBirth, java.lang.CharSequence ssn, java.lang.Integer salary, java.lang.Object boss) {
     this.name = name;
     this.dateOfBirth = dateOfBirth;
     this.ssn = ssn;
     this.salary = salary;
     this.boss = boss;
-    this.webpage = webpage;
   }
 
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
@@ -45,7 +42,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
     case 2: return ssn;
     case 3: return salary;
     case 4: return boss;
-    case 5: return webpage;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -58,7 +54,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
     case 2: ssn = (java.lang.CharSequence)value$; break;
     case 3: salary = (java.lang.Integer)value$; break;
     case 4: boss = (java.lang.Object)value$; break;
-    case 5: webpage = (WebPage)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -138,21 +133,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
     this.boss = value;
   }
 
-  /**
-   * Gets the value of the 'webpage' field.
-   */
-  public WebPage getWebpage() {
-    return webpage;
-  }
-
-  /**
-   * Sets the value of the 'webpage' field.
-   * @param value the value to set.
-   */
-  public void setWebpage(WebPage value) {
-    this.webpage = value;
-  }
-
   /** Creates a new Employee RecordBuilder */
   public static example.avro.Employee.Builder newBuilder() {
     return new example.avro.Employee.Builder();
@@ -179,7 +159,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
     private java.lang.CharSequence ssn;
     private int salary;
     private java.lang.Object boss;
-    private WebPage webpage;
 
     /** Creates a new Builder */
     private Builder() {
@@ -209,10 +188,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
         this.boss = data().deepCopy(fields()[4].schema(), other.boss);
         fieldSetFlags()[4] = true;
       }
-      if (isValidValue(fields()[5], other.webpage)) {
-        this.webpage = data().deepCopy(fields()[5].schema(), other.webpage);
-        fieldSetFlags()[5] = true;
-      }
     }
     
     /** Creates a Builder by copying an existing Employee instance */
@@ -237,10 +212,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
       if (isValidValue(fields()[4], other.boss)) {
         this.boss = data().deepCopy(fields()[4].schema(), other.boss);
         fieldSetFlags()[4] = true;
-      }
-      if (isValidValue(fields()[5], other.webpage)) {
-        this.webpage = data().deepCopy(fields()[5].schema(), other.webpage);
-        fieldSetFlags()[5] = true;
       }
     }
 
@@ -367,31 +338,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
       return this;
     }
 
-    /** Gets the value of the 'webpage' field */
-    public WebPage getWebpage() {
-      return webpage;
-    }
-    
-    /** Sets the value of the 'webpage' field */
-    public example.avro.Employee.Builder setWebpage(WebPage value) {
-      validate(fields()[5], value);
-      this.webpage = value;
-      fieldSetFlags()[5] = true;
-      return this; 
-    }
-    
-    /** Checks whether the 'webpage' field has been set */
-    public boolean hasWebpage() {
-      return fieldSetFlags()[5];
-    }
-    
-    /** Clears the value of the 'webpage' field */
-    public example.avro.Employee.Builder clearWebpage() {
-      webpage = null;
-      fieldSetFlags()[5] = false;
-      return this;
-    }
-
     @Override
     public Employee build() {
       try {
@@ -401,7 +347,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
         record.ssn = fieldSetFlags()[2] ? this.ssn : (java.lang.CharSequence) defaultValue(fields()[2]);
         record.salary = fieldSetFlags()[3] ? this.salary : (java.lang.Integer) defaultValue(fields()[3]);
         record.boss = fieldSetFlags()[4] ? this.boss : (java.lang.Object) defaultValue(fields()[4]);
-        record.webpage = fieldSetFlags()[5] ? this.webpage : (WebPage) defaultValue(fields()[5]);
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);

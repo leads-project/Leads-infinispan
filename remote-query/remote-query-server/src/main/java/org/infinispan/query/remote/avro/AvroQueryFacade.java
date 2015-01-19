@@ -22,6 +22,7 @@ import org.infinispan.query.remote.logging.Log;
 import org.infinispan.server.core.QueryFacade;
 import org.infinispan.util.logging.LogFactory;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +43,8 @@ public class AvroQueryFacade implements QueryFacade {
 
    @Override
    public byte[] query(AdvancedCache<byte[], byte[]> cache, byte[] query) {
+
+      Response response = new Response();
 
       try {
 
@@ -82,6 +85,7 @@ public class AvroQueryFacade implements QueryFacade {
             cacheQuery = cacheQuery.firstResult(request.getStartOffset().intValue());
 
          List<Object> list = cacheQuery.list();
+            
          List<ByteBuffer> results = new ArrayList<>();
          if (parsingResult.getProjections().size()==0){
             for (Object o: list) {
@@ -100,16 +104,22 @@ public class AvroQueryFacade implements QueryFacade {
                results.add(ByteBuffer.wrap(genericAvroMarshaller.objectToByteBuffer(copy)));
             }
          }
-
-         Response response = new Response();
+      
          response.setNumResults(cacheQuery.getResultSize());
          response.setResults(results);
-         return responseAvroMarshaller.objectToByteBuffer(response);
 
       } catch (Exception e) {
          e.printStackTrace();
+         response.setNumResults(0);
+         response.setResults(new ArrayList<ByteBuffer>());
       }
 
+      try {
+         return responseAvroMarshaller.objectToByteBuffer(response);
+      } catch (IOException e) {
+         e.printStackTrace();
+      }
+      
       return null;
 
    }

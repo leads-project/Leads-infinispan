@@ -7,7 +7,7 @@ package example.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class WebPage extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"WebPage\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"key\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"baseUrl\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"status\",\"type\":\"int\",\"default\":0},{\"name\":\"fetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevFetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"fetchInterval\",\"type\":\"int\",\"default\":0},{\"name\":\"retriesSinceFetch\",\"type\":\"int\",\"default\":0},{\"name\":\"modifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevModifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"protocolStatus\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"ProtocolStatus\",\"namespace\":\"org.apache.nutch.storage\",\"fields\":[{\"name\":\"code\",\"type\":\"int\",\"default\":0},{\"name\":\"args\",\"type\":{\"type\":\"array\",\"items\":\"string\"},\"default\":[]},{\"name\":\"lastModified\",\"type\":\"long\",\"default\":0}]}],\"default\":null},{\"name\":\"content\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"contentType\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"prevSignature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"signature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"title\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"text\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"parseStatus\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"ParseStatus\",\"namespace\":\"org.apache.nutch.storage\",\"fields\":[{\"name\":\"majorCode\",\"type\":\"int\",\"default\":0},{\"name\":\"minorCode\",\"type\":\"int\",\"default\":0},{\"name\":\"args\",\"type\":{\"type\":\"array\",\"items\":\"string\"},\"default\":[]}]}],\"default\":null},{\"name\":\"score\",\"type\":\"float\",\"default\":0},{\"name\":\"reprUrl\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"headers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"outlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"inlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"markers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"metadata\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"bytes\"]},\"default\":{}},{\"name\":\"batchId\",\"type\":[\"null\",\"string\"],\"default\":null}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"WebPage\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"key\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"baseUrl\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"status\",\"type\":\"int\",\"default\":0},{\"name\":\"fetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevFetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"fetchInterval\",\"type\":\"int\",\"default\":0},{\"name\":\"retriesSinceFetch\",\"type\":\"int\",\"default\":0},{\"name\":\"modifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevModifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"content\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"contentType\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"prevSignature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"signature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"title\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"text\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"score\",\"type\":\"float\",\"default\":0},{\"name\":\"reprUrl\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"headers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"outlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"inlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"markers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"metadata\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"bytes\"]},\"default\":{}},{\"name\":\"batchId\",\"type\":[\"null\",\"string\"],\"default\":null}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
   @Deprecated public java.lang.CharSequence key;
   @Deprecated public java.lang.CharSequence baseUrl;
@@ -18,14 +18,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   @Deprecated public int retriesSinceFetch;
   @Deprecated public long modifiedTime;
   @Deprecated public long prevModifiedTime;
-  @Deprecated public org.apache.nutch.storage.ProtocolStatus protocolStatus;
   @Deprecated public java.nio.ByteBuffer content;
   @Deprecated public java.lang.CharSequence contentType;
   @Deprecated public java.nio.ByteBuffer prevSignature;
   @Deprecated public java.nio.ByteBuffer signature;
   @Deprecated public java.lang.CharSequence title;
   @Deprecated public java.lang.CharSequence text;
-  @Deprecated public org.apache.nutch.storage.ParseStatus parseStatus;
   @Deprecated public float score;
   @Deprecated public java.lang.CharSequence reprUrl;
   @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers;
@@ -45,7 +43,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * All-args constructor.
    */
-  public WebPage(java.lang.CharSequence key, java.lang.CharSequence baseUrl, java.lang.Integer status, java.lang.Long fetchTime, java.lang.Long prevFetchTime, java.lang.Integer fetchInterval, java.lang.Integer retriesSinceFetch, java.lang.Long modifiedTime, java.lang.Long prevModifiedTime, org.apache.nutch.storage.ProtocolStatus protocolStatus, java.nio.ByteBuffer content, java.lang.CharSequence contentType, java.nio.ByteBuffer prevSignature, java.nio.ByteBuffer signature, java.lang.CharSequence title, java.lang.CharSequence text, org.apache.nutch.storage.ParseStatus parseStatus, java.lang.Float score, java.lang.CharSequence reprUrl, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> inlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> markers, java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> metadata, java.lang.CharSequence batchId) {
+  public WebPage(java.lang.CharSequence key, java.lang.CharSequence baseUrl, java.lang.Integer status, java.lang.Long fetchTime, java.lang.Long prevFetchTime, java.lang.Integer fetchInterval, java.lang.Integer retriesSinceFetch, java.lang.Long modifiedTime, java.lang.Long prevModifiedTime, java.nio.ByteBuffer content, java.lang.CharSequence contentType, java.nio.ByteBuffer prevSignature, java.nio.ByteBuffer signature, java.lang.CharSequence title, java.lang.CharSequence text, java.lang.Float score, java.lang.CharSequence reprUrl, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> inlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> markers, java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> metadata, java.lang.CharSequence batchId) {
     this.key = key;
     this.baseUrl = baseUrl;
     this.status = status;
@@ -55,14 +53,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     this.retriesSinceFetch = retriesSinceFetch;
     this.modifiedTime = modifiedTime;
     this.prevModifiedTime = prevModifiedTime;
-    this.protocolStatus = protocolStatus;
     this.content = content;
     this.contentType = contentType;
     this.prevSignature = prevSignature;
     this.signature = signature;
     this.title = title;
     this.text = text;
-    this.parseStatus = parseStatus;
     this.score = score;
     this.reprUrl = reprUrl;
     this.headers = headers;
@@ -86,22 +82,20 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     case 6: return retriesSinceFetch;
     case 7: return modifiedTime;
     case 8: return prevModifiedTime;
-    case 9: return protocolStatus;
-    case 10: return content;
-    case 11: return contentType;
-    case 12: return prevSignature;
-    case 13: return signature;
-    case 14: return title;
-    case 15: return text;
-    case 16: return parseStatus;
-    case 17: return score;
-    case 18: return reprUrl;
-    case 19: return headers;
-    case 20: return outlinks;
-    case 21: return inlinks;
-    case 22: return markers;
-    case 23: return metadata;
-    case 24: return batchId;
+    case 9: return content;
+    case 10: return contentType;
+    case 11: return prevSignature;
+    case 12: return signature;
+    case 13: return title;
+    case 14: return text;
+    case 15: return score;
+    case 16: return reprUrl;
+    case 17: return headers;
+    case 18: return outlinks;
+    case 19: return inlinks;
+    case 20: return markers;
+    case 21: return metadata;
+    case 22: return batchId;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -118,22 +112,20 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     case 6: retriesSinceFetch = (java.lang.Integer)value$; break;
     case 7: modifiedTime = (java.lang.Long)value$; break;
     case 8: prevModifiedTime = (java.lang.Long)value$; break;
-    case 9: protocolStatus = (org.apache.nutch.storage.ProtocolStatus)value$; break;
-    case 10: content = (java.nio.ByteBuffer)value$; break;
-    case 11: contentType = (java.lang.CharSequence)value$; break;
-    case 12: prevSignature = (java.nio.ByteBuffer)value$; break;
-    case 13: signature = (java.nio.ByteBuffer)value$; break;
-    case 14: title = (java.lang.CharSequence)value$; break;
-    case 15: text = (java.lang.CharSequence)value$; break;
-    case 16: parseStatus = (org.apache.nutch.storage.ParseStatus)value$; break;
-    case 17: score = (java.lang.Float)value$; break;
-    case 18: reprUrl = (java.lang.CharSequence)value$; break;
-    case 19: headers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 20: outlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 21: inlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 22: markers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 23: metadata = (java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer>)value$; break;
-    case 24: batchId = (java.lang.CharSequence)value$; break;
+    case 9: content = (java.nio.ByteBuffer)value$; break;
+    case 10: contentType = (java.lang.CharSequence)value$; break;
+    case 11: prevSignature = (java.nio.ByteBuffer)value$; break;
+    case 12: signature = (java.nio.ByteBuffer)value$; break;
+    case 13: title = (java.lang.CharSequence)value$; break;
+    case 14: text = (java.lang.CharSequence)value$; break;
+    case 15: score = (java.lang.Float)value$; break;
+    case 16: reprUrl = (java.lang.CharSequence)value$; break;
+    case 17: headers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 18: outlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 19: inlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 20: markers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
+    case 21: metadata = (java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer>)value$; break;
+    case 22: batchId = (java.lang.CharSequence)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -274,21 +266,6 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   }
 
   /**
-   * Gets the value of the 'protocolStatus' field.
-   */
-  public org.apache.nutch.storage.ProtocolStatus getProtocolStatus() {
-    return protocolStatus;
-  }
-
-  /**
-   * Sets the value of the 'protocolStatus' field.
-   * @param value the value to set.
-   */
-  public void setProtocolStatus(org.apache.nutch.storage.ProtocolStatus value) {
-    this.protocolStatus = value;
-  }
-
-  /**
    * Gets the value of the 'content' field.
    */
   public java.nio.ByteBuffer getContent() {
@@ -376,21 +353,6 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    */
   public void setText(java.lang.CharSequence value) {
     this.text = value;
-  }
-
-  /**
-   * Gets the value of the 'parseStatus' field.
-   */
-  public org.apache.nutch.storage.ParseStatus getParseStatus() {
-    return parseStatus;
-  }
-
-  /**
-   * Sets the value of the 'parseStatus' field.
-   * @param value the value to set.
-   */
-  public void setParseStatus(org.apache.nutch.storage.ParseStatus value) {
-    this.parseStatus = value;
   }
 
   /**
@@ -543,14 +505,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     private int retriesSinceFetch;
     private long modifiedTime;
     private long prevModifiedTime;
-    private org.apache.nutch.storage.ProtocolStatus protocolStatus;
     private java.nio.ByteBuffer content;
     private java.lang.CharSequence contentType;
     private java.nio.ByteBuffer prevSignature;
     private java.nio.ByteBuffer signature;
     private java.lang.CharSequence title;
     private java.lang.CharSequence text;
-    private org.apache.nutch.storage.ParseStatus parseStatus;
     private float score;
     private java.lang.CharSequence reprUrl;
     private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers;
@@ -604,69 +564,61 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
         this.prevModifiedTime = data().deepCopy(fields()[8].schema(), other.prevModifiedTime);
         fieldSetFlags()[8] = true;
       }
-      if (isValidValue(fields()[9], other.protocolStatus)) {
-        this.protocolStatus = data().deepCopy(fields()[9].schema(), other.protocolStatus);
+      if (isValidValue(fields()[9], other.content)) {
+        this.content = data().deepCopy(fields()[9].schema(), other.content);
         fieldSetFlags()[9] = true;
       }
-      if (isValidValue(fields()[10], other.content)) {
-        this.content = data().deepCopy(fields()[10].schema(), other.content);
+      if (isValidValue(fields()[10], other.contentType)) {
+        this.contentType = data().deepCopy(fields()[10].schema(), other.contentType);
         fieldSetFlags()[10] = true;
       }
-      if (isValidValue(fields()[11], other.contentType)) {
-        this.contentType = data().deepCopy(fields()[11].schema(), other.contentType);
+      if (isValidValue(fields()[11], other.prevSignature)) {
+        this.prevSignature = data().deepCopy(fields()[11].schema(), other.prevSignature);
         fieldSetFlags()[11] = true;
       }
-      if (isValidValue(fields()[12], other.prevSignature)) {
-        this.prevSignature = data().deepCopy(fields()[12].schema(), other.prevSignature);
+      if (isValidValue(fields()[12], other.signature)) {
+        this.signature = data().deepCopy(fields()[12].schema(), other.signature);
         fieldSetFlags()[12] = true;
       }
-      if (isValidValue(fields()[13], other.signature)) {
-        this.signature = data().deepCopy(fields()[13].schema(), other.signature);
+      if (isValidValue(fields()[13], other.title)) {
+        this.title = data().deepCopy(fields()[13].schema(), other.title);
         fieldSetFlags()[13] = true;
       }
-      if (isValidValue(fields()[14], other.title)) {
-        this.title = data().deepCopy(fields()[14].schema(), other.title);
+      if (isValidValue(fields()[14], other.text)) {
+        this.text = data().deepCopy(fields()[14].schema(), other.text);
         fieldSetFlags()[14] = true;
       }
-      if (isValidValue(fields()[15], other.text)) {
-        this.text = data().deepCopy(fields()[15].schema(), other.text);
+      if (isValidValue(fields()[15], other.score)) {
+        this.score = data().deepCopy(fields()[15].schema(), other.score);
         fieldSetFlags()[15] = true;
       }
-      if (isValidValue(fields()[16], other.parseStatus)) {
-        this.parseStatus = data().deepCopy(fields()[16].schema(), other.parseStatus);
+      if (isValidValue(fields()[16], other.reprUrl)) {
+        this.reprUrl = data().deepCopy(fields()[16].schema(), other.reprUrl);
         fieldSetFlags()[16] = true;
       }
-      if (isValidValue(fields()[17], other.score)) {
-        this.score = data().deepCopy(fields()[17].schema(), other.score);
+      if (isValidValue(fields()[17], other.headers)) {
+        this.headers = data().deepCopy(fields()[17].schema(), other.headers);
         fieldSetFlags()[17] = true;
       }
-      if (isValidValue(fields()[18], other.reprUrl)) {
-        this.reprUrl = data().deepCopy(fields()[18].schema(), other.reprUrl);
+      if (isValidValue(fields()[18], other.outlinks)) {
+        this.outlinks = data().deepCopy(fields()[18].schema(), other.outlinks);
         fieldSetFlags()[18] = true;
       }
-      if (isValidValue(fields()[19], other.headers)) {
-        this.headers = data().deepCopy(fields()[19].schema(), other.headers);
+      if (isValidValue(fields()[19], other.inlinks)) {
+        this.inlinks = data().deepCopy(fields()[19].schema(), other.inlinks);
         fieldSetFlags()[19] = true;
       }
-      if (isValidValue(fields()[20], other.outlinks)) {
-        this.outlinks = data().deepCopy(fields()[20].schema(), other.outlinks);
+      if (isValidValue(fields()[20], other.markers)) {
+        this.markers = data().deepCopy(fields()[20].schema(), other.markers);
         fieldSetFlags()[20] = true;
       }
-      if (isValidValue(fields()[21], other.inlinks)) {
-        this.inlinks = data().deepCopy(fields()[21].schema(), other.inlinks);
+      if (isValidValue(fields()[21], other.metadata)) {
+        this.metadata = data().deepCopy(fields()[21].schema(), other.metadata);
         fieldSetFlags()[21] = true;
       }
-      if (isValidValue(fields()[22], other.markers)) {
-        this.markers = data().deepCopy(fields()[22].schema(), other.markers);
+      if (isValidValue(fields()[22], other.batchId)) {
+        this.batchId = data().deepCopy(fields()[22].schema(), other.batchId);
         fieldSetFlags()[22] = true;
-      }
-      if (isValidValue(fields()[23], other.metadata)) {
-        this.metadata = data().deepCopy(fields()[23].schema(), other.metadata);
-        fieldSetFlags()[23] = true;
-      }
-      if (isValidValue(fields()[24], other.batchId)) {
-        this.batchId = data().deepCopy(fields()[24].schema(), other.batchId);
-        fieldSetFlags()[24] = true;
       }
     }
     
@@ -709,69 +661,61 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
         this.prevModifiedTime = data().deepCopy(fields()[8].schema(), other.prevModifiedTime);
         fieldSetFlags()[8] = true;
       }
-      if (isValidValue(fields()[9], other.protocolStatus)) {
-        this.protocolStatus = data().deepCopy(fields()[9].schema(), other.protocolStatus);
+      if (isValidValue(fields()[9], other.content)) {
+        this.content = data().deepCopy(fields()[9].schema(), other.content);
         fieldSetFlags()[9] = true;
       }
-      if (isValidValue(fields()[10], other.content)) {
-        this.content = data().deepCopy(fields()[10].schema(), other.content);
+      if (isValidValue(fields()[10], other.contentType)) {
+        this.contentType = data().deepCopy(fields()[10].schema(), other.contentType);
         fieldSetFlags()[10] = true;
       }
-      if (isValidValue(fields()[11], other.contentType)) {
-        this.contentType = data().deepCopy(fields()[11].schema(), other.contentType);
+      if (isValidValue(fields()[11], other.prevSignature)) {
+        this.prevSignature = data().deepCopy(fields()[11].schema(), other.prevSignature);
         fieldSetFlags()[11] = true;
       }
-      if (isValidValue(fields()[12], other.prevSignature)) {
-        this.prevSignature = data().deepCopy(fields()[12].schema(), other.prevSignature);
+      if (isValidValue(fields()[12], other.signature)) {
+        this.signature = data().deepCopy(fields()[12].schema(), other.signature);
         fieldSetFlags()[12] = true;
       }
-      if (isValidValue(fields()[13], other.signature)) {
-        this.signature = data().deepCopy(fields()[13].schema(), other.signature);
+      if (isValidValue(fields()[13], other.title)) {
+        this.title = data().deepCopy(fields()[13].schema(), other.title);
         fieldSetFlags()[13] = true;
       }
-      if (isValidValue(fields()[14], other.title)) {
-        this.title = data().deepCopy(fields()[14].schema(), other.title);
+      if (isValidValue(fields()[14], other.text)) {
+        this.text = data().deepCopy(fields()[14].schema(), other.text);
         fieldSetFlags()[14] = true;
       }
-      if (isValidValue(fields()[15], other.text)) {
-        this.text = data().deepCopy(fields()[15].schema(), other.text);
+      if (isValidValue(fields()[15], other.score)) {
+        this.score = data().deepCopy(fields()[15].schema(), other.score);
         fieldSetFlags()[15] = true;
       }
-      if (isValidValue(fields()[16], other.parseStatus)) {
-        this.parseStatus = data().deepCopy(fields()[16].schema(), other.parseStatus);
+      if (isValidValue(fields()[16], other.reprUrl)) {
+        this.reprUrl = data().deepCopy(fields()[16].schema(), other.reprUrl);
         fieldSetFlags()[16] = true;
       }
-      if (isValidValue(fields()[17], other.score)) {
-        this.score = data().deepCopy(fields()[17].schema(), other.score);
+      if (isValidValue(fields()[17], other.headers)) {
+        this.headers = data().deepCopy(fields()[17].schema(), other.headers);
         fieldSetFlags()[17] = true;
       }
-      if (isValidValue(fields()[18], other.reprUrl)) {
-        this.reprUrl = data().deepCopy(fields()[18].schema(), other.reprUrl);
+      if (isValidValue(fields()[18], other.outlinks)) {
+        this.outlinks = data().deepCopy(fields()[18].schema(), other.outlinks);
         fieldSetFlags()[18] = true;
       }
-      if (isValidValue(fields()[19], other.headers)) {
-        this.headers = data().deepCopy(fields()[19].schema(), other.headers);
+      if (isValidValue(fields()[19], other.inlinks)) {
+        this.inlinks = data().deepCopy(fields()[19].schema(), other.inlinks);
         fieldSetFlags()[19] = true;
       }
-      if (isValidValue(fields()[20], other.outlinks)) {
-        this.outlinks = data().deepCopy(fields()[20].schema(), other.outlinks);
+      if (isValidValue(fields()[20], other.markers)) {
+        this.markers = data().deepCopy(fields()[20].schema(), other.markers);
         fieldSetFlags()[20] = true;
       }
-      if (isValidValue(fields()[21], other.inlinks)) {
-        this.inlinks = data().deepCopy(fields()[21].schema(), other.inlinks);
+      if (isValidValue(fields()[21], other.metadata)) {
+        this.metadata = data().deepCopy(fields()[21].schema(), other.metadata);
         fieldSetFlags()[21] = true;
       }
-      if (isValidValue(fields()[22], other.markers)) {
-        this.markers = data().deepCopy(fields()[22].schema(), other.markers);
+      if (isValidValue(fields()[22], other.batchId)) {
+        this.batchId = data().deepCopy(fields()[22].schema(), other.batchId);
         fieldSetFlags()[22] = true;
-      }
-      if (isValidValue(fields()[23], other.metadata)) {
-        this.metadata = data().deepCopy(fields()[23].schema(), other.metadata);
-        fieldSetFlags()[23] = true;
-      }
-      if (isValidValue(fields()[24], other.batchId)) {
-        this.batchId = data().deepCopy(fields()[24].schema(), other.batchId);
-        fieldSetFlags()[24] = true;
       }
     }
 
@@ -993,31 +937,6 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
       return this;
     }
 
-    /** Gets the value of the 'protocolStatus' field */
-    public org.apache.nutch.storage.ProtocolStatus getProtocolStatus() {
-      return protocolStatus;
-    }
-    
-    /** Sets the value of the 'protocolStatus' field */
-    public example.avro.WebPage.Builder setProtocolStatus(org.apache.nutch.storage.ProtocolStatus value) {
-      validate(fields()[9], value);
-      this.protocolStatus = value;
-      fieldSetFlags()[9] = true;
-      return this; 
-    }
-    
-    /** Checks whether the 'protocolStatus' field has been set */
-    public boolean hasProtocolStatus() {
-      return fieldSetFlags()[9];
-    }
-    
-    /** Clears the value of the 'protocolStatus' field */
-    public example.avro.WebPage.Builder clearProtocolStatus() {
-      protocolStatus = null;
-      fieldSetFlags()[9] = false;
-      return this;
-    }
-
     /** Gets the value of the 'content' field */
     public java.nio.ByteBuffer getContent() {
       return content;
@@ -1025,21 +944,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'content' field */
     public example.avro.WebPage.Builder setContent(java.nio.ByteBuffer value) {
-      validate(fields()[10], value);
+      validate(fields()[9], value);
       this.content = value;
-      fieldSetFlags()[10] = true;
+      fieldSetFlags()[9] = true;
       return this; 
     }
     
     /** Checks whether the 'content' field has been set */
     public boolean hasContent() {
-      return fieldSetFlags()[10];
+      return fieldSetFlags()[9];
     }
     
     /** Clears the value of the 'content' field */
     public example.avro.WebPage.Builder clearContent() {
       content = null;
-      fieldSetFlags()[10] = false;
+      fieldSetFlags()[9] = false;
       return this;
     }
 
@@ -1050,21 +969,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'contentType' field */
     public example.avro.WebPage.Builder setContentType(java.lang.CharSequence value) {
-      validate(fields()[11], value);
+      validate(fields()[10], value);
       this.contentType = value;
-      fieldSetFlags()[11] = true;
+      fieldSetFlags()[10] = true;
       return this; 
     }
     
     /** Checks whether the 'contentType' field has been set */
     public boolean hasContentType() {
-      return fieldSetFlags()[11];
+      return fieldSetFlags()[10];
     }
     
     /** Clears the value of the 'contentType' field */
     public example.avro.WebPage.Builder clearContentType() {
       contentType = null;
-      fieldSetFlags()[11] = false;
+      fieldSetFlags()[10] = false;
       return this;
     }
 
@@ -1075,21 +994,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'prevSignature' field */
     public example.avro.WebPage.Builder setPrevSignature(java.nio.ByteBuffer value) {
-      validate(fields()[12], value);
+      validate(fields()[11], value);
       this.prevSignature = value;
-      fieldSetFlags()[12] = true;
+      fieldSetFlags()[11] = true;
       return this; 
     }
     
     /** Checks whether the 'prevSignature' field has been set */
     public boolean hasPrevSignature() {
-      return fieldSetFlags()[12];
+      return fieldSetFlags()[11];
     }
     
     /** Clears the value of the 'prevSignature' field */
     public example.avro.WebPage.Builder clearPrevSignature() {
       prevSignature = null;
-      fieldSetFlags()[12] = false;
+      fieldSetFlags()[11] = false;
       return this;
     }
 
@@ -1100,21 +1019,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'signature' field */
     public example.avro.WebPage.Builder setSignature(java.nio.ByteBuffer value) {
-      validate(fields()[13], value);
+      validate(fields()[12], value);
       this.signature = value;
-      fieldSetFlags()[13] = true;
+      fieldSetFlags()[12] = true;
       return this; 
     }
     
     /** Checks whether the 'signature' field has been set */
     public boolean hasSignature() {
-      return fieldSetFlags()[13];
+      return fieldSetFlags()[12];
     }
     
     /** Clears the value of the 'signature' field */
     public example.avro.WebPage.Builder clearSignature() {
       signature = null;
-      fieldSetFlags()[13] = false;
+      fieldSetFlags()[12] = false;
       return this;
     }
 
@@ -1125,21 +1044,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'title' field */
     public example.avro.WebPage.Builder setTitle(java.lang.CharSequence value) {
-      validate(fields()[14], value);
+      validate(fields()[13], value);
       this.title = value;
-      fieldSetFlags()[14] = true;
+      fieldSetFlags()[13] = true;
       return this; 
     }
     
     /** Checks whether the 'title' field has been set */
     public boolean hasTitle() {
-      return fieldSetFlags()[14];
+      return fieldSetFlags()[13];
     }
     
     /** Clears the value of the 'title' field */
     public example.avro.WebPage.Builder clearTitle() {
       title = null;
-      fieldSetFlags()[14] = false;
+      fieldSetFlags()[13] = false;
       return this;
     }
 
@@ -1150,46 +1069,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'text' field */
     public example.avro.WebPage.Builder setText(java.lang.CharSequence value) {
-      validate(fields()[15], value);
+      validate(fields()[14], value);
       this.text = value;
-      fieldSetFlags()[15] = true;
+      fieldSetFlags()[14] = true;
       return this; 
     }
     
     /** Checks whether the 'text' field has been set */
     public boolean hasText() {
-      return fieldSetFlags()[15];
+      return fieldSetFlags()[14];
     }
     
     /** Clears the value of the 'text' field */
     public example.avro.WebPage.Builder clearText() {
       text = null;
-      fieldSetFlags()[15] = false;
-      return this;
-    }
-
-    /** Gets the value of the 'parseStatus' field */
-    public org.apache.nutch.storage.ParseStatus getParseStatus() {
-      return parseStatus;
-    }
-    
-    /** Sets the value of the 'parseStatus' field */
-    public example.avro.WebPage.Builder setParseStatus(org.apache.nutch.storage.ParseStatus value) {
-      validate(fields()[16], value);
-      this.parseStatus = value;
-      fieldSetFlags()[16] = true;
-      return this; 
-    }
-    
-    /** Checks whether the 'parseStatus' field has been set */
-    public boolean hasParseStatus() {
-      return fieldSetFlags()[16];
-    }
-    
-    /** Clears the value of the 'parseStatus' field */
-    public example.avro.WebPage.Builder clearParseStatus() {
-      parseStatus = null;
-      fieldSetFlags()[16] = false;
+      fieldSetFlags()[14] = false;
       return this;
     }
 
@@ -1200,20 +1094,20 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'score' field */
     public example.avro.WebPage.Builder setScore(float value) {
-      validate(fields()[17], value);
+      validate(fields()[15], value);
       this.score = value;
-      fieldSetFlags()[17] = true;
+      fieldSetFlags()[15] = true;
       return this; 
     }
     
     /** Checks whether the 'score' field has been set */
     public boolean hasScore() {
-      return fieldSetFlags()[17];
+      return fieldSetFlags()[15];
     }
     
     /** Clears the value of the 'score' field */
     public example.avro.WebPage.Builder clearScore() {
-      fieldSetFlags()[17] = false;
+      fieldSetFlags()[15] = false;
       return this;
     }
 
@@ -1224,21 +1118,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'reprUrl' field */
     public example.avro.WebPage.Builder setReprUrl(java.lang.CharSequence value) {
-      validate(fields()[18], value);
+      validate(fields()[16], value);
       this.reprUrl = value;
-      fieldSetFlags()[18] = true;
+      fieldSetFlags()[16] = true;
       return this; 
     }
     
     /** Checks whether the 'reprUrl' field has been set */
     public boolean hasReprUrl() {
-      return fieldSetFlags()[18];
+      return fieldSetFlags()[16];
     }
     
     /** Clears the value of the 'reprUrl' field */
     public example.avro.WebPage.Builder clearReprUrl() {
       reprUrl = null;
-      fieldSetFlags()[18] = false;
+      fieldSetFlags()[16] = false;
       return this;
     }
 
@@ -1249,21 +1143,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'headers' field */
     public example.avro.WebPage.Builder setHeaders(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-      validate(fields()[19], value);
+      validate(fields()[17], value);
       this.headers = value;
-      fieldSetFlags()[19] = true;
+      fieldSetFlags()[17] = true;
       return this; 
     }
     
     /** Checks whether the 'headers' field has been set */
     public boolean hasHeaders() {
-      return fieldSetFlags()[19];
+      return fieldSetFlags()[17];
     }
     
     /** Clears the value of the 'headers' field */
     public example.avro.WebPage.Builder clearHeaders() {
       headers = null;
-      fieldSetFlags()[19] = false;
+      fieldSetFlags()[17] = false;
       return this;
     }
 
@@ -1274,21 +1168,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'outlinks' field */
     public example.avro.WebPage.Builder setOutlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-      validate(fields()[20], value);
+      validate(fields()[18], value);
       this.outlinks = value;
-      fieldSetFlags()[20] = true;
+      fieldSetFlags()[18] = true;
       return this; 
     }
     
     /** Checks whether the 'outlinks' field has been set */
     public boolean hasOutlinks() {
-      return fieldSetFlags()[20];
+      return fieldSetFlags()[18];
     }
     
     /** Clears the value of the 'outlinks' field */
     public example.avro.WebPage.Builder clearOutlinks() {
       outlinks = null;
-      fieldSetFlags()[20] = false;
+      fieldSetFlags()[18] = false;
       return this;
     }
 
@@ -1299,21 +1193,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'inlinks' field */
     public example.avro.WebPage.Builder setInlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-      validate(fields()[21], value);
+      validate(fields()[19], value);
       this.inlinks = value;
-      fieldSetFlags()[21] = true;
+      fieldSetFlags()[19] = true;
       return this; 
     }
     
     /** Checks whether the 'inlinks' field has been set */
     public boolean hasInlinks() {
-      return fieldSetFlags()[21];
+      return fieldSetFlags()[19];
     }
     
     /** Clears the value of the 'inlinks' field */
     public example.avro.WebPage.Builder clearInlinks() {
       inlinks = null;
-      fieldSetFlags()[21] = false;
+      fieldSetFlags()[19] = false;
       return this;
     }
 
@@ -1324,21 +1218,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'markers' field */
     public example.avro.WebPage.Builder setMarkers(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
-      validate(fields()[22], value);
+      validate(fields()[20], value);
       this.markers = value;
-      fieldSetFlags()[22] = true;
+      fieldSetFlags()[20] = true;
       return this; 
     }
     
     /** Checks whether the 'markers' field has been set */
     public boolean hasMarkers() {
-      return fieldSetFlags()[22];
+      return fieldSetFlags()[20];
     }
     
     /** Clears the value of the 'markers' field */
     public example.avro.WebPage.Builder clearMarkers() {
       markers = null;
-      fieldSetFlags()[22] = false;
+      fieldSetFlags()[20] = false;
       return this;
     }
 
@@ -1349,21 +1243,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'metadata' field */
     public example.avro.WebPage.Builder setMetadata(java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> value) {
-      validate(fields()[23], value);
+      validate(fields()[21], value);
       this.metadata = value;
-      fieldSetFlags()[23] = true;
+      fieldSetFlags()[21] = true;
       return this; 
     }
     
     /** Checks whether the 'metadata' field has been set */
     public boolean hasMetadata() {
-      return fieldSetFlags()[23];
+      return fieldSetFlags()[21];
     }
     
     /** Clears the value of the 'metadata' field */
     public example.avro.WebPage.Builder clearMetadata() {
       metadata = null;
-      fieldSetFlags()[23] = false;
+      fieldSetFlags()[21] = false;
       return this;
     }
 
@@ -1374,21 +1268,21 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'batchId' field */
     public example.avro.WebPage.Builder setBatchId(java.lang.CharSequence value) {
-      validate(fields()[24], value);
+      validate(fields()[22], value);
       this.batchId = value;
-      fieldSetFlags()[24] = true;
+      fieldSetFlags()[22] = true;
       return this; 
     }
     
     /** Checks whether the 'batchId' field has been set */
     public boolean hasBatchId() {
-      return fieldSetFlags()[24];
+      return fieldSetFlags()[22];
     }
     
     /** Clears the value of the 'batchId' field */
     public example.avro.WebPage.Builder clearBatchId() {
       batchId = null;
-      fieldSetFlags()[24] = false;
+      fieldSetFlags()[22] = false;
       return this;
     }
 
@@ -1405,22 +1299,20 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
         record.retriesSinceFetch = fieldSetFlags()[6] ? this.retriesSinceFetch : (java.lang.Integer) defaultValue(fields()[6]);
         record.modifiedTime = fieldSetFlags()[7] ? this.modifiedTime : (java.lang.Long) defaultValue(fields()[7]);
         record.prevModifiedTime = fieldSetFlags()[8] ? this.prevModifiedTime : (java.lang.Long) defaultValue(fields()[8]);
-        record.protocolStatus = fieldSetFlags()[9] ? this.protocolStatus : (org.apache.nutch.storage.ProtocolStatus) defaultValue(fields()[9]);
-        record.content = fieldSetFlags()[10] ? this.content : (java.nio.ByteBuffer) defaultValue(fields()[10]);
-        record.contentType = fieldSetFlags()[11] ? this.contentType : (java.lang.CharSequence) defaultValue(fields()[11]);
-        record.prevSignature = fieldSetFlags()[12] ? this.prevSignature : (java.nio.ByteBuffer) defaultValue(fields()[12]);
-        record.signature = fieldSetFlags()[13] ? this.signature : (java.nio.ByteBuffer) defaultValue(fields()[13]);
-        record.title = fieldSetFlags()[14] ? this.title : (java.lang.CharSequence) defaultValue(fields()[14]);
-        record.text = fieldSetFlags()[15] ? this.text : (java.lang.CharSequence) defaultValue(fields()[15]);
-        record.parseStatus = fieldSetFlags()[16] ? this.parseStatus : (org.apache.nutch.storage.ParseStatus) defaultValue(fields()[16]);
-        record.score = fieldSetFlags()[17] ? this.score : (java.lang.Float) defaultValue(fields()[17]);
-        record.reprUrl = fieldSetFlags()[18] ? this.reprUrl : (java.lang.CharSequence) defaultValue(fields()[18]);
-        record.headers = fieldSetFlags()[19] ? this.headers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[19]);
-        record.outlinks = fieldSetFlags()[20] ? this.outlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[20]);
-        record.inlinks = fieldSetFlags()[21] ? this.inlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[21]);
-        record.markers = fieldSetFlags()[22] ? this.markers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[22]);
-        record.metadata = fieldSetFlags()[23] ? this.metadata : (java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer>) defaultValue(fields()[23]);
-        record.batchId = fieldSetFlags()[24] ? this.batchId : (java.lang.CharSequence) defaultValue(fields()[24]);
+        record.content = fieldSetFlags()[9] ? this.content : (java.nio.ByteBuffer) defaultValue(fields()[9]);
+        record.contentType = fieldSetFlags()[10] ? this.contentType : (java.lang.CharSequence) defaultValue(fields()[10]);
+        record.prevSignature = fieldSetFlags()[11] ? this.prevSignature : (java.nio.ByteBuffer) defaultValue(fields()[11]);
+        record.signature = fieldSetFlags()[12] ? this.signature : (java.nio.ByteBuffer) defaultValue(fields()[12]);
+        record.title = fieldSetFlags()[13] ? this.title : (java.lang.CharSequence) defaultValue(fields()[13]);
+        record.text = fieldSetFlags()[14] ? this.text : (java.lang.CharSequence) defaultValue(fields()[14]);
+        record.score = fieldSetFlags()[15] ? this.score : (java.lang.Float) defaultValue(fields()[15]);
+        record.reprUrl = fieldSetFlags()[16] ? this.reprUrl : (java.lang.CharSequence) defaultValue(fields()[16]);
+        record.headers = fieldSetFlags()[17] ? this.headers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[17]);
+        record.outlinks = fieldSetFlags()[18] ? this.outlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[18]);
+        record.inlinks = fieldSetFlags()[19] ? this.inlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[19]);
+        record.markers = fieldSetFlags()[20] ? this.markers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[20]);
+        record.metadata = fieldSetFlags()[21] ? this.metadata : (java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer>) defaultValue(fields()[21]);
+        record.batchId = fieldSetFlags()[22] ? this.batchId : (java.lang.CharSequence) defaultValue(fields()[22]);
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);

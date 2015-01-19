@@ -7,29 +7,6 @@
       {"name": "dateOfBirth", "type": "long","default":0},
       {"name": "ssn", "type": "string", "default":""},
       {"name": "salary", "type": "int","default":0},
-      {"name": "boss", "type":["null","Employee","string"],"default":null},
-      {"name": "webpage","default":null, "type":["null",
-        {
-      	  "type": "record",
-      	  "name": "WebPage",
-      	  "namespace": "example.avro",
-          "fields" : [
-           {"name": "url", "type": ["null","string"], "default":null},
-           {"name": "content", "type": ["null","bytes"],"default":null},
-           {"name": "parsedContent", "type": {"type":"array", "items": "string"},"default":{}},
-           {"name": "outlinks", "type": {"type":"map", "values":["null", "string"]},"default":{}},
-           {"name": "headers", "type": ["null", {"type": "map", "values": ["null", "string"]}],"default":null},
-           {"name": "metadata", "default":null, "type": {
-            "name": "Metadata",
-            "type": "record",
-            "namespace": "example.avro",
-            "fields": [
-             {"name": "version", "type": "int","default":0},
-             {"name": "data", "type": {"type": "map", "values": "string"},"default":{}}
-            ]
-          }}
-          ]
-      	}
-      ]}
+      {"name": "boss", "type":["null","Employee","string"],"default":null}
     ]
   }
