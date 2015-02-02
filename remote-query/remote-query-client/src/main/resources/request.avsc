@@ -4,6 +4,7 @@
  "fields": [
      {"name": "jpqlString", "type": "string"},
      {"name": "startOffset",  "type": "long"},
-     {"name": "maxResult", "type": "int"}
+     {"name": "maxResult", "type": "int"},
+     {"name": "splitId", "type": "int"}
  ]
 }
