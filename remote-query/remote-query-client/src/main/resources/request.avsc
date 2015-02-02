@@ -5,6 +5,6 @@
      {"name": "jpqlString", "type": "string"},
      {"name": "startOffset",  "type": "long"},
      {"name": "maxResult", "type": "int"},
-     {"name": "splitId", "type": "int"}
- ]
+     {"name": "local", "type": "boolean", "default": "false"}
+      ]
 }

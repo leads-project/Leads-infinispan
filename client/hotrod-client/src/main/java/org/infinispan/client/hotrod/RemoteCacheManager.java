@@ -658,6 +658,10 @@ public class RemoteCacheManager implements BasicCacheContainer {
    public Marshaller getMarshaller() {
       return marshaller;
    }
+   
+   public TransportFactory getTransportFactory(){
+      return transportFactory;
+   }
 
    public static byte[] cacheNameBytes(String cacheName) {
       return cacheName.equals(DEFAULT_CACHE_NAME)

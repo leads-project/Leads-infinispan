@@ -47,6 +47,9 @@ public class Site extends Indexable {
    public static Site valueOf(String servers, Marshaller marshaller, boolean isLocal){
 
       ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+      
+      configurationBuilder.pingOnStartup(false);
+      configurationBuilder.tcpKeepAlive(false);
 
       if (marshaller != null)
          configurationBuilder.marshaller(marshaller);

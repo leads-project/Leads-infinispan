@@ -74,17 +74,6 @@
                 <configuration>
                     <instructions>
                         <Export-Package>
-                            ${project.groupId}.query.remote.client.*;version=${project.version};-split-package:=error,
-                        </Export-Package>
-                    </instructions>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-bundle-plugin</artifactId>
-                <configuration>
-                    <instructions>
-                        <Export-Package>
                             ${project.groupId}.query.remote.client.*;version=${project.version};-split-package:=error
                         </Export-Package>
                     </instructions>

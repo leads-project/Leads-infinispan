@@ -52,7 +52,7 @@ public class AvroQueryFacade implements QueryFacade {
          log.debug(request.toString());
 
          SearchManager sm = Search.getSearchManager(cache);
-
+         
          SearchFactoryIntegrator searchFactory = sm.getSearchFactory();
          QueryParser qp = new QueryParser();
 
@@ -75,16 +75,19 @@ public class AvroQueryFacade implements QueryFacade {
 
          LuceneQueryParsingResult parsingResult = qp.parseQuery(request.getJpqlString().toString(), processingChain);
          Query q = parsingResult.getQuery();
-         CacheQuery cacheQuery;
-         cacheQuery = sm.getClusteredQuery(q,GenericData.Record.class);
+         
+         CacheQuery cacheQuery = request.getLocal() ? 
+               sm.getQuery(q,GenericData.Record.class) : sm.getClusteredQuery(q,GenericData.Record.class);
+         
          if (request.getMaxResult() > 0)
             cacheQuery = cacheQuery.maxResults(request.getMaxResult());
          if (parsingResult.getSort() != null)
             cacheQuery = cacheQuery.sort(parsingResult.getSort());
-         if (request.getStartOffset() >= 0)
+         if (request.getStartOffset() > 0)
             cacheQuery = cacheQuery.firstResult(request.getStartOffset().intValue());
 
          List<Object> list = cacheQuery.list();
+         log.debug("#results="+list.size());
             
          List<ByteBuffer> results = new ArrayList<>();
          if (parsingResult.getProjections().size()==0){

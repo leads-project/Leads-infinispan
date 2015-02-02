@@ -6,12 +6,17 @@ import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.protocol.HeaderParams;
 import org.infinispan.client.hotrod.impl.transport.Transport;
 import org.infinispan.client.hotrod.impl.transport.TransportFactory;
+import org.infinispan.client.hotrod.impl.transport.tcp.TcpTransportFactory;
+import org.infinispan.client.hotrod.logging.Log;
+import org.infinispan.client.hotrod.logging.LogFactory;
 import org.infinispan.query.remote.client.avro.AvroMarshaller;
 import org.infinispan.query.remote.client.avro.Request;
 import org.infinispan.query.remote.client.avro.Response;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -21,6 +26,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class AvroQueryOperation extends RetryOnFailureOperation<Response> {
 
+   private static final Log log = LogFactory.getLog(AvroQueryOperation.class, Log.class);
+   
    private AvroRemoteQuery remoteQuery;
    private AvroMarshaller<Request> requestAvroMarshaller;
    private AvroMarshaller<Response> responseAvroMarshaller;
@@ -35,6 +42,29 @@ public class AvroQueryOperation extends RetryOnFailureOperation<Response> {
 
    @Override
    protected Transport getTransport(int retryCount, Set<SocketAddress> failedServers) {
+
+      if (remoteQuery.getLocation()==null)
+         return transportFactory.getTransport(failedServers, this.cacheName);
+
+      if (!(transportFactory instanceof  TcpTransportFactory)) {
+         log.warn("Unable to satisfy destination=" + remoteQuery.getLocation()+"; not a TCPTransportFactory");
+         return transportFactory.getTransport(failedServers, this.cacheName);
+      }
+      
+      Collection<SocketAddress> servvers = ((TcpTransportFactory)transportFactory).getServers();
+      
+      for (SocketAddress addr : servvers) {
+         InetSocketAddress address = (InetSocketAddress) addr;
+         if (address.getHostName().equals(remoteQuery.getLocation().getHostName())
+               && address.getPort() == remoteQuery.getLocation().getPort() ) {
+            if (failedServers != null && failedServers.contains(address)) {
+               log.warn("Unable to satisfy destination=" + remoteQuery.getLocation()+"; server failed");
+            }
+            return transportFactory.getAddressTransport(address);
+         }
+      }
+
+      log.warn("Unable to satisfy destination=" + remoteQuery.getLocation()+"; server not found");
       return transportFactory.getTransport(failedServers, this.cacheName);
    }
 
@@ -45,6 +75,7 @@ public class AvroQueryOperation extends RetryOnFailureOperation<Response> {
       queryRequest.setJpqlString(remoteQuery.getJpqlString());
       queryRequest.setStartOffset(remoteQuery.getStartOffset());
       queryRequest.setMaxResult(remoteQuery.getMaxResults());
+      queryRequest.setLocal(remoteQuery.getLocation()!=null);
 
       try {
 

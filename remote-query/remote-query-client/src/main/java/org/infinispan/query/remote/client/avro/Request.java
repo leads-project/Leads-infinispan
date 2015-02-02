@@ -7,11 +7,12 @@ package org.infinispan.query.remote.client.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class Request extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Request\",\"namespace\":\"org.infinispan.query.remote.client.avro\",\"fields\":[{\"name\":\"jpqlString\",\"type\":\"string\"},{\"name\":\"startOffset\",\"type\":\"long\"},{\"name\":\"maxResult\",\"type\":\"int\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Request\",\"namespace\":\"org.infinispan.query.remote.client.avro\",\"fields\":[{\"name\":\"jpqlString\",\"type\":\"string\"},{\"name\":\"startOffset\",\"type\":\"long\"},{\"name\":\"maxResult\",\"type\":\"int\"},{\"name\":\"local\",\"type\":\"boolean\",\"default\":\"false\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
   @Deprecated public java.lang.CharSequence jpqlString;
   @Deprecated public long startOffset;
   @Deprecated public int maxResult;
+  @Deprecated public boolean local;
 
   /**
    * Default constructor.  Note that this does not initialize fields
@@ -23,10 +24,11 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * All-args constructor.
    */
-  public Request(java.lang.CharSequence jpqlString, java.lang.Long startOffset, java.lang.Integer maxResult) {
+  public Request(java.lang.CharSequence jpqlString, java.lang.Long startOffset, java.lang.Integer maxResult, java.lang.Boolean local) {
     this.jpqlString = jpqlString;
     this.startOffset = startOffset;
     this.maxResult = maxResult;
+    this.local = local;
   }
 
   public org.apache.avro.Schema getSchema() { return SCHEMA$; }
@@ -36,6 +38,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     case 0: return jpqlString;
     case 1: return startOffset;
     case 2: return maxResult;
+    case 3: return local;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -46,6 +49,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     case 0: jpqlString = (java.lang.CharSequence)value$; break;
     case 1: startOffset = (java.lang.Long)value$; break;
     case 2: maxResult = (java.lang.Integer)value$; break;
+    case 3: local = (java.lang.Boolean)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -95,6 +99,21 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     this.maxResult = value;
   }
 
+  /**
+   * Gets the value of the 'local' field.
+   */
+  public java.lang.Boolean getLocal() {
+    return local;
+  }
+
+  /**
+   * Sets the value of the 'local' field.
+   * @param value the value to set.
+   */
+  public void setLocal(java.lang.Boolean value) {
+    this.local = value;
+  }
+
   /** Creates a new Request RecordBuilder */
   public static org.infinispan.query.remote.client.avro.Request.Builder newBuilder() {
     return new org.infinispan.query.remote.client.avro.Request.Builder();
@@ -119,6 +138,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     private java.lang.CharSequence jpqlString;
     private long startOffset;
     private int maxResult;
+    private boolean local;
 
     /** Creates a new Builder */
     private Builder() {
@@ -140,6 +160,10 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
         this.maxResult = data().deepCopy(fields()[2].schema(), other.maxResult);
         fieldSetFlags()[2] = true;
       }
+      if (isValidValue(fields()[3], other.local)) {
+        this.local = data().deepCopy(fields()[3].schema(), other.local);
+        fieldSetFlags()[3] = true;
+      }
     }
     
     /** Creates a Builder by copying an existing Request instance */
@@ -156,6 +180,10 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
       if (isValidValue(fields()[2], other.maxResult)) {
         this.maxResult = data().deepCopy(fields()[2].schema(), other.maxResult);
         fieldSetFlags()[2] = true;
+      }
+      if (isValidValue(fields()[3], other.local)) {
+        this.local = data().deepCopy(fields()[3].schema(), other.local);
+        fieldSetFlags()[3] = true;
       }
     }
 
@@ -232,6 +260,30 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
       return this;
     }
 
+    /** Gets the value of the 'local' field */
+    public java.lang.Boolean getLocal() {
+      return local;
+    }
+    
+    /** Sets the value of the 'local' field */
+    public org.infinispan.query.remote.client.avro.Request.Builder setLocal(boolean value) {
+      validate(fields()[3], value);
+      this.local = value;
+      fieldSetFlags()[3] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'local' field has been set */
+    public boolean hasLocal() {
+      return fieldSetFlags()[3];
+    }
+    
+    /** Clears the value of the 'local' field */
+    public org.infinispan.query.remote.client.avro.Request.Builder clearLocal() {
+      fieldSetFlags()[3] = false;
+      return this;
+    }
+
     @Override
     public Request build() {
       try {
@@ -239,6 +291,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
         record.jpqlString = fieldSetFlags()[0] ? this.jpqlString : (java.lang.CharSequence) defaultValue(fields()[0]);
         record.startOffset = fieldSetFlags()[1] ? this.startOffset : (java.lang.Long) defaultValue(fields()[1]);
         record.maxResult = fieldSetFlags()[2] ? this.maxResult : (java.lang.Integer) defaultValue(fields()[2]);
+        record.local = fieldSetFlags()[3] ? this.local : (java.lang.Boolean) defaultValue(fields()[3]);
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);

@@ -1,6 +1,8 @@
 package org.infinispan.ensemble.test;
 
 import example.avro.WebPage;
+import org.infinispan.client.hotrod.impl.avro.AvroQueryBuilder;
+import org.infinispan.client.hotrod.impl.avro.AvroRemoteQuery;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.ensemble.search.Search;
 import org.infinispan.query.dsl.Query;
@@ -10,10 +12,7 @@ import org.infinispan.query.dsl.SortOrder;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 import static org.infinispan.client.hotrod.avro.AvroTestHelper.somePage;
@@ -157,6 +156,30 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       QueryFactory qf = Search.getQueryFactory(cache());
       Query query = qf.from(WebPage.class).build();
       assertEquals(query.list().size(),1);
+   }
+   
+   
+   @Test
+   public void split() {
+      
+      int NPAGES = 100;
+      for (int i=0; i <NPAGES; i++){
+         WebPage page = somePage();
+         cache().put(page.getKey(),page);
+      }
+      
+      QueryFactory qf = Search.getQueryFactory(cache());
+      AvroQueryBuilder qb = (AvroQueryBuilder) qf.from(WebPage.class);
+      Query query = qb.build();
+      Collection<AvroRemoteQuery> split = qb.split(query);
+      
+      Collection<WebPage> results = new ArrayList<>();
+      for (Query q : split) {
+         results.addAll(q.<WebPage>list());
+      }
+      
+      assertEquals(results.size(),NPAGES);
+
    }
 
    @Override
