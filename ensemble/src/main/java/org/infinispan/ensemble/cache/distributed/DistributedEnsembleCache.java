@@ -2,11 +2,16 @@ package org.infinispan.ensemble.cache.distributed;
 
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
+import org.infinispan.commons.util.concurrent.NotifyingFutureImpl;
 import org.infinispan.ensemble.cache.EnsembleCache;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * @author Pierre Sutra
@@ -17,6 +22,7 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
    private Partitioner<K,V> partitioner;
    private boolean frontierMode;
    private EnsembleCache<K,V> frontierCache;
+   private ExecutorService executorService;
 
    public DistributedEnsembleCache(String name, List<? extends EnsembleCache<K, V>> caches, Partitioner<K, V> partitioner){
       this(name,caches,partitioner,false);
@@ -52,6 +58,8 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
          if (frontierCache == null)
             throw new CacheException("Invalid parameters");
       }
+      
+      executorService = Executors.newCachedThreadPool();
 
    }
 
@@ -117,6 +125,35 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
       for (EnsembleCache dest : maps.keySet()) {
          dest.putAll(maps.get(dest));
       }
+   }
+
+   @Override
+   public NotifyingFuture<Void> putAllAsync(final Map<? extends K, ? extends V> data) {
+      final NotifyingFutureImpl<Void> result = new NotifyingFutureImpl<>();
+      Future<Void> future = executorService.submit(new Callable<Void>() {
+         @Override
+         public Void call() throws Exception {
+            try {
+               putAll(data);
+               try {
+                  result.notifyDone(null);
+               } catch (Throwable t) {
+                  log.trace("Error when notifying", t);
+               }
+               return null;
+            } catch (Exception e) {
+               try {
+                  result.notifyException(e);
+               } catch (Throwable t) {
+                  log.trace("Error when notifying", t);
+               }
+               throw e;
+            }
+         }
+      });
+      result.setFuture(future);
+      return result;
+
    }
 
    @Override
