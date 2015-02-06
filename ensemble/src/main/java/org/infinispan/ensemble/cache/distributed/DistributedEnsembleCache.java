@@ -59,7 +59,7 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
             throw new CacheException("Invalid parameters");
       }
       
-      executorService = Executors.newCachedThreadPool();
+      executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
    }
 
