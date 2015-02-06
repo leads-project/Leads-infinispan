@@ -37,7 +37,7 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
                   stringField = new StringField(
                         field.name(),
                         k.toString()+DELIMITER+(map.get(k)!=null ? map.get(k).toString() : NULL),
-                        Field.Store.YES);
+                        Field.Store.NO); // the field is *still* searchable
                   addField(stringField,document);
                }
                break;
@@ -45,15 +45,9 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
                stringField = new StringField(
                      field.name(),
                      record.get(field.name()).toString(),
-                     Field.Store.YES);
+                     Field.Store.NO);
                addField(stringField, document);
             }
-         }else{
-            stringField = new StringField(
-                  field.name(),
-                  NULL,
-                  Field.Store.YES);
-            addField(stringField,document);
          }
 
       }
