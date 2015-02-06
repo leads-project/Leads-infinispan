@@ -95,6 +95,9 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
             .enable()
             .index(Index.LOCAL)
             .addProperty("default.directory_provider", "ram")
+            .addProperty("hibernate.search.default.exclusive_index_use","true")
+            .addProperty("hibernate.search.default.indexmanager","near-real-time")
+            .addProperty("hibernate.search.default.indexwriter.ram_buffer_size","128")
             .addProperty("lucene_version", "LUCENE_CURRENT");
       builder.clustering().hash().numOwners(1);
       builder.jmxStatistics().enable();
