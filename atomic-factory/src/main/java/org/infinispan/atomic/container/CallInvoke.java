@@ -1,15 +1,16 @@
 package org.infinispan.atomic.container;
 
+import java.util.UUID;
+
 /**
-* *
 * @author Pierre Sutra
-* @since 6.0
+* @since 7.0
 */
 class CallInvoke extends Call {
     String method;
     Object[] arguments;
 
-    public CallInvoke(long id, String m, Object[] args) {
+    public CallInvoke(UUID id, String m, Object[] args) {
         super(id);
         method = m;
         arguments = args;

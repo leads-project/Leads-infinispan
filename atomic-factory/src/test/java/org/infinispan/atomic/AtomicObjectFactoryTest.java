@@ -13,11 +13,7 @@ import org.infinispan.util.logging.LogFactory;
 import org.testng.annotations.Test;
 
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-
+import java.util.concurrent.*;
 
 /**
  * @author Pierre Sutra
@@ -26,172 +22,184 @@ import java.util.concurrent.Future;
 @Test(groups = "functional", testName = "AtomicObjectFactoryTest")
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
-    private static int NCALLS= 1000;
-    private static int NCACHES = 3;
-    private static List<Cache> caches = new ArrayList<Cache>();
+   private static int NCALLS=100;
+   private static int NCACHES=2;
+   private static List<Cache> caches = new ArrayList<Cache>();
 
-    private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
+   private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
 
 
-    @Test(enabled = true)
-    public void basicUsageTest() throws  Exception{
+   @Test(enabled = true)
+   public void basicUsageTest() throws  Exception{
+      
+      EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
+      Cache cache = cacheManager.getCache();
+      AtomicObjectFactory factory = new AtomicObjectFactory(cache);
 
-        EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
-        Cache cache = cacheManager.getCache();
-        AtomicObjectFactory factory = new AtomicObjectFactory(cache);
+      // 1 - Basic Usage
+      Set<String> set = factory.getInstanceOf(HashSet.class, "set");
+      set.add("smthing");
+      assert set.contains("smthing");
+      assert set.size()==1;
 
-        // 1 - Basic Usage
-        Set<String> set = factory.getInstanceOf(HashSet.class, "set");
-        set.add("smthing");
-        assert set.contains("smthing");
-        assert set.size()==1;
+      // 2 - Persistence
+      factory.disposeInstanceOf(HashSet.class, "set", true);
+      set = factory.getInstanceOf(HashSet.class, "set", false, null, false);
+      assert set.contains("smthing");
 
-        // 2 - Persistence
-        factory.disposeInstanceOf(HashSet.class, "set", true);
-        set = factory.getInstanceOf(HashSet.class, "set", false, null, false);
-        assert set.contains("smthing");
+      // 3 - Optimistic execution
+      ArrayList list = factory.getInstanceOf(ArrayList.class, "list", true);
+      assert !list.contains("foo");
+      assert !cache.containsKey("list");
 
-        // 3 - Optimistic execution
-        ArrayList list = factory.getInstanceOf(ArrayList.class, "list", true);
-        assert !list.contains("foo");
-        assert !cache.containsKey("list");
+   }
 
-    }
+   @Test(enabled = true)
+   public void basicPerformanceTest() throws Exception{
 
-    @Test(enabled = true)
-    public void basicPerformanceTest() throws Exception{
+      EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
+      Cache cache = cacheManager.getCache();
+      AtomicObjectFactory factory = new AtomicObjectFactory(cache);
 
-        EmbeddedCacheManager cacheManager = cacheManagers.iterator().next();
-        Cache cache = cacheManager.getCache();
-        AtomicObjectFactory factory = new AtomicObjectFactory(cache);
+      Map map = (Map) factory.getInstanceOf(HashMap.class, "map", true);
 
-        Map map = (Map) factory.getInstanceOf(HashMap.class, "map", true);
+      for(int i=0; i<NCALLS*10;i++){
+         map.containsKey("1");
+      }
+      long start = System.currentTimeMillis();
+      for(int i=0; i<NCALLS*10;i++){
+         map.containsKey("1");
+      }
 
-        for(int i=0; i<NCALLS*10;i++){
-            map.containsKey("1");
-        }
-        long start = System.currentTimeMillis();
-        for(int i=0; i<NCALLS*10;i++){
-            map.containsKey("1");
-        }
+      log.debug(System.currentTimeMillis() - start);
 
-        log.debug(System.currentTimeMillis() - start);
+   }
 
-    }
+   @Test(enabled = true)
+   public void distributedPersistenceTest() throws Exception {
 
-    @Test(enabled = true)
-    public void distributedCacheTest() throws Exception {
+      Iterator<EmbeddedCacheManager> it = cacheManagers.iterator();
+      EmbeddedCacheManager manager1 = it.next();
+      EmbeddedCacheManager manager2 = it.next();
+      Cache cache1 = manager1.getCache();
+      AtomicObjectFactory factory1 = new AtomicObjectFactory(cache1);
+      Cache cache2 = manager2.getCache();
+      AtomicObjectFactory factory2 = new AtomicObjectFactory(cache2);
 
-        ExecutorService service = Executors.newCachedThreadPool();
-        List<HashSet> sets = new ArrayList<HashSet>();
-        List<AtomicObjectFactory> factories = new ArrayList<AtomicObjectFactory>();
-        List<Future<Integer>> futures = new ArrayList<Future<Integer>>();
+      HashSet set1, set2;
+      
+      // 1 - Concurrent retrieval
+      set1 = factory1.getInstanceOf(HashSet.class, "persist");
+      set1.add("smthing");
+      set2 = factory2.getInstanceOf(HashSet.class, "persist", true, null, false);
+      assert set2.contains("smthing");
+      
+      // 2 - Serial storing then retrieval
+      set1 = factory1.getInstanceOf(HashSet.class, "persist2");
+      set1.add("smthing");
+      factory1.disposeInstanceOf(HashSet.class,"persist2",true);
+      set2 = factory2.getInstanceOf(HashSet.class, "persist2", true, null, false);
+      assert set2.contains("smthing");
 
-        AtomicObjectFactory factory;
-        HashSet set;
-        for(EmbeddedCacheManager manager: cacheManagers){
-            Cache cache = manager.getCache();
-            caches.add(cache);
-            factory = new AtomicObjectFactory(cache);
-            factories.add(factory);
-            set = factory.getInstanceOf(HashSet.class, "aset", false, null, false);
-            set.add(-1); // to synchronize the copies
-            sets.add(set);
-        }
+   }
 
-        for(Set s : sets){
-            futures.add(service.submit(new ExerciseAtomicSetTask(s, NCALLS)));
-        }
+   @Test(enabled = true)
+   public void distributedCacheTest() throws Exception {
 
-        Integer total = 0;
-        for(Future<Integer> future : futures){
-            total += future.get();
-        }
+      ExecutorService service = Executors.newCachedThreadPool();
+      List<Future<Integer>> futures = new ArrayList<>();
 
-        assert total == (NCALLS) : "obtained = "+total+"; espected = "+ (NCALLS);
+      for(EmbeddedCacheManager manager: cacheManagers){
+         Cache cache = manager.getCache();
+         caches.add(cache);
+         futures.add(service.submit(
+               new ExerciseAtomicSetTask(
+                     new AtomicObjectFactory(cache), NCALLS)));
+      }
 
-    }
+      Integer total = 0;
+      for(Future<Integer> future : futures){
+         total += future.get();
+      }
 
-    @Test(enabled = true)
-    public void distributedPersistenceTest() throws Exception {
+      assert total == (NCALLS) : "obtained = "+total+"; espected = "+ (NCALLS);
 
-        Iterator<EmbeddedCacheManager> it = cacheManagers.iterator();
-        EmbeddedCacheManager manager1 = it.next();
-        EmbeddedCacheManager manager2 = it.next();
-        AtomicObjectFactory factory1, factory2;
-        Cache cache1, cache2;
-        HashSet set1, set2;
+   }
 
-        cache1 = manager1.getCache();
-        factory1 = new AtomicObjectFactory(cache1);
-        set1 = factory1.getInstanceOf(HashSet.class, "persist");
-        set1.add("smthing");
-        factory1.disposeInstanceOf(HashSet.class,"persist",true);
 
-        cache2 = manager2.getCache();
-        factory2 = new AtomicObjectFactory(cache2);
-        set2 = factory2.getInstanceOf(HashSet.class, "persist", true, null, false);
-        assert set2.contains("smthing");
+   //
+   // HELPERS
+   //
 
-    }
+   @Override
+   protected void createCacheManagers() throws Throwable {
+      ConfigurationBuilder builder
+            = AbstractCacheTest.getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, true);
+      builder.clustering().hash().numOwners(1);
+      TransportFlags flags = new TransportFlags();
+      createClusteredCaches(NCACHES, builder, flags);
+   }
 
-    //
-    // HELPERS
-    //
+   protected void initAndTest() {
+      for (Cache<Object, String> c : caches) assert c.isEmpty();
+      caches.iterator().next().put("k1", "value");
+      assertOnAllCaches("k1", "value");
+   }
 
-    @Override
-    protected void createCacheManagers() throws Throwable {
-        ConfigurationBuilder builder
-                = AbstractCacheTest.getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false);
-        TransportFlags flags = new TransportFlags();
-        createClusteredCaches(NCACHES, builder, flags);
-    }
+   protected void assertOnAllCaches(Object key, String value) {
+      for (Cache<Object, String> c : caches) {
+         Object realVal = c.get(key);
+         if (value == null) {
+            assert realVal == null : "Expecting [" + key + "] to equal [" + value + "] on cache "+ c.toString();
+         } else {
+            assert value.equals(realVal) : "Expecting [" + key + "] to equal [" + value + "] on cache "+c.toString();
+         }
+      }
+      // Allow some time for all ClusteredGetCommands to finish executing
+      TestingUtil.sleepThread(1000);
+   }
 
-    protected void initAndTest() {
-        for (Cache<Object, String> c : caches) assert c.isEmpty();
-        caches.iterator().next().put("k1", "value");
-        assertOnAllCaches("k1", "value");
-    }
+   //
+   // UTILITY CLASSES
+   //
 
-    protected void assertOnAllCaches(Object key, String value) {
-        for (Cache<Object, String> c : caches) {
-            Object realVal = c.get(key);
-            if (value == null) {
-                assert realVal == null : "Expecting [" + key + "] to equal [" + value + "] on cache "+ c.toString();
-            } else {
-                assert value.equals(realVal) : "Expecting [" + key + "] to equal [" + value + "] on cache "+c.toString();
+   public static class ExerciseAtomicSetTask implements Callable<Integer>{
+
+      private static final String name="aset";
+      
+      private int ncalls;
+      private Set set;
+      private AtomicObjectFactory factory; 
+
+      public ExerciseAtomicSetTask(AtomicObjectFactory f, int n){
+         factory = f;
+         ncalls = n;
+      }
+
+      @Override
+      public Integer call() throws Exception {
+         int ret = 0;
+         for(int i=0; i<ncalls;i++){
+            if (set==null) {
+               synchronized (this.getClass()) {
+                  set = factory.getInstanceOf(HashSet.class, name, false, null, false);
+               }
             }
-        }
-        // Allow some time for all ClusteredGetCommands to finish executing
-        TestingUtil.sleepThread(1000);
-    }
-
-    //
-    // INNER CLASSES
-    //
-
-    private class ExerciseAtomicSetTask implements Callable<Integer>{
-
-        private int ncalls;
-        private Set set;
-
-        public ExerciseAtomicSetTask(Set s, int n){
-            ncalls = n;
-            set = s;
-        }
-
-        @Override
-        public Integer call() throws Exception {
-            int ret = 0;
-            for(int i=0; i<ncalls;i++){
-                boolean r = set.add(i);
-                if(r){
-                    ret ++;
-                }
+            boolean r = set.add(i);
+            // if successful, close then re-open the set
+            if(r){
+               ret ++;
+               if (ret%NCACHES==0) {
+                  synchronized (this.getClass()) {
+                     factory.disposeInstanceOf(HashSet.class, name, true);
+                     set = null;
+                  }
+               }
             }
-            return  ret;
-        }
-    }
+         }
+         return  ret;
+      }
+   }
 
 
 }

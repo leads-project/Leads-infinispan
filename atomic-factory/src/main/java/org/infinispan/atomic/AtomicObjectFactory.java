@@ -48,7 +48,7 @@ public class AtomicObjectFactory {
       updateMethods.put(Map.class, new ArrayList<String>());
       updateMethods.get(Map.class).add("put");
       updateMethods.get(Map.class).add("putAll");
-   };
+   }
 
 
 
@@ -241,7 +241,6 @@ public class AtomicObjectFactory {
          throws InvalidCacheUsageException {
 
       ContainerSignature signature = new ContainerSignature(clazz,key);
-      log.debug("Disposing "+signature);
       Container container;
       synchronized (registeredContainers){
          container = registeredContainers.get(signature);

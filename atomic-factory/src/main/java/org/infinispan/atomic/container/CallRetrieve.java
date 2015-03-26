@@ -1,12 +1,14 @@
 package org.infinispan.atomic.container;
 
+import java.util.UUID;
+
 /**
-*
 * @author Pierre Sutra
-* @since 6.0
+* @since 7.0
 */
 class CallRetrieve extends Call {
-    public CallRetrieve(long id) {
+   
+    public CallRetrieve(UUID id) {
         super(id);
     }
 
