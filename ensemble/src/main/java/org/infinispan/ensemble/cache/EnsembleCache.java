@@ -276,103 +276,109 @@ public abstract class EnsembleCache<K,V> extends Indexable implements RemoteCach
         throw new UnsupportedOperationException();
     }
 
-   @Override public boolean removeWithVersion(K key, long version) {
+   @Override 
+   public boolean removeWithVersion(K key, long version) {
       throw new UnsupportedOperationException();
-      return false;  // TODO: Customise this generated block
    }
 
-   @Override public NotifyingFuture<Boolean> removeWithVersionAsync(K key, long version) {
+   @Override 
+   public NotifyingFuture<Boolean> removeWithVersionAsync(K key, long version) {
       throw new UnsupportedOperationException();
-      return null;  // TODO: Customise this generated block
    }
 
-   @Override public boolean replaceWithVersion(K key, V newValue, long version) {
+   @Override 
+   public boolean replaceWithVersion(K key, V newValue, long version) {
       throw new UnsupportedOperationException();
-      return false;  // TODO: Customise this generated block
    }
 
-   @Override public boolean replaceWithVersion(K key, V newValue, long version, int lifespanSeconds) {
+   @Override 
+   public boolean replaceWithVersion(K key, V newValue, long version, int lifespanSeconds) {
       throw new UnsupportedOperationException();
-      return false;  // TODO: Customise this generated block
    }
 
-   @Override public boolean replaceWithVersion(K key, V newValue, long version, int lifespanSeconds,
+   @Override 
+   public boolean replaceWithVersion(K key, V newValue, long version, int lifespanSeconds,
          int maxIdleTimeSeconds) {
       throw new UnsupportedOperationException();
-      return false;  // TODO: Customise this generated block
    }
 
-   @Override public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version) {
+   @Override 
+   public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version) {
       throw new UnsupportedOperationException();
-      return null;  // TODO: Customise this generated block
    }
 
-   @Override public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version,
+   @Override 
+   public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version,
          int lifespanSeconds) {
       throw new UnsupportedOperationException();
-      return null;  // TODO: Customise this generated block
    }
 
-   @Override public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version,
+   @Override 
+   public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version,
          int lifespanSeconds, int maxIdleSeconds) {
       throw new UnsupportedOperationException();
-      return null;  // TODO: Customise this generated block
    }
 
-   @Override public VersionedValue<V> getVersioneed(K key) {
+   @Override 
+   public VersionedValue<V> getVersioned(K key) {
       throw new UnsupportedOperationException();
-      return null;  // TODO: Customise this generated block
    }
 
-   @Override public NotifyingFuture<VersionedValue<V>> getVersionedAsync(K key) {
+   @Override 
+   public NotifyingFuture<VersionedValue<V>> getVersionedAsync(K key) {
       throw new UnsupportedOperationException();
-      return null;  // TODO: Customise this generated block
    }
 
-   @Override public MetadataValue<V> getWithMetadata(K key) {
+   @Override 
+   public MetadataValue<V> getWithMetadata(K key) {
       throw new UnsupportedOperationException();
-      return null;  // TODO: Customise this generated block
    }
 
-   @Override public ServerStatistics stats() {
-      return null;  // TODO: Customise this generated block
+   @Override 
+   public ServerStatistics stats() {
+      throw new UnsupportedOperationException();
    }
 
    @Override public RemoteCache<K, V> withFlags(Flag... flags) {
-      return null;  // TODO: Customise this generated block
+      throw new UnsupportedOperationException();
    }
 
    @Override public RemoteCacheManager getRemoteCacheManager() {
-      return null;  // TODO: Customise this generated block
+      throw new UnsupportedOperationException();
    }
 
    @Override public Map<K, V> getBulk() {
-      return null;  // TODO: Customise this generated block
+      throw new UnsupportedOperationException();
    }
 
-   @Override public Map<K, V> getBulk(int size) {
-      return null;  // TODO: Customise this generated block
+   @Override 
+   public Map<K, V> getBulk(int size) {
+      throw new UnsupportedOperationException();
    }
 
-   @Override public String getProtocolVersion() {
-      return null;  // TODO: Customise this generated block
+   @Override 
+   public String getProtocolVersion() {
+      throw new UnsupportedOperationException();
    }
 
-   @Override public void addClientListener(Object listener) {
-      // TODO: Customise this generated block
+   @Override 
+   public void addClientListener(Object listener) {
+      throw new UnsupportedOperationException();
    }
 
-   @Override public void addClientListener(Object listener, Object[] filterFactoryParams,
+   @Override 
+   public void addClientListener(Object listener, Object[] filterFactoryParams,
          Object[] converterFactoryParams) {
-      // TODO: Customise this generated block
+      throw new UnsupportedOperationException();
    }
 
    @Override public void removeClientListener(Object listener) {
-      // TODO: Customise this generated block
+      throw new UnsupportedOperationException();
    }
 
-   @Override public Set<Object> getListeners() {
-      return null;  // TODO: Customise this generated block
+   @Override 
+   public Set<Object> getListeners() {
+      throw new UnsupportedOperationException();
    }
 
    //
