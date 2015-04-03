@@ -8,7 +8,6 @@ import org.infinispan.Cache;
 import org.infinispan.atomic.Updatable;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.executors.SerialExecutor;
-import org.infinispan.notifications.KeySpecificListener;
 import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
@@ -23,6 +22,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Pierre Sutra
@@ -30,7 +30,7 @@ import java.util.concurrent.*;
  *
  */
 @Listener(sync = true, clustered = true)
-public class Container extends KeySpecificListener {
+public class Container {
 
    //
    // CLASS FIELDS
@@ -48,7 +48,7 @@ public class Container extends KeySpecificListener {
    private static Log log = LogFactory.getLog(Container.class);
    private static final int CALL_TTIMEOUT_TIME = 1000;
    private static final int RETRIEVE_TTIMEOUT_TIME = 1000;
-   private static Executor globalExecutors = Executors.newCachedThreadPool();
+   private static Executor globalExecutors = Executors.newSingleThreadExecutor();
 
    //
    // OBJECT FIELDS
@@ -62,7 +62,7 @@ public class Container extends KeySpecificListener {
    private Executor callExecutor = new SerialExecutor(globalExecutors);
 
    private Boolean withReadOptimization; // serialize operation on the object copy
-   private volatile int listenerState; // 0 = not installed, 1 = installed, -1 = disposed
+   private volatile int listenerState=0; // 0 = not installed, 1 = installed, -1 = disposed
    private final Container listener = this;
 
    private Call lastCall;
@@ -70,6 +70,10 @@ public class Container extends KeySpecificListener {
    private CallFuture retrieveFuture;
    private ArrayList<CallInvoke> pendingCalls;
    private CallRetrieve retrieveCall;
+   private Object key;
+   
+   private Map<UUID,Call> receivedCalls = new HashMap<>();
+   private AtomicInteger checksum = new AtomicInteger(0);
    
    //
    // PUBLIC METHODS
@@ -77,17 +81,19 @@ public class Container extends KeySpecificListener {
 
    public Container(final Cache c, final Class cl, final Object k, final boolean readOptimization,
          final boolean forceNew, final List<String> methods, final Object... initArgs)
-         throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException {
+         throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, 
+         InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException {
 
       cache = c;
       clazz = cl;
       key = clazz.getSimpleName()+"#"+k.toString(); // to avoid collisions
 
       log.debug(this+"Opening.");
-
-      withReadOptimization = readOptimization;
-      listenerState = 0;
       updateMethods = methods;
+      withReadOptimization = readOptimization;
+      
+      if (listenerState!=0)
+         throw new IllegalAccessException("A container is a one shot object.");
 
       registeredCalls = new ConcurrentHashMap<>();
       
@@ -158,13 +164,17 @@ public class Container extends KeySpecificListener {
       if(event.isPre())
          return;
       
-      log.trace(this+"Event received (" + event.getType()+")");
+      log.debug(this + "Event received (" + event.getType() + ","+event.getGlobalTransaction().getId()+")");
       
       try {
 
          GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
          byte[] bb = (byte[]) event.getValue();
          Call call = (Call) marshaller.objectFromByteBuffer(bb);
+         if (receivedCalls.containsKey(call.callID))
+            return;
+         checksum.addAndGet(call.hashCode());
+         receivedCalls.put(call.callID,call);
          callExecutor.execute(new AtomicObjectContainerTask(call));
 
       } catch (Exception e) {
@@ -178,33 +188,32 @@ public class Container extends KeySpecificListener {
       log.debug(this+"Disposing.");
 
       if (!registeredCalls.isEmpty()){
-         log.warn("Cannot dispose "+this+" registeredCalls non-empty");
+         log.warn("Cannot dispose "+this+"- registeredCalls non-empty");
          return;
       }
 
-      if (listenerState==1){
-         if ( keepPersistent ) {
+      if (listenerState==1) {
+         if (keepPersistent) {
             byte[] last = null;
-            byte[] bb = null;
+            byte[] bb;
             UUID callID = nextCallID();
             while (true) {
                bb = buildMarshalledCallPersist(callID);
-               if (!java.util.Arrays.equals(bb,last) && (lastCall instanceof CallPersist)) {
+               if (!java.util.Arrays.equals(bb,last)) {
                   cache.put(key, bb);
                   last = bb;
                } else {
                   break;
                }
             }
-            cache.removeListener(listener);
          }
+         cache.removeListener(listener);
       }
       listenerState = -1;
 
       log.debug(this+"Disposed.");
 
    }
-
 
    public Object getProxy(){
       return proxy;
@@ -214,6 +223,10 @@ public class Container extends KeySpecificListener {
       return clazz;
    }
 
+   public int checksum(){
+      return this.checksum.intValue();
+   }
+   
    @Override
    public String toString(){
       return "Container ["+this.key.toString()+"]";
@@ -388,6 +401,9 @@ public class Container extends KeySpecificListener {
       @Override
       public void run() {
 
+         if (listenerState==-1)
+            return; // object is disposed.
+                                          
          try {
 
             if (call instanceof CallInvoke) {
@@ -420,7 +436,9 @@ public class Container extends KeySpecificListener {
 
                }
 
-            } else { // AtomicObjectCallPersist
+            } else {
+
+               assert (call instanceof CallPersist);
 
                log.debug(this+"Persistent state received");
 
@@ -428,6 +446,7 @@ public class Container extends KeySpecificListener {
                   object = ((CallPersist) call).object;
                   assert object!=null;
                   if (pendingCalls != null) {
+                     log.debug(this+"Applying pending calls");
                      for (CallInvoke invocation : pendingCalls) {
                         handleInvocation(invocation);
                      }

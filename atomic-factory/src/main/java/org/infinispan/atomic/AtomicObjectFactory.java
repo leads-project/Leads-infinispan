@@ -259,5 +259,12 @@ public class AtomicObjectFactory {
       }
 
    }
+   
+   public int checksum(Class clazz, Object key) {
+      ContainerSignature signature = new ContainerSignature(clazz,key);
+      synchronized (registeredContainers) {
+         return registeredContainers.get(signature).checksum();
+      }
+   }
 
 }

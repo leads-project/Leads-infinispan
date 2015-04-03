@@ -4,6 +4,11 @@ import org.infinispan.Cache;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;
+import org.infinispan.notifications.Listener;
+import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
+import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
+import org.infinispan.notifications.cachelistener.annotation.CacheEntryRemoved;
+import org.infinispan.notifications.cachelistener.event.CacheEntryEvent;
 import org.infinispan.test.AbstractCacheTest;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
@@ -15,6 +20,8 @@ import org.testng.annotations.Test;
 import java.util.*;
 import java.util.concurrent.*;
 
+import static org.testng.Assert.assertEquals;
+
 /**
  * @author Pierre Sutra
  * @since 6.0
@@ -22,12 +29,15 @@ import java.util.concurrent.*;
 @Test(groups = "functional", testName = "AtomicObjectFactoryTest")
 public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
-   private static int NCALLS=100;
-   private static int NCACHES=2;
-   private static List<Cache> caches = new ArrayList<Cache>();
-
    private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
+   
+   private static int REPLICATION_FACTOR=1;
+   private static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
+   private static boolean USE_TRANSACTIONS = true;
 
+   private static int NMANAGERS=2;
+   private static int NCALLS=1000;
+   private static List<Cache> caches = new ArrayList<Cache>();
 
    @Test(enabled = true)
    public void basicUsageTest() throws  Exception{
@@ -126,6 +136,37 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
    }
 
+   @Test
+   public void testEventOrdering() throws ExecutionException, InterruptedException {
+
+      List<ClusterListener> listeners = new ArrayList<>();
+
+      for(int i=0; i< NMANAGERS; i++) {
+         Cache<Integer, Integer> cache = getCacheManagers().get(i).getCache();
+         ClusterListener clusterListener= new ClusterListener();
+         cache.addListener(clusterListener);
+         listeners.add(clusterListener);
+      }
+ 
+      List<Future> futures = new ArrayList<>();
+      for (EmbeddedCacheManager manager : getCacheManagers()) {
+         futures.add(fork(new ExerciseEventTask(manager)));
+      }
+      
+      for (Future future : futures) {
+         future.get();
+      }
+
+      List<Object> list = null;
+      for (ClusterListener listener : listeners) {
+         if (list==null)
+            list = listener.values;
+         assertEquals(list, listener.values);
+      }
+         
+   }
+
+
 
    //
    // HELPERS
@@ -134,10 +175,10 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
    @Override
    protected void createCacheManagers() throws Throwable {
       ConfigurationBuilder builder
-            = AbstractCacheTest.getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, true);
-      builder.clustering().hash().numOwners(1);
+            = AbstractCacheTest.getDefaultClusteredCacheConfig(CACHE_MODE, USE_TRANSACTIONS);
+      builder.clustering().hash().numOwners(REPLICATION_FACTOR);
       TransportFlags flags = new TransportFlags();
-      createClusteredCaches(NCACHES, builder, flags);
+      createClusteredCaches(NMANAGERS, builder, flags);
    }
 
    protected void initAndTest() {
@@ -189,10 +230,10 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
             // if successful, close then re-open the set
             if(r){
                ret ++;
-               if (ret%NCACHES==0) {
+               if (ret% NMANAGERS ==0) {
                   synchronized (this.getClass()) {
-                     factory.disposeInstanceOf(HashSet.class, name, true);
-                     set = null;
+                     // factory.disposeInstanceOf(HashSet.class, name, false);
+                     // set = null;
                   }
                }
             }
@@ -201,6 +242,41 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
       }
    }
 
+   public class ExerciseEventTask implements Callable<Integer> {
+
+      private EmbeddedCacheManager manager;
+
+      public ExerciseEventTask(EmbeddedCacheManager m) {
+         manager = m;
+      }
+
+      @Override
+      public Integer call() throws Exception {
+         for (int i = 0; i < NCALLS; i++) {
+            manager.getCache().put(
+                  1, 
+                  ThreadLocalRandom.current().nextInt(Integer.MAX_VALUE));
+         }
+         return 0;
+      }
+      
+   }
+
+   @Listener(clustered = true, sync = true)
+   public class ClusterListener{
+      
+      public List<Object> values= new ArrayList<>();
+
+      @CacheEntryCreated
+      @CacheEntryModified
+      @CacheEntryRemoved
+      public synchronized  void onCacheEvent(CacheEntryEvent event) {
+         int value = (int) event.getValue();
+         if (!values.contains(value))
+            values.add(event.getValue());
+      }
+
+   }
 
 }
 
