@@ -34,7 +34,7 @@ public class RemoteVersionedCacheServer {
             VersionedCacheFactory fac = new VersionedCacheFactory();
             LocateRegistry.createRegistry(port);
 
-            // Create a stub for each versioning technique
+            // Create a skeleton for each versioning technique
             for(VersioningTechnique versioningTechnique : VersioningTechnique.values()){
                 VersionedCache<String,String> vCache = fac.newVersionedCache(versioningTechnique, new VersionScalarGenerator(), "default");
                 RemoteVersionedCache<String,String> service = new RemoteVersionedCacheImpl<String, String>(vCache);

@@ -31,12 +31,12 @@ public class VersionedCacheFactory {
     private static Cache cache;
 
     public static enum VersioningTechnique {
-        FAKE,
-    	DUMMY,
-        FGMAP,
-        HASHMAP,
-        TREEMAP,
-        SHARDED_TREE
+       FAKE,
+       DUMMY,
+       FGMAP,
+       HASHMAP,
+       TREEMAP,
+       SHARDED_TREE
     }
 
     public VersionedCacheFactory(){

@@ -25,8 +25,8 @@ import java.util.concurrent.Future;
 public abstract class VersionedCacheAbstractTest extends MultipleCacheManagersTest {
 
     private static int NCACHES = 1;
-    private static int NCALLS = 100;
-    private static int NKEYS = 1000;
+    private static int NCALLS = 5000;
+    private static int NKEYS = 1
 
     private List<Cache> delegates = new ArrayList<Cache>(NCACHES);
     private List<VersionedCache> vcaches = new ArrayList<VersionedCache>(NCACHES);
