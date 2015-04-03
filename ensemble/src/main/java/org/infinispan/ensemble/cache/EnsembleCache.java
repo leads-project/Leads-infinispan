@@ -1,6 +1,6 @@
 package org.infinispan.ensemble.cache;
 
-import org.infinispan.commons.api.BasicCache;
+import org.infinispan.client.hotrod.*;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.ensemble.Site;
 import org.infinispan.ensemble.indexing.Indexable;
@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
  * @author Pierre Sutra
  * @since 7.0
  */
-public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache<K,V> {
+public abstract class EnsembleCache<K,V> extends Indexable implements RemoteCache<K,V> {
 
     protected static final Log log = LogFactory.getLog(EnsembleCache.class);
 
@@ -276,7 +276,106 @@ public abstract class EnsembleCache<K,V> extends Indexable implements BasicCache
         throw new UnsupportedOperationException();
     }
 
-    //
+   @Override public boolean removeWithVersion(K key, long version) {
+      throw new UnsupportedOperationException();
+      return false;  // TODO: Customise this generated block
+   }
+
+   @Override public NotifyingFuture<Boolean> removeWithVersionAsync(K key, long version) {
+      throw new UnsupportedOperationException();
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public boolean replaceWithVersion(K key, V newValue, long version) {
+      throw new UnsupportedOperationException();
+      return false;  // TODO: Customise this generated block
+   }
+
+   @Override public boolean replaceWithVersion(K key, V newValue, long version, int lifespanSeconds) {
+      throw new UnsupportedOperationException();
+      return false;  // TODO: Customise this generated block
+   }
+
+   @Override public boolean replaceWithVersion(K key, V newValue, long version, int lifespanSeconds,
+         int maxIdleTimeSeconds) {
+      throw new UnsupportedOperationException();
+      return false;  // TODO: Customise this generated block
+   }
+
+   @Override public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version) {
+      throw new UnsupportedOperationException();
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version,
+         int lifespanSeconds) {
+      throw new UnsupportedOperationException();
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public NotifyingFuture<Boolean> replaceWithVersionAsync(K key, V newValue, long version,
+         int lifespanSeconds, int maxIdleSeconds) {
+      throw new UnsupportedOperationException();
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public VersionedValue<V> getVersioneed(K key) {
+      throw new UnsupportedOperationException();
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public NotifyingFuture<VersionedValue<V>> getVersionedAsync(K key) {
+      throw new UnsupportedOperationException();
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public MetadataValue<V> getWithMetadata(K key) {
+      throw new UnsupportedOperationException();
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public ServerStatistics stats() {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public RemoteCache<K, V> withFlags(Flag... flags) {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public RemoteCacheManager getRemoteCacheManager() {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public Map<K, V> getBulk() {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public Map<K, V> getBulk(int size) {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public String getProtocolVersion() {
+      return null;  // TODO: Customise this generated block
+   }
+
+   @Override public void addClientListener(Object listener) {
+      // TODO: Customise this generated block
+   }
+
+   @Override public void addClientListener(Object listener, Object[] filterFactoryParams,
+         Object[] converterFactoryParams) {
+      // TODO: Customise this generated block
+   }
+
+   @Override public void removeClientListener(Object listener) {
+      // TODO: Customise this generated block
+   }
+
+   @Override public Set<Object> getListeners() {
+      return null;  // TODO: Customise this generated block
+   }
+
+   //
     // LIFE CYCLE
     //
 
