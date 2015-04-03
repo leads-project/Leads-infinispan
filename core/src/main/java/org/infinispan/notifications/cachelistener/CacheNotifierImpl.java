@@ -638,6 +638,7 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
       builder
             .setIncludeCurrentState(l.includeCurrentState())
             .setClustered(l.clustered())
+            // .setOnlyPrimary(!l.clustered() ? l.primaryOnly() : (listener instanceof KeySpecificListener))
             .setOnlyPrimary(l.clustered() ? (cacheMode.isDistributed() ? true : false) : l.primaryOnly())
             .setFilter(filter)
             .setConverter(converter)
@@ -670,16 +671,15 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
                  for (Address member : members) {
                      if ( !member.equals(ourAddress)
                           && key !=  null
-                          && this.cache.getAdvancedCache().getDistributionManager().locate(key).contains(member) ){
+                          && this.cache.getAdvancedCache().getDistributionManager().getPrimaryLocation(key).equals(member) ){
                          decs.submit(member, callable);
                          count ++;
                      }
                  }
-
              }else{
                 log.tracef("Fully replicating cluster listener to other nodes %s for cluster listener with id %s",
                            members, generatedId);
-                 count = members.size();
+                 count = members.size()-1;
                 for (Address member : members) {
                    if (!member.equals(ourAddress)) {
                       decs.submit(member, callable);
