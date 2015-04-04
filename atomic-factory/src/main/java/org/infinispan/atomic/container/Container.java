@@ -48,6 +48,8 @@ public class Container {
    private static Log log = LogFactory.getLog(Container.class);
    private static final int CALL_TTIMEOUT_TIME = 1000;
    private static final int RETRIEVE_TTIMEOUT_TIME = 1000;
+   private static final int MAX_ENTRIES = 10000; // due to event singularity
+   private static final String SEPARATOR = "#";
    private static Executor globalExecutors = Executors.newSingleThreadExecutor();
 
    //
@@ -72,8 +74,8 @@ public class Container {
    private CallRetrieve retrieveCall;
    private Object key;
    
-   private Map<UUID,Call> receivedCalls = new HashMap<>();
-   private AtomicInteger checksum = new AtomicInteger(0);
+   private Map<UUID,Integer> receivedCalls;
+   private AtomicInteger checksum;
    
    //
    // PUBLIC METHODS
@@ -86,8 +88,15 @@ public class Container {
 
       cache = c;
       clazz = cl;
-      key = clazz.getSimpleName()+"#"+k.toString(); // to avoid collisions
-
+      key = clazz.getSimpleName()+SEPARATOR+k.toString(); // to avoid collisions
+      receivedCalls = new LinkedHashMap<UUID, Integer>(MAX_ENTRIES + 1, .75F, false) {
+         protected boolean removeEldestEntry(Map.Entry eldest) {
+            return size() > MAX_ENTRIES;
+         }
+      };
+      checksum = new AtomicInteger(0);
+      
+      
       log.debug(this+"Opening.");
       updateMethods = methods;
       withReadOptimization = readOptimization;
@@ -164,7 +173,7 @@ public class Container {
       if(event.isPre())
          return;
       
-      log.debug(this + "Event received (" + event.getType() + ","+event.getGlobalTransaction().getId()+")");
+      log.debug(this + "Event received (" + event.getType() +")");
       
       try {
 
@@ -174,7 +183,7 @@ public class Container {
          if (receivedCalls.containsKey(call.callID))
             return;
          checksum.addAndGet(call.hashCode());
-         receivedCalls.put(call.callID,call);
+         receivedCalls.put(call.callID,0);
          callExecutor.execute(new AtomicObjectContainerTask(call));
 
       } catch (Exception e) {
@@ -442,17 +451,19 @@ public class Container {
 
                log.debug(this+"Persistent state received");
 
-               if (object==null) {
-                  object = ((CallPersist) call).object;
-                  assert object!=null;
-                  if (pendingCalls != null) {
-                     log.debug(this+"Applying pending calls");
-                     for (CallInvoke invocation : pendingCalls) {
-                        handleInvocation(invocation);
+               if (object == null) {
+                  if (retrieveFuture != null) {
+                     object = ((CallPersist) call).object;
+                     assert object != null;
+                     if (pendingCalls != null) {
+                        log.debug(this + "Applying pending calls");
+                        for (CallInvoke invocation : pendingCalls) {
+                           handleInvocation(invocation);
+                        }
+                        pendingCalls = null;
                      }
-                     pendingCalls = null;
+                     retrieveFuture.setReturnValue(null);
                   }
-                  retrieveFuture.setReturnValue(null);
                }
                
             }

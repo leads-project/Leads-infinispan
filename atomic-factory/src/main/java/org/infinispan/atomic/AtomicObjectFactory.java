@@ -73,6 +73,8 @@ public class AtomicObjectFactory {
    public AtomicObjectFactory(Cache<Object, Object> c, int m) throws InvalidCacheUsageException{
       cache = c;
       maxSize = m;
+      if (c.getCacheConfiguration().transaction().transactionMode().isTransactional())
+         throw new InvalidCacheUsageException("Cache should not be transactional."); // as of 7.2.x
       registeredContainers= new LinkedHashMap<ContainerSignature,Container>(){
          @Override
          protected boolean removeEldestEntry(final java.util.Map.Entry<ContainerSignature,Container> eldest) {

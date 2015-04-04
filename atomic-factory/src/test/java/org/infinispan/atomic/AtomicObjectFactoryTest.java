@@ -31,13 +31,13 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
 
    private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
    
-   private static int REPLICATION_FACTOR=1;
+   private static int REPLICATION_FACTOR=3;
    private static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
-   private static boolean USE_TRANSACTIONS = true;
+   private static boolean USE_TRANSACTIONS = false;
 
-   private static int NMANAGERS=2;
+   private static int NMANAGERS=4;
    private static int NCALLS=1000;
-   private static List<Cache> caches = new ArrayList<Cache>();
+   private static List<Cache> caches = new ArrayList<>();
 
    @Test(enabled = true)
    public void basicUsageTest() throws  Exception{
@@ -232,8 +232,8 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
                ret ++;
                if (ret% NMANAGERS ==0) {
                   synchronized (this.getClass()) {
-                     // factory.disposeInstanceOf(HashSet.class, name, false);
-                     // set = null;
+                     factory.disposeInstanceOf(HashSet.class, name, false);
+                     set = null;
                   }
                }
             }
@@ -262,7 +262,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
       
    }
 
-   @Listener(clustered = true, sync = true)
+  @Listener(clustered = true, sync = true, includeCurrentState = true)
    public class ClusterListener{
       
       public List<Object> values= new ArrayList<>();
@@ -270,7 +270,7 @@ public class AtomicObjectFactoryTest extends MultipleCacheManagersTest {
       @CacheEntryCreated
       @CacheEntryModified
       @CacheEntryRemoved
-      public synchronized  void onCacheEvent(CacheEntryEvent event) {
+      public void onCacheEvent(CacheEntryEvent event) {
          int value = (int) event.getValue();
          if (!values.contains(value))
             values.add(event.getValue());
