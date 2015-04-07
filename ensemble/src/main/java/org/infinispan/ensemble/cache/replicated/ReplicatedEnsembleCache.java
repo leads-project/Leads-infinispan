@@ -5,6 +5,7 @@ import org.infinispan.ensemble.cache.EnsembleCache;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  *
@@ -66,6 +67,11 @@ public abstract class ReplicatedEnsembleCache<K,V> extends EnsembleCache<K,V> {
          if (cache.containsKey(key))
             return true;
       return false;
+   }
+
+   @Override
+   public Set<K> keySet() {
+      return caches.iterator().next().keySet();
    }
 
 }

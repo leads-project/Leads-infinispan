@@ -1,15 +1,11 @@
 package org.infinispan.ensemble.cache.distributed;
 
-import org.infinispan.client.hotrod.*;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.commons.util.concurrent.NotifyingFutureImpl;
 import org.infinispan.ensemble.cache.EnsembleCache;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -182,6 +178,19 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
    public V remove(Object o) {
       return partitioner.locate((K) o).remove(o);
    }
+
+   @Override
+   public Set<K> keySet() {
+      Set<K> ret = new HashSet<>();
+      for (EnsembleCache<K,V> cache : caches) {
+         ret.addAll(cache.keySet());
+      }
+      return ret;
+   }
+
+
+
+   // LIFE CYCLE
 
    @Override
    public void stop(){

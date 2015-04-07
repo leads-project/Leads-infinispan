@@ -361,29 +361,36 @@ public abstract class EnsembleCache<K,V> extends Indexable implements RemoteCach
       throw new UnsupportedOperationException();
    }
 
-   @Override 
+   // LISTENERS
+
+   @Override
    public void addClientListener(Object listener) {
-      throw new UnsupportedOperationException();
+      for (EnsembleCache cache : caches) {
+         cache.addClientListener(listener);
+      }
    }
 
-   @Override 
+   @Override
    public void addClientListener(Object listener, Object[] filterFactoryParams,
          Object[] converterFactoryParams) {
-      throw new UnsupportedOperationException();
+      for (EnsembleCache cache : caches) {
+         cache.addClientListener(listener, filterFactoryParams, converterFactoryParams);
+      }
    }
 
-   @Override public void removeClientListener(Object listener) {
-      throw new UnsupportedOperationException();
+   @Override
+   public void removeClientListener(Object listener) {
+      for (EnsembleCache cache : caches) {
+         cache.remove(listener);
+      }
    }
 
-   @Override 
+   @Override
    public Set<Object> getListeners() {
-      throw new UnsupportedOperationException();
+      return caches.iterator().next().getListeners();
    }
 
-   //
-    // LIFE CYCLE
-    //
+   // LIFE CYCLE
 
     @Override
     public void start() {

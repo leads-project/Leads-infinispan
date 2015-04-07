@@ -182,11 +182,13 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
    }
 
+   // Helpers
+
    @Override
    public List<String> cacheNames(){
       List<String> cacheNames = new ArrayList<>();
       cacheNames.add(cacheName);
       return cacheNames;
    }
-
+   
 }

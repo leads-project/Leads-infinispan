@@ -30,8 +30,8 @@ import static org.infinispan.test.TestingUtil.blockUntilCacheStatusAchieved;
  */
 public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTest {
 
-   private List<HotRodServer> servers = new ArrayList<>();
-   private List<String> sites = new ArrayList<>();
+   protected List<HotRodServer> servers = new ArrayList<>();
+   protected List<String> sites = new ArrayList<>();
 
    // total numbder of sites
    protected abstract int numberOfSites();

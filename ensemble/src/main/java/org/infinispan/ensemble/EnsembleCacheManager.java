@@ -50,6 +50,10 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
       this(Arrays.asList(connectionString.split("\\|")),null,new LocalIndexBuilder());
    }
 
+   public EnsembleCacheManager(Collection<String> connectionStrings) throws CacheException{
+      this(connectionStrings, null, new LocalIndexBuilder());
+   }
+
    public EnsembleCacheManager(String connectionString, Marshaller marshaller) throws CacheException{
       this(Arrays.asList(connectionString.split("\\|")), marshaller, new LocalIndexBuilder());
    }
