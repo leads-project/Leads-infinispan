@@ -26,7 +26,7 @@ import static org.testng.Assert.assertEquals;
  */
 public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence, WebPage> {
 
-   public static final String cacheName = "testCache";
+   public static final String cacheName = "WebPage";
 
    @Override
    protected Class<WebPage> valueClass(){
@@ -45,7 +45,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
    @Override
    protected int numberOfNodes() {
-      return 3;
+      return 1;
    }
 
    @Test
@@ -103,7 +103,7 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
       assertEquals(list.size(),2);
 
       qb = qf.from(WebPage.class);
-      qb.having("url").eq(page1.getKey());
+      qb.having("key").eq(page1.getKey());
       query = qb.build();
       assertEquals(query.list().get(0), page1);
 

@@ -42,7 +42,6 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
    @Override
    protected void createCacheManagers() throws Throwable {
       ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
-      // builder.dataContainer().valueEquivalence(AnyEquivalence.getInstance());
       createSites(numberOfSites(), numberOfNodes(), builder);
    }
 
