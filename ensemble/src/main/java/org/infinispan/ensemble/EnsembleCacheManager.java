@@ -6,6 +6,7 @@ import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.cache.distributed.DistributedEnsembleCache;
+import org.infinispan.ensemble.cache.distributed.HashBasedPartitioner;
 import org.infinispan.ensemble.cache.distributed.Partitioner;
 import org.infinispan.ensemble.cache.replicated.MWMREnsembleCache;
 import org.infinispan.ensemble.cache.replicated.SWMREnsembleCache;
@@ -34,7 +35,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
    public static enum Consistency {
       SWMR,
       MWMR,
-      WEAK
+      WEAK,
+      DIST
    }
 
    private ConcurrentMap<String, Site> sites;
@@ -152,7 +154,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
       }
       return getCache(cacheName,cacheList,consistency,true);
    }
-
+   
    public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<EnsembleCache<K,V>> cacheList, Consistency consistency, boolean create){
       EnsembleCache<K,V> ret;
       switch (consistency){
@@ -164,6 +166,9 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
          break;
       case WEAK:
          ret = new WeakEnsembleCache<>(cacheName,cacheList);
+         break;
+      case DIST:
+         ret = new DistributedEnsembleCache<>(cacheName,cacheList,new HashBasedPartitioner<>(cacheList));
          break;
       default:
          throw new CacheException("Invalid consistency level "+consistency.toString());
