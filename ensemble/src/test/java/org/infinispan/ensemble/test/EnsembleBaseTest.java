@@ -49,7 +49,14 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
    }
 
    @Test
-   public void baseOperations() {
+   public void baseManagerOperations() {
+      manager.start();
+      manager.stop();
+      manager.start();
+   }
+   
+   @Test
+   public void baseCacheOperations() {
       WebPage page1 = somePage();
       WebPage page2 = somePage();
 

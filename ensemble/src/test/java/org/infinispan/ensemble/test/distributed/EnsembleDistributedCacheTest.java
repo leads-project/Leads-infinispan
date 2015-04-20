@@ -41,7 +41,7 @@ public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
 
    @Test
    @Override
-   public void baseOperations() {
+   public void baseCacheOperations() {
 
       WebPage page1 = somePage();
       WebPage page2 = somePage();

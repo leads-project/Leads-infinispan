@@ -204,13 +204,17 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
    @Override
    public void start() {
-      // nothing to do here
+      for (Site site : sites.values()) {
+         if (!site.getManager().isStarted())
+            site.getManager().start();
+      }      
    }
 
    @Override
    public void stop() {
       for (Site site : sites.values()) {
-         site.getManager().stop();
+         if (site.getManager().isStarted())
+            site.getManager().stop();
       }
    }
 
