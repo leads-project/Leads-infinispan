@@ -1,4 +1,4 @@
-package org.infinispan.atomic.container;
+package org.infinispan.atomic.container.local;
 
 import javassist.util.proxy.MethodFilter;
 import javassist.util.proxy.MethodHandler;
@@ -6,6 +6,9 @@ import javassist.util.proxy.ProxyFactory;
 import javassist.util.proxy.ProxyObject;
 import org.infinispan.Cache;
 import org.infinispan.atomic.Updatable;
+import org.infinispan.atomic.container.AbstractContainer;
+import org.infinispan.atomic.object.*;
+import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.executors.SerialExecutor;
 import org.infinispan.notifications.Listener;
@@ -22,7 +25,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Pierre Sutra
@@ -30,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  */
 @Listener(sync = true, clustered = true)
-public class Container {
+public class OldLocalContainer extends AbstractContainer {
 
    //
    // CLASS FIELDS
@@ -45,7 +47,7 @@ public class Container {
                && !m.getName().equals("writeExternal");
       }
    };
-   private static Log log = LogFactory.getLog(Container.class);
+   private static Log log = LogFactory.getLog(OldLocalContainer.class);
    private static final int CALL_TTIMEOUT_TIME = 1000;
    private static final int RETRIEVE_TTIMEOUT_TIME = 1000;
    private static final int MAX_ENTRIES = 10000; // due to event singularity
@@ -56,56 +58,43 @@ public class Container {
    // OBJECT FIELDS
    //
 
-   private Cache cache;
    private Object object;
-   private Class clazz;
-   private Object proxy;
-   private List<String> updateMethods;
    private Executor callExecutor = new SerialExecutor(globalExecutors);
-
-   private Boolean withReadOptimization; // serialize operation on the object copy
    private volatile int listenerState=0; // 0 = not installed, 1 = installed, -1 = disposed
-   private final Container listener = this;
+   private final OldLocalContainer listener = this;
 
    private Call lastCall;
    private Map<UUID,CallFuture> registeredCalls;
    private CallFuture retrieveFuture;
    private ArrayList<CallInvoke> pendingCalls;
    private CallRetrieve retrieveCall;
-   private Object key;
-   
+
    private Map<UUID,Integer> receivedCalls;
-   private AtomicInteger checksum;
-   
+
    //
    // PUBLIC METHODS
    //
 
-   public Container(final Cache c, final Class cl, final Object k, final boolean readOptimization,
+   public OldLocalContainer(final BasicCache c, final Class cl, final Object k, final boolean readOptimization,
          final boolean forceNew, final List<String> methods, final Object... initArgs)
-         throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException, 
+         throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException,
          InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException {
+      
+      super(c,cl,k,readOptimization,forceNew,methods,methods,initArgs);
 
-      cache = c;
-      clazz = cl;
-      key = clazz.getSimpleName()+SEPARATOR+k.toString(); // to avoid collisions
       receivedCalls = new LinkedHashMap<UUID, Integer>(MAX_ENTRIES + 1, .75F, false) {
          protected boolean removeEldestEntry(Map.Entry eldest) {
             return size() > MAX_ENTRIES;
          }
       };
-      checksum = new AtomicInteger(0);
-      
-      
+
       log.debug(this+"Opening.");
-      updateMethods = methods;
-      withReadOptimization = readOptimization;
-      
+
       if (listenerState!=0)
          throw new IllegalAccessException("A container is a one shot object.");
 
       registeredCalls = new ConcurrentHashMap<>();
-      
+
       // build the proxy
       MethodHandler handler = new MethodHandler() {
 
@@ -114,8 +103,8 @@ public class Container {
             GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
 
             // 1 - local operation
-            if ( withReadOptimization
-                  && ! updateMethods.contains(m.getName()) ) {
+            if ( readOptimization
+                  && ! methods.contains(m.getName()) ) {
                log.debug(this+"executing "+m.getName()+" locally");
                return callObject(object, m.getName(), args);
             }
@@ -126,19 +115,18 @@ public class Container {
             initObject(true, forceNew, initArgs);
 
             // 2.2 - call creation
-            UUID callID = nextCallID();
-            CallInvoke invoke = new CallInvoke(callID,m.getName(),args);
+            CallInvoke invoke = new CallInvoke(listenerID,m.getName(),args);
             byte[] bb = marshaller.objectToByteBuffer(invoke);
-            CallFuture future = new CallFuture();
-            registeredCalls.put(callID, future);
+            CallFuture future = new CallFuture(invoke.getCallID());
+            registeredCalls.put(invoke.getCallID(), future);
 
             // 2.3 - call execution
-            cache.put(Container.this.key, bb);
+            cache.put(key, bb);
             log.debug(this+"Waiting on "+future);
             Object ret = future.get(CALL_TTIMEOUT_TIME,TimeUnit.MILLISECONDS);
-            registeredCalls.remove(callID);
+            registeredCalls.remove(invoke.getCallID());
             if(!future.isDone()){
-               throw new TimeoutException("Unable to execute "+invoke+" on "+clazz+ " @ "+ Container.this.key);
+               throw new TimeoutException("Unable to execute "+invoke+" on "+clazz+ " @ "+ OldLocalContainer.this.key);
             }
             log.debug(this+"Return " + invoke+ " "+(ret==null ? "null" : ret.toString()));
             return ret;
@@ -156,6 +144,12 @@ public class Container {
 
    }
 
+   @Override 
+   public void open()
+         throws InterruptedException, ExecutionException, java.util.concurrent.TimeoutException, IOException {
+      // TODO: Customise this generated block
+   }
+
    /**
     * Internal use of the listener API.
     *
@@ -166,24 +160,23 @@ public class Container {
    @CacheEntryCreated
    @Deprecated
    public synchronized void onCacheModification(CacheEntryEvent event){
-      
+
       if( !event.getKey().equals(key) )
          return;
 
       if(event.isPre())
          return;
-      
+
       log.debug(this + "Event received (" + event.getType() +")");
-      
+
       try {
 
          GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
          byte[] bb = (byte[]) event.getValue();
          Call call = (Call) marshaller.objectFromByteBuffer(bb);
-         if (receivedCalls.containsKey(call.callID))
+         if (receivedCalls.containsKey(call.getCallID()))
             return;
-         checksum.addAndGet(call.hashCode());
-         receivedCalls.put(call.callID,0);
+         receivedCalls.put(call.getCallID(),0);
          callExecutor.execute(new AtomicObjectContainerTask(call));
 
       } catch (Exception e) {
@@ -192,50 +185,34 @@ public class Container {
 
    }
 
-   public void dispose(boolean keepPersistent) throws IOException, InterruptedException{
+   @Override
+   public void close(boolean keepPersistent)
+         throws InterruptedException, ExecutionException, TimeoutException, IOException {
 
-      log.debug(this+"Disposing.");
+      log.debug(this+"Closing.");
 
       if (!registeredCalls.isEmpty()){
-         log.warn("Cannot dispose "+this+"- registeredCalls non-empty");
+         log.warn("Cannot close "+this+"- registeredCalls non-empty");
          return;
       }
 
       if (listenerState==1) {
          if (keepPersistent) {
-            byte[] last = null;
-            byte[] bb;
-            UUID callID = nextCallID();
-            while (true) {
-               bb = buildMarshalledCallPersist(callID);
-               if (!java.util.Arrays.equals(bb,last)) {
-                  cache.put(key, bb);
-                  last = bb;
-               } else {
-                  break;
-               }
-            }
+            byte[] bb = buildMarshalledCallPersist();
+            cache.put(key, bb);
          }
-         cache.removeListener(listener);
+         ((Cache)cache).removeListener(listener);
       }
       listenerState = -1;
 
-      log.debug(this+"Disposed.");
+      log.debug(this+"Closed.");
 
    }
 
-   public Object getProxy(){
-      return proxy;
+   @Override public void dispose() {
+      // TODO: Customise this generated block
    }
 
-   public Class getClazz(){
-      return clazz;
-   }
-
-   public int checksum(){
-      return this.checksum.intValue();
-   }
-   
    @Override
    public String toString(){
       return "Container ["+this.key.toString()+"]";
@@ -255,10 +232,10 @@ public class Container {
    private boolean handleInvocation(CallInvoke invocation)
          throws InvocationTargetException, IllegalAccessException {
       Object ret = callObject(object, invocation.method, invocation.arguments);
-      CallFuture future = registeredCalls.get(invocation.callID);
+      CallFuture future = registeredCalls.get(invocation.getCallID());
       log.debug(this+"Calling " + invocation+" (isLocal="+(future!=null ? "true":"false")+")");
       if(future!=null){
-         future.setReturnValue(ret);
+         future.set(ret);
          return true;
       }
       return false;
@@ -276,15 +253,15 @@ public class Container {
          GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
          try {
             Call persist = (Call) marshaller.objectFromByteBuffer((byte[]) cache.get(key));
-            
+
             if(persist instanceof CallPersist){
                log.debug(this+"Persisted object "+key);
-               object = ((CallPersist)persist).object;
+               object = ((CallPersist)persist).getObject();
             }else{
                installListener();
                log.debug(this + "Retrieving object " + key);
-               retrieveFuture = new CallFuture();
-               retrieveCall = new CallRetrieve(nextCallID());
+               retrieveCall = new CallRetrieve(listenerID,null);
+               retrieveFuture = new CallFuture(retrieveCall.getCallID());
                marshaller = new GenericJBossMarshaller();
                pendingCalls = new ArrayList<>();
                cache.put(key, marshaller.objectToByteBuffer(retrieveCall));
@@ -335,7 +312,7 @@ public class Container {
          throw new IllegalArgumentException("Unable to find constructor for "+clazz.toString()+" with "+initArgs);
 
       assert object!=null;
-      
+
    }
 
    //
@@ -346,14 +323,8 @@ public class Container {
       if (listenerState==1)
          return;
       log.debug(this+"Installing listener "+key);
-      cache.addListener(listener);
+      ((Cache)cache).addListener(listener);
       listenerState = 1;
-   }
-
-   private UUID nextCallID(){
-      UUID ret = UUID.randomUUID();
-      log.trace(this + "next CallID " + ret);
-      return ret;
    }
 
    private synchronized Object callObject(Object obj, String method, Object[] args) throws InvocationTargetException, IllegalAccessException {
@@ -388,10 +359,10 @@ public class Container {
 
       return ret;
    }
-   
-   private synchronized byte[] buildMarshalledCallPersist(UUID id) throws IOException, InterruptedException {
+
+   private synchronized byte[] buildMarshalledCallPersist() throws IOException, InterruptedException {
       GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
-      CallPersist persist = new CallPersist(id, object);
+      CallPersist persist = new CallPersist(listenerID, null, 0, object);
       return marshaller.objectToByteBuffer(persist);
    }
 
@@ -412,7 +383,7 @@ public class Container {
 
          if (listenerState==-1)
             return; // object is disposed.
-                                          
+
          try {
 
             if (call instanceof CallInvoke) {
@@ -434,11 +405,11 @@ public class Container {
 
                   log.debug("sending persistent state");
 
-                  CallPersist persist = new CallPersist(nextCallID(),object);
+                  CallPersist persist = new CallPersist(listenerID,null,0, object);
                   GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
                   cache.put(key, marshaller.objectToByteBuffer(persist));
 
-               }else if (retrieveCall != null && retrieveCall.callID == ((CallRetrieve)call).callID) {
+               }else if (retrieveCall != null && retrieveCall.getCallID() == ((CallRetrieve)call).getCallID()) {
 
                   assert pendingCalls == null;
                   pendingCalls = new ArrayList<CallInvoke>();
@@ -453,7 +424,7 @@ public class Container {
 
                if (object == null) {
                   if (retrieveFuture != null) {
-                     object = ((CallPersist) call).object;
+                     object = ((CallPersist) call).getObject();
                      assert object != null;
                      if (pendingCalls != null) {
                         log.debug(this + "Applying pending calls");
@@ -462,12 +433,12 @@ public class Container {
                         }
                         pendingCalls = null;
                      }
-                     retrieveFuture.setReturnValue(null);
+                     retrieveFuture.set(null);
                   }
                }
-               
+
             }
-            
+
             lastCall = call;
 
          } catch (Exception e) {

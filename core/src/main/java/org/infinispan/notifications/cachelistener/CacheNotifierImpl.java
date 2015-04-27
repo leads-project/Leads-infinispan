@@ -33,13 +33,7 @@ import org.infinispan.notifications.cachelistener.cluster.ClusterListenerReplica
 import org.infinispan.notifications.cachelistener.cluster.RemoteClusterListener;
 import org.infinispan.notifications.cachelistener.event.*;
 import org.infinispan.notifications.cachelistener.event.impl.EventImpl;
-import org.infinispan.notifications.cachelistener.filter.CacheEventConverter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventConverterAsConverter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilterAsKeyValueFilter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilterConverter;
-import org.infinispan.notifications.cachelistener.filter.EventType;
-import org.infinispan.notifications.cachelistener.filter.KeyFilterAsCacheEventFilter;
+import org.infinispan.notifications.cachelistener.filter.*;
 import org.infinispan.notifications.impl.AbstractListenerImpl;
 import org.infinispan.notifications.impl.ListenerInvocation;
 import org.infinispan.partionhandling.AvailabilityMode;
@@ -644,6 +638,10 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
             .setConverter(converter)
             .setIdentifier(generatedId)
             .setClassLoader(classLoader);
+
+      if (filter instanceof CacheAware)
+         ((CacheAware) filter).setCache((Cache<Object, Object>) cache);
+
       boolean foundMethods = validateAndAddListenerInvocation(listener, builder);
 
       if (foundMethods && l.clustered()) {
@@ -974,7 +972,7 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
          CacheEntryEvent<K, V> resultingEvent;
          // See if this should be filtered first before evaluating
          if ((resultingEvent = shouldInvoke(event, isLocalNodePrimaryOwner)) != null) {
-            invokeNoChecks(resultingEvent, false, filter == converter && filter instanceof CacheEventFilterConverter);
+            invokeNoChecks(resultingEvent, false, filter instanceof CacheEventFilterConverter);
          }
       }
 
@@ -1014,7 +1012,7 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
             EventType eventType;
             // Only use the filter if it was provided and we have an event that we can filter properly
             if (filter != null && (eventType = getEvent(eventImpl)) != null) {
-               if (filter == converter && filter instanceof CacheEventFilterConverter) {
+               if (filter instanceof CacheEventFilterConverter) {
                   Object newValue = ((CacheEventFilterConverter)filter).filterAndConvert(eventImpl.getKey(),
                         eventImpl.getOldValue(), eventImpl.getOldMetadata(), eventImpl.getValue(),
                         eventImpl.getMetadata(), eventType);

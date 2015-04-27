@@ -2,37 +2,36 @@ package org.infinispan.atomic;
 
 import org.infinispan.Cache;
 import org.infinispan.InvalidCacheUsageException;
-import org.infinispan.atomic.container.Container;
+import org.infinispan.atomic.container.AbstractContainer;
 import org.infinispan.atomic.container.ContainerSignature;
+import org.infinispan.atomic.container.local.LocalContainer;
+import org.infinispan.atomic.container.remote.RemoteContainer;
+import org.infinispan.client.hotrod.RemoteCache;
+import org.infinispan.commons.api.BasicCache;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 
 /**
  * @author Pierre Sutra
- * @since 7.0
+ * @since 7.2
  */
 public class AtomicObjectFactory {
 
-   //
-   // CLASS FIELDS
-   //
+   // Class fields
+   
    private static Log log = LogFactory.getLog(AtomicObjectFactory.class);
-   private static Map<Cache,AtomicObjectFactory> factories = new HashMap<>();
-   public synchronized static AtomicObjectFactory forCache(Cache cache){
+   private static Map<BasicCache,AtomicObjectFactory> factories = new HashMap<>();
+   public synchronized static AtomicObjectFactory forCache(BasicCache cache){
       if(!factories.containsKey(cache))
          factories.put(cache, new AtomicObjectFactory(cache));
       return factories.get(cache);
    }
-   protected static final int MAX_CONTAINERS=1000;// 0 means no limit
+   protected static final int MAX_CONTAINERS=0;// 0 means no limit
    public static final Map<Class,List<String>> updateMethods;
    static{
       updateMethods = new HashMap<>();
@@ -50,16 +49,11 @@ public class AtomicObjectFactory {
       updateMethods.get(Map.class).add("putAll");
    }
 
-
-
-   //
-   // OBJECT FIELDS
-   //
-   private Cache cache;
-   private Map<ContainerSignature,Container> registeredContainers;
+   // Object fields
+   
+   private BasicCache cache;
+   private final Map<ContainerSignature,AbstractContainer> registeredContainers;
    private int maxSize;
-   private final ExecutorService evictionExecutor = Executors.newCachedThreadPool();
-
 
    /**
     *
@@ -70,27 +64,15 @@ public class AtomicObjectFactory {
     * @param m max amount of containers kept by this factory.
     * @throws InvalidCacheUsageException
     */
-   public AtomicObjectFactory(Cache<Object, Object> c, int m) throws InvalidCacheUsageException{
+   public AtomicObjectFactory(BasicCache<Object, Object> c, int m) throws InvalidCacheUsageException{
       cache = c;
       maxSize = m;
-      if (c.getCacheConfiguration().transaction().transactionMode().isTransactional())
-         throw new InvalidCacheUsageException("Cache should not be transactional."); // as of 7.2.x
-      registeredContainers= new LinkedHashMap<ContainerSignature,Container>(){
+      assertCacheConfiguration();
+      registeredContainers= new LinkedHashMap<ContainerSignature,AbstractContainer>(){
          @Override
-         protected boolean removeEldestEntry(final java.util.Map.Entry<ContainerSignature,Container> eldest) {
-            if(maxSize!=0 && this.size() >= maxSize){
-               evictionExecutor.submit(new Callable<Void>() {
-                  @Override
-                  public Void call() throws IOException {
-                     try {
-                        log.debug("Disposing " + eldest.getValue().toString());
-                        eldest.getValue().dispose(false);
-                     } catch (Exception e) {
-                        e.printStackTrace();
-                     }
-                     return null;
-                  }
-               });
+         protected boolean removeEldestEntry(final java.util.Map.Entry<ContainerSignature,AbstractContainer> eldest) {
+            if(maxSize!=0 && this.size() > maxSize) {
+               eldest.getValue().dispose();
                return true;
             }
             return false;
@@ -105,7 +87,7 @@ public class AtomicObjectFactory {
     *
     * @param c a cache,  it must be synchronous.and transactional (with autoCommit set to true, its default value).
     */
-   public AtomicObjectFactory(Cache<Object, Object> c) throws InvalidCacheUsageException{
+   public AtomicObjectFactory(BasicCache<Object, Object> c) throws InvalidCacheUsageException{
       this(c,MAX_CONTAINERS);
    }
 
@@ -123,7 +105,7 @@ public class AtomicObjectFactory {
     */
    public synchronized <T> T getInstanceOf(Class<T> clazz, Object key)
          throws InvalidCacheUsageException{
-      return getInstanceOf(clazz, key, false);
+      return getInstanceOf(clazz, key, false, null, false);
    }
 
    /**
@@ -175,7 +157,7 @@ public class AtomicObjectFactory {
       }
 
       ContainerSignature signature = new ContainerSignature(clazz,key);
-      Container container;
+      AbstractContainer container;
 
       try{
 
@@ -184,6 +166,8 @@ public class AtomicObjectFactory {
          }
 
          if( container==null){
+
+            log.debug(this + " Creating container");
 
             List<String> methods = Collections.EMPTY_LIST;
 
@@ -212,14 +196,23 @@ public class AtomicObjectFactory {
                }
 
             }
-            container = new Container(cache, clazz, key, withReadOptimization, forceNew,methods, initArgs);
+            
+            container = 
+                  (cache instanceof RemoteCache) ?
+                        new RemoteContainer(cache, clazz, key, withReadOptimization, forceNew, methods, initArgs)
+                        :
+                        new LocalContainer(cache, clazz, key, withReadOptimization, forceNew, methods, initArgs);
+            
             synchronized (registeredContainers){
                if(registeredContainers.containsKey(signature)){
-                  container.dispose(false);
+                  container.close(false);
                }else{
                   registeredContainers.put(signature, container);
                }
             }
+            
+         } else {
+            log.debug(this + " Existing container");
          }
 
       } catch (Exception e){
@@ -243,7 +236,7 @@ public class AtomicObjectFactory {
          throws InvalidCacheUsageException {
 
       ContainerSignature signature = new ContainerSignature(clazz,key);
-      Container container;
+      AbstractContainer container;
       synchronized (registeredContainers){
          container = registeredContainers.get(signature);
          if( container == null )
@@ -254,19 +247,21 @@ public class AtomicObjectFactory {
       }
 
       try{
-         container.dispose(keepPersistent);
+         container.dispose();
+         container.close(keepPersistent);
       }catch (Exception e){
          e.printStackTrace();
          throw new InvalidCacheUsageException("Error while disposing object "+key);
       }
 
    }
-   
-   public int checksum(Class clazz, Object key) {
-      ContainerSignature signature = new ContainerSignature(clazz,key);
-      synchronized (registeredContainers) {
-         return registeredContainers.get(signature).checksum();
-      }
+
+   // Helpers
+
+   public void assertCacheConfiguration() throws InvalidCacheUsageException {
+      if (cache instanceof Cache 
+            && ((Cache)cache).getCacheConfiguration().transaction().transactionMode().isTransactional())
+         throw new InvalidCacheUsageException("Cache should not be transactional."); // as of 7.2.x
    }
 
 }

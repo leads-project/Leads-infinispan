@@ -1,20 +1,30 @@
-package org.infinispan.atomic.container;
+package org.infinispan.atomic.object;
 
 import java.io.Serializable;
 import java.util.UUID;
 
 /**
  * @author Pierre Sutra
- * @since 7.0
+ * @since 7.2
  */
-abstract class Call implements Serializable {
+public abstract class Call implements Serializable {
 
-   UUID callID;
+   private UUID callID;
+   private UUID callerID;
 
-   public Call(UUID id){
-      callID = id;
+   public Call(UUID callerID){
+      this.callID = UUID.randomUUID();
+      this.callerID = callerID;
    }
 
+   public UUID getCallID(){
+      return callID;
+   }
+   
+   public UUID getCallerID(){
+      return callerID;
+   }
+   
    @Override
    public String toString(){
       return callID.toString();

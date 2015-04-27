@@ -8,7 +8,6 @@ import org.infinispan.client.hotrod.exceptions.TransportException;
 import org.infinispan.client.hotrod.impl.operations.AddClientListenerOperation;
 import org.infinispan.client.hotrod.impl.protocol.Codec;
 import org.infinispan.client.hotrod.impl.transport.Transport;
-import org.infinispan.client.hotrod.impl.transport.TransportFactory;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
 import org.infinispan.commons.equivalence.AnyEquivalence;
@@ -22,16 +21,9 @@ import java.lang.reflect.Method;
 import java.net.SocketAddress;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Galder Zamarreño
@@ -226,7 +218,9 @@ public class ClientListenerNotifier {
          while (true) {
             ClientEvent clientEvent = null;
             try {
+               System.out.println("WAITING");
                clientEvent = codec.readEvent(transport, op.listenerId, marshaller);
+               System.out.println("GOING");
                invokeClientEvent(clientEvent);
                // Nullify event, makes it easier to identify network vs invocation error messages
                clientEvent = null;

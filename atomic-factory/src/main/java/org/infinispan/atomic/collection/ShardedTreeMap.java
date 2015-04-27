@@ -1,4 +1,4 @@
-package org.infinispan.atomic.sharded.collections;
+package org.infinispan.atomic.collection;
 
 import org.infinispan.atomic.Updatable;
 import org.infinispan.atomic.AtomicObjectFactory;
