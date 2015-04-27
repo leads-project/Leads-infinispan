@@ -16,6 +16,8 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  *
@@ -125,7 +127,7 @@ public class Site extends Indexable {
    }
 
    public <K,V> SiteEnsembleCache<K,V> getCache(){
-      return  getCache(CacheContainer.DEFAULT_CACHE_NAME);
+      return getCache(CacheContainer.DEFAULT_CACHE_NAME);
    }
 
    public boolean isOwner(RemoteCache remoteCache){
@@ -134,7 +136,7 @@ public class Site extends Indexable {
 
    @Override
    public boolean equals(Object o){
-      if( !(o instanceof Site) ) return false;
+      if (!(o instanceof Site)) return false;
       return ((Site)o).getName().equals(this.getName());
    }
 

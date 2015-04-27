@@ -121,7 +121,13 @@ public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
          maps.get(dest).put(key,map.get(key));
       }
       for (EnsembleCache dest : maps.keySet()) {
-         dest.putAll(maps.get(dest));
+         if (frontierMode && !dest.isLocal()){
+            for(Entry<K,V> e : maps.get(dest).entrySet()) {
+               dest.putIfAbsent(e.getKey(), e.getValue());
+            }
+         }else{
+            dest.putAll(maps.get(dest));
+         }
       }
    }
 
