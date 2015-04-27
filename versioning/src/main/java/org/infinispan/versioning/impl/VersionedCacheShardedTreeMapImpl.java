@@ -2,7 +2,7 @@ package org.infinispan.versioning.impl;
 
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.atomic.sharded.collections.ShardedTreeMap;
+import org.infinispan.atomic.collection.ShardedTreeMap;
 import org.infinispan.versioning.utils.version.Version;
 import org.infinispan.versioning.utils.version.VersionGenerator;
 
