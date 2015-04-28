@@ -15,7 +15,6 @@ import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.*;
 
-
 /**
  * @author Pierre Sutra
  * @since 7.2
@@ -97,6 +96,8 @@ public class AtomicObjectFactory {
     * Returns an atomic object of class <i>clazz</i>.
     * The class of this object must be initially serializable, as well as all the parameters of its methods.
     * Furthermore, the class must be deterministic.
+    * 
+    * This method is an alias for getInstanceOf(clazz, key, false, null, false).  
     *
     * @param clazz a class object
     * @param key to use in order to store the object.
@@ -247,7 +248,6 @@ public class AtomicObjectFactory {
       }
 
       try{
-         container.dispose();
          container.close(keepPersistent);
       }catch (Exception e){
          e.printStackTrace();

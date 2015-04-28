@@ -41,12 +41,6 @@ public abstract class AbstractContainer {
       listenerID = UUID.randomUUID();
    }
 
-   public abstract void open()
-         throws InterruptedException, ExecutionException, TimeoutException, IOException;
-
-   public abstract void close(boolean keepPersistent)
-         throws InterruptedException, ExecutionException, TimeoutException, IOException;
-   
    public final Object getProxy(){
       return proxy;
    }
@@ -55,5 +49,11 @@ public abstract class AbstractContainer {
       return clazz;
    }
 
+   public abstract void open()
+         throws InterruptedException, ExecutionException, TimeoutException, IOException;
+
+   public abstract void close(boolean keepPersistent)
+         throws InterruptedException, ExecutionException, TimeoutException, IOException;
+   
    public abstract void dispose();
 }

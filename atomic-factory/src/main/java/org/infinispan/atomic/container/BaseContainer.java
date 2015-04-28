@@ -126,13 +126,18 @@ public abstract class BaseContainer extends AbstractContainer {
 
       while(pendingCalls.get()!=0);
 
-      isOpen = false;
-      if (keepPersistent) {
-         execute(new CallClose(listenerID));
-         forceNew = false;
-      }
-      removeListener();
+      if (isOpen) {
 
+         isOpen = false;
+         isDisposed = true;
+         if (keepPersistent) {
+            execute(new CallClose(listenerID));
+            forceNew = false;
+         }
+         removeListener();
+
+      }
+         
       log.debug(this + "Closed.");
 
    }
