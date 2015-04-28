@@ -218,9 +218,7 @@ public class ClientListenerNotifier {
          while (true) {
             ClientEvent clientEvent = null;
             try {
-               System.out.println("WAITING");
                clientEvent = codec.readEvent(transport, op.listenerId, marshaller);
-               System.out.println("GOING");
                invokeClientEvent(clientEvent);
                // Nullify event, makes it easier to identify network vs invocation error messages
                clientEvent = null;
