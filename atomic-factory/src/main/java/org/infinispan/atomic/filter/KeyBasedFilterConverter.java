@@ -1,6 +1,8 @@
-package org.infinispan.notifications.cachelistener.filter;
+package org.infinispan.atomic.filter;
 
 import org.infinispan.metadata.Metadata;
+import org.infinispan.notifications.cachelistener.filter.AbstractCacheEventFilterConverter;
+import org.infinispan.notifications.cachelistener.filter.EventType;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -37,7 +39,7 @@ public class KeyBasedFilterConverter<K,V> extends AbstractCacheEventFilterConver
       boolean ret = this.key.equals(key);
 
       if (!ret) {
-         log.debug(this+"Wrong key");
+         log.debug(this+"Wrong key "+this.key+" vs "+key);
          return null;
       }
 

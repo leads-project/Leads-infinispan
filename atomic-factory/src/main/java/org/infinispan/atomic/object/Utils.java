@@ -1,8 +1,5 @@
 package org.infinispan.atomic.object;
 
-import org.infinispan.commons.marshall.Marshaller;
-import org.infinispan.marshall.core.JBossMarshaller;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -73,30 +70,6 @@ public class Utils {
 
       throw new IllegalArgumentException("Unable to find constructor for "+clazz.toString()+" with "+initArgs);
 
-   }
-
-   public static byte[] marshall(Object object) {
-      Marshaller marshaller = new JBossMarshaller();
-      try {
-         if (object instanceof byte[])
-            return (byte[]) object;
-         return marshaller.objectToByteBuffer(object);
-      } catch (Exception e) {
-         e.printStackTrace();
-      }
-      return null;
-   }
-
-   public static Object unmarshall(Object object) {
-      Marshaller marshaller = new JBossMarshaller();
-      try {
-         if (object instanceof byte[])
-            return marshaller.objectFromByteBuffer((byte[]) object);
-         return object;
-      } catch (Exception e){
-         e.printStackTrace();
-      }
-      return null;
    }
 
    public static <K,V> Map<K,V> lruCache(final int maxSize) {
