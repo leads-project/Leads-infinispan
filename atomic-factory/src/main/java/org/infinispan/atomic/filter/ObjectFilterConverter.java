@@ -14,7 +14,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 import static org.infinispan.atomic.object.Utils.*;
-import static org.jgroups.util.Util.*;
 
 /**
  * @author Pierre Sutra
@@ -30,6 +29,7 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
    // Object fields
 
    private transient Cache<Object,Object> cache;
+   
    private K key;
    private Object object;
    private Class clazz;
@@ -38,7 +38,7 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
    private CallOpen pendingOpenCall;
    private Object[] initArgs;
    private boolean forceNew;
-   private Set<UUID> clients; 
+   private Set<UUID> clients;
    
    public ObjectFilterConverter(Object[] params){
       this(
@@ -75,13 +75,11 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
    public Object filterAndConvert(Object key, Object oldValue, Metadata oldMetadata, Object newValue,
          Metadata newMetadata, EventType eventType) {
 
-      assertNotNull(cache);
+      assert (cache!=null);
       
-      assertEquals(key,this.key);
-
       try {
 
-         Call call = (Call) Utils.unmarshall(newValue);
+         Call call = (Call) newValue;
          
          CallFuture ret = new CallFuture(call.getCallID());
 
@@ -116,10 +114,10 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
                   System.out.println("");
                }
                
-               assertTrue(object==null);
+               assert (object==null);
                log.debug(this + "Updating state");
-               object = ((CallPersist) call).getObject();
-               assertTrue(object != null);
+               object = unmarshall(((CallPersist) call).getBytes());
+               assert (object != null);
                
                log.debug(this + "Applying pending calls");
                for (CallInvoke invocation : pendingCalls)
@@ -139,9 +137,9 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
             
             if (call.getCallerID().equals(client)) {
 
-               assertTrue(object == null);
-               assertTrue(pendingOpenCall == null);
-               assertTrue(pendingCalls == null);
+               assert (object == null);
+               assert (pendingOpenCall == null);
+               assert (pendingCalls == null);
 
                if (forceNew || oldValue == null) {
 
@@ -151,13 +149,14 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
 
                } else {
 
-                  Object previousCall = Utils.unmarshall(oldValue);
+                  Object previousCall = oldValue;
 
                   if (previousCall instanceof CallPersist 
                         && ((CallPersist)previousCall).getNclients() == 0) {
 
                      log.debug(this + "Retrieving object from persistent state.");
-                     object = ((CallPersist) previousCall).getObject();
+                     object = unmarshall(((CallPersist) previousCall).getBytes());
+                     assert object.getClass().equals(clazz);
                      ret.set(null);
                      
                   } else {
@@ -177,7 +176,7 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
                   log.debug(this + "Sending persistent state");
                   cache.putAsync(
                         key,
-                        marshall(new CallPersist(client, call.getCallID(), clients.size(), object)));
+                        new CallPersist(client, call.getCallID(), clients.size(), marshall(object)));
 
                }
             }
@@ -193,7 +192,7 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
                   log.debug(this + "Persisting object");
                   cache.putAsync(
                         key,
-                        marshall(new CallPersist(client, call.getCallID(), clients.size(), object)));
+                        new CallPersist(client, call.getCallID(), clients.size(), marshall(object)));
 
                } else {
 
@@ -208,7 +207,7 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
          log.debug(this + "Future " + ret.getCallID() + " -> "+ret.isDone());
          
          if (ret.isDone())
-            return marshall(ret);
+            return ret;
 
       } catch (Exception e) {
          e.printStackTrace();

@@ -30,7 +30,7 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
    protected static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
    protected static boolean USE_TRANSACTIONS = false;
 
-   protected static int NMANAGERS=4;
+   protected static int NMANAGERS=3;
    protected static int NCALLS=100;
 
    @Test
@@ -53,6 +53,8 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
       BasicCacheContainer cacheManager = containers().iterator().next();
       BasicCache<Object,Object> cache = cacheManager.getCache();
       AtomicObjectFactory factory = new AtomicObjectFactory(cache);
+      
+      int f = 100; // multiplicative factor
 
       Map map = factory.getInstanceOf(HashMap.class, "map");
 
@@ -60,11 +62,11 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
          map.containsKey("1");
       }
       long start = System.currentTimeMillis();
-      for(int i=0; i<NCALLS*10;i++){
+      for(int i=0; i<NCALLS*f;i++){
          map.containsKey("1");
       }
 
-      log.info("average time :"+ (System.currentTimeMillis() - start));
+      System.out.println("op/sec:"+((float)(NCALLS*f))/((float)(System.currentTimeMillis() - start))*1000);
 
    }
 
@@ -188,12 +190,6 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
    
    public abstract BasicCacheContainer container(int i);
    public abstract Collection<BasicCacheContainer> containers();
-
-   protected void initAndTest() {
-      for (Cache c : caches()) assert c.isEmpty();
-      caches().iterator().next().put("__INIT", "value");
-      assertOnAllCaches("__INIT", "value");
-   }
 
    protected void assertOnAllCaches(Object key, String value) {
       for (Cache c : caches()) {

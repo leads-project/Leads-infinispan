@@ -1,6 +1,7 @@
 package org.infinispan.atomic;
 
-import org.infinispan.atomic.filter.FilterConverterFactory;
+import org.infinispan.atomic.filter.ConverterFactory;
+import org.infinispan.atomic.filter.FilterFactory;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.TestHelper;
 import org.infinispan.commons.api.BasicCacheContainer;
@@ -70,8 +71,6 @@ public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTe
          blockUntilCacheStatusAchieved(
                manager(j).getCache(), ComponentStatus.RUNNING, 10000);
       }
-      
-      initAndTest();
 
    }
 
@@ -81,9 +80,8 @@ public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTe
       transportFlags.withReplay2(false);
       EmbeddedCacheManager cm = addClusterEnabledCacheManager(gbuilder, builder, transportFlags);
       HotRodServer server = TestHelper.startHotRodServer(cm);
-      FilterConverterFactory factory = new FilterConverterFactory();
-      server.addCacheEventFilterFactory(FilterConverterFactory.FACTORY_NAME, factory);
-      server.addCacheEventConverterFactory(FilterConverterFactory.FACTORY_NAME, factory);
+      server.addCacheEventConverterFactory(ConverterFactory.FACTORY_NAME, new ConverterFactory());
+      server.addCacheEventFilterFactory(FilterFactory.FACTORY_NAME, new FilterFactory());
       servers.add(server);
    }
 

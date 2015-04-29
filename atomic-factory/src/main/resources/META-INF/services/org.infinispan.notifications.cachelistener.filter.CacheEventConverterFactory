@@ -1,1 +1,1 @@
-org.infinispan.atomic.filter.FilterConverterFactory
+org.infinispan.atomic.filter.ConverterFactory

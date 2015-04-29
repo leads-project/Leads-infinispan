@@ -14,8 +14,6 @@ public class PostCacheEventFilterConverter <K, V, Object> extends AbstractCacheE
    public Boolean filterAndConvert(java.lang.Object key, java.lang.Object oldValue,
          Metadata oldMetadata, java.lang.Object newValue,
          Metadata newMetadata, EventType eventType) {
-      if (eventType==null)
-         throw new RuntimeException("BANG!");
       if (eventType.isPreEvent())
          return null;
       return Boolean.TRUE;

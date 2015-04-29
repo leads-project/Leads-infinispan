@@ -2,7 +2,8 @@ package org.infinispan.atomic.container.local;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.atomic.container.BaseContainer;
-import org.infinispan.atomic.filter.FilterConverterFactory;
+import org.infinispan.atomic.filter.ConverterFactory;
+import org.infinispan.atomic.filter.FilterFactory;
 import org.infinispan.atomic.object.CallFuture;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.notifications.Listener;
@@ -15,8 +16,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-
-import static org.infinispan.atomic.object.Utils.unmarshall;
 
 /**
  * @author Pierre Sutra
@@ -38,7 +37,7 @@ public class LocalContainer extends BaseContainer {
    @CacheEntryCreated
    public void onCacheModification(CacheEntryEvent event){
       log.trace(this + "Event " + event.getType()+" received");
-      CallFuture ret = (CallFuture) unmarshall(event.getValue());
+      CallFuture ret = (CallFuture) event.getValue();
       handleFuture(ret);
    }
 
@@ -53,10 +52,12 @@ public class LocalContainer extends BaseContainer {
    protected void installListener() {
       log.debug(this + "Installing listener ");
       Object[] params = new Object[] { listenerID, key, clazz, forceNew, initArgs };
-      FilterConverterFactory factory = new FilterConverterFactory();
-      ((AdvancedCache) cache).addListener(
+      ConverterFactory factory = new ConverterFactory();
+      FilterFactory filterFactory = new FilterFactory();
+            ((AdvancedCache) cache).addListener(
             this,
-            factory.getFilter(params),null);
+            filterFactory.getFilter(null),
+            factory.getConverter(params));
       log.debug(this + "Listener installed");
    }
 }

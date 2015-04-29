@@ -9,8 +9,6 @@ import org.infinispan.util.logging.LogFactory;
 import java.io.Serializable;
 import java.util.UUID;
 
-import static org.jgroups.util.Util.assertEquals;
-
 /**
  * @author Pierre Sutra
  */
@@ -22,7 +20,7 @@ public class KeyBasedFilterConverter<K,V> extends AbstractCacheEventFilterConver
    private UUID listenerID;
    
    public KeyBasedFilterConverter(Object[] parameters){
-      assertEquals(2,parameters.length);
+      assert (parameters.length==2);
       listenerID = (UUID) parameters[0];
       key = (K) parameters[1];
    }
@@ -39,7 +37,7 @@ public class KeyBasedFilterConverter<K,V> extends AbstractCacheEventFilterConver
       boolean ret = this.key.equals(key);
 
       if (!ret) {
-         log.debug(this+"Wrong key "+this.key+" vs "+key);
+         log.debug(this+"Wrong key");
          return null;
       }
 

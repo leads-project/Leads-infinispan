@@ -21,9 +21,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.jgroups.util.Util.assertNotNull;
-import static org.jgroups.util.Util.assertTrue;
-
 /**
  * @author Pierre Sutra
  * @since 7.2
@@ -179,13 +176,13 @@ public abstract class BaseContainer extends AbstractContainer {
 
    protected void handleFuture(CallFuture future){
       try {
-         assertTrue(future.isDone());
+         assert (future.isDone());
          if (!registeredCalls.containsKey(future.getCallID())) {
             log.debug(this + "Future " + future.getCallID() + " trashed");
             return; // duplicate
          }
          CallFuture clientFuture = registeredCalls.get(future.getCallID());
-         assertNotNull(clientFuture);
+         assert (clientFuture!=null);
          registeredCalls.remove(future.getCallID());
          clientFuture.set(future.get());
       } catch (Exception e) {

@@ -1,8 +1,8 @@
 package org.infinispan.atomic.container.remote;
 
-import org.infinispan.AdvancedCache;
 import org.infinispan.atomic.container.BaseContainer;
-import org.infinispan.atomic.filter.FilterConverterFactory;
+import org.infinispan.atomic.filter.ConverterFactory;
+import org.infinispan.atomic.filter.FilterFactory;
 import org.infinispan.atomic.object.CallFuture;
 import org.infinispan.client.hotrod.annotation.ClientCacheEntryCreated;
 import org.infinispan.client.hotrod.annotation.ClientCacheEntryModified;
@@ -19,15 +19,13 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
-import static org.infinispan.atomic.object.Utils.unmarshall;
-
 /**
  * @author Pierre Sutra
  */
 
 @ClientListener(
-      filterFactoryName = FilterConverterFactory.FACTORY_NAME,
-      converterFactoryName = FilterConverterFactory.FACTORY_NAME)
+      filterFactoryName = FilterFactory.FACTORY_NAME,
+      converterFactoryName = ConverterFactory.FACTORY_NAME)
 public class RemoteContainer extends BaseContainer {
 
    private static Log log = LogFactory.getLog(RemoteContainer.class);
@@ -45,7 +43,7 @@ public class RemoteContainer extends BaseContainer {
    @ClientCacheEntryModified
    @ClientCacheEntryCreated
    public void onCacheModification(ClientCacheEntryCustomEvent event){
-      CallFuture future = (CallFuture) unmarshall(event.getEventData());
+      CallFuture future = (CallFuture) event.getEventData();
       handleFuture(future);
    }
 
@@ -59,28 +57,12 @@ public class RemoteContainer extends BaseContainer {
    @Override
    protected void installListener(){
       log.debug(this + "Installing listener ");
-
       Object[] params = new Object[] { listenerID, key, clazz, forceNew, initArgs };
-
-      if (cache instanceof RemoteCacheImpl) {
-
-         ((RemoteCacheImpl)cache).addClientListener(
-               this,
-               params,
-               new Object[] { listenerID });
-
-      }else {
-
-         FilterConverterFactory factory = new FilterConverterFactory();
-         ((AdvancedCache) cache).addListener(
-               this,
-               factory.getFilter(params),null);
-
-      }
-
+      ((RemoteCacheImpl)cache).addClientListener(
+            this,
+            null,
+            params);
       log.debug(this + "Listener installed");
    }
-
-
 
 }

@@ -256,7 +256,7 @@ public class OldLocalContainer extends AbstractContainer {
 
             if(persist instanceof CallPersist){
                log.debug(this+"Persisted object "+key);
-               object = ((CallPersist)persist).getObject();
+               object = ((CallPersist)persist).getBytes();
             }else{
                installListener();
                log.debug(this + "Retrieving object " + key);
@@ -362,7 +362,7 @@ public class OldLocalContainer extends AbstractContainer {
 
    private synchronized byte[] buildMarshalledCallPersist() throws IOException, InterruptedException {
       GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
-      CallPersist persist = new CallPersist(listenerID, null, 0, object);
+      CallPersist persist = new CallPersist(listenerID, null, 0, marshaller.objectToByteBuffer(object));
       return marshaller.objectToByteBuffer(persist);
    }
 
@@ -405,8 +405,8 @@ public class OldLocalContainer extends AbstractContainer {
 
                   log.debug("sending persistent state");
 
-                  CallPersist persist = new CallPersist(listenerID,null,0, object);
                   GenericJBossMarshaller marshaller = new GenericJBossMarshaller();
+                  CallPersist persist = new CallPersist(listenerID,null,0, marshaller.objectToByteBuffer(object));
                   cache.put(key, marshaller.objectToByteBuffer(persist));
 
                }else if (retrieveCall != null && retrieveCall.getCallID() == ((CallRetrieve)call).getCallID()) {
@@ -424,7 +424,7 @@ public class OldLocalContainer extends AbstractContainer {
 
                if (object == null) {
                   if (retrieveFuture != null) {
-                     object = ((CallPersist) call).getObject();
+                     object = ((CallPersist) call).getBytes();
                      assert object != null;
                      if (pendingCalls != null) {
                         log.debug(this + "Applying pending calls");

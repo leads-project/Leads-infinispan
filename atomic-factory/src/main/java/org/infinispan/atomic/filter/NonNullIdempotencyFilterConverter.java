@@ -12,8 +12,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.infinispan.atomic.object.Utils.lruCache;
-import static org.infinispan.atomic.object.Utils.unmarshall;
-import static org.jgroups.util.Util.assertEquals;
 
 /**
  * @author Pierre Sutra
@@ -27,7 +25,7 @@ public class NonNullIdempotencyFilterConverter<K,V> extends AbstractCacheEventFi
    private UUID listenerID;
    
    public NonNullIdempotencyFilterConverter(Object[] parameters){
-      assertEquals(1,parameters.length);
+      assert (parameters.length==1);
       listenerID = (UUID) parameters[0];
    }
 
@@ -45,7 +43,7 @@ public class NonNullIdempotencyFilterConverter<K,V> extends AbstractCacheEventFi
          return null;
       }
 
-      Call call = (Call) unmarshall(newValue);
+      Call call = (Call) newValue;
 
       if (received.containsKey(call.getCallID())) {
          log.debug(this+"Already received "+call.getCallID());

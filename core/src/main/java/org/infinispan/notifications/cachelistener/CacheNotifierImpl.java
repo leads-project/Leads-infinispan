@@ -639,8 +639,8 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
             .setIdentifier(generatedId)
             .setClassLoader(classLoader);
 
-      if (filter instanceof CacheAware)
-         ((CacheAware) filter).setCache((Cache<Object, Object>) cache);
+      if (converter instanceof CacheAware)
+         ((CacheAware) converter).setCache((Cache<Object, Object>) cache);
 
       boolean foundMethods = validateAndAddListenerInvocation(listener, builder);
 
@@ -972,7 +972,7 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
          CacheEntryEvent<K, V> resultingEvent;
          // See if this should be filtered first before evaluating
          if ((resultingEvent = shouldInvoke(event, isLocalNodePrimaryOwner)) != null) {
-            invokeNoChecks(resultingEvent, false, filter instanceof CacheEventFilterConverter);
+            invokeNoChecks(resultingEvent, false, filter == converter && filter instanceof CacheEventFilterConverter);
          }
       }
 
@@ -992,6 +992,9 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
             eventToUse = event;
          }
 
+         if (eventToUse.getValue()==null)
+            return;
+         
          if (skipQueue) {
             invocation.invoke(eventToUse);
          } else {

@@ -8,19 +8,19 @@ import java.util.UUID;
  */
 public class CallPersist extends Call {
 
-   private Object object;
+   private byte[] bytes;
    private UUID initialCallID;
    private int nclients;
 
-   public CallPersist(UUID callerID, UUID initialCallId, int nclients, Object object) {
+   public CallPersist(UUID callerID, UUID initialCallId, int nclients, byte[] bytes) {
       super(callerID);
-      this.object = object;
+      this.bytes = bytes;
       this.initialCallID = initialCallId;
       this.nclients = nclients;
    }
    
-   public Object getObject(){
-      return  object;
+   public byte[] getBytes(){
+      return bytes;
    }
 
    public UUID getInitialCallID(){
