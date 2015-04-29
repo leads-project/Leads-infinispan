@@ -2,6 +2,7 @@ package org.infinispan.atomic;
 
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,11 +40,20 @@ public class AtomicObjectFactoryRemoteRealTest extends AtomicObjectFactoryAbstra
                .port(port);
          RemoteCacheManager manager= new RemoteCacheManager(cb.build());
          remoteCacheManagers.add(manager);
+         manager.getCache().addClientListener(new Simplelistener());
       }
-      
+      this.cleanup = null;
+   }
+
+   @Test
+   public void simple() throws Throwable {
+      container(0).getCache().put("a", new ValueAddedEvent(12,"ZOUP"));
+      System.out.println(container(0).getCache().get("a"));
+      Thread.sleep(10000);
    }
    
    protected String[] servers () {
       return new String[]{"localhost:11222"};
    }
+
 }

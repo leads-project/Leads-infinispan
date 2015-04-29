@@ -161,6 +161,7 @@ public abstract class BaseContainer extends AbstractContainer {
       
       CallFuture future = new CallFuture(call.getCallID());
       registeredCalls.put(call.getCallID(), future);
+
       cache.put(key, call);
       
       Object ret = future.get(TTIMEOUT_TIME,TimeUnit.MILLISECONDS);
