@@ -1,4 +1,4 @@
-package org.infinispan.atomic.container;
+package org.infinispan.atomic.container.local;
 
 import java.util.ArrayDeque;
 import java.util.Queue;

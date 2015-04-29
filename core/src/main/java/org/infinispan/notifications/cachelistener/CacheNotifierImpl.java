@@ -37,14 +37,7 @@ import org.infinispan.notifications.cachelistener.cluster.ClusterListenerReplica
 import org.infinispan.notifications.cachelistener.cluster.RemoteClusterListener;
 import org.infinispan.notifications.cachelistener.event.*;
 import org.infinispan.notifications.cachelistener.event.impl.EventImpl;
-import org.infinispan.notifications.cachelistener.filter.CacheEventConverter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventConverterAsConverter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilterAsKeyValueFilter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilterConverter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilterConverterAsKeyValueFilterConverter;
-import org.infinispan.notifications.cachelistener.filter.EventType;
-import org.infinispan.notifications.cachelistener.filter.KeyFilterAsCacheEventFilter;
+import org.infinispan.notifications.cachelistener.filter.*;
 import org.infinispan.notifications.impl.AbstractListenerImpl;
 import org.infinispan.notifications.impl.ListenerInvocation;
 import org.infinispan.partitionhandling.AvailabilityMode;
@@ -664,6 +657,10 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
             .setConverter(converter)
             .setIdentifier(generatedId)
             .setClassLoader(classLoader);
+      
+      if (filter instanceof CacheAware)
+         ((CacheAware)filter).setCache(cache);
+      
       boolean foundMethods = validateAndAddListenerInvocation(listener, builder);
 
       if (foundMethods && l.clustered()) {

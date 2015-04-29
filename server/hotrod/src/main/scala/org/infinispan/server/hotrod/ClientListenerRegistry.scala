@@ -86,7 +86,7 @@ class ClientListenerRegistry(configuration: HotRodServerConfiguration) extends L
          case (Some(ff), Some(cf)) if ff._1 == cf._1 =>
             val params = if (filterParams.isEmpty) converterParams else filterParams
             val filterConverter = getFilterConverter(ff._1, compatEnabled, useRawData, params)
-            (Some(filterConverter), Some(filterConverter))
+            (Some(filterConverter), None)
          case (Some(ff), Some(cf)) =>
             (Some(getFilter(ff._1, compatEnabled, useRawData, filterParams)),
                Some(getConverter(cf._1, compatEnabled, useRawData, converterParams)))

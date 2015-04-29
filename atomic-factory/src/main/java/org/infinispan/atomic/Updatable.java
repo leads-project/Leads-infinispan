@@ -1,6 +1,7 @@
 package org.infinispan.atomic;
 
-import org.infinispan.Cache;
+import org.infinispan.commons.api.BasicCache;
+
 import java.io.Externalizable;
 
 /**
@@ -12,18 +13,18 @@ import java.io.Externalizable;
  * allowing several performance optimizations.
  *
  * @author Pierre Sutra
- * @since 7.2
+ * @since 7.0
  */
 
 public abstract class Updatable implements Externalizable{
-   private transient Cache cache = null;
+   private transient BasicCache cache = null;
    private transient Object key = null;
 
    public Object getKey() {
       return key;
    }
 
-   public Cache getCache() {
+   public BasicCache getCache() {
       return cache;
    }
 
@@ -31,7 +32,7 @@ public abstract class Updatable implements Externalizable{
       this.key = key;
    }
 
-   public void setCache(Cache cache) {
+   public void setCache(BasicCache cache) {
       this.cache = cache;
    }
 

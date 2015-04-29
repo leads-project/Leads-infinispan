@@ -10,11 +10,7 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.marshall.core.Ids;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.notifications.cachelistener.CacheNotifier;
-import org.infinispan.notifications.cachelistener.filter.AbstractCacheEventFilterConverter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventConverter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilterConverter;
-import org.infinispan.notifications.cachelistener.filter.EventType;
+import org.infinispan.notifications.cachelistener.filter.*;
 import org.infinispan.notifications.cachemanagerlistener.CacheManagerNotifier;
 import org.infinispan.remoting.transport.Address;
 import org.infinispan.util.logging.Log;
@@ -43,6 +39,7 @@ public class ClusterListenerReplicateCallable<K, V> implements DistributedCallab
    private transient DistributedExecutorService distExecutor;
    private transient Address ourAddress;
    private transient ClusterEventManager<K, V> eventManager;
+   private transient Cache cache;
 
    private final UUID identifier;
    private final CacheEventFilter<K, V> filter;
@@ -61,6 +58,7 @@ public class ClusterListenerReplicateCallable<K, V> implements DistributedCallab
 
    @Override
    public void setEnvironment(Cache<K, V> cache, Set<K> inputKeys) {
+      this.cache = cache;
       cacheManager = cache.getCacheManager();
       ComponentRegistry componentRegistry = cache.getAdvancedCache().getComponentRegistry();
       cacheNotifier = componentRegistry.getComponent(CacheNotifier.class);
@@ -103,6 +101,8 @@ public class ClusterListenerReplicateCallable<K, V> implements DistributedCallab
                   CacheEventFilter<K, V> actualFilter = null;
                   if (filter instanceof CacheEventFilterConverter) {
                      final CacheEventFilterConverter<K, V, ?> filterConverter = (CacheEventFilterConverter<K, V, ?>) filter;
+                     if (filter instanceof CacheAware)
+                        ((CacheAware) filter).setCache(this.cache);
                      actualFilter = new AbstractCacheEventFilterConverter<K,V, Object>() {
                         @Override
                         public Object filterAndConvert(K key, V oldValue, Metadata oldMetadata, V newValue, Metadata newMetadata, EventType eventType) {

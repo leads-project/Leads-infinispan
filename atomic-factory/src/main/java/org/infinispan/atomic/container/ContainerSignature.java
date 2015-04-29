@@ -1,8 +1,10 @@
 package org.infinispan.atomic.container;
 
 /**
+*
 * @author Pierre Sutra
-* @since 7.2
+* @since 7.0
+ *
 */
 public class ContainerSignature {
 
