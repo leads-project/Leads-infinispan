@@ -8,17 +8,13 @@ import java.util.UUID;
  */
 public class CallRetrieve extends Call {
 
-   private UUID openCallID;
+   @Deprecated
+   public CallRetrieve(){}
    
-   public CallRetrieve(UUID callerID, UUID openCallID) {
+   public CallRetrieve(UUID callerID) {
       super(callerID);
-      this.openCallID = openCallID;
    }
    
-   public UUID getOpenCallID(){
-      return openCallID;
-   }
-
    @Override
    public String toString() {
       return super.toString()+"-RET";

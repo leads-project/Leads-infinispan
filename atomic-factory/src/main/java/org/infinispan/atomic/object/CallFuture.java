@@ -3,7 +3,10 @@ package org.infinispan.atomic.object;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.io.Serializable;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -16,13 +19,16 @@ import java.util.concurrent.TimeoutException;
  * @author Pierre Sutra
  * @since 6.0
  */
-public class CallFuture implements Future<Object>,Serializable {
+public class CallFuture implements Future<Object>, Externalizable {
 
    private static Log log = LogFactory.getLog(CallFuture.class);
-   
+
    private Object ret;
    private UUID callID;
    private int state; // 0 => init, 1 => done, -1 => cancelled
+
+   @Deprecated
+   public CallFuture(){}
 
    public CallFuture(UUID callID){
       this.callID = callID;
@@ -31,9 +37,9 @@ public class CallFuture implements Future<Object>,Serializable {
    }
 
    public void set(Object r){
-      
+
       synchronized (this) {
-         
+
          if (state != 0) {
             return;
          }
@@ -43,9 +49,9 @@ public class CallFuture implements Future<Object>,Serializable {
          this.notifyAll();
 
       }
-      
+
    }
-   
+
    public UUID getCallID(){
       return callID;
    }
@@ -104,8 +110,19 @@ public class CallFuture implements Future<Object>,Serializable {
    @Override
    public String toString() {
       return "Future["+callID+"]";
-
    }
 
+   @Override
+   public void writeExternal(ObjectOutput objectOutput) throws IOException {
+      objectOutput.writeObject(ret);
+      objectOutput.writeObject(callID);
+      objectOutput.writeInt(state);
+   }
 
+   @Override
+   public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+      ret = objectInput.readObject();
+      callID = (UUID) objectInput.readObject();
+      state = objectInput.readInt();
+   }
 }

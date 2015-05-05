@@ -8,7 +8,10 @@ import java.util.UUID;
  * @since 7.2
  */
 public class CallOpen extends Call{
-   
+
+   @Deprecated
+   public CallOpen(){}
+
    public CallOpen(UUID callerID) {
       super(callerID);
    }

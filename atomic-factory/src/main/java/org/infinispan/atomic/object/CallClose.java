@@ -8,7 +8,10 @@ import java.util.UUID;
  * @since 7.2
  */
 public class CallClose extends Call {
-   
+
+   @Deprecated
+   public CallClose(){}
+
    public CallClose(UUID callerID) {
       super(callerID);
    }
