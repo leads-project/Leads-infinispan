@@ -29,7 +29,7 @@ public class CallInvoke extends Call implements Externalizable{
    public String toString(){
       String args = " ";
       for(Object a : arguments){
-         args+=a.toString()+" ";
+         args+=(a==null?"null":a.toString())+" ";
       }
       return super.toString()+" -INV-"+method+ "("+args+")";
    }

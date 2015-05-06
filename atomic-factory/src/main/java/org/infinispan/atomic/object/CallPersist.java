@@ -57,6 +57,6 @@ public class CallPersist extends Call implements Externalizable{
       super.readExternal(objectInput);
       bytes = (byte[]) objectInput.readObject();
       initialCallID = (UUID) objectInput.readObject();
-      nclients = (int) objectInput.readObject();
+      nclients = (int) objectInput.readInt();
    }
 }
