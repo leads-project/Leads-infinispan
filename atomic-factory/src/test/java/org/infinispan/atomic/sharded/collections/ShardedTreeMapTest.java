@@ -2,7 +2,6 @@ package org.infinispan.atomic.sharded.collections;
 
 import org.infinispan.Cache;
 import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.atomic.collection.ShardedTreeMap;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.EmbeddedCacheManager;

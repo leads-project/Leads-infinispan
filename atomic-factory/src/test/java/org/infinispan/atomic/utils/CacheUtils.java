@@ -1,4 +1,4 @@
-package org.infinispan.atomic;
+package org.infinispan.atomic.utils;
 
 import org.infinispan.Cache;
 import org.infinispan.test.TestingUtil;
@@ -11,7 +11,7 @@ import static org.testng.AssertJUnit.assertEquals;
  * @author Pierre Sutra
  * @since 7.2
  */
-public class Utils {
+public class CacheUtils {
 
    public static void assertOnAllCaches(Collection<Cache> caches, Object key, String value) {
       for (Cache<Object, String> c : caches) {

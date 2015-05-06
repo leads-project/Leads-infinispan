@@ -13,8 +13,6 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
-import static org.infinispan.atomic.object.Utils.*;
-
 /**
  * @author Pierre Sutra
  * @since 7.2
@@ -83,7 +81,7 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
          
          CallFuture ret = new CallFuture(call.getCallID());
 
-         log.debug(this + "Call " + call + " received");
+         if (log.isDebugEnabled()) log.debug(this + "Call " + call + " received");
 
          if (call instanceof CallInvoke) {
 
@@ -93,14 +91,14 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
 
             } else if (pendingCalls != null) {
 
-               log.debug(this + "Adding to pending calls");
+               if (log.isDebugEnabled()) log.debug(this + "Adding to pending calls");
                pendingCalls.add((CallInvoke) call);
 
             }
 
          } else if (call instanceof CallPersist) {
 
-            log.debug(this + "Persistent state received");
+            if (log.isDebugEnabled()) log.debug(this + "Persistent state received");
 
             if (call.getCallerID().equals(client)){
 
@@ -115,11 +113,11 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
                }
                
                assert (object==null);
-               log.debug(this + "Updating state");
-               object = unmarshall(((CallPersist) call).getBytes());
+               if (log.isDebugEnabled()) log.debug(this + "Updating state");
+               object = Utils.unmarshall(((CallPersist) call).getBytes());
                assert (object != null);
-               
-               log.debug(this + "Applying pending calls");
+
+               if (log.isDebugEnabled()) log.debug(this + "Applying pending calls");
                for (CallInvoke invocation : pendingCalls)
                   handleInvocation(invocation);               
                
@@ -143,8 +141,8 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
 
                if (forceNew || oldValue == null) {
 
-                  log.debug(this + "Creating new object");
-                  object = initObject(clazz, initArgs);
+                  if (log.isDebugEnabled()) log.debug(this + "Creating new object");
+                  object = Utils.initObject(clazz, initArgs);
                   ret.set(null);
 
                } else {
@@ -154,14 +152,14 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
                   if (previousCall instanceof CallPersist 
                         && ((CallPersist)previousCall).getNclients() == 0) {
 
-                     log.debug(this + "Retrieving object from persistent state.");
-                     object = unmarshall(((CallPersist) previousCall).getBytes());
+                     if (log.isDebugEnabled()) log.debug(this + "Retrieving object from persistent state.");
+                     object = Utils.unmarshall(((CallPersist) previousCall).getBytes());
                      assert object.getClass().equals(clazz);
                      ret.set(null);
                      
                   } else {
 
-                     log.debug(this + "Waiting for persistent state");
+                     if (log.isDebugEnabled()) log.debug(this + "Waiting for persistent state");
                      pendingOpenCall = (CallOpen) call;
                      pendingCalls = new ArrayList<>();
 
@@ -173,10 +171,10 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
 
                if (object != null) {
 
-                  log.debug(this + "Sending persistent state");
+                  if (log.isDebugEnabled()) log.debug(this + "Sending persistent state");
                   cache.putAsync(
                         key,
-                        new CallPersist(client, call.getCallID(), clients.size(), marshall(object)));
+                        new CallPersist(client, call.getCallID(), clients.size(), Utils.marshall(object)));
 
                }
             }
@@ -189,10 +187,10 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
 
                if (object != null) {
 
-                  log.debug(this + "Persisting object");
+                  if (log.isDebugEnabled()) log.debug(this + "Persisting object");
                   cache.putAsync(
                         key,
-                        new CallPersist(client, call.getCallID(), clients.size(), marshall(object)));
+                        new CallPersist(client, call.getCallID(), clients.size(), Utils.marshall(object)));
 
                } else {
 
@@ -204,7 +202,7 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
 
          }
 
-         log.debug(this + "Future " + ret.getCallID() + " -> "+ret.isDone());
+         if (log.isDebugEnabled()) log.debug(this + "Future " + ret.getCallID() + " -> "+ret.isDone());
          
          if (ret.isDone())
             return ret;
@@ -231,8 +229,8 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
     */
    private Object handleInvocation(CallInvoke invocation)
          throws InvocationTargetException, IllegalAccessException {
-      Object ret = callObject(object, invocation.method, invocation.arguments);
-      log.debug(this+"Calling " + invocation+" (="+(ret==null ? "null" : ret.toString())+")");
+      Object ret = Utils.callObject(object, invocation.method, invocation.arguments);
+      if (log.isDebugEnabled()) log.debug(this+"Calling " + invocation+" (="+(ret==null ? "null" : ret.toString())+")");
       return  ret;
    }
 

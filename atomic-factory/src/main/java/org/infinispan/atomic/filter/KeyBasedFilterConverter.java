@@ -37,7 +37,7 @@ public class KeyBasedFilterConverter<K,V> extends AbstractCacheEventFilterConver
       boolean ret = this.key.equals(key);
 
       if (!ret) {
-         log.debug(this+"Wrong key");
+         if (log.isDebugEnabled()) log.debug(this+"Wrong key");
          return null;
       }
 

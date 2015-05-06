@@ -24,7 +24,7 @@ import static org.testng.Assert.assertTrue;
  */
 public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManagersTest {
 
-   protected static Log log = LogFactory.getLog(AtomicObjectFactory.class);
+   protected static Log log = LogFactory.getLog(AtomicObjectFactoryAbstractTest.class);
 
    protected static int REPLICATION_FACTOR=1;
    protected static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
@@ -47,22 +47,20 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
 
    }
 
-   @Test (enabled = false)
+   @Test (enabled = true)
    public void basePerformanceTest() throws Exception{
 
       BasicCacheContainer cacheManager = containers().iterator().next();
       BasicCache<Object,Object> cache = cacheManager.getCache();
       AtomicObjectFactory factory = new AtomicObjectFactory(cache);
       
-      int f = 100; // multiplicative factor
+      int f = 10; // multiplicative factor
 
       Map map = factory.getInstanceOf(HashMap.class, "map");
 
-      for(int i=0; i<NCALLS*10;i++){
-         map.containsKey("1");
-      }
       long start = System.currentTimeMillis();
       for(int i=0; i<NCALLS*f;i++){
+         // cache.put("1","1");
          map.containsKey("1");
       }
 

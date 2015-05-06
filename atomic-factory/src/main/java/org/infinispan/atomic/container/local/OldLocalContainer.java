@@ -5,9 +5,9 @@ import javassist.util.proxy.MethodHandler;
 import javassist.util.proxy.ProxyFactory;
 import javassist.util.proxy.ProxyObject;
 import org.infinispan.Cache;
+import org.infinispan.atomic.object.*;
 import org.infinispan.atomic.Updatable;
 import org.infinispan.atomic.container.AbstractContainer;
-import org.infinispan.atomic.object.*;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import org.infinispan.notifications.Listener;
@@ -259,7 +259,7 @@ public class OldLocalContainer extends AbstractContainer {
             }else{
                installListener();
                log.debug(this + "Retrieving object " + key);
-               retrieveCall = new CallRetrieve(listenerID,null);
+               retrieveCall = new CallRetrieve(listenerID);
                retrieveFuture = new CallFuture(retrieveCall.getCallID());
                marshaller = new GenericJBossMarshaller();
                pendingCalls = new ArrayList<>();

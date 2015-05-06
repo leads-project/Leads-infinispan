@@ -9,12 +9,12 @@
     </parent>
 
     <artifactId>infinispan-atomic-factory</artifactId>
-    <name>Infinispan Atomic Fatory</name>
-    <description>Infinispan atomic object factory module</description>
+    <name>Infinispan Atomic Object Factory</name>
+    <description>the Infinispan atomic object factory module</description>
 
-   <properties>
-      <module.skipComponentMetaDataProcessing>true</module.skipComponentMetaDataProcessing>
-   </properties>
+    <properties>
+        <module.skipComponentMetaDataProcessing>true</module.skipComponentMetaDataProcessing>
+    </properties>
 
     <dependencies>
 
@@ -68,20 +68,60 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.stacksync</groupId>
+            <artifactId>stacksync-server</artifactId>
+            <version>0.6.11</version>
+        </dependency>
+
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>${project.basedir}/src/main/resources</directory>
+            </resource>
+        </resources>
         <plugins>
+            <plugin>
+                <groupId>org.scala-tools</groupId>
+                <artifactId>maven-scala-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>generate-blueprint</id>
+                        <phase>prepare-package</phase>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-bundle-plugin</artifactId>
                 <configuration>
                     <instructions>
                         <Export-Package>
-                            !${project.groupId}.atomic-factory.*,${project.groupId}.*;version=${project.version}
+                            ${project.groupId}.query.*;version=${project.version};-split-package:=merge-last
                         </Export-Package>
+                        <Include-Resource>
+                            {maven-resources},
+                            /META-INF/services=${project.basedir}/target/classes/META-INF/services,
+                            /OSGI-INF/blueprint/blueprint.xml=${project.basedir}/target/classes/OSGI-INF/blueprint/blueprint.xml
+                        </Include-Resource>
                     </instructions>
                 </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

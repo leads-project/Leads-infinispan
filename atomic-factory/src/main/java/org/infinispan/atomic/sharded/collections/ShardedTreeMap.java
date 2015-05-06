@@ -1,7 +1,7 @@
 package org.infinispan.atomic.sharded.collections;
 
-import org.infinispan.atomic.Updatable;
 import org.infinispan.atomic.AtomicObjectFactory;
+import org.infinispan.atomic.Updatable;
 import org.infinispan.atomic.Update;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;

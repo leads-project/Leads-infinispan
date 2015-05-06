@@ -1,5 +1,6 @@
 package org.infinispan.atomic.container;
 
+import org.infinispan.atomic.object.Utils;
 import org.infinispan.commons.api.BasicCache;
 
 import java.io.IOException;
@@ -9,8 +10,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-
-import static org.infinispan.atomic.object.Utils.initObject;
 
 /**
  * @author Pierre Sutra
@@ -25,7 +24,7 @@ public class FakeContainer extends AbstractContainer {
       super(cache, clazz, key, readOptimization, forceNew, methods, initArgs);
       
       try {
-         Object o = initObject(this.clazz, this.initArgs);
+         Object o = Utils.initObject(this.clazz, this.initArgs);
          objects.putIfAbsent(this.key,o);
          proxy = objects.get(this.key);
       } catch (IllegalAccessException | InstantiationException | NoSuchMethodException | InvocationTargetException e) {

@@ -39,14 +39,14 @@ public class NonNullIdempotencyFilterConverter<K,V> extends AbstractCacheEventFi
          Metadata newMetadata, EventType eventType) {
       
       if (newValue==null) {
-         log.debug(this+"Null value");
+         if (log.isDebugEnabled()) log.debug(this+"Null value");
          return null;
       }
 
       Call call = (Call) newValue;
 
       if (received.containsKey(call.getCallID())) {
-         log.debug(this+"Already received "+call);
+         if (log.isDebugEnabled()) log.debug(this+"Already received "+call);
          return null;
       }
 
