@@ -34,6 +34,8 @@ public class Server {
 
       if (args.length>1)
          proxyhost = args[1];
+      else 
+         proxyhost = host;
       
       defaultBuilder
             .clustering().
@@ -60,7 +62,7 @@ public class Server {
       TransportFlags transportFlags = new TransportFlags();
       EmbeddedCacheManager cm = TestCacheManagerFactory.createClusteredCacheManager(gbuilder, builder, transportFlags);
       HotRodServerConfigurationBuilder hbuilder = new HotRodServerConfigurationBuilder();
-      hbuilder.topologyStateTransfer(false);      
+      hbuilder.topologyStateTransfer(true);
       hbuilder.proxyHost(proxyhost);
       hbuilder.host(host);
       hbuilder.port(port);
