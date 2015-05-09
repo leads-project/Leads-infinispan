@@ -220,14 +220,14 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
         TreeMap<K,V> tree;
         SortedMap<K,TreeMap<K,V>> headMap;
 
-        // 1 - Find the tree where to add (k,v)
+        // 1 - Find the tree where to retrieve (k,v)
         headMap = forest.headMap(k);
         if (!headMap.isEmpty() && allocateTree(headMap.lastKey()).size() < threshold)
             key = headMap.lastKey();
         else
             key = k;
 
-        // 2 - add (k,v)
+        // 2 - retrieve (k,v)
         tree = allocateTree(key);
         ret = tree.put(k,v);
 

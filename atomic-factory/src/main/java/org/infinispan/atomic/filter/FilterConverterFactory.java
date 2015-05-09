@@ -18,6 +18,6 @@ public class FilterConverterFactory implements CacheEventFilterConverterFactory 
       return new CompositeCacheEventFilterConverter<>(
             new KeyBasedFilterConverter<>(new Object[] { params[0], params[1] }),
             new ContainerBasedCacheEventFilterConverter<>(new Object[] { params[0] }),
-            ObjectFilterConverter.get(params));
+            ObjectFilterConverter.retrieve(params));
    }
 }

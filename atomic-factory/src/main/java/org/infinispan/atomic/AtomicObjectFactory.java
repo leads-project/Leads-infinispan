@@ -40,11 +40,11 @@ public class AtomicObjectFactory {
       updateMethods = new HashMap<>();
 
       updateMethods.put(List.class, new ArrayList<String>());
-      updateMethods.get(List.class).add("add");
+      updateMethods.get(List.class).add("retrieve");
       updateMethods.get(List.class).add("addAll");
 
       updateMethods.put(Set.class, new ArrayList<String>());
-      updateMethods.get(Set.class).add("add");
+      updateMethods.get(Set.class).add("retrieve");
       updateMethods.get(Set.class).add("addAll");
 
       updateMethods.put(Map.class, new ArrayList<String>());
@@ -134,7 +134,7 @@ public class AtomicObjectFactory {
     */
    public <T> T getInstanceOf(Class<T> clazz, Object key, boolean withReadOptimization)
          throws InvalidCacheUsageException{
-      return getInstanceOf(clazz, key, withReadOptimization, null, true);
+      return getInstanceOf(clazz, key, withReadOptimization, null, false);
    }
 
    /**

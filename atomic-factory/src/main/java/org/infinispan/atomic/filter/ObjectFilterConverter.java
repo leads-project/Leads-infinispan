@@ -9,13 +9,12 @@ import org.infinispan.notifications.cachelistener.filter.EventType;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.io.*;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 
 import static org.infinispan.atomic.object.Utils.marshall;
 import static org.infinispan.atomic.object.Utils.unmarshall;
@@ -24,45 +23,47 @@ import static org.infinispan.atomic.object.Utils.unmarshall;
  * @author Pierre Sutra
  * @since 7.2
  */
-public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<K,Object,Object>
+public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Object,Object,Object>
       implements CacheAware<Object,Object>, Externalizable{
 
    // Class fields & methods
 
    private static Log log = LogFactory.getLog(ObjectFilterConverter.class);
-   private static ConcurrentHashMap<Object,ObjectFilterConverter> objectFilterConverterMap = new ConcurrentHashMap<>();
-   public static ObjectFilterConverter get(Object[] params){
-      
+   private static Map<Object,ObjectFilterConverter> objectFilterConverterMap = new HashMap<>();
+   public static synchronized ObjectFilterConverter retrieve(Object[] params){
+      UUID containerID = (UUID) params[0];
       Object key = params[1];
-      
+      Class clazz = (Class) params[2];
+      Object[] initArgs = (params.length >= 4 ? Arrays.copyOfRange(params, 3, params.length - 1) : null);
       if (!objectFilterConverterMap.containsKey(key)) {
-      
-         ObjectFilterConverter objectFilterConverter =
-               new ObjectFilterConverter<>( // params[0] = containerID 
-                     params[1],
-                     (Class) params[2],
-                     params.length >= 4 ? Arrays.copyOfRange(params, 3, params.length - 1) : null);
-      
-         objectFilterConverterMap.putIfAbsent(key, objectFilterConverter);
+         objectFilterConverterMap.put(key,new ObjectFilterConverter(key,clazz,initArgs));
       }
-      
+      return objectFilterConverterMap.get(key);
+   }
+   public static synchronized ObjectFilterConverter retrieve(ObjectFilterConverter objectFilterConverter) {
+      Object key = objectFilterConverter.key;
+      if (!objectFilterConverterMap.containsKey(key)) {
+         objectFilterConverterMap.put(key, objectFilterConverter);
+      }
       return objectFilterConverterMap.get(key);
    }
 
    // Object fields
 
    private Cache<Object,Object> cache;
+   
    private Object key;
-   private Object object;
    private Class clazz;
-   private CallClose pendingCloseCall;
    private Object[] initArgs;
+   
+   private Object object;
+   private CallClose pendingCloseCall;
    private Set<UUID> openedContainersID;
 
    public ObjectFilterConverter(){}
 
    private ObjectFilterConverter(
-         final K key,
+         final Object key,
          final Class clazz,
          final Object... initArgs){
       this.key = key;
@@ -91,19 +92,20 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
          if (call instanceof CallInvoke) {
 
             if (log.isDebugEnabled()) log.debug(this + "retrieved CallInvoke ");
+            
             Object responseValue = handleInvocation((CallInvoke) call);
             future.set(responseValue);
 
          } else if (call instanceof CallPersist) {
 
             if (log.isDebugEnabled()) log.debug(this + "retrieved CallPersist ");
+            
             assert (pendingCloseCall!=null);
             future = new CallFuture(pendingCloseCall.getCallID());
             future.set(null);
             pendingCloseCall = null;
 
-
-         } else if (call instanceof CallOpen ) {
+         } else if (call instanceof CallOpen) {
 
             openedContainersID.add(call.getCallerID());
 
@@ -214,7 +216,7 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
    }
    
    public Object readResolve(){
-      objectFilterConverterMap.putIfAbsent(key,this);
-      return objectFilterConverterMap.get(key);
+      return ObjectFilterConverter.retrieve(this); 
    }
+   
 }
