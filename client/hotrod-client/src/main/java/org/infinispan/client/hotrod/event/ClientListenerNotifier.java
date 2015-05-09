@@ -16,19 +16,13 @@ import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.commons.util.CollectionFactory;
 import org.infinispan.commons.util.Util;
 
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.SocketAddress;
 import java.net.SocketTimeoutException;
 import java.nio.channels.CancelledKeyException;
-import java.nio.channels.ClosedChannelException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -240,7 +234,7 @@ public class ClientListenerNotifier {
                clientEvent = null;
             } catch (TransportException e) {
                Throwable cause = e.getCause();
-               if (cause instanceof ClosedChannelException) {
+               if (cause instanceof IOException) {
                   // Channel closed, ignore and exit
                   log.debug("Channel closed, exiting event reader thread");
                   stopped = true;

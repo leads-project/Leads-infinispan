@@ -1,31 +1,21 @@
 package org.infinispan.client.hotrod.impl.transport.tcp;
 
-import static org.infinispan.commons.io.UnsignedNumeric.readUnsignedInt;
-import static org.infinispan.commons.io.UnsignedNumeric.readUnsignedLong;
-import static org.infinispan.commons.io.UnsignedNumeric.writeUnsignedInt;
-import static org.infinispan.commons.io.UnsignedNumeric.writeUnsignedLong;
-
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.SocketException;
-import java.nio.channels.SocketChannel;
-import java.util.concurrent.atomic.AtomicLong;
-
-import javax.net.ssl.SSLContext;
-import javax.security.sasl.SaslClient;
-
 import org.infinispan.client.hotrod.exceptions.TransportException;
 import org.infinispan.client.hotrod.impl.transport.AbstractTransport;
 import org.infinispan.client.hotrod.impl.transport.TransportFactory;
 import org.infinispan.client.hotrod.logging.Log;
 import org.infinispan.client.hotrod.logging.LogFactory;
 import org.infinispan.commons.util.Util;
+
+import javax.net.ssl.SSLContext;
+import javax.security.sasl.SaslClient;
+import java.io.*;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.nio.channels.SocketChannel;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.infinispan.commons.io.UnsignedNumeric.*;
 
 /**
  * Transport implementation based on TCP.
@@ -68,6 +58,7 @@ public class TcpTransport extends AbstractTransport {
          socket.setTcpNoDelay(transportFactory.isTcpNoDelay());
          socket.setKeepAlive(transportFactory.isTcpKeepAlive());
          socket.setSoTimeout(transportFactory.getSoTimeout());
+         socket.setSoLinger(true,0);
          socketInputStream = new BufferedInputStream(socket.getInputStream(), socket.getReceiveBufferSize());
          // ensure we don't send a packet for every output byte
          socketOutputStream = new BufferedOutputStream(socket.getOutputStream(), socket.getSendBufferSize());
@@ -192,6 +183,8 @@ public class TcpTransport extends AbstractTransport {
    @Override
    public void release() {
       try {
+         socketInputStream.close();
+         socketOutputStream.close();
          socket.close();
       } catch (IOException e) {
          invalid = true;
