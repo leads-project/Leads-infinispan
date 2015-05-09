@@ -14,10 +14,8 @@ public class FilterConverterFactory implements CacheEventFilterConverterFactory 
 
    @Override 
    public CacheEventFilterConverter getFilterConverter(Object[] params) {
-      
       return new CompositeCacheEventFilterConverter<>(
-            new KeyBasedFilterConverter<>(new Object[] { params[0], params[1] }),
-            new ContainerBasedCacheEventFilterConverter<>(new Object[] { params[0] }),
-            ObjectFilterConverter.retrieve(params));
+            new ListenerBasedCacheEventFilterConverter(params),
+            ObjectFilterConverter.getInstance());
    }
 }

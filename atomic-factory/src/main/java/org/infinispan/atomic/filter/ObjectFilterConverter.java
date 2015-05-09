@@ -13,7 +13,6 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 import static org.infinispan.atomic.object.Utils.marshall;
@@ -27,49 +26,24 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
       implements CacheAware<Object,Object>, Externalizable{
 
    // Class fields & methods
-
    private static Log log = LogFactory.getLog(ObjectFilterConverter.class);
-   private static Map<Object,ObjectFilterConverter> objectFilterConverterMap = new HashMap<>();
-   public static synchronized ObjectFilterConverter retrieve(Object[] params){
-      UUID containerID = (UUID) params[0];
-      Object key = params[1];
-      Class clazz = (Class) params[2];
-      Object[] initArgs = (params.length >= 4 ? Arrays.copyOfRange(params, 3, params.length - 1) : null);
-      if (!objectFilterConverterMap.containsKey(key)) {
-         objectFilterConverterMap.put(key,new ObjectFilterConverter(key,clazz,initArgs));
-      }
-      return objectFilterConverterMap.get(key);
+   private static ObjectFilterConverter instance;
+   public static synchronized ObjectFilterConverter getInstance() {
+      if (instance == null)
+         instance = new ObjectFilterConverter();
+      return instance;
    }
-   public static synchronized ObjectFilterConverter retrieve(ObjectFilterConverter objectFilterConverter) {
-      Object key = objectFilterConverter.key;
-      if (!objectFilterConverterMap.containsKey(key)) {
-         objectFilterConverterMap.put(key, objectFilterConverter);
-      }
-      return objectFilterConverterMap.get(key);
-   }
-
+   
    // Object fields
+   private Cache<Object,Object> cache;   
+   private Map<Object,Object> objects;
+   private Map<Object,CallClose> pendingCloseCalls;
+   private int openCallsCounter;
 
-   private Cache<Object,Object> cache;
-   
-   private Object key;
-   private Class clazz;
-   private Object[] initArgs;
-   
-   private Object object;
-   private CallClose pendingCloseCall;
-   private Set<UUID> openedContainersID;
-
-   public ObjectFilterConverter(){}
-
-   private ObjectFilterConverter(
-         final Object key,
-         final Class clazz,
-         final Object... initArgs){
-      this.key = key;
-      this.clazz = clazz;
-      this.initArgs = initArgs;
-      this.openedContainersID = new HashSet<>();
+   public ObjectFilterConverter(){
+      this.openCallsCounter = 0;
+      this.objects = new HashMap<>();
+      this.pendingCloseCalls = new HashMap<>();
    }
 
    @Override
@@ -90,53 +64,56 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
          CallFuture future = new CallFuture(call.getCallID());
 
          if (call instanceof CallInvoke) {
-
-            if (log.isDebugEnabled()) log.debug(this + "retrieved CallInvoke ");
             
-            Object responseValue = handleInvocation((CallInvoke) call);
+            CallInvoke invocation = (CallInvoke) call;
+            Object responseValue = Utils.callObject(objects.get(key), invocation.method, invocation.arguments);
             future.set(responseValue);
+            if (log.isDebugEnabled()) 
+               log.debug(this+"- Called " + invocation+" (="+(responseValue==null ? "null" : responseValue.toString())+")");
 
          } else if (call instanceof CallPersist) {
 
-            if (log.isDebugEnabled()) log.debug(this + "retrieved CallPersist ");
+            if (log.isDebugEnabled()) log.debug(this + "- Retrieved CallPersist ["+key+"]");
             
-            assert (pendingCloseCall!=null);
-            future = new CallFuture(pendingCloseCall.getCallID());
+            assert (pendingCloseCalls.get(key)!=null);
+            future = new CallFuture(pendingCloseCalls.get(key).getCallID());
             future.set(null);
-            pendingCloseCall = null;
+            pendingCloseCalls.remove(key);
+            if (openCallsCounter==0)
+               objects.remove(key);
 
          } else if (call instanceof CallOpen) {
 
-            openedContainersID.add(call.getCallerID());
+            openCallsCounter++;
+            CallOpen callOpen = (CallOpen) call;
 
-            if (object==null) {
+            if (objects.get(key)==null) {
 
                if (oldValue == null) {
 
-                  if (log.isDebugEnabled()) log.debug(this + "Creating new object");
-                  object = Utils.initObject(clazz, initArgs);
+                  if (log.isDebugEnabled()) log.debug(this + "- Creating new object ["+key+"]");
+                  objects.put(key, Utils.initObject(callOpen.getClazz(), callOpen.getInitArgs()));
 
                } else {
 
                   if (oldValue instanceof CallPersist) {
 
                      if (log.isDebugEnabled())
-                        log.debug(this + "Retrieving object from persistent state.");
-                     object = unmarshall(((CallPersist) oldValue).getBytes());
-                     assert object.getClass().equals(clazz);
+                        log.debug(this + "- Retrieving object from persistent state ["+key+"]");
+                     objects.put(key,unmarshall(((CallPersist) oldValue).getBytes()));
 
                   } else {
 
-                     throw new IllegalStateException("Cannot rebuild object.");
+                     throw new IllegalStateException("Cannot rebuild object ["+key+"]");
 
                   }
 
                }
                
-            } else if (((CallOpen)call).getForceNew()) {
+            } else if (callOpen.getForceNew()) {
 
-               if (log.isDebugEnabled()) log.debug(this + "Creating new object (forced)");
-               object = Utils.initObject(clazz, initArgs);
+               if (log.isDebugEnabled()) log.debug(this + "- Forcing new object ["+key+"]");
+               objects.put(key,Utils.initObject(callOpen.getClazz(), callOpen.getInitArgs()));
 
             }
 
@@ -144,16 +121,16 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
 
          } else if (call instanceof CallClose) {
 
-            openedContainersID.remove(call.getCallerID());
+            openCallsCounter--;
 
-            if (openedContainersID.size()==0 && pendingCloseCall==null) {
+            if (openCallsCounter==0 && pendingCloseCalls.get(key)==null) {
 
-               assert (object!=null);
-               if (log.isDebugEnabled()) log.debug(this + "Persisting object");
-               pendingCloseCall = (CallClose)call;
+               assert (objects.get(key)!=null);
+               if (log.isDebugEnabled()) log.debug(this + "- Persisting object ["+key+"]");
+               pendingCloseCalls.put(key,(CallClose)call);
                cache.putAsync(
                      key,
-                     new CallPersist(call.getCallerID(), marshall(object)));
+                     new CallPersist(call.getListenerID(), marshall(objects.get(key))));
 
             } else {
 
@@ -163,7 +140,7 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
 
          }
 
-         if (log.isDebugEnabled()) log.debug(this + "Future " + future.getCallID() + " -> "+future.isDone());
+         if (log.isDebugEnabled()) log.debug(this + "- Future (" + future.getCallID() +", "+key+") -> "+future.isDone());
 
          if (future.isDone())
             return future;
@@ -178,45 +155,21 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
 
    @Override
    public String toString(){
-      return "ObjectFilterConverter["+ key.toString()+"]";
-   }
-
-   /**
-    *
-    * @param invocation
-    * @return true if the operation is local
-    * @throws InvocationTargetException
-    * @throws IllegalAccessException
-    */
-   private Object handleInvocation(CallInvoke invocation)
-         throws InvocationTargetException, IllegalAccessException {
-      Object ret = Utils.callObject(object, invocation.method, invocation.arguments);
-      if (log.isDebugEnabled()) log.debug(this+"Calling " + invocation+" (="+(ret==null ? "null" : ret.toString())+")");
-      return  ret;
+      return "ObjectFilterConverter";
    }
 
    @Override 
    public synchronized void writeExternal(ObjectOutput objectOutput) throws IOException {
-      objectOutput.writeObject(key);
-      objectOutput.writeObject(object);
-      objectOutput.writeObject(clazz);
-      objectOutput.writeObject(pendingCloseCall);
-      objectOutput.writeObject(initArgs);
-      objectOutput.writeObject(openedContainersID);
+      // nothing to do
    }
 
    @Override 
    public synchronized void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-      key = objectInput.readObject();
-      object = objectInput.readObject();
-      clazz = (Class) objectInput.readObject();
-      pendingCloseCall = (CallClose) objectInput.readObject();
-      initArgs = (Object[]) objectInput.readObject();
-      openedContainersID = (Set<UUID>) objectInput.readObject();
+      // nothing to do
    }
    
    public Object readResolve(){
-      return ObjectFilterConverter.retrieve(this); 
+      return getInstance(); 
    }
    
 }

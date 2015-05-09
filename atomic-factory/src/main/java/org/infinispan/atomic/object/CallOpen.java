@@ -13,12 +13,17 @@ import java.util.UUID;
 public class CallOpen extends Call{
 
    private boolean forceNew;
+   private Class clazz;
+   private Object[] initArgs;
    
    @Deprecated
    public CallOpen(){}
 
-   public CallOpen(UUID callerID, boolean forceNew) {
+   public CallOpen(UUID callerID, boolean forceNew, Class clazz, Object[] initargs) {
       super(callerID);
+      this.forceNew = forceNew;
+      this.clazz = clazz;
+      this.initArgs = initargs;
    }
 
    @Override
@@ -29,19 +34,29 @@ public class CallOpen extends Call{
    public boolean getForceNew() {
       return forceNew;
    }
+   
+   public Class getClazz(){
+      return clazz;
+   }
+   
+   public Object[] getInitArgs(){
+      return initArgs;
+   }
 
    @Override
    public void writeExternal(ObjectOutput objectOutput) throws IOException {
       super.writeExternal(objectOutput);
       objectOutput.writeBoolean(forceNew);
+      objectOutput.writeObject(clazz);
+      objectOutput.writeObject(initArgs);
    }
 
    @Override
    public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
       super.readExternal(objectInput);
       forceNew = objectInput.readBoolean();
+      clazz = (Class) objectInput.readObject();
+      initArgs = (Object[]) objectInput.readObject();
    }
-
-
 
 }

@@ -5,7 +5,6 @@ import org.infinispan.atomic.container.BaseContainer;
 import org.infinispan.atomic.filter.FilterConverterFactory;
 import org.infinispan.atomic.object.CallFuture;
 import org.infinispan.commons.api.BasicCache;
-import org.infinispan.notifications.Listener;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
 import org.infinispan.notifications.cachelistener.event.CacheEntryEvent;
@@ -13,15 +12,34 @@ import org.infinispan.notifications.cachelistener.event.CacheEntryEvent;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 /**
  * @author Pierre Sutra
  */
-@Listener(sync = true, clustered = true)
 public class LocalContainer extends BaseContainer {
 
+   private static Map<BasicCache,Listener> listeners = new ConcurrentHashMap<>();
+   private static synchronized UUID installListener(BasicCache cache){
+      if (!listeners.containsKey(cache)) {
+         Listener listener = new Listener();
+         FilterConverterFactory factory = new FilterConverterFactory();
+         ((AdvancedCache) cache).addListener(
+               listener,
+               factory.getFilterConverter(new Object[] { listener.getId() }),
+               null);
+         log.info("Local listener "+listener.getId()+" installed");
+         listeners.put(cache, listener);
+      }
+      return listeners.get(cache).getId();
+   }
+   
+   private UUID listenerID;
+      
    public LocalContainer(BasicCache c, Class cl, Object k,
          boolean readOptimization, boolean forceNew, List<String> methods,
          Object... initArgs)
@@ -29,33 +47,37 @@ public class LocalContainer extends BaseContainer {
          InterruptedException,
          ExecutionException, NoSuchMethodException, InvocationTargetException, TimeoutException {
       super(c, cl, k, readOptimization, forceNew, methods, initArgs);
-   }
-
-   @Deprecated
-   @CacheEntryModified
-   @CacheEntryCreated
-   public void onCacheModification(CacheEntryEvent event){
-      log.trace(this + "Event " + event.getType()+" received");
-      CallFuture ret = (CallFuture) event.getValue();
-      handleFuture(ret);
+      listenerID = installListener(cache);
    }
 
    @Override 
-   protected void removeListener() {
-      log.debug(this + "Removing listener");
-      ((AdvancedCache)cache).removeListener(this);
-      log.debug(this + "Listener removed");
+   public UUID listenerID() {
+      return listenerID;
    }
 
-   @Override 
-   protected void installListener() {
-      log.debug(this + "Installing listener ");
-      Object[] params = new Object[] { listenerID, key, clazz, initArgs };
-      FilterConverterFactory factory = new FilterConverterFactory();
-      ((AdvancedCache) cache).addListener(
-            this,
-            factory.getFilterConverter(params),
-            null);
-      log.debug(this + "Listener installed");
+   @org.infinispan.notifications.Listener(sync = true, clustered = true)
+   private static class Listener{
+      
+      private UUID id;
+      
+      public Listener(){
+         id = UUID.randomUUID();
+      }
+      
+      public UUID getId(){
+         return id;
+      }
+      
+      @Deprecated
+      @CacheEntryModified
+      @CacheEntryCreated
+      public void onCacheModification(CacheEntryEvent event){
+         log.trace(this + "Event " + event.getType()+" received");
+         CallFuture ret = (CallFuture) event.getValue();
+         handleFuture(ret);
+      }
+      
+      
    }
+   
 }

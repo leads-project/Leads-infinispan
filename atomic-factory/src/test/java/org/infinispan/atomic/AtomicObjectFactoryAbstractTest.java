@@ -26,11 +26,11 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
 
    protected static Log log = LogFactory.getLog(AtomicObjectFactoryAbstractTest.class);
 
-   protected static int REPLICATION_FACTOR=1;
+   protected static int REPLICATION_FACTOR=2;
    protected static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
    protected static boolean USE_TRANSACTIONS = false;
 
-   protected static int NMANAGERS=2;
+   protected static int NMANAGERS=4;
    protected static int NCALLS=1000;
 
    @Test
@@ -102,7 +102,14 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
       factory1.disposeInstanceOf(HashSet.class,"persist2",true);
       set2 = factory2.getInstanceOf(HashSet.class, "persist2", false, null, false);
       assert set2.contains("smthing");
-      
+
+      // 3 - Re-creation
+      set1 = factory1.getInstanceOf(HashSet.class, "persist3");
+      set1.add("smthing");
+      factory1.disposeInstanceOf(HashSet.class,"persist3",true);
+      set2 = factory2.getInstanceOf(HashSet.class, "persist3", false, null, true);
+      assert !set2.contains("smthing");
+
    }
    
    @Test
@@ -230,8 +237,8 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
             // if successful, persist the object
             if(r){
                ret ++;
-               factory.disposeInstanceOf(HashSet.class, name, true);
-               set = null;
+//               factory.disposeInstanceOf(HashSet.class, name, true);
+//               set = null;
             }
          }
          

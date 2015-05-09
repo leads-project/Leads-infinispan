@@ -13,22 +13,22 @@ import java.util.UUID;
 public class Call implements Externalizable {
 
    private UUID callID;
-   private UUID callerID;
+   private UUID listenerID;
 
    @Deprecated
    public Call(){}
 
-   public Call(UUID callerID){
+   public Call(UUID listenerID){
       this.callID = UUID.randomUUID();
-      this.callerID = callerID;
+      this.listenerID = listenerID;
    }
 
    public UUID getCallID(){
       return callID;
    }
 
-   public UUID getCallerID(){
-      return callerID;
+   public UUID getListenerID(){
+      return listenerID;
    }
 
    @Override
@@ -49,13 +49,13 @@ public class Call implements Externalizable {
    @Override
    public void writeExternal(ObjectOutput objectOutput) throws IOException {
       objectOutput.writeObject(callID);
-      objectOutput.writeObject(callerID);
+      objectOutput.writeObject(listenerID);
    }
 
    @Override
    public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
       callID = (UUID) objectInput.readObject();
-      callerID = (UUID) objectInput.readObject();
+      listenerID = (UUID) objectInput.readObject();
    }
 
 

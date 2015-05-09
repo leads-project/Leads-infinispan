@@ -1,45 +1,26 @@
 package org.infinispan.atomic.container;
 
-import javassist.util.proxy.MethodFilter;
 import javassist.util.proxy.MethodHandler;
 import javassist.util.proxy.ProxyFactory;
 import javassist.util.proxy.ProxyObject;
-import org.infinispan.atomic.object.*;
+import org.infinispan.atomic.object.CallClose;
+import org.infinispan.atomic.object.CallInvoke;
+import org.infinispan.atomic.object.CallOpen;
 import org.infinispan.commons.api.BasicCache;
-import org.infinispan.util.concurrent.TimeoutException;
-import org.infinispan.util.logging.Log;
-import org.infinispan.util.logging.LogFactory;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Pierre Sutra
- * @since 7.2
- */
+  */
 public abstract class BaseContainer extends AbstractContainer {
-
-   protected static Log log = LogFactory.getLog(BaseContainer.class);
-   public static final int TTIMEOUT_TIME = 1000;
-   protected static final MethodFilter methodFilter = new MethodFilter() {
-      @Override
-      public boolean isHandled(Method m) {
-         // ignore finalize() and externalization related methods.
-         return !m.getName().equals("finalize")
-               && !m.getName().equals("readExternal")
-               && !m.getName().equals("writeExternal");
-      }
-   };
-
-   private Map<UUID, CallFuture> registeredCalls;
+   
+   // object's fields
    private AtomicInteger pendingCalls;
    private boolean isOpen;
 
@@ -49,9 +30,7 @@ public abstract class BaseContainer extends AbstractContainer {
          InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException,
          java.util.concurrent.TimeoutException {
 
-      super(c, cl, k, readOptimization, forceNew, methods, initArgs);
-      
-      registeredCalls = new ConcurrentHashMap<>();
+      super(c, cl, k, readOptimization, forceNew, methods, initArgs);      
       pendingCalls = new AtomicInteger();
       isOpen = false;
 
@@ -64,7 +43,7 @@ public abstract class BaseContainer extends AbstractContainer {
             
             Object ret = execute(
                   new CallInvoke(
-                        listenerID,
+                        listenerID(),
                         m.getName(),
                         args)
             );
@@ -77,7 +56,7 @@ public abstract class BaseContainer extends AbstractContainer {
          
          @Override
          public String toString(){
-            return "MethodHandler ["+listenerID.toString()+"]";
+            return "MethodHandler ["+key+"]";
          }
          
       };
@@ -101,9 +80,8 @@ public abstract class BaseContainer extends AbstractContainer {
       if (!isOpen) {
    
          log.debug(this + "Opening.");
-   
-         installListener();
-         execute(new CallOpen(listenerID, forceNew));
+         
+         execute(new CallOpen(listenerID(), forceNew, clazz, initArgs));
          isOpen = true;
    
          log.debug(this+  "Opened.");
@@ -122,9 +100,8 @@ public abstract class BaseContainer extends AbstractContainer {
       if (isOpen) {
 
          isOpen = false;
-         execute(new CallClose(listenerID));
+         execute(new CallClose(listenerID()));
          forceNew = false;
-         removeListener();
 
       }
          
@@ -134,50 +111,7 @@ public abstract class BaseContainer extends AbstractContainer {
 
    @Override
    public String toString(){
-      return "Container["+listenerID.toString()+"]";
+      return "Container["+listenerID()+":"+key+"]";
    }
-
-   protected abstract void removeListener();
-
-   protected abstract void installListener();
-   
-   protected Object execute(Call call)
-         throws InterruptedException, ExecutionException, java.util.concurrent.TimeoutException {
-      
-      log.debug(this + "Executing " + call);
-      
-      CallFuture future = new CallFuture(call.getCallID());
-      registeredCalls.put(call.getCallID(), future);
-
-      cache.put(key, call);
-      
-      Object ret = future.get(TTIMEOUT_TIME,TimeUnit.MILLISECONDS);
-      registeredCalls.remove(call.getCallID());
-      if(!future.isDone()){
-         throw new TimeoutException("Unable to execute "+call);
-      }
-      
-      log.debug(this + "Returning " + ret);
-      return ret;
-      
-   }
-
-   protected void handleFuture(CallFuture future){
-      try {
-         assert (future.isDone());
-         if (!registeredCalls.containsKey(future.getCallID())) {
-            log.debug(this + "Future " + future.getCallID() + " trashed");
-            return; // duplicate
-         }
-         CallFuture clientFuture = registeredCalls.get(future.getCallID());
-         assert (clientFuture!=null);
-         registeredCalls.remove(future.getCallID());
-         clientFuture.set(future.get());
-      } catch (Exception e) {
-         e.printStackTrace();
-      }
-
-   }
-
 
 }

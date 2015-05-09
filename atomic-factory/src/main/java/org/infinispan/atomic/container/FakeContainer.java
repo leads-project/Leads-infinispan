@@ -6,6 +6,7 @@ import org.infinispan.commons.api.BasicCache;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -42,6 +43,11 @@ public class FakeContainer extends AbstractContainer {
    public void close()
          throws InterruptedException, ExecutionException, TimeoutException, IOException {
       // nothing to do
+   }
+
+   @Override 
+   public UUID listenerID() {
+      return UUID.randomUUID();
    }
 
 }

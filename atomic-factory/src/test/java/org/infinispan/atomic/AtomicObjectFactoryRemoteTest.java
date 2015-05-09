@@ -70,7 +70,7 @@ public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTe
          blockUntilCacheStatusAchieved(
                manager(j).getCache(), ComponentStatus.RUNNING, 10000);
       }
-
+      
    }
 
    private void startHotRodServer(GlobalConfigurationBuilder gbuilder, ConfigurationBuilder builder, int nodeIndex) {
@@ -78,6 +78,7 @@ public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTe
       EmbeddedCacheManager cm = addClusterEnabledCacheManager(gbuilder, builder, transportFlags);
       HotRodServer server = HotRodTestingUtil.startHotRodServer(cm,11222+nodeIndex);
       server.addCacheEventFilterConverterFactory(FilterConverterFactory.FACTORY_NAME, new FilterConverterFactory());
+      server.startDefaultCache();
       servers.add(server);
    }
 

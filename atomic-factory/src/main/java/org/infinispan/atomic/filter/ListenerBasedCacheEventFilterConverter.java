@@ -13,20 +13,20 @@ import java.util.UUID;
 /**
  * @author Pierre Sutra
  */
-public class ContainerBasedCacheEventFilterConverter<K,V> extends AbstractCacheEventFilterConverter<K,V,Object>
+public class ListenerBasedCacheEventFilterConverter<K,V> extends AbstractCacheEventFilterConverter<K,V,Object>
       implements Serializable{
 
-   private static Log log = LogFactory.getLog(ContainerBasedCacheEventFilterConverter.class);
-   private UUID containerID;
+   private static Log log = LogFactory.getLog(ListenerBasedCacheEventFilterConverter.class);
+   private UUID listenerID;
    
-   public ContainerBasedCacheEventFilterConverter(Object[] parameters){
+   public ListenerBasedCacheEventFilterConverter(Object[] parameters){
       assert (parameters.length==1);
-      containerID = (UUID) parameters[0];
+      listenerID = (UUID) parameters[0];
    }
 
    @Override
    public String toString(){
-      return "NullValueFilterConverter["+ containerID +"]";
+      return "ListenerBasedCacheEventFilterConverter["+ listenerID +"]";
    }
 
    @Override 
@@ -40,8 +40,8 @@ public class ContainerBasedCacheEventFilterConverter<K,V> extends AbstractCacheE
       
       Call call = (Call) newValue;
       
-      if (!call.getCallerID().equals(containerID)) {
-         if (log.isDebugEnabled()) log.debug(this + "Wrong container");
+      if (!call.getListenerID().equals(listenerID)) {
+         if (log.isDebugEnabled()) log.trace(this + "Wrong listener");
          return null;
       }
 

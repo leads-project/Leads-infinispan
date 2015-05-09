@@ -9,12 +9,13 @@ import org.infinispan.client.hotrod.annotation.ClientListener;
 import org.infinispan.client.hotrod.event.ClientCacheEntryCustomEvent;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.commons.api.BasicCache;
-import org.infinispan.util.logging.Log;
-import org.infinispan.util.logging.LogFactory;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -22,13 +23,21 @@ import java.util.concurrent.TimeoutException;
  * @author Pierre Sutra
  */
 
-@ClientListener(
-      filterFactoryName = FilterConverterFactory.FACTORY_NAME,
-      converterFactoryName= FilterConverterFactory.FACTORY_NAME)
 public class RemoteContainer extends BaseContainer {
 
-   private static Log log = LogFactory.getLog(RemoteContainer.class);
+   private static Map<BasicCache,Listener> listeners = new ConcurrentHashMap<>();
+   private static synchronized UUID installListener(BasicCache cache) {
+      if (!listeners.containsKey(cache)) {
+         Listener listener = new Listener();
+         ((RemoteCacheImpl) cache).addClientListener(listener, new Object[] { listener.getId() }, null);
+         listeners.put(cache, listener);
+         log.info("Remote listener "+listener.getId()+" installed");
+      }
+      return listeners.get(cache).getId();
+   }
 
+   private UUID listenerID;
+   
    public RemoteContainer(BasicCache c, Class cl, Object k,
          boolean readOptimization, boolean forceNew, List<String> methods,
          Object... initArgs)
@@ -36,32 +45,45 @@ public class RemoteContainer extends BaseContainer {
          InterruptedException,
          ExecutionException, NoSuchMethodException, InvocationTargetException, TimeoutException {
       super(c, cl, k, readOptimization, forceNew, methods, initArgs);
+      listenerID = installListener(cache);
    }
 
-   @Deprecated
-   @ClientCacheEntryModified
-   @ClientCacheEntryCreated
-   public void onCacheModification(ClientCacheEntryCustomEvent event){
-      CallFuture future = (CallFuture) event.getEventData();
-      handleFuture(future);
-   }
 
    @Override
-   protected void removeListener(){
-      log.debug(this + "Removing listener");
-      ((RemoteCacheImpl) cache).removeClientListener(this);
-      log.debug(this + "Listener removed");
+   public synchronized void open()
+         throws InterruptedException, ExecutionException, TimeoutException {
+      installListener(cache);
+      super.open();
    }
 
-   @Override
-   protected void installListener(){
-      log.debug(this + "Installing listener ");
-      Object[] params = new Object[] { listenerID, key, clazz, initArgs };
-      ((RemoteCacheImpl)cache).addClientListener(
-            this,
-            params,
-            null);
-      log.debug(this + "Listener installed");
+   @Override public UUID listenerID() {
+      return listenerID;
+   }
+
+   @ClientListener(
+         filterFactoryName = FilterConverterFactory.FACTORY_NAME,
+         converterFactoryName= FilterConverterFactory.FACTORY_NAME)
+   private static class Listener{
+
+      private UUID id;
+
+      public Listener(){
+         id = UUID.randomUUID();
+      }
+
+      public UUID getId(){
+         return id;
+      }
+
+      @Deprecated
+      @ClientCacheEntryModified
+      @ClientCacheEntryCreated
+      public void onCacheModification(ClientCacheEntryCustomEvent event){
+         CallFuture future = (CallFuture) event.getEventData();
+         handleFuture(future);
+      }
+      
+      
    }
 
 }
