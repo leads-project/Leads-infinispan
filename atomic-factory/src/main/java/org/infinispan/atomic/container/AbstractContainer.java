@@ -27,7 +27,7 @@ import java.util.concurrent.TimeoutException;
 public abstract class AbstractContainer {
 
    // class fields
-   public static final int TTIMEOUT_TIME = 1000;
+   public static final int TTIMEOUT_TIME = 5000;
    protected static final Map<UUID, CallFuture> registeredCalls = new ConcurrentHashMap<>();
    protected static final Log log = LogFactory.getLog(BaseContainer.class);
    protected static final MethodFilter methodFilter = new MethodFilter() {
