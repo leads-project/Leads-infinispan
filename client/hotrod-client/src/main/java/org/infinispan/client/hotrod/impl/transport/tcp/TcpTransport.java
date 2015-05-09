@@ -58,7 +58,6 @@ public class TcpTransport extends AbstractTransport {
          socket.setTcpNoDelay(transportFactory.isTcpNoDelay());
          socket.setKeepAlive(transportFactory.isTcpKeepAlive());
          socket.setSoTimeout(transportFactory.getSoTimeout());
-         socket.setSoLinger(true,0);
          socketInputStream = new BufferedInputStream(socket.getInputStream(), socket.getReceiveBufferSize());
          // ensure we don't send a packet for every output byte
          socketOutputStream = new BufferedOutputStream(socket.getOutputStream(), socket.getSendBufferSize());
@@ -183,8 +182,6 @@ public class TcpTransport extends AbstractTransport {
    @Override
    public void release() {
       try {
-         socketInputStream.close();
-         socketOutputStream.close();
          socket.close();
       } catch (IOException e) {
          invalid = true;
