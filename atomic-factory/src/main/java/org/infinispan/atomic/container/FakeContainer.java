@@ -39,13 +39,9 @@ public class FakeContainer extends AbstractContainer {
    }
 
    @Override 
-   public void close(boolean keepPersistent)
+   public void close()
          throws InterruptedException, ExecutionException, TimeoutException, IOException {
       // nothing to do
    }
 
-   @Override 
-   public void dispose() {
-      // nothing to do
-   }
 }

@@ -31,7 +31,7 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
    protected static boolean USE_TRANSACTIONS = false;
 
    protected static int NMANAGERS=2;
-   protected static int NCALLS=100;
+   protected static int NCALLS=1000;
 
    @Test
    public void baseUsageTest() throws  Exception{
@@ -54,7 +54,7 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
       BasicCache<Object,Object> cache = cacheManager.getCache();
       AtomicObjectFactory factory = new AtomicObjectFactory(cache);
       
-      int f = 10; // multiplicative factor
+      int f = 1; // multiplicative factor
 
       Map map = factory.getInstanceOf(HashMap.class, "map");
 

@@ -9,59 +9,66 @@ import org.infinispan.notifications.cachelistener.filter.EventType;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
-import java.io.Serializable;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static org.infinispan.atomic.object.Utils.marshall;
+import static org.infinispan.atomic.object.Utils.unmarshall;
 
 /**
  * @author Pierre Sutra
  * @since 7.2
  */
 public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<K,Object,Object>
-      implements CacheAware<Object,Object>, Serializable{
+      implements CacheAware<Object,Object>, Externalizable{
 
-   // Class fields
+   // Class fields & methods
 
    private static Log log = LogFactory.getLog(ObjectFilterConverter.class);
+   private static ConcurrentHashMap<Object,ObjectFilterConverter> objectFilterConverterMap = new ConcurrentHashMap<>();
+   public static ObjectFilterConverter get(Object[] params){
+      
+      Object key = params[1];
+      
+      if (!objectFilterConverterMap.containsKey(key)) {
+      
+         ObjectFilterConverter objectFilterConverter =
+               new ObjectFilterConverter<>( // params[0] = containerID 
+                     params[1],
+                     (Class) params[2],
+                     params.length >= 4 ? Arrays.copyOfRange(params, 3, params.length - 1) : null);
+      
+         objectFilterConverterMap.putIfAbsent(key, objectFilterConverter);
+      }
+      
+      return objectFilterConverterMap.get(key);
+   }
 
    // Object fields
 
-   private transient Cache<Object,Object> cache;
-   
-   private K key;
+   private Cache<Object,Object> cache;
+   private Object key;
    private Object object;
    private Class clazz;
-   private UUID client;
-   private ArrayList<CallInvoke> pendingCalls;
-   private CallOpen pendingOpenCall;
+   private CallClose pendingCloseCall;
    private Object[] initArgs;
-   private boolean forceNew;
-   private Set<UUID> clients;
-   
-   public ObjectFilterConverter(Object[] params){
-      this(
-            (UUID) params[0],
-            (K) params[1],
-            (Class) params[2],
-            (boolean) params[3],
-            params.length >= 5 ?  
-                  Arrays.copyOfRange(params, 4, params.length-1) : null
-      );       
-   }
-   
-   public ObjectFilterConverter(
-         final UUID client,
+   private Set<UUID> openedContainersID;
+
+   public ObjectFilterConverter(){}
+
+   private ObjectFilterConverter(
          final K key,
          final Class clazz,
-         final boolean forceNew,
          final Object... initArgs){
       this.key = key;
       this.clazz = clazz;
-      this.client = client;
-      this.forceNew = forceNew;
       this.initArgs = initArgs;
-      this.pendingCalls = null;
-      this.clients = new HashSet<>();
+      this.openedContainersID = new HashSet<>();
    }
 
    @Override
@@ -70,154 +77,106 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
    }
 
    @Override
-   public Object filterAndConvert(Object key, Object oldValue, Metadata oldMetadata, Object newValue,
+   public synchronized Object filterAndConvert(Object key, Object oldValue, Metadata oldMetadata, Object newValue,
          Metadata newMetadata, EventType eventType) {
 
       assert (cache!=null);
-      
+
       try {
 
          Call call = (Call) newValue;
-         
-         CallFuture ret = new CallFuture(call.getCallID());
 
-         if (log.isDebugEnabled()) log.debug(this + "Call " + call + " received");
+         CallFuture future = new CallFuture(call.getCallID());
 
          if (call instanceof CallInvoke) {
 
-            if (object != null) {
-      
-               ret.set(handleInvocation((CallInvoke) call));
-
-            } else if (pendingCalls != null) {
-
-               if (log.isDebugEnabled()) log.debug(this + "Adding to pending calls");
-               pendingCalls.add((CallInvoke) call);
-
-            }
+            if (log.isDebugEnabled()) log.debug(this + "retrieved CallInvoke ");
+            Object responseValue = handleInvocation((CallInvoke) call);
+            future.set(responseValue);
 
          } else if (call instanceof CallPersist) {
 
-            if (log.isDebugEnabled()) log.debug(this + "Persistent state received");
+            if (log.isDebugEnabled()) log.debug(this + "retrieved CallPersist ");
+            assert (pendingCloseCall!=null);
+            future = new CallFuture(pendingCloseCall.getCallID());
+            future.set(null);
+            pendingCloseCall = null;
 
-            if (call.getCallerID().equals(client)){
-
-               ret = new CallFuture(((CallPersist) call).getInitialCallID());
-               ret.set(null);
-               
-            }else if (pendingOpenCall !=null 
-                  && ((CallPersist)call).getInitialCallID().equals(pendingOpenCall.getCallID())) {
-
-               if (object!=null) {
-                  System.out.println("");
-               }
-               
-               assert (object==null);
-               if (log.isDebugEnabled()) log.debug(this + "Updating state");
-               object = Utils.unmarshall(((CallPersist) call).getBytes());
-               assert (object != null);
-
-               if (log.isDebugEnabled()) log.debug(this + "Applying pending calls");
-               for (CallInvoke invocation : pendingCalls)
-                  handleInvocation(invocation);               
-               
-               pendingCalls = null;
-               pendingOpenCall = null;
-               
-               ret = new CallFuture(((CallPersist) call).getInitialCallID());
-               ret.set(null);
-
-            }
 
          } else if (call instanceof CallOpen ) {
-            
-            clients.add(call.getCallerID());
-            
-            if (call.getCallerID().equals(client)) {
 
-               assert (object == null);
-               assert (pendingOpenCall == null);
-               assert (pendingCalls == null);
+            openedContainersID.add(call.getCallerID());
 
-               if (forceNew || oldValue == null) {
+            if (object==null) {
+
+               if (oldValue == null) {
 
                   if (log.isDebugEnabled()) log.debug(this + "Creating new object");
                   object = Utils.initObject(clazz, initArgs);
-                  ret.set(null);
 
                } else {
 
-                  Object previousCall = oldValue;
+                  if (oldValue instanceof CallPersist) {
 
-                  if (previousCall instanceof CallPersist 
-                        && ((CallPersist)previousCall).getNclients() == 0) {
-
-                     if (log.isDebugEnabled()) log.debug(this + "Retrieving object from persistent state.");
-                     object = Utils.unmarshall(((CallPersist) previousCall).getBytes());
+                     if (log.isDebugEnabled())
+                        log.debug(this + "Retrieving object from persistent state.");
+                     object = unmarshall(((CallPersist) oldValue).getBytes());
                      assert object.getClass().equals(clazz);
-                     ret.set(null);
-                     
+
                   } else {
 
-                     if (log.isDebugEnabled()) log.debug(this + "Waiting for persistent state");
-                     pendingOpenCall = (CallOpen) call;
-                     pendingCalls = new ArrayList<>();
+                     throw new IllegalStateException("Cannot rebuild object.");
 
                   }
 
                }
+               
+            } else if (((CallOpen)call).getForceNew()) {
 
-            } else {
+               if (log.isDebugEnabled()) log.debug(this + "Creating new object (forced)");
+               object = Utils.initObject(clazz, initArgs);
 
-               if (object != null) {
-
-                  if (log.isDebugEnabled()) log.debug(this + "Sending persistent state");
-                  cache.putAsync(
-                        key,
-                        new CallPersist(client, call.getCallID(), clients.size(), Utils.marshall(object)));
-
-               }
             }
+
+            future.set(null);
 
          } else if (call instanceof CallClose) {
 
-            clients.remove(call.getCallerID());
-            
-            if (call.getCallerID().equals(client)) {
+            openedContainersID.remove(call.getCallerID());
 
-               if (object != null) {
+            if (openedContainersID.size()==0 && pendingCloseCall==null) {
 
-                  if (log.isDebugEnabled()) log.debug(this + "Persisting object");
-                  cache.putAsync(
-                        key,
-                        new CallPersist(client, call.getCallID(), clients.size(), Utils.marshall(object)));
+               assert (object!=null);
+               if (log.isDebugEnabled()) log.debug(this + "Persisting object");
+               pendingCloseCall = (CallClose)call;
+               cache.putAsync(
+                     key,
+                     new CallPersist(call.getCallerID(), marshall(object)));
 
-               } else {
+            } else {
 
-                  throw new IllegalStateException("Closing while having no state.");
-
-               }
+               future.set(null);
                
             }
 
          }
 
-         if (log.isDebugEnabled()) log.debug(this + "Future " + ret.getCallID() + " -> "+ret.isDone());
-         
-         if (ret.isDone())
-            return ret;
+         if (log.isDebugEnabled()) log.debug(this + "Future " + future.getCallID() + " -> "+future.isDone());
+
+         if (future.isDone())
+            return future;
 
       } catch (Exception e) {
          e.printStackTrace();
       }
 
       return null;
-      
+
    }
 
    @Override
    public String toString(){
-      return "ObjectFilterConverter["+ client.toString()+"]";
+      return "ObjectFilterConverter["+ key.toString()+"]";
    }
 
    /**
@@ -234,4 +193,28 @@ public class ObjectFilterConverter<K> extends AbstractCacheEventFilterConverter<
       return  ret;
    }
 
+   @Override 
+   public synchronized void writeExternal(ObjectOutput objectOutput) throws IOException {
+      objectOutput.writeObject(key);
+      objectOutput.writeObject(object);
+      objectOutput.writeObject(clazz);
+      objectOutput.writeObject(pendingCloseCall);
+      objectOutput.writeObject(initArgs);
+      objectOutput.writeObject(openedContainersID);
+   }
+
+   @Override 
+   public synchronized void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
+      key = objectInput.readObject();
+      object = objectInput.readObject();
+      clazz = (Class) objectInput.readObject();
+      pendingCloseCall = (CallClose) objectInput.readObject();
+      initArgs = (Object[]) objectInput.readObject();
+      openedContainersID = (Set<UUID>) objectInput.readObject();
+   }
+   
+   public Object readResolve(){
+      objectFilterConverterMap.putIfAbsent(key,this);
+      return objectFilterConverterMap.get(key);
+   }
 }

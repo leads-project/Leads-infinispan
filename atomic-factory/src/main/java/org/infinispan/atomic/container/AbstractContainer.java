@@ -52,8 +52,7 @@ public abstract class AbstractContainer {
    public abstract void open()
          throws InterruptedException, ExecutionException, TimeoutException, IOException;
 
-   public abstract void close(boolean keepPersistent)
+   public abstract void close()
          throws InterruptedException, ExecutionException, TimeoutException, IOException;
    
-   public abstract void dispose();
 }

@@ -4,74 +4,91 @@ import org.infinispan.atomic.filter.FilterConverterFactory;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
+import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.remoting.transport.Transport;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.server.hotrod.configuration.HotRodServerConfigurationBuilder;
-import org.infinispan.test.fwk.TestCacheManagerFactory;
-import org.infinispan.test.fwk.TransportFlags;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.infinispan.test.AbstractCacheTest.getDefaultClusteredCacheConfig;
-
 
 /**
  * @author Pierre Sutra
  */
-public class Server {
+public class Server implements Runnable {
 
-   protected static int REPLICATION_FACTOR = 1;
-   protected static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
-   protected static boolean USE_TRANSACTIONS = false;
-   private static String host ="localhost";
-   private static String proxyhost ="localhost";
-
+   private static final String defaultHost ="localhost";
+   
+   private int REPLICATION_FACTOR = 1;
+   private CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
+   private boolean USE_TRANSACTIONS = false;
+   private String host;
+   private String proxyhost;
+   
+   public Server (String host, String proxyhost) {
+      this.host = host;
+      this.proxyhost = proxyhost;
+   }
+   
    public static void main(String args[]) {
 
-      ConfigurationBuilder defaultBuilder = getDefaultClusteredCacheConfig(CACHE_MODE, USE_TRANSACTIONS);
+      String host = defaultHost;
+      String proxyhost = defaultHost;
       
       if (args.length>0)
          host = args[0];
 
       if (args.length>1)
          proxyhost = args[1];
-      else 
-         proxyhost = host;
       
-      defaultBuilder
-            .clustering().
-            cacheMode(CacheMode.DIST_SYNC)
-            .hash()
-            .numOwners(REPLICATION_FACTOR)
-            .compatibility().enable();
-
-      GlobalConfigurationBuilder gbuilder = GlobalConfigurationBuilder.defaultClusteredBuilder();
-      Transport transport = gbuilder.transport().getTransport();
-      gbuilder.transport().transport(transport);
-      startHotRodServer(gbuilder, defaultBuilder, 0);
-      System.out.println("LAUNCHED");
+      ExecutorService executor = Executors.newSingleThreadExecutor();
+      executor.execute(new Server(host, proxyhost));
       try {
-         Thread.sleep(10000000);
-      } catch (InterruptedException e) {
-         e.printStackTrace();  // TODO: Customise this generated block
+         executor.shutdown();
+      }catch (Exception e){
+         // ignore
       }
-
+      
    }
 
-   private static HotRodServer startHotRodServer(GlobalConfigurationBuilder gbuilder, ConfigurationBuilder builder, int nodeIndex) {
-      int port = 11222+nodeIndex;
-      TransportFlags transportFlags = new TransportFlags();
-      EmbeddedCacheManager cm = TestCacheManagerFactory.createClusteredCacheManager(gbuilder, builder, transportFlags);
+   @Override 
+   public void run() {
+
+      GlobalConfigurationBuilder gbuilder = GlobalConfigurationBuilder.defaultClusteredBuilder();
+      gbuilder.transport().clusterName("aof-cluster");
+      gbuilder.transport().nodeName("aof-server-"+host);
+
+      ConfigurationBuilder builder= getDefaultClusteredCacheConfig(CACHE_MODE, USE_TRANSACTIONS);
+      builder
+            .clustering()
+            .cacheMode(CacheMode.DIST_SYNC)
+            .hash()
+            .numOwners(REPLICATION_FACTOR)
+            .compatibility()
+            .enable();
+
+      EmbeddedCacheManager cm = new DefaultCacheManager(gbuilder.build(), builder.build(), true);
+      
       HotRodServerConfigurationBuilder hbuilder = new HotRodServerConfigurationBuilder();
       hbuilder.topologyStateTransfer(true);
       hbuilder.proxyHost(proxyhost);
       hbuilder.host(host);
-      hbuilder.port(port);
-      
+
       HotRodServer server = new HotRodServer();
       server.start(hbuilder.build(),cm);
       server.addCacheEventFilterConverterFactory(FilterConverterFactory.FACTORY_NAME, new FilterConverterFactory());
-      return server;
+      
+      System.out.println("LAUNCHED");
+      
+      try {
+         synchronized (this) {
+            this.wait();
+         }
+      } catch (InterruptedException e) {
+         // ignore. 
+      }
+      
    }
-
-
 }

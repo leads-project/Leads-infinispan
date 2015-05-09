@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public abstract class BaseContainer extends AbstractContainer {
 
    protected static Log log = LogFactory.getLog(BaseContainer.class);
-   public static final int TTIMEOUT_TIME = 5000;
+   public static final int TTIMEOUT_TIME = 1000;
    protected static final MethodFilter methodFilter = new MethodFilter() {
       @Override
       public boolean isHandled(Method m) {
@@ -42,8 +42,7 @@ public abstract class BaseContainer extends AbstractContainer {
    private Map<UUID, CallFuture> registeredCalls;
    private AtomicInteger pendingCalls;
    private boolean isOpen;
-   private boolean isDisposed;
-   
+
    public BaseContainer(final BasicCache c, final Class cl, final Object k, final boolean readOptimization,
          final boolean forceNew, final List<String> methods, final Object... initArgs)
          throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException,
@@ -55,7 +54,6 @@ public abstract class BaseContainer extends AbstractContainer {
       registeredCalls = new ConcurrentHashMap<>();
       pendingCalls = new AtomicInteger();
       isOpen = false;
-      isDisposed = false;
 
       // build the proxy
       MethodHandler handler = new MethodHandler() {
@@ -72,8 +70,6 @@ public abstract class BaseContainer extends AbstractContainer {
             );
             
             pendingCalls.decrementAndGet();
-            
-            if (isDisposed) close(true);
             
             return ret;
             
@@ -107,7 +103,7 @@ public abstract class BaseContainer extends AbstractContainer {
          log.debug(this + "Opening.");
    
          installListener();
-         execute(new CallOpen(listenerID));
+         execute(new CallOpen(listenerID, forceNew));
          isOpen = true;
    
          log.debug(this+  "Opened.");
@@ -116,7 +112,7 @@ public abstract class BaseContainer extends AbstractContainer {
    }
 
    @Override
-   public synchronized void close(boolean keepPersistent)
+   public synchronized void close()
          throws InterruptedException, ExecutionException, java.util.concurrent.TimeoutException {
 
       log.debug(this + "Closing.");
@@ -126,23 +122,14 @@ public abstract class BaseContainer extends AbstractContainer {
       if (isOpen) {
 
          isOpen = false;
-         isDisposed = true;
-         if (keepPersistent) {
-            execute(new CallClose(listenerID));
-            forceNew = false;
-         }
+         execute(new CallClose(listenerID));
+         forceNew = false;
          removeListener();
 
       }
          
       log.debug(this + "Closed.");
 
-   }
-   
-   @Override
-   public void dispose(){
-      isDisposed = true;
-      log.debug(this + "Disposed");
    }
 
    @Override

@@ -1,5 +1,8 @@
 package org.infinispan.atomic;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 import org.infinispan.Cache;
 import org.infinispan.InvalidCacheUsageException;
 import org.infinispan.atomic.container.AbstractContainer;
@@ -14,6 +17,7 @@ import org.infinispan.util.logging.LogFactory;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author Pierre Sutra
@@ -30,7 +34,7 @@ public class AtomicObjectFactory {
          factories.put(cache, new AtomicObjectFactory(cache));
       return factories.get(cache);
    }
-   protected static final int MAX_CONTAINERS=0;// 0 means no limit
+   protected static final int MAX_CONTAINERS=100;// 0 means no limit
    public static final Map<Class,List<String>> updateMethods;
    static{
       updateMethods = new HashMap<>();
@@ -51,7 +55,7 @@ public class AtomicObjectFactory {
    // Object fields
    
    private BasicCache cache;
-   private final Map<ContainerSignature,AbstractContainer> registeredContainers;
+   private final ConcurrentMap<ContainerSignature,AbstractContainer> registeredContainers;
    private int maxSize;
 
    /**
@@ -67,16 +71,19 @@ public class AtomicObjectFactory {
       cache = c;
       maxSize = m;
       assertCacheConfiguration();
-      registeredContainers= new LinkedHashMap<ContainerSignature,AbstractContainer>(){
-         @Override
-         protected boolean removeEldestEntry(final java.util.Map.Entry<ContainerSignature,AbstractContainer> eldest) {
-            if(maxSize!=0 && this.size() > maxSize) {
-               eldest.getValue().dispose();
-               return true;
-            }
-            return false;
-         }
-      };
+      registeredContainers= CacheBuilder.newBuilder()
+            .maximumSize(MAX_CONTAINERS)
+            .removalListener(new RemovalListener<ContainerSignature, AbstractContainer>() {
+               @Override 
+               public void onRemoval(RemovalNotification<ContainerSignature, AbstractContainer> objectObjectRemovalNotification) {
+                  try {
+                     objectObjectRemovalNotification.getValue().close();
+                  } catch (Exception e) {
+                     e.printStackTrace();
+                  }
+               }
+            })
+            .build().asMap();
       log = LogFactory.getLog(this.getClass());
    }
 
@@ -206,7 +213,7 @@ public class AtomicObjectFactory {
             
             synchronized (registeredContainers){
                if(registeredContainers.containsKey(signature)){
-                  container.close(false);
+                  container.close();
                }else{
                   registeredContainers.put(signature, container);
                }
@@ -233,6 +240,7 @@ public class AtomicObjectFactory {
     * @param key the key to use in order to store the object.
     * @param keepPersistent indicates that a persistent copy is stored in the cache or not.
     */
+   @Deprecated
    public void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
          throws InvalidCacheUsageException {
 
@@ -248,7 +256,7 @@ public class AtomicObjectFactory {
       }
 
       try{
-         container.close(keepPersistent);
+         container.close();
       }catch (Exception e){
          e.printStackTrace();
          throw new InvalidCacheUsageException("Error while disposing object "+key);

@@ -56,7 +56,7 @@ public class RemoteContainer extends BaseContainer {
    @Override
    protected void installListener(){
       log.debug(this + "Installing listener ");
-      Object[] params = new Object[] { listenerID, key, clazz, forceNew, initArgs };
+      Object[] params = new Object[] { listenerID, key, clazz, initArgs };
       ((RemoteCacheImpl)cache).addClientListener(
             this,
             params,

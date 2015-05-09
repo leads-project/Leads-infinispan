@@ -8,30 +8,25 @@ import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.io.Serializable;
-import java.util.Map;
 import java.util.UUID;
-
-import static org.infinispan.atomic.object.Utils.lruCache;
 
 /**
  * @author Pierre Sutra
  */
-public class NonNullIdempotencyFilterConverter<K,V> extends AbstractCacheEventFilterConverter<K,V,Object>
+public class ContainerBasedCacheEventFilterConverter<K,V> extends AbstractCacheEventFilterConverter<K,V,Object>
       implements Serializable{
 
-   // Could be based on version numbers ?
-   private static Log log = LogFactory.getLog(NonNullIdempotencyFilterConverter.class);
-   private Map<UUID,Integer> received = lruCache(5000);
-   private UUID listenerID;
+   private static Log log = LogFactory.getLog(ContainerBasedCacheEventFilterConverter.class);
+   private UUID containerID;
    
-   public NonNullIdempotencyFilterConverter(Object[] parameters){
+   public ContainerBasedCacheEventFilterConverter(Object[] parameters){
       assert (parameters.length==1);
-      listenerID = (UUID) parameters[0];
+      containerID = (UUID) parameters[0];
    }
 
    @Override
    public String toString(){
-      return "NonNullCallIdempotencyFilterConverter["+listenerID+"]";
+      return "NullValueFilterConverter["+ containerID +"]";
    }
 
    @Override 
@@ -39,18 +34,16 @@ public class NonNullIdempotencyFilterConverter<K,V> extends AbstractCacheEventFi
          Metadata newMetadata, EventType eventType) {
       
       if (newValue==null) {
-         if (log.isDebugEnabled()) log.debug(this+"Null value");
+         log.warn(this + "Null value received");
          return null;
       }
-
+      
       Call call = (Call) newValue;
-
-      if (received.containsKey(call.getCallID())) {
-         if (log.isDebugEnabled()) log.debug(this+"Already received "+call);
+      
+      if (!call.getCallerID().equals(containerID)) {
+         if (log.isDebugEnabled()) log.debug(this + "Wrong container");
          return null;
       }
-
-      received.put(call.getCallID(),0);
 
       return true;
    }

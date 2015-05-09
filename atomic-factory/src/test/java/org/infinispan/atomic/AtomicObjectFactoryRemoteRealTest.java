@@ -14,7 +14,6 @@ public class AtomicObjectFactoryRemoteRealTest extends AtomicObjectFactoryAbstra
 
    private static List<BasicCacheContainer> remoteCacheManagers = new ArrayList<>();
 
-
    @Override 
    public BasicCacheContainer container(int i) {
       return remoteCacheManagers.get(i%remoteCacheManagers.size());
@@ -38,13 +37,16 @@ public class AtomicObjectFactoryRemoteRealTest extends AtomicObjectFactoryAbstra
                .host(host)
                .port(port);
          RemoteCacheManager manager= new RemoteCacheManager(cb.build());
+         manager.getCache().clear();
          remoteCacheManagers.add(manager);
       }
       this.cleanup = null;
+
    }
 
    protected String[] servers () {
-      return new String[]{"localhost:11222"};
+      return new String[]{"127.0.01:11222"};
+//      return new String[]{"127.0.01:11222","127.0.0.2:11222"};
    }
 
 }
