@@ -34,7 +34,7 @@ public class AtomicObjectFactory {
          factories.put(cache, new AtomicObjectFactory(cache));
       return factories.get(cache);
    }
-   protected static final int MAX_CONTAINERS=100;// 0 means no limit
+   protected static final int MAX_CONTAINERS=1000;// 0 means no limit
    public static final Map<Class,List<String>> updateMethods;
    static{
       updateMethods = new HashMap<>();
