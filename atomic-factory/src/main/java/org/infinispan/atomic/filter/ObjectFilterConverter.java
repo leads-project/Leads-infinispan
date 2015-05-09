@@ -87,7 +87,13 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
             openCallsCounter++;
             CallOpen callOpen = (CallOpen) call;
 
-            if (objects.get(key)==null) {
+            if (callOpen.getForceNew()) {
+
+               if (log.isDebugEnabled())
+                  log.debug(this + "- Forcing new object [" + key + "]");
+               objects.put(key, Utils.initObject(callOpen.getClazz(), callOpen.getInitArgs()));
+
+            }else if (objects.get(key)==null) {
 
                if (oldValue == null) {
 
@@ -110,11 +116,6 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
 
                }
                
-            } else if (callOpen.getForceNew()) {
-
-               if (log.isDebugEnabled()) log.debug(this + "- Forcing new object ["+key+"]");
-               objects.put(key,Utils.initObject(callOpen.getClazz(), callOpen.getInitArgs()));
-
             }
 
             future.set(null);

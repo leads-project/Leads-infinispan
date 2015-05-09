@@ -237,8 +237,8 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
             // if successful, persist the object
             if(r){
                ret ++;
-//               factory.disposeInstanceOf(HashSet.class, name, true);
-//               set = null;
+               factory.disposeInstanceOf(HashSet.class, name, true);
+               set = null;
             }
          }
          
