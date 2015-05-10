@@ -86,7 +86,7 @@ public abstract class AbstractContainer {
    protected Object execute(Call call)
          throws InterruptedException, ExecutionException, java.util.concurrent.TimeoutException {
 
-      log.debug(this + "Executing " + call);
+      if (log.isDebugEnabled()) log.debug(this + "Executing " + call);
 
       CallFuture future = new CallFuture(call.getCallID());
       registeredCalls.put(call.getCallID(), future);
@@ -99,7 +99,7 @@ public abstract class AbstractContainer {
          throw new org.infinispan.util.concurrent.TimeoutException("Unable to execute "+call);
       }
 
-      log.debug(this + "Returning " + ret);
+      if (log.isDebugEnabled()) log.debug(this + "Returning " + ret);
       return ret;
 
    }

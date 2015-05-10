@@ -14,10 +14,13 @@ import org.infinispan.commons.api.BasicCache;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /**
  * @author Pierre Sutra
@@ -60,10 +63,22 @@ public class AtomicObjectFactory {
 
    /**
     *
+    * Return an AtomicObjectFactory built on top of cache <i>c</i>.
+    *
+    * @param c a cache,  it must be synchronous.and non-transactional
+    */
+   public AtomicObjectFactory(BasicCache<Object, Object> c) throws InvalidCacheUsageException{
+      this(c,MAX_CONTAINERS);
+   }
+
+
+
+   /**
+    *
     * Returns an object factory built on top of cache <i>c</i> with a bounded amount <i>m</i> of
     * containers in it. Upon the removal of a container, the object is stored persistently in the cache.
     *
-    * @param c it must be synchronous.and transactional (with autoCommit set to true, its default value).
+    * @param c it must be synchronous.and non-transactional
     * @param m max amount of containers kept by this factory.
     * @throws InvalidCacheUsageException
     */
@@ -84,19 +99,8 @@ public class AtomicObjectFactory {
                }
             })
             .build().asMap();
-      log = LogFactory.getLog(this.getClass());
+      log.info(this+"Created");
    }
-
-   /**
-    *
-    * Return an AtomicObjectFactory built on top of cache <i>c</i>.
-    *
-    * @param c a cache,  it must be synchronous.and transactional (with autoCommit set to true, its default value).
-    */
-   public AtomicObjectFactory(BasicCache<Object, Object> c) throws InvalidCacheUsageException{
-      this(c,MAX_CONTAINERS);
-   }
-
 
    /**
     *
@@ -169,19 +173,17 @@ public class AtomicObjectFactory {
 
       try{
 
-         synchronized (registeredContainers){
-            container = registeredContainers.get(signature);
-         }
+         container = registeredContainers.get(signature);
 
          if( container==null){
 
-            log.debug(this + " Creating container");
+            if (log.isDebugEnabled()) log.debug(this + " Creating container");
 
             List<String> methods = Collections.EMPTY_LIST;
 
             if (Updatable.class.isAssignableFrom(clazz)) {
 
-               methods = new ArrayList<String>();
+               methods = new ArrayList<>();
                for(Method m : clazz.getDeclaredMethods()){
                   if (m.isAnnotationPresent(Update.class))
                      methods.add(m.getName());
@@ -197,7 +199,7 @@ public class AtomicObjectFactory {
                }
 
                if (methods.isEmpty()) {
-                  methods = new ArrayList<String>();
+                  methods = new ArrayList<>();
                   for(Method m : clazz.getDeclaredMethods()){
                      methods.add(m.getName());
                   }
@@ -211,16 +213,10 @@ public class AtomicObjectFactory {
                         :
                         new LocalContainer(cache, clazz, key, withReadOptimization, forceNew, methods, initArgs);
             
-            synchronized (registeredContainers){
-               if(registeredContainers.containsKey(signature)){
-                  container.close();
-               }else{
-                  registeredContainers.put(signature, container);
-               }
-            }
-            
+            registeredContainers.putIfAbsent(signature, container);
+
          } else {
-            log.debug(this + " Existing container");
+            if (log.isDebugEnabled()) log.debug(this + " Existing container");
          }
 
       } catch (Exception e){
@@ -262,6 +258,22 @@ public class AtomicObjectFactory {
          throw new InvalidCacheUsageException("Error while disposing object "+key);
       }
 
+   }
+   
+   public void close(){
+      log.info(this+"Closing");
+      for (AbstractContainer container : registeredContainers.values())
+         try {
+            container.close();
+         } catch (InterruptedException | ExecutionException | TimeoutException | IOException e) {
+            e.printStackTrace();
+         }
+
+   }
+   
+   @Override
+   public String toString(){
+      return "AOF["+cache+"]";
    }
 
    // Helpers

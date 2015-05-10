@@ -8,6 +8,9 @@ import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.server.hotrod.configuration.HotRodServerConfigurationBuilder;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,31 +23,47 @@ import static org.infinispan.test.AbstractCacheTest.getDefaultClusteredCacheConf
 public class Server implements Runnable {
 
    private static final String defaultHost ="localhost";
-   
-   private int REPLICATION_FACTOR = 1;
-   private CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
    private boolean USE_TRANSACTIONS = false;
-   private String host;
-   private String proxyhost;
+   private CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
+      
+   @Option(name = "-host", required = true, usage = "host or ip address of local machine")
+   private String host = defaultHost;
    
-   public Server (String host, String proxyhost) {
-      this.host = host;
-      this.proxyhost = proxyhost;
-   }
+   @Option(name = "-proxy", usage = "proxy host as seen by clients")
+   private String proxyhost = defaultHost;
+
+   @Option(name = "-rf", usage = "replication factor")
+   private int replicationFactor = 1;
+
+   @Option(name = "-p", usage = "use persistence via a single file data store (emptied at each start)")
+   private boolean usePersistency = false;
+
+   public Server () {}
    
    public static void main(String args[]) {
-
-      String host = defaultHost;
-      String proxyhost = defaultHost;
+      new Server().doMain(args);
+   }
+   
+   
+   public void doMain(String[] args) {
       
-      if (args.length>0)
-         host = args[0];
+      CmdLineParser parser = new CmdLineParser(this);
 
-      if (args.length>1)
-         proxyhost = args[1];
-      
+      parser.setUsageWidth(80);
+
+      try {
+         if(args.length<2)
+            throw new CmdLineException(parser,"No argument is given");
+         parser.parseArgument(args);
+      } catch( CmdLineException e ) {
+         System.err.println(e.getMessage());
+         parser.printUsage(System.err);
+         System.err.println();
+         return;
+      }
+
       ExecutorService executor = Executors.newSingleThreadExecutor();
-      executor.execute(new Server(host, proxyhost));
+      executor.execute(this);
       try {
          executor.shutdown();
       }catch (Exception e){
@@ -63,11 +82,20 @@ public class Server implements Runnable {
       ConfigurationBuilder builder= getDefaultClusteredCacheConfig(CACHE_MODE, USE_TRANSACTIONS);
       builder
             .clustering()
-            .cacheMode(CacheMode.DIST_SYNC)
             .hash()
-            .numOwners(REPLICATION_FACTOR)
+            .numOwners(replicationFactor)
             .compatibility()
             .enable();
+      builder.locking()
+            .concurrencyLevel(10000)
+            .useLockStriping(false);
+
+      if (usePersistency)
+         builder.persistence()
+               .addSingleFileStore()
+               .location(System.getProperty("."))
+               .purgeOnStartup(true)
+               .create();
 
       EmbeddedCacheManager cm = new DefaultCacheManager(gbuilder.build(), builder.build(), true);
       

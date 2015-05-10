@@ -13,7 +13,9 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.infinispan.atomic.object.Utils.marshall;
 import static org.infinispan.atomic.object.Utils.unmarshall;
@@ -36,14 +38,14 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
    
    // Object fields
    private Cache<Object,Object> cache;   
-   private Map<Object,Object> objects;
-   private Map<Object,CallClose> pendingCloseCalls;
-   private int openCallsCounter;
+   private ConcurrentMap<Object,Object> objects;
+   private ConcurrentMap<Object,CallClose> pendingCloseCalls;
+   private ConcurrentHashMap<Object,AtomicInteger> openCallsCounters;
 
    public ObjectFilterConverter(){
-      this.openCallsCounter = 0;
-      this.objects = new HashMap<>();
-      this.pendingCloseCalls = new HashMap<>();
+      this.openCallsCounters = new ConcurrentHashMap<>();
+      this.objects = new ConcurrentHashMap<>();
+      this.pendingCloseCalls = new ConcurrentHashMap<>();
    }
 
    @Override
@@ -52,7 +54,7 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
    }
 
    @Override
-   public synchronized Object filterAndConvert(Object key, Object oldValue, Metadata oldMetadata, Object newValue,
+   public Object filterAndConvert(Object key, Object oldValue, Metadata oldMetadata, Object newValue,
          Metadata newMetadata, EventType eventType) {
 
       assert (cache!=null);
@@ -79,12 +81,19 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
             future = new CallFuture(pendingCloseCalls.get(key).getCallID());
             future.set(null);
             pendingCloseCalls.remove(key);
-            if (openCallsCounter==0)
+            if (openCallsCounters.get(key).get()==0) {
+               pendingCloseCalls.remove(key);
+               openCallsCounters.remove(key);
                objects.remove(key);
+            }
 
          } else if (call instanceof CallOpen) {
 
-            openCallsCounter++;
+            if (!openCallsCounters.containsKey(key))
+               openCallsCounters.put(key,new AtomicInteger(0));
+            
+            openCallsCounters.get(key).incrementAndGet();
+            
             CallOpen callOpen = (CallOpen) call;
 
             if (callOpen.getForceNew()) {
@@ -122,9 +131,9 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
 
          } else if (call instanceof CallClose) {
 
-            openCallsCounter--;
+            openCallsCounters.get(key).decrementAndGet();
 
-            if (openCallsCounter==0 && pendingCloseCalls.get(key)==null) {
+            if (openCallsCounters.get(key).get()==0 && pendingCloseCalls.get(key)==null) {
 
                assert (objects.get(key)!=null);
                if (log.isDebugEnabled()) log.debug(this + "- Persisting object ["+key+"]");

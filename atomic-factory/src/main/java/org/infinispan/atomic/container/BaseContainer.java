@@ -67,7 +67,7 @@ public abstract class BaseContainer extends AbstractContainer {
       proxy = fact.createClass().newInstance();
       ((ProxyObject)proxy).setHandler(handler);
       
-      log.debug(this+"Created successfully");
+      if (log.isDebugEnabled()) log.debug(this+"Created successfully");
 
    }
    
@@ -78,13 +78,13 @@ public abstract class BaseContainer extends AbstractContainer {
       pendingCalls.incrementAndGet();
       
       if (!isOpen) {
-   
-         log.debug(this + "Opening.");
+
+         if (log.isDebugEnabled()) log.debug(this + "Opening.");
          
          execute(new CallOpen(listenerID(), forceNew, clazz, initArgs));
          isOpen = true;
-   
-         log.debug(this+  "Opened.");
+
+         if (log.isDebugEnabled()) log.debug(this+  "Opened.");
       }      
       
    }
@@ -93,7 +93,7 @@ public abstract class BaseContainer extends AbstractContainer {
    public synchronized void close()
          throws InterruptedException, ExecutionException, java.util.concurrent.TimeoutException {
 
-      log.debug(this + "Closing.");
+      if (log.isDebugEnabled()) log.debug(this + "Closing.");
 
       while(pendingCalls.get()!=0);
 
@@ -104,8 +104,8 @@ public abstract class BaseContainer extends AbstractContainer {
          forceNew = false;
 
       }
-         
-      log.debug(this + "Closed.");
+
+      if (log.isDebugEnabled()) log.debug(this + "Closed.");
 
    }
 

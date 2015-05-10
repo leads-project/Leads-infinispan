@@ -46,7 +46,7 @@ public class AtomicObjectFactoryRemoteRealTest extends AtomicObjectFactoryAbstra
 
    protected String[] servers () {
 //      return new String[]{"127.0.01:11222"};
-      return new String[]{"127.0.01:11222","127.0.0.2:11222"};
+      return new String[]{"127.0.0.1:11222","127.0.0.2:11222"};
    }
 
 }

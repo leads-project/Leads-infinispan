@@ -30,7 +30,7 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
    protected static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
    protected static boolean USE_TRANSACTIONS = false;
 
-   protected static int NMANAGERS=4;
+   protected static int NMANAGERS=1;
    protected static int NCALLS=1000;
 
    @Test
