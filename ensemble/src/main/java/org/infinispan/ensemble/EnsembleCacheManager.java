@@ -152,7 +152,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
       for(Site s : siteList){
          cacheList.add(s.<K,V>getCache(cacheName));
       }
-      return getCache(cacheName,cacheList,consistency,true);
+      return getCache(cacheName,cacheList,consistency,false);
    }
    
    public <K,V> EnsembleCache<K,V> getCache(String cacheName, List<EnsembleCache<K,V>> cacheList, Consistency consistency, boolean create){
