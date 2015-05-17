@@ -3,6 +3,7 @@ package org.infinispan.atomic.container.remote;
 import org.infinispan.atomic.container.BaseContainer;
 import org.infinispan.atomic.filter.FilterConverterFactory;
 import org.infinispan.atomic.object.CallFuture;
+import org.infinispan.atomic.object.Reference;
 import org.infinispan.client.hotrod.annotation.ClientCacheEntryCreated;
 import org.infinispan.client.hotrod.annotation.ClientCacheEntryModified;
 import org.infinispan.client.hotrod.annotation.ClientListener;
@@ -38,13 +39,13 @@ public class RemoteContainer extends BaseContainer {
 
    private UUID listenerID;
    
-   public RemoteContainer(BasicCache c, Class cl, Object k,
+   public RemoteContainer(BasicCache c, Reference reference,
          boolean readOptimization, boolean forceNew, List<String> methods,
          Object... initArgs)
          throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException,
          InterruptedException,
          ExecutionException, NoSuchMethodException, InvocationTargetException, TimeoutException {
-      super(c, cl, k, readOptimization, forceNew, methods, initArgs);
+      super(c, reference, readOptimization, forceNew, methods, initArgs);
       listenerID = installListener(cache);
    }
 

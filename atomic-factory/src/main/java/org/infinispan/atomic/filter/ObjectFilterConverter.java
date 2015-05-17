@@ -1,6 +1,7 @@
 package org.infinispan.atomic.filter;
 
 import org.infinispan.Cache;
+import org.infinispan.atomic.AtomicObjectFactory;
 import org.infinispan.atomic.object.*;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.notifications.cachelistener.filter.AbstractCacheEventFilterConverter;
@@ -17,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.infinispan.atomic.object.Reference.unreference;
 import static org.infinispan.atomic.object.Utils.marshall;
 import static org.infinispan.atomic.object.Utils.unmarshall;
 
@@ -68,14 +70,20 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
          if (call instanceof CallInvoke) {
             
             CallInvoke invocation = (CallInvoke) call;
-            Object responseValue = Utils.callObject(objects.get(key), invocation.method, invocation.arguments);
+            Object responseValue = 
+                  Utils.callObject(
+                        objects.get(key), 
+                        invocation.method, 
+                        unreference(
+                              invocation.arguments,
+                              AtomicObjectFactory.forCache(cache)));
             future.set(responseValue);
-            if (log.isDebugEnabled()) 
-               log.debug(this+"- Called " + invocation+" (="+(responseValue==null ? "null" : responseValue.toString())+")");
+            if (log.isTraceEnabled()) 
+               log.trace(this+"- Called " + invocation+" (="+(responseValue==null ? "null" : responseValue.toString())+")");
 
          } else if (call instanceof CallPersist) {
 
-            if (log.isDebugEnabled()) log.debug(this + "- Retrieved CallPersist ["+key+"]");
+            if (log.isTraceEnabled()) log.trace(this + "- Retrieved CallPersist ["+key+"]");
             
             assert (pendingCloseCalls.get(key)!=null);
             future = new CallFuture(pendingCloseCalls.get(key).getCallID());
@@ -98,23 +106,36 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
 
             if (callOpen.getForceNew()) {
 
-               if (log.isDebugEnabled())
-                  log.debug(this + "- Forcing new object [" + key + "]");
-               objects.put(key, Utils.initObject(callOpen.getClazz(), callOpen.getInitArgs()));
+               if (log.isTraceEnabled())
+                  log.trace(this + "- Forcing new object [" + key + "]");
+               objects.put(
+                     key, 
+                     Utils.initObject(
+                           callOpen.getClazz(), 
+                           unreference(
+                                 callOpen.getInitArgs(),
+                                 AtomicObjectFactory.forCache(cache))));
 
             }else if (objects.get(key)==null) {
 
                if (oldValue == null) {
 
-                  if (log.isDebugEnabled()) log.debug(this + "- Creating new object ["+key+"]");
-                  objects.put(key, Utils.initObject(callOpen.getClazz(), callOpen.getInitArgs()));
+                  if (log.isTraceEnabled()) 
+                     log.trace(this + "- Creating new object ["+key+"]");
+                  objects.put(
+                        key, 
+                        Utils.initObject(
+                              callOpen.getClazz(),
+                              unreference(
+                                    callOpen.getInitArgs(),
+                                    AtomicObjectFactory.forCache(cache))));
 
                } else {
 
                   if (oldValue instanceof CallPersist) {
 
-                     if (log.isDebugEnabled())
-                        log.debug(this + "- Retrieving object from persistent state ["+key+"]");
+                     if (log.isTraceEnabled())
+                        log.trace(this + "- Retrieving object from persistent state ["+key+"]");
                      objects.put(key,unmarshall(((CallPersist) oldValue).getBytes()));
 
                   } else {
@@ -136,7 +157,8 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
             if (openCallsCounters.get(key).get()==0 && pendingCloseCalls.get(key)==null) {
 
                assert (objects.get(key)!=null);
-               if (log.isDebugEnabled()) log.debug(this + "- Persisting object ["+key+"]");
+               if (log.isTraceEnabled()) 
+                  log.trace(this + "- Persisting object ["+key+"]");
                pendingCloseCalls.put(key,(CallClose)call);
                cache.putAsync(
                      key,
@@ -150,7 +172,8 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
 
          }
 
-         if (log.isDebugEnabled()) log.debug(this + "- Future (" + future.getCallID() +", "+key+") -> "+future.isDone());
+         if (log.isTraceEnabled()) 
+            log.trace(this + "- Future (" + future.getCallID() +", "+key+") -> "+future.isDone());
 
          if (future.isDone())
             return future;
@@ -168,18 +191,18 @@ public class ObjectFilterConverter extends AbstractCacheEventFilterConverter<Obj
       return "ObjectFilterConverter";
    }
 
-   @Override 
+   @Override
    public synchronized void writeExternal(ObjectOutput objectOutput) throws IOException {
       // nothing to do
    }
 
-   @Override 
+   @Override
    public synchronized void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
       // nothing to do
    }
-   
+
    public Object readResolve(){
-      return getInstance(); 
+      return getInstance();
    }
-   
+
 }

@@ -4,6 +4,7 @@ import org.infinispan.AdvancedCache;
 import org.infinispan.atomic.container.BaseContainer;
 import org.infinispan.atomic.filter.FilterConverterFactory;
 import org.infinispan.atomic.object.CallFuture;
+import org.infinispan.atomic.object.Reference;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryCreated;
 import org.infinispan.notifications.cachelistener.annotation.CacheEntryModified;
@@ -40,13 +41,13 @@ public class LocalContainer extends BaseContainer {
    
    private UUID listenerID;
       
-   public LocalContainer(BasicCache c, Class cl, Object k,
+   public LocalContainer(BasicCache c, Reference reference,
          boolean readOptimization, boolean forceNew, List<String> methods,
          Object... initArgs)
          throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException,
          InterruptedException,
          ExecutionException, NoSuchMethodException, InvocationTargetException, TimeoutException {
-      super(c, cl, k, readOptimization, forceNew, methods, initArgs);
+      super(c, reference, readOptimization, forceNew, methods, initArgs);
       listenerID = installListener(cache);
    }
 

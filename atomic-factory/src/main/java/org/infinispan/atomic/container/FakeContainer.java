@@ -1,5 +1,6 @@
 package org.infinispan.atomic.container;
 
+import org.infinispan.atomic.object.Reference;
 import org.infinispan.atomic.object.Utils;
 import org.infinispan.commons.api.BasicCache;
 
@@ -17,17 +18,16 @@ import java.util.concurrent.TimeoutException;
  */
 public class FakeContainer extends AbstractContainer {
    
-   private static ConcurrentMap<Object,Object> objects = new ConcurrentHashMap<>();
+   private static ConcurrentMap<Reference,Object> objects = new ConcurrentHashMap<>();
 
-   public FakeContainer(BasicCache cache, Class clazz,
-         Object key, boolean readOptimization, boolean forceNew,
+   public FakeContainer(BasicCache cache, Reference reference, boolean readOptimization, boolean forceNew,
          List<String> methods, Object... initArgs) {
-      super(cache, clazz, key, readOptimization, forceNew, methods, initArgs);
+      super(cache, reference, readOptimization, forceNew, methods, initArgs);
       
       try {
-         Object o = Utils.initObject(this.clazz, this.initArgs);
-         objects.putIfAbsent(this.key,o);
-         proxy = objects.get(this.key);
+         Object o = Utils.initObject(reference.getClazz(), initArgs);
+         objects.putIfAbsent(reference,o);
+         proxy = objects.get(reference);
       } catch (IllegalAccessException | InstantiationException | NoSuchMethodException | InvocationTargetException e) {
          e.printStackTrace(); 
       } 

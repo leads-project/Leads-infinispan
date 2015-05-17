@@ -3,6 +3,7 @@ package org.infinispan.atomic.container;
 import javassist.util.proxy.MethodFilter;
 import org.infinispan.atomic.object.Call;
 import org.infinispan.atomic.object.CallFuture;
+import org.infinispan.atomic.object.Reference;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
@@ -33,17 +34,12 @@ public abstract class AbstractContainer {
    protected static final MethodFilter methodFilter = new MethodFilter() {
       @Override
       public boolean isHandled(Method m) {
-         // ignore finalize() and externalization related methods.
-         return !m.getName().equals("finalize")
-               && !m.getName().equals("readExternal")
-               && !m.getName().equals("writeExternal");
+         return !m.getName().equals("finalize");
       }
    };
 
-
    protected BasicCache cache;
-   protected Class clazz;
-   protected Object key;
+   protected final Reference reference;
    protected boolean readOptimization;
    protected List<String> methods;
    protected Object proxy;
@@ -52,15 +48,13 @@ public abstract class AbstractContainer {
 
    public AbstractContainer(
          final BasicCache cache,
-         final Class clazz,
-         final Object key,
+         final Reference reference,
          final boolean readOptimization,
          final boolean forceNew,
          final List<String> methods,
          final Object... initArgs){
       this.cache = cache;
-      this.clazz = clazz;
-      this.key = clazz.getCanonicalName()+"#"+key.toString(); // to avoid collisions
+      this.reference = reference;
       this.readOptimization = readOptimization;
       this.methods = methods;
       this.forceNew = forceNew;
@@ -72,7 +66,11 @@ public abstract class AbstractContainer {
    }
 
    public final Class getClazz(){
-      return clazz;
+      return reference.getClazz();
+   }
+   
+   public final Object getKey(){
+      return reference.getKey();
    }
 
    public abstract void open()
@@ -86,12 +84,13 @@ public abstract class AbstractContainer {
    protected Object execute(Call call)
          throws InterruptedException, ExecutionException, java.util.concurrent.TimeoutException {
 
-      if (log.isDebugEnabled()) log.debug(this + "Executing " + call);
+      if (log.isTraceEnabled()) 
+         log.trace(this + "Executing " + call);
 
       CallFuture future = new CallFuture(call.getCallID());
       registeredCalls.put(call.getCallID(), future);
 
-      cache.put(key, call);
+      cache.put(getKey(), call);
 
       Object ret = future.get(TTIMEOUT_TIME, TimeUnit.MILLISECONDS);
       registeredCalls.remove(call.getCallID());
@@ -99,7 +98,8 @@ public abstract class AbstractContainer {
          throw new org.infinispan.util.concurrent.TimeoutException("Unable to execute "+call);
       }
 
-      if (log.isDebugEnabled()) log.debug(this + "Returning " + ret);
+      if (log.isTraceEnabled()) 
+         log.trace(this + "Returning " + ret);
       return ret;
 
    }

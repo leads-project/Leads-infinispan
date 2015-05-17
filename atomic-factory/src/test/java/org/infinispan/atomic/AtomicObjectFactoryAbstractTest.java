@@ -1,9 +1,14 @@
 package org.infinispan.atomic;
 
 import org.infinispan.Cache;
+import org.infinispan.atomic.object.Reference;
+import org.infinispan.atomic.utils.SimpleObject;
+import org.infinispan.atomic.utils.SimpleShardedObject;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.api.BasicCacheContainer;
+import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.configuration.cache.CacheMode;
+import org.infinispan.marshall.core.JBossMarshaller;
 import org.infinispan.test.MultipleCacheManagersTest;
 import org.infinispan.test.TestingUtil;
 import org.infinispan.util.logging.Log;
@@ -30,7 +35,7 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
    protected static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
    protected static boolean USE_TRANSACTIONS = false;
 
-   protected static int NMANAGERS=1;
+   protected static int NMANAGERS=3;
    protected static int NCALLS=1000;
 
    @Test
@@ -40,10 +45,15 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
       BasicCache<Object,Object> cache = cacheManager.getCache();
       AtomicObjectFactory factory = new AtomicObjectFactory(cache);
       
+      // 1 - basic call
       Set<String> set = factory.getInstanceOf(HashSet.class, "set");
       set.add("smthing");
       assert set.contains("smthing");
       assert set.size()==1;
+      
+      // 2 - proxy marshalling
+      Marshaller marshaller = new JBossMarshaller();
+      assert marshaller.objectFromByteBuffer((marshaller.objectToByteBuffer(set))) instanceof Reference;
 
    }
 
@@ -182,12 +192,36 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
       for (int i = 0; i < 2; i++) {
          for (int j = 0; j <= i; j++) {
             Map map2 = factory1.getInstanceOf(HashMap.class, "map"+i);
-            assertTrue(map2.get(j) == i);
+            assertTrue(map2.get(j).equals(i));
          }
       }
 
    }
 
+   @Test
+   public void baseAspectJTest() throws Exception {
+      AtomicObjectFactory.forCache(cache(0));
+
+      // 1 - constructor
+      SimpleObject object = new SimpleObject();
+      assert object.getField1().equals("test");
+
+      // 2 - constructor w. arguments
+      SimpleObject object1 = new SimpleObject("test2");
+      assert object1.getField1().equals("test2");
+
+   }
+   
+   @Test
+   public void baseShardTest() throws Exception {
+      AtomicObjectFactory.forCache(cache(0));
+      
+      SimpleObject object = new SimpleObject();
+      SimpleShardedObject sso = new SimpleShardedObject(object);
+      SimpleObject object2 = sso.getShard();
+      assert object2.equals(object);
+   }
+   
 
    //
    // Helpers
