@@ -12,7 +12,6 @@ import org.infinispan.notifications.cachelistener.event.CacheEntryEvent;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,12 +41,12 @@ public class LocalContainer extends BaseContainer {
    private UUID listenerID;
       
    public LocalContainer(BasicCache c, Reference reference,
-         boolean readOptimization, boolean forceNew, List<String> methods,
+         boolean readOptimization, boolean forceNew,
          Object... initArgs)
          throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException,
          InterruptedException,
          ExecutionException, NoSuchMethodException, InvocationTargetException, TimeoutException {
-      super(c, reference, readOptimization, forceNew, methods, initArgs);
+      super(c, reference, readOptimization, forceNew, initArgs);
       listenerID = installListener(cache);
    }
 

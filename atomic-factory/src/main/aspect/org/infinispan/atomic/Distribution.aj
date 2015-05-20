@@ -13,7 +13,6 @@ import java.lang.reflect.Field;
 @Aspect
 public class Distribution {
 
-
    @Pointcut("call((@Distributed *).new(..)) " +
          "&& ! within(org.infinispan.atomic.container.BaseContainer) " +
          "&& ! within(org.infinispan.atomic.filter.ObjectFilterConverter)")
@@ -26,7 +25,7 @@ public class Distribution {
       for (Field field : object.getClass().getDeclaredFields()) {
          if (field.isAnnotationPresent(Key.class)) {
             AtomicObjectFactory factory = AtomicObjectFactory.forCache("");
-            return factory.getInstanceOf(object.getClass(), field.get(object), false, null, false, pjp.getArgs());
+            return factory.getInstanceOf(object.getClass(), field.get(object), true, null, false, pjp.getArgs());
          }
       }
       throw new IllegalStateException("Key field is missing.");

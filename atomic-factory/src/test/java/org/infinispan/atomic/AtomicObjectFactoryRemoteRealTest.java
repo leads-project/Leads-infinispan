@@ -41,6 +41,7 @@ public class AtomicObjectFactoryRemoteRealTest extends AtomicObjectFactoryAbstra
          remoteCacheManagers.add(manager);
       }
       this.cleanup = null;
+      AtomicObjectFactory.forCache(cache(0));
 
    }
 

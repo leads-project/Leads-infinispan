@@ -48,8 +48,8 @@ public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTe
             cacheMode(CacheMode.DIST_SYNC)
             .hash()
             .numOwners(REPLICATION_FACTOR)
-            .compatibility()
-            .enable();
+            .locking().useLockStriping(false)
+            .compatibility().enable();
       
       for (int j = 0; j < NMANAGERS; j++) {
          GlobalConfigurationBuilder gbuilder = GlobalConfigurationBuilder.defaultClusteredBuilder();
@@ -70,6 +70,8 @@ public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTe
          blockUntilCacheStatusAchieved(
                manager(j).getCache(), ComponentStatus.RUNNING, 10000);
       }
+
+      AtomicObjectFactory.forCache(cache(0));
       
    }
 

@@ -13,17 +13,17 @@ import java.util.UUID;
 public class CallOpen extends Call{
 
    private boolean forceNew;
-   private Class clazz;
+   private boolean readOptimization;
    private Object[] initArgs;
    
    @Deprecated
    public CallOpen(){}
 
-   public CallOpen(UUID callerID, boolean forceNew, Class clazz, Object[] initargs) {
+   public CallOpen(UUID callerID, boolean forceNew, Object[] initargs, boolean readOptimization) {
       super(callerID);
       this.forceNew = forceNew;
-      this.clazz = clazz;
       this.initArgs = initargs;
+      this.readOptimization = readOptimization;
    }
 
    @Override
@@ -35,9 +35,7 @@ public class CallOpen extends Call{
       return forceNew;
    }
    
-   public Class getClazz(){
-      return clazz;
-   }
+   public boolean getReadOptimization(){return readOptimization;}
    
    public Object[] getInitArgs(){
       return initArgs;
@@ -47,16 +45,16 @@ public class CallOpen extends Call{
    public void writeExternal(ObjectOutput objectOutput) throws IOException {
       super.writeExternal(objectOutput);
       objectOutput.writeBoolean(forceNew);
-      objectOutput.writeObject(clazz);
       objectOutput.writeObject(initArgs);
+      objectOutput.writeBoolean(readOptimization);
    }
 
    @Override
    public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
       super.readExternal(objectInput);
       forceNew = objectInput.readBoolean();
-      clazz = (Class) objectInput.readObject();
       initArgs = (Object[]) objectInput.readObject();
+      readOptimization = objectInput.readBoolean();
    }
 
 }

@@ -10,13 +10,14 @@ import org.infinispan.util.logging.LogFactory;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
+import static org.infinispan.atomic.object.Utils.hasReadOnlyMethods;
 
 /**
  *
@@ -38,11 +39,11 @@ public abstract class AbstractContainer {
       }
    };
 
-   protected BasicCache cache;
+   protected BasicCache<Reference,Call> cache;
    protected final Reference reference;
    protected boolean readOptimization;
-   protected List<String> methods;
    protected Object proxy;
+   protected Object state;
    protected boolean forceNew;
    protected Object[] initArgs;
 
@@ -51,12 +52,10 @@ public abstract class AbstractContainer {
          final Reference reference,
          final boolean readOptimization,
          final boolean forceNew,
-         final List<String> methods,
          final Object... initArgs){
       this.cache = cache;
       this.reference = reference;
-      this.readOptimization = readOptimization;
-      this.methods = methods;
+      this.readOptimization = readOptimization && hasReadOnlyMethods(reference.getClazz());
       this.forceNew = forceNew;
       this.initArgs = initArgs;
    }
@@ -65,11 +64,7 @@ public abstract class AbstractContainer {
       return proxy;
    }
 
-   public final Class getClazz(){
-      return reference.getClazz();
-   }
-   
-   public final Object getKey(){
+   public final Object getReference(){
       return reference.getKey();
    }
 
@@ -86,11 +81,11 @@ public abstract class AbstractContainer {
 
       if (log.isTraceEnabled()) 
          log.trace(this + "Executing " + call);
-
+      
       CallFuture future = new CallFuture(call.getCallID());
       registeredCalls.put(call.getCallID(), future);
 
-      cache.put(getKey(), call);
+      cache.put(reference, call);
 
       Object ret = future.get(TTIMEOUT_TIME, TimeUnit.MILLISECONDS);
       registeredCalls.remove(call.getCallID());
@@ -98,8 +93,13 @@ public abstract class AbstractContainer {
          throw new org.infinispan.util.concurrent.TimeoutException("Unable to execute "+call);
       }
 
+      if (readOptimization && future.getState()!=null ) {
+         this.state = future.getState();
+      }
+
       if (log.isTraceEnabled()) 
          log.trace(this + "Returning " + ret);
+      
       return ret;
 
    }
@@ -115,6 +115,7 @@ public abstract class AbstractContainer {
          CallFuture clientFuture = registeredCalls.get(future.getCallID());
          assert (clientFuture!=null);
          registeredCalls.remove(future.getCallID());
+         clientFuture.setState(future.getState());
          clientFuture.set(future.get());
       } catch (Exception e) {
          e.printStackTrace();

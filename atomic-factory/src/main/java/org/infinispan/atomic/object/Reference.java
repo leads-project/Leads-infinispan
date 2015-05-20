@@ -22,9 +22,9 @@ public class Reference<T> implements Externalizable{
 
    public Reference(){}
    
-   public Reference(Class<T> c, Object k){
+   public Reference(Class<T> c, Object key){
       clazz = c;
-      key = k;
+      this.key = key;
    }
 
    @Override
@@ -42,7 +42,7 @@ public class Reference<T> implements Externalizable{
 
    @Override
    public String toString(){
-      return "Reference["+key.toString()+"]";
+      return getClass().toString()+"#"+getKey().toString();
    }
 
    public Object getKey() {

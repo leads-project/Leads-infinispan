@@ -2,33 +2,33 @@ package org.infinispan.atomic.utils;
 
 import org.infinispan.atomic.Distributed;
 import org.infinispan.atomic.Key;
+import org.infinispan.atomic.ReadOnly;
 
-import java.io.Serializable;
 import java.util.UUID;
 
 /**
  * @author Pierre Sutra
  */
 @Distributed
-public class SimpleShardedObject implements Serializable{
+public class SimpleShardedObject{
    
    @Key
    public UUID id;
    
-   public SimpleObject shard;
+   public SimpleShardedObject shard;
+
+   public SimpleShardedObject(){
+      id = UUID.randomUUID();
+   }
    
-   public SimpleShardedObject(SimpleObject shard) {
+   public SimpleShardedObject(SimpleShardedObject shard) {
       id = UUID.randomUUID();
       this.shard = shard;
    }
    
-   public SimpleObject getShard(){
+   @ReadOnly
+   public SimpleShardedObject getShard(){
       return shard;
-   }
-   
-   @Override
-   public String toString(){
-      return "SimpleShardedObject["+shard.toString()+"]";
    }
 
 }

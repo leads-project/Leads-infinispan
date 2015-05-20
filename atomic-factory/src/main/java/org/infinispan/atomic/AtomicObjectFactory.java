@@ -9,6 +9,7 @@ import org.infinispan.atomic.container.AbstractContainer;
 import org.infinispan.atomic.object.Reference;
 import org.infinispan.atomic.container.local.LocalContainer;
 import org.infinispan.atomic.container.remote.RemoteContainer;
+import org.infinispan.atomic.object.Utils;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.commons.api.BasicCache;
 import org.infinispan.commons.api.BasicCacheContainer;
@@ -185,11 +186,15 @@ public class AtomicObjectFactory {
 
    public synchronized  <T> T getInstanceOf(Reference<T> reference, boolean withReadOptimization, Method equalsMethod, boolean forceNew, Object ... initArgs)
          throws InvalidCacheUsageException {
+
+      if (Utils.isDistributed(reference.getClazz()) 
+            && !Utils.hasDefaultConstructor(reference.getClazz()))
+         throw new InvalidCacheUsageException("Should have a default constructor.");
       
       if( !(Serializable.class.isAssignableFrom(reference.getClazz()))){
-         throw new InvalidCacheUsageException("The object must be serializable.");
+         throw new InvalidCacheUsageException("Should be serializable.");
       }
-
+      
       AbstractContainer container;
 
       try{
@@ -200,39 +205,11 @@ public class AtomicObjectFactory {
 
             if (log.isDebugEnabled()) log.debug(this + " Creating container");
 
-            List<String> methods = Collections.EMPTY_LIST;
-
-            if (Updatable.class.isAssignableFrom(reference.getClazz())) {
-
-               methods = new ArrayList<>();
-               for(Method m : reference.getClazz().getDeclaredMethods()){
-                  if (m.isAnnotationPresent(Update.class))
-                     methods.add(m.getName());
-               }
-
-            }else{
-
-               for(Class c : updateMethods.keySet()){
-                  if (c.isAssignableFrom(reference.getClazz())) {
-                     methods = updateMethods.get(c);
-                     break;
-                  }
-               }
-
-               if (methods.isEmpty()) {
-                  methods = new ArrayList<>();
-                  for(Method m : reference.getClazz().getDeclaredMethods()){
-                     methods.add(m.getName());
-                  }
-               }
-
-            }
-            
-            container = 
+            container =
                   (cache instanceof RemoteCache) ?
-                        new RemoteContainer(cache, reference, withReadOptimization, forceNew, methods, initArgs)
+                        new RemoteContainer(cache, reference, withReadOptimization, forceNew, initArgs)
                         :
-                        new LocalContainer(cache, reference, withReadOptimization, forceNew, methods, initArgs);
+                        new LocalContainer(cache, reference, withReadOptimization, forceNew, initArgs);
             
             registeredContainers.putIfAbsent(reference, container);
 
@@ -261,14 +238,11 @@ public class AtomicObjectFactory {
    public void disposeInstanceOf(Class clazz, Object key, boolean keepPersistent)
          throws InvalidCacheUsageException {
 
-      Reference reference = new Reference(clazz,key);
+      Reference reference = new Reference<>(clazz,key);
       AbstractContainer container;
       synchronized (registeredContainers){
          container = registeredContainers.get(reference);
-         if( container == null )
-            return;
-         if( ! container.getClazz().equals(clazz) )
-            throw new InvalidCacheUsageException("The object is not of the right class.");
+         if( container == null ) return;
          registeredContainers.remove(reference);
       }
 
@@ -301,8 +275,13 @@ public class AtomicObjectFactory {
 
    public void assertCacheConfiguration() throws InvalidCacheUsageException {
       if (cache instanceof Cache 
-            && ((Cache)cache).getCacheConfiguration().transaction().transactionMode().isTransactional())
-         throw new InvalidCacheUsageException("Cache should not be transactional."); // as of 7.2.x
+            && 
+            (
+                  ((Cache)cache).getCacheConfiguration().transaction().transactionMode().isTransactional()
+                        ||
+                        ((Cache)cache).getCacheConfiguration().locking().useLockStriping()
+            ))
+         throw new InvalidCacheUsageException("Cache should not be transactional, nor use lock stripping."); // as of 7.2.x
    }
 
 }

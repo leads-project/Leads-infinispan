@@ -1,6 +1,8 @@
 package org.infinispan.atomic;
 
 import org.infinispan.Cache;
+import org.infinispan.atomic.object.Call;
+import org.infinispan.atomic.object.CallInvoke;
 import org.infinispan.atomic.object.Reference;
 import org.infinispan.atomic.utils.SimpleObject;
 import org.infinispan.atomic.utils.SimpleShardedObject;
@@ -31,9 +33,9 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
 
    protected static Log log = LogFactory.getLog(AtomicObjectFactoryAbstractTest.class);
 
-   protected static int REPLICATION_FACTOR=2;
-   protected static CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
-   protected static boolean USE_TRANSACTIONS = false;
+   protected static final int REPLICATION_FACTOR=1;
+   protected static final CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
+   protected static final boolean USE_TRANSACTIONS = false;
 
    protected static int NMANAGERS=3;
    protected static int NCALLS=1000;
@@ -123,6 +125,37 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
    }
    
    @Test
+   public void baseReadOptimizationTest() throws Exception{
+      SimpleObject object = new SimpleObject();
+      object.setField("something");
+      String field = object.getField();
+      assert field.equals("something");
+      Call lastCall = (Call) cache(0).get(new Reference<>(SimpleObject.class,"test"));
+      assert lastCall instanceof CallInvoke;
+      assert ((CallInvoke)lastCall).method.equals("setField");
+   }
+   
+   @Test
+   public void performanceReadOptimizationTest() throws Exception{
+
+      int f = 10; // multiplicative factor
+      SimpleObject object = new SimpleObject();
+
+      long start = System.currentTimeMillis();
+      for(int i=0; i<NCALLS*f;i++){
+         object.setField(Integer.toString(i));
+      }
+      System.out.println("op/sec:"+((float)(NCALLS*f))/((float)(System.currentTimeMillis() - start))*1000);
+
+      start = System.currentTimeMillis();
+      for(int i=0; i<NCALLS*f;i++){
+         object.getField();
+      }
+      System.out.println("op/sec:"+((float)(NCALLS*f))/((float)(System.currentTimeMillis() - start))*1000);
+
+   } 
+   
+   @Test
    public void baseCacheTest() throws Exception{
 
       Iterator<BasicCacheContainer> it = containers().iterator();
@@ -204,22 +237,20 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
 
       // 1 - constructor
       SimpleObject object = new SimpleObject();
-      assert object.getField1().equals("test");
+      assert object.getField().equals("test");
 
       // 2 - constructor w. arguments
       SimpleObject object1 = new SimpleObject("test2");
-      assert object1.getField1().equals("test2");
+      assert object1.getField().equals("test2");
 
    }
    
    @Test
    public void baseShardTest() throws Exception {
-      AtomicObjectFactory.forCache(cache(0));
-      
-      SimpleObject object = new SimpleObject();
-      SimpleShardedObject sso = new SimpleShardedObject(object);
-      SimpleObject object2 = sso.getShard();
-      assert object2.equals(object);
+      SimpleShardedObject object = new SimpleShardedObject();
+      SimpleShardedObject object2 = new SimpleShardedObject(object);
+      SimpleShardedObject object3 = object2.getShard();
+      assert object3.equals(object);
    }
    
 

@@ -1,5 +1,7 @@
 package org.infinispan.atomic.object;
 
+import org.infinispan.atomic.Distributed;
+import org.infinispan.atomic.ReadOnly;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.marshall.core.JBossMarshaller;
 
@@ -15,6 +17,62 @@ import java.util.Map;
  */
 public class Utils {
 
+   public static Object getMethod(Object obj, String method, Object[] args) {
+
+      boolean isFound = false;
+      Method ret = null;
+
+      for (Method m : obj.getClass().getMethods()) { // only public methods (inherited and not)
+         if (method.equals(m.getName())) {
+            boolean isAssignable = true;
+            Class[] argsTypes = m.getParameterTypes();
+            if (argsTypes.length == args.length) {
+               for (int i = 0; i < argsTypes.length; i++) {
+                  if (!argsTypes[i].isAssignableFrom(args[i].getClass())) {
+                     isAssignable = false;
+                     break;
+                  }
+               }
+            } else {
+               isAssignable = false;
+            }
+            if (!isAssignable)
+               continue;
+
+            ret = m;
+            isFound = true;
+            break;
+         }
+      }
+
+      if (!isFound)
+         throw new IllegalStateException("Method " + method + " not found.");
+
+      return ret;
+      
+   }
+   
+   public static boolean hasReadOnlyMethods(Class clazz){
+      for (Method m : clazz.getMethods()) { // only public methods (inherited and not)
+         if (m.isAnnotationPresent(ReadOnly.class))
+            return true;
+      }
+      return false;
+   }
+
+
+   public static boolean hasDefaultConstructor(Class clazz){
+      for (Constructor constructor : clazz.getConstructors()) {
+         if (constructor.getParameterTypes().length==0)
+            return true;
+      }
+      return false;
+   }
+
+   public static boolean isDistributed(Class clazz){
+      return clazz.isAnnotationPresent(Distributed.class);
+   }
+   
    public static Object callObject(Object obj, String method, Object[] args)
          throws InvocationTargetException, IllegalAccessException {
 

@@ -2,31 +2,30 @@ package org.infinispan.atomic.utils;
 
 import org.infinispan.atomic.Distributed;
 import org.infinispan.atomic.Key;
-
-import java.io.Serializable;
+import org.infinispan.atomic.ReadOnly;
 
 /**
 * @author Pierre Sutra
 */
 @Distributed
-public class SimpleObject implements Serializable {
+public class SimpleObject{
 
    @Key
-   public String field1;
+   public String field;
 
    public SimpleObject(){
-      field1 = "test";
+      field = "test";
    }
 
    public SimpleObject(String f){
-      field1 = f;
+      field = f;
    }
 
-   public String getField1(){ return field1;}
-   
-   public String toString(){
-      return "SimpleObject["+field1+"]";
-   }
+   @ReadOnly
+   public String getField(){ return field;}
 
+   public void setField(String f){
+      field = f;
+   }
 
 }

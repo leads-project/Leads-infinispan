@@ -4,17 +4,14 @@ import javassist.util.proxy.MethodHandler;
 import javassist.util.proxy.ProxyFactory;
 import javassist.util.proxy.ProxyObject;
 import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.atomic.object.CallClose;
-import org.infinispan.atomic.object.CallInvoke;
-import org.infinispan.atomic.object.CallOpen;
-import org.infinispan.atomic.object.Reference;
+import org.infinispan.atomic.ReadOnly;
+import org.infinispan.atomic.object.*;
 import org.infinispan.commons.api.BasicCache;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -30,27 +27,27 @@ public abstract class BaseContainer extends AbstractContainer {
    private AtomicInteger pendingCalls;
    private boolean isOpen;
    
-   public BaseContainer(final BasicCache c, Reference reference, final boolean readOptimization,
-         final boolean forceNew, final List<String> methods, final Object... initArgs)
+   public BaseContainer(final BasicCache<Reference,Call> c, Reference reference, final boolean readOptimization,
+         final boolean forceNew, final Object... initArgs)
          throws IOException, ClassNotFoundException, IllegalAccessException, InstantiationException,
          InterruptedException, ExecutionException, NoSuchMethodException, InvocationTargetException,
          java.util.concurrent.TimeoutException {
 
-      super(c, reference, readOptimization, forceNew, methods, initArgs);
+      super(c, reference, readOptimization, forceNew, initArgs);
       pendingCalls = new AtomicInteger();
       isOpen = false;
 
       // build the proxy
       MethodHandler handler = new MyMethodHandler();
       ProxyFactory fact = new ProxyFactory();
-      fact.setSuperclass(getClazz());
+      fact.setSuperclass(reference.getClazz());
       fact.setFilter(methodFilter);
       fact.setInterfaces(new Class[]{WriteReplace.class});
       fact.setUseWriteReplace(false);
       proxy = initObject(fact.createClass(), initArgs);
       ((ProxyObject)proxy).setHandler(handler);
 
-      if (log.isDebugEnabled()) log.debug(this+"Created successfully");
+      if (log.isTraceEnabled()) log.trace(this+"Created successfully");
 
    }
    
@@ -62,12 +59,12 @@ public abstract class BaseContainer extends AbstractContainer {
       
       if (!isOpen) {
 
-         if (log.isDebugEnabled()) log.debug(this + "Opening.");
+         if (log.isTraceEnabled()) log.trace(this + "Opening.");
          
-         execute(new CallOpen(listenerID(), forceNew, getClazz(), initArgs));
+         execute(new CallOpen(listenerID(), forceNew, initArgs, readOptimization));
          isOpen = true;
 
-         if (log.isDebugEnabled()) log.debug(this+  "Opened.");
+         if (log.isTraceEnabled()) log.trace(this+  "Opened.");
       }      
       
    }
@@ -76,7 +73,7 @@ public abstract class BaseContainer extends AbstractContainer {
    public synchronized void close()
          throws InterruptedException, ExecutionException, java.util.concurrent.TimeoutException {
 
-      if (log.isDebugEnabled()) log.debug(this + "Closing.");
+      if (log.isTraceEnabled()) log.trace(this + "Closing.");
 
       while(pendingCalls.get()!=0);
 
@@ -88,13 +85,13 @@ public abstract class BaseContainer extends AbstractContainer {
 
       }
 
-      if (log.isDebugEnabled()) log.debug(this + "Closed.");
+      if (log.isTraceEnabled()) log.trace(this + "Closed.");
 
    }
 
    @Override
    public String toString(){
-      return "Container["+listenerID()+":"+getKey()+"]";
+      return "Container["+listenerID()+":"+getReference()+"]";
    }
 
    private class MyMethodHandler implements MethodHandler, Serializable{
@@ -106,6 +103,12 @@ public abstract class BaseContainer extends AbstractContainer {
 
          if (m.getName().equals("writeReplace")) {
             return reference;
+         }
+         
+         if (readOptimization 
+               && state != null
+               && (m.isAnnotationPresent(ReadOnly.class))) {
+            return Utils.callObject(state,m.getName(),args);
          }
          
          open();
@@ -125,7 +128,7 @@ public abstract class BaseContainer extends AbstractContainer {
 
       @Override
       public String toString(){
-         return "MethodHandler ["+getKey()+"]";
+         return "MethodHandler ["+getReference()+"]";
       }
 
    }

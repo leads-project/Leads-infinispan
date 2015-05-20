@@ -1,17 +1,14 @@
 package org.infinispan.atomic.sharded.collections;
 
-import org.infinispan.atomic.AtomicObjectFactory;
-import org.infinispan.atomic.Updatable;
-import org.infinispan.atomic.Update;
+import org.infinispan.atomic.Distributed;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
+import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.*;
-
-
 
 /**
  *
@@ -24,7 +21,8 @@ import java.util.*;
  * @since 7.2
  *
  */
-public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable implements SortedMap<K, V>
+@Distributed
+public class ShardedTreeMap<K extends Comparable<K>,V> implements SortedMap<K, V>, Externalizable
 {
 
     private static Log log = LogFactory.getLog(ShardedTreeMap.class);
@@ -34,50 +32,44 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
     private int threshold; // how many entries are stored before creating a new tree in the forest.
 
     public ShardedTreeMap(){
-        forest = new TreeMap<K, TreeMap<K,V>>();
+        forest = new TreeMap<>();
         threshold = DEFAULT_THRESHOLD;
     }
 
     public ShardedTreeMap(Integer threshhold){
         assert threshhold>=1;
-        forest = new TreeMap<K, TreeMap<K,V>>();
+        forest = new TreeMap<>();
         this.threshold = threshhold;
     }
 
     @Override
     public SortedMap<K, V> subMap(K k, K k2) {
-        SortedMap<K,V> result = new TreeMap<K, V>();
+        SortedMap<K,V> result = new TreeMap<>();
         for(K key : forest.keySet()){
             if (key.compareTo(k2) > 0)
                 break;
-            allocateTree(key);
             result.putAll(forest.get(key).subMap(k, k2));
         }
-        unallocateTrees();
         return result;
     }
 
     @Override
     public SortedMap<K, V> headMap(K toKey) {
-        SortedMap<K,V> result = new TreeMap<K, V>();
+        SortedMap<K,V> result = new TreeMap<>();
         for(K key : forest.keySet()){
             if (key.compareTo(toKey) > 0)
                 break;
-            allocateTree(key);
             result.putAll(forest.get(key).headMap(toKey));
         }
-        unallocateTrees();
         return result;
     }
 
     @Override
     public SortedMap<K, V> tailMap(K fromKey) {
-        SortedMap<K,V> result = new TreeMap<K, V>();
+        SortedMap<K,V> result = new TreeMap<>();
         for(K key : forest.keySet()){
-            allocateTree(key);
             result.putAll(forest.get(key).tailMap(fromKey));
         }
-        unallocateTrees();
         return result;
     }
 
@@ -85,10 +77,8 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
     public K firstKey() {
         if(forest.isEmpty())
             return null;
-        allocateTree(forest.firstKey());
         assert !forest.get(forest.firstKey()).isEmpty() : forest.toString();
         K ret = forest.get(forest.firstKey()).firstKey();
-        unallocateTrees();
         return ret;
     }
 
@@ -97,11 +87,9 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
         if(forest.isEmpty())
             return null;
         K last = forest.lastKey();
-        allocateTree(last);
         if (!forest.get(last).isEmpty()) {
             last = forest.get(last).lastKey();
         }
-        unallocateTrees();
         return last;
     }
 
@@ -109,10 +97,8 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
     public int size() {
         int ret = 0;
         for(K v: forest.keySet()){
-            allocateTree(v);
             ret+= forest.get(v).size();
         }
-        unallocateTrees();
         return ret;
     }
 
@@ -126,18 +112,15 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
         if (forest.isEmpty())
             return null;
         K last = forest.lastKey();
-        TreeMap<K,V> treeMap = allocateTree(last);
+        TreeMap<K,V> treeMap = forest.get(last);
         assert !treeMap.isEmpty();
         V ret = treeMap.lastEntry().getValue();
-        unallocateTrees();
         return ret;
     }
 
-    @Update
     @Override
     public V put(K k, V v) {
         V ret = doPut(k,v);
-        unallocateTrees();
         return ret;
     }
 
@@ -151,17 +134,16 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
         return forest.hashCode();
     }
 
-    @Update
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
         if (forest.isEmpty()){
-            TreeMap<K,V> treeMap = new TreeMap<K, V>(map);
+            TreeMap<K,V> treeMap = new TreeMap<>(map);
             int split = treeMap.size()/this.threshold+1;
             K beg = treeMap.firstKey();
             for(int i=0; i<split; i++){
-                TreeMap<K,V> sub = allocateTree(beg);
+                TreeMap<K,V> sub = forest.get(beg);
                 forest.put(beg,sub);
-                TreeMap<K,V> toAdd = new TreeMap<K, V>();
+                TreeMap<K,V> toAdd = new TreeMap<>();
                 for(K k : treeMap.tailMap(beg).keySet()){
                     if(toAdd.size()==threshold){
                         beg = k;
@@ -176,17 +158,14 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
                 doPut(k, map.get(k));
             }
         }
-        unallocateTrees();
     }
 
     @Override
     public String toString(){
         TreeMap<K,V> all = new TreeMap<K, V>();
         for(K key : forest.keySet()){
-            allocateTree(key);
-            all.putAll(forest.get(key));
+           all.putAll(forest.get(key));
         }
-        unallocateTrees();
         return all.toString();
     }
 
@@ -196,12 +175,12 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
 
     @Override
     public void writeExternal(ObjectOutput objectOutput) throws IOException {
-        objectOutput.writeObject(new ArrayList<K>(forest.keySet()));
+        objectOutput.writeObject(new ArrayList<>(forest.keySet()));
     }
 
     @Override
     public void readExternal(ObjectInput objectInput) throws IOException, ClassNotFoundException {
-        forest = new TreeMap<K, TreeMap<K,V>>();
+        forest = new TreeMap<>();
         for( K k : (List<K>)objectInput.readObject()){
             forest.put(k,null);
         }
@@ -222,13 +201,13 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
 
         // 1 - Find the tree where to retrieve (k,v)
         headMap = forest.headMap(k);
-        if (!headMap.isEmpty() && allocateTree(headMap.lastKey()).size() < threshold)
+        if (!headMap.isEmpty() && headMap.get(headMap.lastKey()).size() < threshold)
             key = headMap.lastKey();
         else
             key = k;
 
         // 2 - retrieve (k,v)
-        tree = allocateTree(key);
+        tree = forest.get(key);
         ret = tree.put(k,v);
 
         log.debug("in tree "+key+" -> "+tree);
@@ -251,38 +230,9 @@ public class ShardedTreeMap<K extends Comparable<K>,V> extends Updatable impleme
 
     }
 
-
-    private TreeMap<K,V> allocateTree(K k){
-        log.debug("Allocating "+k);
-        if(forest.get(k)==null){
-            TreeMap treeMap = AtomicObjectFactory.forCache(this.getCache()).getInstanceOf(
-                    TreeMap.class, this.getKey().toString()+":"+k.toString(), true, null, false);
-            forest.put(k, treeMap);
-            log.debug("... done ");
-        }
-        return forest.get(k);
-    }
-
-    private void unallocateTrees(){
-        List<K> toUnallocate = new ArrayList<K>();
-        for(K k : forest.keySet()){
-            if(forest.get(k)!=null){
-                toUnallocate.add(k);
-            }
-        }
-        for(K k : toUnallocate){
-            log.debug("Unallocate "+k);
-            AtomicObjectFactory.forCache(this.getCache()).disposeInstanceOf(
-                    TreeMap.class, this.getKey().toString()+":"+k.toString(), true);
-            forest.put(k,null);
-        }
-
-    }
-
     @Override
     public boolean containsKey(Object o) {
-        for(K k : forest.keySet()){
-            allocateTree(k);
+        for(K k : forest.keySet()){            
             if(forest.get(k).containsKey(o))
                 return true;
         }
