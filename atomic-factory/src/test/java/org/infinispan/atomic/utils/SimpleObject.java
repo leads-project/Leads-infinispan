@@ -4,11 +4,13 @@ import org.infinispan.atomic.Distributed;
 import org.infinispan.atomic.Key;
 import org.infinispan.atomic.ReadOnly;
 
+import java.io.Serializable;
+
 /**
 * @author Pierre Sutra
 */
 @Distributed
-public class SimpleObject{
+public class SimpleObject implements Serializable {
 
    @Key
    public String field;

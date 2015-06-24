@@ -130,7 +130,7 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
       object.setField("something");
       String field = object.getField();
       assert field.equals("something");
-      Call lastCall = (Call) cache(0).get(new Reference<>(SimpleObject.class,"test"));
+      Call lastCall = (Call) container(0).getCache().get(new Reference<>(SimpleObject.class,"test"));
       assert lastCall instanceof CallInvoke;
       assert ((CallInvoke)lastCall).method.equals("setField");
    }
@@ -233,11 +233,11 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
 
    @Test
    public void baseAspectJTest() throws Exception {
-      AtomicObjectFactory.forCache(cache(0));
 
       // 1 - constructor
       SimpleObject object = new SimpleObject();
-      assert object.getField().equals("test");
+      String field = object.getField();
+      assert field.equals("test");
 
       // 2 - constructor w. arguments
       SimpleObject object1 = new SimpleObject("test2");

@@ -84,6 +84,7 @@ public class Server implements Runnable {
             .clustering()
             .hash()
             .numOwners(replicationFactor)
+            .locking().useLockStriping(true)
             .compatibility()
             .enable();
       builder.locking()
