@@ -2,6 +2,7 @@ package org.infinispan.ensemble;
 
 import org.apache.avro.Schema;
 import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
+import org.infinispan.client.hotrod.impl.ConfigurationProperties;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.commons.marshall.Marshaller;
@@ -15,6 +16,7 @@ import org.infinispan.ensemble.cache.replicated.WeakEnsembleCache;
 import org.infinispan.ensemble.indexing.IndexBuilder;
 import org.infinispan.ensemble.indexing.LocalIndexBuilder;
 import org.infinispan.query.remote.client.avro.AvroSupport;
+import org.infinispan.util.KeyValuePair;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -46,37 +48,70 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
 
    public EnsembleCacheManager() throws CacheException{
-      this(Collections.EMPTY_LIST, new ConfigurationBuilder(), new LocalIndexBuilder());
+      this(Collections.EMPTY_LIST, null, new LocalIndexBuilder());
    }
 
    public EnsembleCacheManager(String connectionString) throws CacheException{
-      this(Arrays.asList(connectionString.split("\\|")), new ConfigurationBuilder(), new LocalIndexBuilder());
+      this(Arrays.asList(connectionString.split("\\|")), null, new LocalIndexBuilder());
    }
 
    public EnsembleCacheManager(Collection<String> connectionStrings) throws CacheException{
-      this(connectionStrings, new ConfigurationBuilder(), new LocalIndexBuilder());
+      this(connectionStrings, null, new LocalIndexBuilder());
    }
 
    public EnsembleCacheManager(String connectionString, Marshaller marshaller) throws CacheException{
       this(Arrays.asList(connectionString.split("\\|")), marshaller, new LocalIndexBuilder());
    }
 
-   public EnsembleCacheManager(Collection<String> connectionStrings, Marshaller marshaller, 
+   public EnsembleCacheManager(
+         Collection<String> connectionStrings, 
+         Marshaller marshaller, 
          IndexBuilder indexBuilder) throws CacheException{
-      this(connectionStrings, new ConfigurationBuilder().marshaller(marshaller), indexBuilder);
+      this(connectionStrings, marshaller, null, indexBuilder);
    }
    
-   public EnsembleCacheManager(Collection<String> connectionStrings, ConfigurationBuilder configurationBuilder, 
+   public EnsembleCacheManager(
+         Collection<String> connectionStrings,
+         Marshaller marshaller,
+         Properties properties,
          IndexBuilder indexBuilder) throws CacheException {
-
-      configurationBuilder.pingOnStartup(false); // to save time for default configurations
-      configurationBuilder.tcpKeepAlive(false);
 
       this.caches = indexBuilder.getIndex(EnsembleCache.class);
       this.sites = new ConcurrentHashMap<>();
       boolean once = true;
+
       for(String connectioNString : connectionStrings){
-         Site site = Site.valueOf(connectioNString, configurationBuilder, once);
+
+         ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+         configurationBuilder
+               .pingOnStartup(false)
+               .tcpKeepAlive(false);
+         if (properties!=null) configurationBuilder.withProperties(properties);
+         if (marshaller!=null) configurationBuilder.marshaller(marshaller);
+
+         // we shuffle as HotRod provides only RoundRobin balancing strategy
+         List<KeyValuePair<String,Integer>> serverList = new ArrayList<>();
+         for(String server : connectioNString.split(",")) {
+            String host;
+            int port;
+            if (server.contains(":")) {
+               host = server.split(":")[0];
+               port = Integer.valueOf(server.split(":")[1]);
+            } else {
+               host = server;
+               port = ConfigurationProperties.DEFAULT_HOTROD_PORT;
+            }
+            serverList.add(new KeyValuePair<>(host,port));
+         }
+         Collections.shuffle(serverList);
+
+         for(KeyValuePair<String,Integer> server : serverList) {
+            String              host = server.getKey();
+            int port = server.getValue();
+            configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
+         }
+
+         Site site = Site.valueOf(connectioNString, configurationBuilder.build(), once);
          if (once){
             localSite = site;
             once=false;

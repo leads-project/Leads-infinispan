@@ -2,19 +2,14 @@ package org.infinispan.ensemble;
 
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
-import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
-import org.infinispan.client.hotrod.impl.ConfigurationProperties;
+import org.infinispan.client.hotrod.configuration.Configuration;
 import org.infinispan.ensemble.cache.SiteEnsembleCache;
 import org.infinispan.ensemble.indexing.Indexable;
 import org.infinispan.manager.CacheContainer;
-import org.infinispan.util.KeyValuePair;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  *
@@ -43,33 +38,12 @@ public class Site extends Indexable {
    private transient boolean isLocal;
    private transient RemoteCacheManager container;
 
-   public static Site valueOf(String servers, ConfigurationBuilder configurationBuilder, boolean isLocal){
+   public static Site valueOf(String servers, Configuration configuration, boolean isLocal){
       
-      // we shuffle as HotRod provides only RoundRobin balancing strategy
-
-      List<KeyValuePair<String,Integer>> serverList = new ArrayList<>();
-      for(String server : servers.split(",")) {
-         String host;
-         int port;
-         if (server.contains(":")) {
-            host = server.split(":")[0];
-            port = Integer.valueOf(server.split(":")[1]);
-         } else {
-            host = server;
-            port = ConfigurationProperties.DEFAULT_HOTROD_PORT;
-         }
-         serverList.add(new KeyValuePair<>(host,port));
-      }
-
-      Collections.shuffle(serverList);
-
-      for(KeyValuePair<String,Integer> server : serverList) {
-         String host = server.getKey();
-         int port = server.getValue();
-         configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
-      }
-
-      return new Site(servers,new RemoteCacheManager(configurationBuilder.build(),true),isLocal);
+      return new Site(
+            servers,
+            new RemoteCacheManager(configuration,true),
+            isLocal);
    }
 
    //
