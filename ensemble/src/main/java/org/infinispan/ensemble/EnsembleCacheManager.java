@@ -69,7 +69,15 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
          IndexBuilder indexBuilder) throws CacheException{
       this(connectionStrings, marshaller, null, indexBuilder);
    }
-   
+
+   public EnsembleCacheManager(
+         String connectionString,
+         Marshaller marshaller,
+         Properties properties,
+         IndexBuilder indexBuilder) throws CacheException {
+      this(Arrays.asList(connectionString.split("\\|")), marshaller, properties, new LocalIndexBuilder());
+   }
+
    public EnsembleCacheManager(
          Collection<String> connectionStrings,
          Marshaller marshaller,
@@ -85,7 +93,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
          ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
          configurationBuilder
                .pingOnStartup(false)
-               .tcpKeepAlive(false);
+               .tcpKeepAlive(false)
+               .tcpNoDelay(true);
          if (properties!=null) configurationBuilder.withProperties(properties);
          if (marshaller!=null) configurationBuilder.marshaller(marshaller);
 
@@ -106,7 +115,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
          Collections.shuffle(serverList);
 
          for(KeyValuePair<String,Integer> server : serverList) {
-            String              host = server.getKey();
+            String host = server.getKey();
             int port = server.getValue();
             configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
          }
