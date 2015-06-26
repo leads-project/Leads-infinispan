@@ -40,9 +40,10 @@ public class Site extends Indexable {
 
    public static Site valueOf(String servers, Configuration configuration, boolean isLocal){
       
+      RemoteCacheManager manager = new RemoteCacheManager(configuration,true);
       return new Site(
             servers,
-            new RemoteCacheManager(configuration,true),
+            manager,
             isLocal);
    }
 

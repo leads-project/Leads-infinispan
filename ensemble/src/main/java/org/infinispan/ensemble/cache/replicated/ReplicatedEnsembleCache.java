@@ -74,4 +74,20 @@ public abstract class ReplicatedEnsembleCache<K,V> extends EnsembleCache<K,V> {
       return caches.iterator().next().keySet();
    }
 
+   // LIFE CYCLE
+   
+   @Override
+   public void stop(){
+      for (EnsembleCache cache : caches) {
+         cache.stop();
+      }
+   }
+
+   @Override
+   public void start(){
+      for (EnsembleCache cache : caches) {
+         cache.start();
+      }
+   }
+
 }
