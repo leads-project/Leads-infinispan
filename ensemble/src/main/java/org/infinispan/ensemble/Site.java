@@ -4,7 +4,6 @@ import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
 import org.infinispan.client.hotrod.impl.ConfigurationProperties;
-import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.ensemble.cache.SiteEnsembleCache;
 import org.infinispan.ensemble.indexing.Indexable;
 import org.infinispan.manager.CacheContainer;
@@ -16,8 +15,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  *
@@ -46,16 +43,8 @@ public class Site extends Indexable {
    private transient boolean isLocal;
    private transient RemoteCacheManager container;
 
-   public static Site valueOf(String servers, Marshaller marshaller, boolean isLocal){
-
-      ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+   public static Site valueOf(String servers, ConfigurationBuilder configurationBuilder, boolean isLocal){
       
-      configurationBuilder.pingOnStartup(false);
-      configurationBuilder.tcpKeepAlive(false);
-
-      if (marshaller != null)
-         configurationBuilder.marshaller(marshaller);
-
       // we shuffle as HotRod provides only RoundRobin balancing strategy
 
       List<KeyValuePair<String,Integer>> serverList = new ArrayList<>();

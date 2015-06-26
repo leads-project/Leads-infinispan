@@ -1,6 +1,7 @@
 package org.infinispan.ensemble;
 
 import org.apache.avro.Schema;
+import org.infinispan.client.hotrod.configuration.ConfigurationBuilder;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.commons.marshall.Marshaller;
@@ -45,33 +46,45 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
 
 
    public EnsembleCacheManager() throws CacheException{
-      this(Collections.EMPTY_LIST,null,new LocalIndexBuilder());
+      this(Collections.EMPTY_LIST, new ConfigurationBuilder(), new LocalIndexBuilder());
    }
 
    public EnsembleCacheManager(String connectionString) throws CacheException{
-      this(Arrays.asList(connectionString.split("\\|")),null,new LocalIndexBuilder());
+      this(Arrays.asList(connectionString.split("\\|")), new ConfigurationBuilder(), new LocalIndexBuilder());
    }
 
    public EnsembleCacheManager(Collection<String> connectionStrings) throws CacheException{
-      this(connectionStrings, null, new LocalIndexBuilder());
+      this(connectionStrings, new ConfigurationBuilder(), new LocalIndexBuilder());
    }
 
    public EnsembleCacheManager(String connectionString, Marshaller marshaller) throws CacheException{
       this(Arrays.asList(connectionString.split("\\|")), marshaller, new LocalIndexBuilder());
    }
 
-   public EnsembleCacheManager(Collection<String> connectionStrings, Marshaller marshaller, IndexBuilder indexBuilder) throws CacheException{
+   public EnsembleCacheManager(Collection<String> connectionStrings, Marshaller marshaller, 
+         IndexBuilder indexBuilder) throws CacheException{
+      this(connectionStrings, new ConfigurationBuilder().marshaller(marshaller), indexBuilder);
+   }
+   
+   public EnsembleCacheManager(Collection<String> connectionStrings, ConfigurationBuilder configurationBuilder, 
+         IndexBuilder indexBuilder) throws CacheException {
+
+      configurationBuilder.pingOnStartup(false); // to save time for default configurations
+      configurationBuilder.tcpKeepAlive(false);
+
       this.caches = indexBuilder.getIndex(EnsembleCache.class);
       this.sites = new ConcurrentHashMap<>();
       boolean once = true;
       for(String connectioNString : connectionStrings){
-         Site site = Site.valueOf(connectioNString,marshaller,once);
+         Site site = Site.valueOf(connectioNString, configurationBuilder, once);
          if (once){
             localSite = site;
             once=false;
          }
          addSite(site);
       }
+
+
    }
 
    //
