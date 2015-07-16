@@ -43,7 +43,7 @@ public class AvroMetadataManager {
          ConfigurationBuilder cfg = new ConfigurationBuilder();
          cfg.transaction().lockingMode(LockingMode.PESSIMISTIC).syncCommitPhase(true).syncRollbackPhase(true)
                .locking().isolationLevel(IsolationLevel.READ_COMMITTED).useLockStriping(false)
-               .clustering().cacheMode(CacheMode.REPL_SYNC)
+               .clustering().cacheMode(cacheManager.getDefaultCacheConfiguration().clustering().cacheMode())
                .stateTransfer().fetchInMemoryState(true).awaitInitialTransfer(false)
                .dataContainer().keyEquivalence(new ByteArrayEquivalence()); // for HotRod compatibility
          cacheManager.defineConfiguration(AvroSupport.AVRO_METADATA_CACHE_NAME, cfg.build());
