@@ -28,23 +28,55 @@ import static org.infinispan.test.TestingUtil.blockUntilCacheStatusAchieved;
  * @author Pierre Sutra
  * @since 7.0
  */
-public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTest {
+public class SimulationDriver extends MultipleCacheManagersTest implements Driver {
 
-   protected List<HotRodServer> servers = new ArrayList<>();
-   protected List<String> sites = new ArrayList<>();
-
-   // total numbder of sites
-   protected abstract int numberOfSites();
-
-   // node per site
-   protected abstract int numberOfNodes();
+   private int numberOfSites = 0;
+   private int numberOfNodes = 0 ;
+   private List<String> cacheNames = EMPTY_LIST;
+   private List<HotRodServer> servers = new ArrayList<>();
+   private List<String> sites = new ArrayList<>();
 
    @Override
-   protected void createCacheManagers() throws Throwable {
-      ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
-      createSites(numberOfSites(), numberOfNodes(), builder);
+   public int getNumberOfSites(){
+      return numberOfSites;
+   }
+   
+   @Override
+   public int getNumberOfNodes(){
+      return numberOfNodes;
+   }
+   
+   @Override
+   public void setNumberOfSites(int numberOfSites){
+      this.numberOfSites = numberOfSites;
+   }  
+   
+   @Override
+   public void setNumberOfNodes(int numberOfNodes){
+      this.numberOfNodes = numberOfNodes;
+   }
+   
+   @Override
+   public List<String> getCacheNames(){
+      return this.cacheNames;
+   }
+   
+   @Override
+   public void setCacheNames(List<String> cacheNames){
+      this.cacheNames = cacheNames;
    }
 
+   @Override
+   public void createSites() throws Throwable {
+      createCacheManagers();
+   }
+   
+   @Override
+   public void createCacheManagers() throws Throwable {
+      ConfigurationBuilder builder = hotRodCacheConfiguration(getDefaultClusteredCacheConfig(CacheMode.DIST_SYNC, false));
+      createSites(numberOfSites, numberOfNodes, builder);
+   }
+   
    @AfterClass(alwaysRun = true)
    @Override
    public void destroy(){
@@ -60,10 +92,6 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
 
    public List<String> sites(){
       return sites;
-   }
-
-   public List<String> cacheNames(){
-      return EMPTY_LIST;
    }
 
    public String connectionString(){
@@ -104,7 +132,7 @@ public abstract class MultipleSitesAbstractTest extends MultipleCacheManagersTes
       Configuration configuration = builder.build();
       for (int i = 0; i < nsites; i++) {
          for (int j = 0; j < nnodes; j++) {
-            for (String name : cacheNames()) {
+            for (String name : cacheNames) {
                manager(i*nnodes+j).defineConfiguration(name,configuration);
                manager(i * nnodes + j).getCache(name, true);
             }

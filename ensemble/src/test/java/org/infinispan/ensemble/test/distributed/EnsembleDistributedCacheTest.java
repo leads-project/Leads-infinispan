@@ -31,10 +31,10 @@ public class EnsembleDistributedCacheTest extends EnsembleBaseTest {
    protected synchronized EnsembleCache<CharSequence, WebPage> cache() {
       if (cache == null) {
          List<EnsembleCache<CharSequence, WebPage>> list = new ArrayList<>();
-         for (Site s : manager.sites())
+         for (Site s : getManager().sites())
             list.add(s.<CharSequence, WebPage>getCache(cacheName));
          partitioner = new HashBasedPartitioner<>(list);
-         cache = (DistributedEnsembleCache<CharSequence, WebPage>) manager.getCache(cacheName, list, partitioner, frontierMode);
+         cache = (DistributedEnsembleCache<CharSequence, WebPage>) getManager().getCache(cacheName, list, partitioner, frontierMode);
       }
       return cache;
    }

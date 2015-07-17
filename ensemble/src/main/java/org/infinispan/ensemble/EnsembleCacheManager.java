@@ -16,7 +16,6 @@ import org.infinispan.ensemble.cache.replicated.WeakEnsembleCache;
 import org.infinispan.ensemble.indexing.IndexBuilder;
 import org.infinispan.ensemble.indexing.LocalIndexBuilder;
 import org.infinispan.query.remote.client.avro.AvroSupport;
-import org.infinispan.util.KeyValuePair;
 import org.infinispan.util.logging.Log;
 import org.infinispan.util.logging.LogFactory;
 
@@ -67,7 +66,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
          Collection<String> connectionStrings, 
          Marshaller marshaller, 
          IndexBuilder indexBuilder) throws CacheException{
-      this(connectionStrings, marshaller, null, indexBuilder);
+      this(connectionStrings, marshaller, new Properties(), indexBuilder);
    }
 
 
@@ -96,39 +95,16 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
       this.sites = new ConcurrentHashMap<>();
       boolean once = true;
 
-      for(String connectioNString : connectionStrings){
-
+      for(String connectionString : connectionStrings){
          ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
          configurationBuilder
                .pingOnStartup(false)
                .tcpKeepAlive(false)
                .tcpNoDelay(true);
+         properties.put(ConfigurationProperties.SERVER_LIST,connectionString);
          if (properties!=null) configurationBuilder.withProperties(properties);
          if (marshaller!=null) configurationBuilder.marshaller(marshaller);
-
-         // we shuffle as HotRod provides only RoundRobin balancing strategy
-         List<KeyValuePair<String,Integer>> serverList = new ArrayList<>();
-         for(String server : connectioNString.split(",")) {
-            String host;
-            int port;
-            if (server.contains(":")) {
-               host = server.split(":")[0];
-               port = Integer.valueOf(server.split(":")[1]);
-            } else {
-               host = server;
-               port = ConfigurationProperties.DEFAULT_HOTROD_PORT;
-            }
-            serverList.add(new KeyValuePair<>(host,port));
-         }
-         Collections.shuffle(serverList);
-
-         for(KeyValuePair<String,Integer> server : serverList) {
-            String host = server.getKey();
-            int port = server.getValue();
-            configurationBuilder.addServer().host(host).port(port).pingOnStartup(false);
-         }
-
-         Site site = Site.valueOf(connectioNString, configurationBuilder.build(), once);
+         Site site = Site.valueOf(connectionString, configurationBuilder.build(), once);
          if (once){
             localSite = site;
             once=false;

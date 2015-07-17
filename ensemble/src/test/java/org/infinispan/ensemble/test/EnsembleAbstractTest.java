@@ -7,23 +7,37 @@ import org.infinispan.ensemble.indexing.LocalIndexBuilder;
 import org.infinispan.query.remote.client.avro.AvroMarshaller;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
+
+import java.util.List;
+
+import static java.util.Collections.EMPTY_LIST;
 
 /**
  *
  * @author Pierre Sutra
  * @since 6.0
  */
-public abstract class EnsembleAbstractTest<K,T> extends MultipleSitesAbstractTest {
+public abstract class EnsembleAbstractTest<K,T>{
 
-   protected EnsembleCacheManager manager;
+   private Driver driver;
+
+   private EnsembleCacheManager manager;
+
    protected abstract int numberOfSites();
+   protected abstract int numberOfNodes();
    protected abstract Class<? extends GenericContainer> valueClass();
    protected abstract Class<? extends K> keyClass();
    protected abstract EnsembleCache<K,T> cache();
 
-   @Override
-   protected void createCacheManagers() throws Throwable {
-      super.createCacheManagers();
+   @BeforeClass(alwaysRun = true)
+   protected void init() throws Throwable {
+      driver = new RealDriver();
+      driver.setNumberOfSites(numberOfSites());
+      driver.setNumberOfNodes(numberOfNodes());
+      driver.setCacheNames(cacheNames());
+      driver.createSites();
+      
       manager = new EnsembleCacheManager(sites(),new AvroMarshaller<>(valueClass()),new LocalIndexBuilder());
       for (String cacheName : cacheNames())
          manager.loadSchema(valueClass().newInstance().getSchema());
@@ -35,10 +49,21 @@ public abstract class EnsembleAbstractTest<K,T> extends MultipleSitesAbstractTes
    }
 
    @AfterClass(alwaysRun = true)
-   @Override
    public void destroy(){
-      super.destroy();
+      driver.destroy();
       manager.stop();
+   }
+   
+   protected EnsembleCacheManager getManager(){
+      return manager;
+   }
+
+   public List<String> sites(){
+      return driver.sites();
+   }
+
+   public List<String> cacheNames(){
+      return EMPTY_LIST;
    }
 
 }

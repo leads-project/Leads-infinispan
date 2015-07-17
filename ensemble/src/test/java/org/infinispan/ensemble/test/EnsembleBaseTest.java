@@ -50,9 +50,9 @@ public abstract class EnsembleBaseTest extends EnsembleAbstractTest<CharSequence
 
    @Test
    public void baseManagerOperations() {
-      manager.start();
-      manager.stop();
-      manager.start();
+      getManager().start();
+      getManager().stop();
+      getManager().start();
    }
    
    @Test
