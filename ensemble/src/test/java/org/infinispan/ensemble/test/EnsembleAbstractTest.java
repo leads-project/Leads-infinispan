@@ -32,7 +32,9 @@ public abstract class EnsembleAbstractTest<K,T>{
 
    @BeforeClass(alwaysRun = true)
    protected void init() throws Throwable {
-      driver = new RealDriver();
+      driver = (System.getProperty("org.infinispan.ensemble.test.connectionString")==null) ?
+            new SimulationDriver() :
+            new RealDriver(System.getProperty("org.infinispan.ensemble.test.connectionString"));
       driver.setNumberOfSites(numberOfSites());
       driver.setNumberOfNodes(numberOfNodes());
       driver.setCacheNames(cacheNames());

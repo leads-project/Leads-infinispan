@@ -1,12 +1,18 @@
 package org.infinispan.ensemble.test;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
  * @author Pierre Sutra
  */
 public class RealDriver implements Driver {
+
+   public List<String> sites;
+   
+   public RealDriver(String connectionString){
+      sites = Arrays.asList(connectionString.split("\\|")); 
+   }
    
    @Override 
    public int getNumberOfSites() {
@@ -45,10 +51,7 @@ public class RealDriver implements Driver {
 
    @Override 
    public List<String> sites() {
-      List<String> ret = new ArrayList<>();
-      // ret.add("80.156.73.93");
-      ret.add("5.147.254.197");
-      return ret;
+      return sites;
    }
 
    @Override public void destroy() {
