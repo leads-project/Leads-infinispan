@@ -20,6 +20,7 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
 import org.infinispan.query.remote.client.avro.AvroAbstractMarshaller;
+import org.infinispan.query.remote.client.avro.AvroSupport;
 import org.infinispan.test.SingleCacheManagerTest;
 import org.testng.annotations.Test;
 
@@ -96,9 +97,14 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
             .ignoreAnalyzer()
             .matching("Alice")
             .createQuery();
-
       List<Object> list = sm.getQuery(luceneQuery).list();
       assertEquals(1, list.size());
+      assertEquals(list.get(0), toGeneric(user));
+
+      luceneQuery = NumericRangeQuery.newIntRange("favorite_number", 8, 0, 12, true, true);
+      list = sm.getQuery(luceneQuery).list();
+      assertEquals(1, list.size());
+      assertEquals(list.get(0), toGeneric(user));
 
       luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
             .get()
@@ -108,50 +114,47 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
             .ignoreAnalyzer()
             .matching("Bob")
             .createQuery();
-
       list = sm.getQuery(luceneQuery).list();
       assertEquals(0, list.size());
 
-      luceneQuery = NumericRangeQuery.newIntRange("favorite_number", 8, 0, 12, true, true);
+      luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
+            .get()
+            .keyword()
+            .onField("devices" + AvroSupport.DELIMITER+"0")
+                  .ignoreFieldBridge()
+                  .ignoreAnalyzer()
+            .matching("STCD00502" + AvroSupport.DELIMITER + "SEAGATE")
+            .createQuery();
       list = sm.getQuery(luceneQuery).list();
       assertEquals(1, list.size());
-
-      luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class).get().all().createQuery();
-      list = sm.getQuery(luceneQuery).list();
-      list.get(0).equals(deviceList);
+      assertEquals(list.get(0),toGeneric(deviceList));
 
       luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
             .get()
             .keyword()
-            .onField("devices.0.STCD00502")
-            .ignoreFieldBridge()
-            .ignoreAnalyzer()
-            .matching("SEAGATE")
-            .createQuery();
+            .onField("outlinks")
+                  .ignoreFieldBridge()
+                  .ignoreAnalyzer()
+                  .matching("1" + AvroSupport.DELIMITER+"http://www.example.com")
+                  .createQuery();
       list = sm.getQuery(luceneQuery).list();
-      list.get(0).equals(deviceList);
-
-      luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
-            .get()
-            .keyword()
-            .onField("outlinks.1")
-            .ignoreFieldBridge()
-            .ignoreAnalyzer()
-            .matching("http://www.example.com")
-            .createQuery();
-
-      list = sm.getQuery(luceneQuery).list();
-      list.get(0).equals(page);
+      assertEquals(1,list.size());
+      assertEquals(list.get(0),toGeneric(page));
    }
 
    // helpers
 
    private void addToCache(SpecificRecord record) {
-      try {
-         cache.put(record.get(0),externalizer.objectFromByteBuffer(externalizer.objectToByteBuffer(record)));
+      cache.put(record.get(0),toGeneric(record));
+   }
+
+   private GenericData.Record toGeneric(SpecificRecord record){
+      try{
+         return (GenericData.Record) externalizer.objectFromByteBuffer(externalizer.objectToByteBuffer(record));
       } catch (IOException | ClassNotFoundException e) {
          e.printStackTrace();
       }
+      return null;
    }
 
    private static class AvroSimpleExternalizer extends AvroAbstractMarshaller {
