@@ -25,21 +25,25 @@ import java.util.Map;
  */
 public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
 
-   public static final String NULL="__null__";
    private static final Log log = LogFactory.getLog(ValueWrapperFieldBridge.class, Log.class);
 
    @Override
    public void set(String name, Object value, Document document, LuceneOptions luceneOptions) {
-      GenericData.Record record = (GenericData.Record) value;
-      Schema schema = record.getSchema();
+
       if (name.contains(AvroSupport.DELIMITER))
          throw new CacheException("Name cannot contains delimiter \""+AvroSupport.DELIMITER+"\"");
-      add(document, Schema.Type.RECORD, schema.getName(), record, schema);
+
+      GenericData.Record record = (GenericData.Record) value;
+      for (Schema.Field field : record.getSchema().getFields()) {
+         String fieldName = field.name();
+         Schema subSchema = field.schema();
+         add(document, subSchema.getType(), fieldName, record.get(fieldName), subSchema);
+      }
    }
 
    @Override
    public Object get(String name, Document document) {
-      if (document.get(name).equals(NULL))
+      if (document.get(name).equals(Schema.Type.NULL.toString()))
          return null;
       return document.get(name);
    }
@@ -47,7 +51,7 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
    @Override
    public String objectToString(Object object) {
       if (object==null)
-         return NULL;
+         return Schema.Type.NULL.toString();
       return object.toString();
    }
 
@@ -151,42 +155,47 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
    }
 
    public static FieldBridge retrieveFieldBridge(String fieldName, Schema schema) {
+      List<String> path = new ArrayList<>();
+      path.add(schema.getName());
+      for(String p : fieldName.split(AvroSupport.DELIMITER_REGEX)) path.add(p);
       return retrieveFieldBridge(
             schema.getType(),
             schema,
-            fieldName.split(AvroSupport.DELIMITER));
+            path.toArray(new String[]{}));
    }
 
    public static TwoWayFieldBridge retrieveFieldBridge(Schema.Type type, Schema schema, String[] path) {
       switch (type) {
       case BYTES:
       case NULL:
-         throw new CacheException("type " + type + " not indexed");
+          log.trace("type " + type + " not indexed");
       case INT:
-         assert path.length==1 && path[0].equals(schema.getName());
+         assert path.length==1;
          return NumericFieldBridge.INT_FIELD_BRIDGE;
       case LONG:
-         assert path.length==1 && path[0].equals(schema.getName());
+         assert path.length==1;
          return NumericFieldBridge.LONG_FIELD_BRIDGE;
       case FLOAT:
-         assert path.length==1 && path[0].equals(schema.getName());
+         assert path.length==1;
          return NumericFieldBridge.FLOAT_FIELD_BRIDGE;
       case DOUBLE:
-         assert path.length==1 && path[0].equals(schema.getName());
+         assert path.length==1;
          return NumericFieldBridge.DOUBLE_FIELD_BRIDGE;
       case UNION:
-         assert path.length==1 && path[0].equals(schema.getName());
+         assert path.length==1;
          for (Schema subSchema : schema.getTypes())
-            if (!subSchema.getType().equals(type))
+            if (!subSchema.getType().equals(Schema.Type.NULL))
                return retrieveFieldBridge(subSchema.getType(), subSchema, path);
          break;
       case RECORD:
+         assert path[0].equals(schema.getName());
+         String[] subPath = Arrays.copyOfRange(path,1,path.length);
          for (Schema.Field field : schema.getFields()) {
-            if (field.name().equals(path[0]))
+            if (field.name().equals(path[1]))
                return retrieveFieldBridge(
                      field.schema().getType(),
                      field.schema(),
-                     Arrays.copyOfRange(path,1,path.length-1));
+                     subPath);
          }
       case MAP:
          Schema subSchema = schema.getValueType();
@@ -205,7 +214,7 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
       case FIXED:
       case STRING:
       case BOOLEAN:
-         assert path.length==1 && path[0].equals(schema.getName());
+         assert path.length==1;
          return new TwoWayString2FieldBridgeAdaptor(StringBridge.INSTANCE);
       }
       throw new CacheException("Unable to find "+path+" having type "+type);

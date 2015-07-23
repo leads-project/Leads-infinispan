@@ -7,10 +7,10 @@ package example.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class User extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"name\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"favorite_number\",\"type\":[\"int\",\"null\"]},{\"name\":\"favorite_color\",\"type\":[{\"type\":\"string\",\"avro.java.string\":\"String\"},\"null\"]}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"User\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"name\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"default\":\"\"},{\"name\":\"favorite_number\",\"type\":\"int\",\"default\":0},{\"name\":\"favorite_color\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"default\":\"\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
   @Deprecated public java.lang.String name;
-  @Deprecated public java.lang.Integer favorite_number;
+  @Deprecated public int favorite_number;
   @Deprecated public java.lang.String favorite_color;
 
   /**
@@ -115,7 +115,7 @@ public class User extends org.apache.avro.specific.SpecificRecordBase implements
     implements org.apache.avro.data.RecordBuilder<User> {
 
     private java.lang.String name;
-    private java.lang.Integer favorite_number;
+    private int favorite_number;
     private java.lang.String favorite_color;
 
     /** Creates a new Builder */
@@ -176,7 +176,7 @@ public class User extends org.apache.avro.specific.SpecificRecordBase implements
     }
     
     /** Sets the value of the 'favorite_number' field */
-    public example.avro.User.Builder setFavoriteNumber(java.lang.Integer value) {
+    public example.avro.User.Builder setFavoriteNumber(int value) {
       validate(fields()[1], value);
       this.favorite_number = value;
       fieldSetFlags()[1] = true;
@@ -190,7 +190,6 @@ public class User extends org.apache.avro.specific.SpecificRecordBase implements
     
     /** Clears the value of the 'favorite_number' field */
     public example.avro.User.Builder clearFavoriteNumber() {
-      favorite_number = null;
       fieldSetFlags()[1] = false;
       return this;
     }

@@ -3,8 +3,8 @@
  "name": "User",
  "namespace": "example.avro",
  "fields": [
-     {"name": "name", "type": "string"},
-     {"name": "favorite_number",  "type": ["int", "null"]},
-     {"name": "favorite_color", "type": ["string", "null"]}
+     {"name": "name", "type": "string", "default": ""},
+     {"name": "favorite_number", "type": "int", "default": 0},
+     {"name": "favorite_color", "type": "string", "default": ""}
  ]
 }
