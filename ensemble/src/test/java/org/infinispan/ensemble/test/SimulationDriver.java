@@ -157,7 +157,7 @@ public class SimulationDriver extends MultipleCacheManagersTest implements Drive
       for (int i = 0; i < nsites; i++) {
          String site ="";
          for (int j = 0; j < nnodes; j++) {
-            site += server(i*nnodes+j).getHost() + ":" + server(i*nnodes+j).getPort()+",";
+            site += server(i*nnodes+j).getHost() + ":" + server(i*nnodes+j).getPort()+";";
          }
          site = site.substring(0,site.length()-1);
          sites.add(site);
