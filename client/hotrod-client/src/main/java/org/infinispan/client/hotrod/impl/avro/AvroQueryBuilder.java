@@ -1,5 +1,6 @@
 package org.infinispan.client.hotrod.impl.avro;
 
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.client.hotrod.impl.transport.tcp.TcpTransportFactory;
@@ -26,17 +27,19 @@ public class AvroQueryBuilder extends BaseQueryBuilder<Query> {
    private static final Log log = LogFactory.getLog(AvroQueryBuilder.class);
 
    private RemoteCacheImpl cache;
+   private Schema schema;
 
-   public AvroQueryBuilder(RemoteCacheImpl c, QueryFactory qf) {
+   public AvroQueryBuilder(RemoteCacheImpl cache, QueryFactory qf, Schema schema) {
       super(qf,GenericData.Record.class.getName());
-      cache = c;
+      this.cache = cache;
+      this.schema = schema;
    }
 
    @Override
    public Query build() {
       String jpqlString = accept(new JPAQueryGenerator());
       log.debug("JPQL string : "+jpqlString);
-      return new AvroRemoteQuery(cache, jpqlString, startOffset, maxResults);
+      return new AvroRemoteQuery(cache, jpqlString, schema, startOffset, maxResults);
    }
 
    public Collection<AvroRemoteQuery> split(Query query) {

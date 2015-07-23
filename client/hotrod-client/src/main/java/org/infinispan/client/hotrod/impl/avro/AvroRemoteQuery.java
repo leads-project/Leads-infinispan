@@ -1,5 +1,6 @@
 package org.infinispan.client.hotrod.impl.avro;
 
+import org.apache.avro.Schema;
 import org.infinispan.client.hotrod.impl.RemoteCacheImpl;
 import org.infinispan.query.dsl.Query;
 import org.infinispan.query.remote.client.avro.Response;
@@ -19,15 +20,17 @@ public class AvroRemoteQuery implements Query, Cloneable {
 
    protected RemoteCacheImpl cache;
    protected String jpqlString;
+   protected Schema schemaName;
    protected long startOffset; //todo can this really be long or it has to be int due to limitations in query module?
    protected InetSocketAddress location;
    protected List results;
    protected int numResults;
    protected int maxResults;
 
-   public AvroRemoteQuery(RemoteCacheImpl cache, String jpqlString, long startOffset, int maxResults) {
+   public AvroRemoteQuery(RemoteCacheImpl cache, String jpqlString, Schema schemaName, long startOffset, int maxResults) {
       this.cache = cache;
       this.jpqlString = jpqlString;
+      this.schemaName = schemaName;
       this.startOffset = startOffset;
       this.maxResults = maxResults;
    }
@@ -91,7 +94,7 @@ public class AvroRemoteQuery implements Query, Cloneable {
    
    @Override
    public String toString(){
-      return jpqlString + "(max="+maxResults+", offset="+startOffset+")";
+      return jpqlString + "(schemaName = "+schemaName+", max="+maxResults+", offset="+startOffset+")";
    }
    
    @Override
@@ -99,6 +102,7 @@ public class AvroRemoteQuery implements Query, Cloneable {
       AvroRemoteQuery query = (AvroRemoteQuery) super.clone();
       query.cache = this.cache;
       query.jpqlString = this.jpqlString;
+      query.schemaName = this.schemaName;
       query.startOffset = this.startOffset;
       query.location = this.location;
       query.results = this.results;

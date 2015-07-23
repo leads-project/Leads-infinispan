@@ -7,25 +7,25 @@ package org.infinispan.query.remote.client.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class Request extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Request\",\"namespace\":\"org.infinispan.query.remote.client.avro\",\"fields\":[{\"name\":\"jpqlString\",\"type\":\"string\"},{\"name\":\"startOffset\",\"type\":\"long\"},{\"name\":\"maxResult\",\"type\":\"int\"},{\"name\":\"local\",\"type\":\"boolean\",\"default\":\"false\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Request\",\"namespace\":\"org.infinispan.query.remote.client.avro\",\"fields\":[{\"name\":\"jpqlString\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"schemaName\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"startOffset\",\"type\":\"long\"},{\"name\":\"maxResult\",\"type\":\"int\"},{\"name\":\"local\",\"type\":\"boolean\",\"default\":\"false\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
-  @Deprecated public java.lang.CharSequence jpqlString;
+  @Deprecated public java.lang.String jpqlString;
+  @Deprecated public java.lang.String schemaName;
   @Deprecated public long startOffset;
   @Deprecated public int maxResult;
   @Deprecated public boolean local;
 
   /**
-   * Default constructor.  Note that this does not initialize fields
-   * to their default values from the schema.  If that is desired then
-   * one should use <code>newBuilder()</code>. 
+   * Default constructor.
    */
   public Request() {}
 
   /**
    * All-args constructor.
    */
-  public Request(java.lang.CharSequence jpqlString, java.lang.Long startOffset, java.lang.Integer maxResult, java.lang.Boolean local) {
+  public Request(java.lang.String jpqlString, java.lang.String schemaName, java.lang.Long startOffset, java.lang.Integer maxResult, java.lang.Boolean local) {
     this.jpqlString = jpqlString;
+    this.schemaName = schemaName;
     this.startOffset = startOffset;
     this.maxResult = maxResult;
     this.local = local;
@@ -36,9 +36,10 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return jpqlString;
-    case 1: return startOffset;
-    case 2: return maxResult;
-    case 3: return local;
+    case 1: return schemaName;
+    case 2: return startOffset;
+    case 3: return maxResult;
+    case 4: return local;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -46,10 +47,11 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
-    case 0: jpqlString = (java.lang.CharSequence)value$; break;
-    case 1: startOffset = (java.lang.Long)value$; break;
-    case 2: maxResult = (java.lang.Integer)value$; break;
-    case 3: local = (java.lang.Boolean)value$; break;
+    case 0: jpqlString = (java.lang.String)value$; break;
+    case 1: schemaName = (java.lang.String)value$; break;
+    case 2: startOffset = (java.lang.Long)value$; break;
+    case 3: maxResult = (java.lang.Integer)value$; break;
+    case 4: local = (java.lang.Boolean)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -57,7 +59,7 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * Gets the value of the 'jpqlString' field.
    */
-  public java.lang.CharSequence getJpqlString() {
+  public java.lang.String getJpqlString() {
     return jpqlString;
   }
 
@@ -65,8 +67,23 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'jpqlString' field.
    * @param value the value to set.
    */
-  public void setJpqlString(java.lang.CharSequence value) {
+  public void setJpqlString(java.lang.String value) {
     this.jpqlString = value;
+  }
+
+  /**
+   * Gets the value of the 'schemaName' field.
+   */
+  public java.lang.String getSchemaName() {
+    return schemaName;
+  }
+
+  /**
+   * Sets the value of the 'schemaName' field.
+   * @param value the value to set.
+   */
+  public void setSchemaName(java.lang.String value) {
+    this.schemaName = value;
   }
 
   /**
@@ -135,7 +152,8 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   public static class Builder extends org.apache.avro.specific.SpecificRecordBuilderBase<Request>
     implements org.apache.avro.data.RecordBuilder<Request> {
 
-    private java.lang.CharSequence jpqlString;
+    private java.lang.String jpqlString;
+    private java.lang.String schemaName;
     private long startOffset;
     private int maxResult;
     private boolean local;
@@ -148,22 +166,6 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     /** Creates a Builder by copying an existing Builder */
     private Builder(org.infinispan.query.remote.client.avro.Request.Builder other) {
       super(other);
-      if (isValidValue(fields()[0], other.jpqlString)) {
-        this.jpqlString = data().deepCopy(fields()[0].schema(), other.jpqlString);
-        fieldSetFlags()[0] = true;
-      }
-      if (isValidValue(fields()[1], other.startOffset)) {
-        this.startOffset = data().deepCopy(fields()[1].schema(), other.startOffset);
-        fieldSetFlags()[1] = true;
-      }
-      if (isValidValue(fields()[2], other.maxResult)) {
-        this.maxResult = data().deepCopy(fields()[2].schema(), other.maxResult);
-        fieldSetFlags()[2] = true;
-      }
-      if (isValidValue(fields()[3], other.local)) {
-        this.local = data().deepCopy(fields()[3].schema(), other.local);
-        fieldSetFlags()[3] = true;
-      }
     }
     
     /** Creates a Builder by copying an existing Request instance */
@@ -173,27 +175,31 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
         this.jpqlString = data().deepCopy(fields()[0].schema(), other.jpqlString);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.startOffset)) {
-        this.startOffset = data().deepCopy(fields()[1].schema(), other.startOffset);
+      if (isValidValue(fields()[1], other.schemaName)) {
+        this.schemaName = data().deepCopy(fields()[1].schema(), other.schemaName);
         fieldSetFlags()[1] = true;
       }
-      if (isValidValue(fields()[2], other.maxResult)) {
-        this.maxResult = data().deepCopy(fields()[2].schema(), other.maxResult);
+      if (isValidValue(fields()[2], other.startOffset)) {
+        this.startOffset = data().deepCopy(fields()[2].schema(), other.startOffset);
         fieldSetFlags()[2] = true;
       }
-      if (isValidValue(fields()[3], other.local)) {
-        this.local = data().deepCopy(fields()[3].schema(), other.local);
+      if (isValidValue(fields()[3], other.maxResult)) {
+        this.maxResult = data().deepCopy(fields()[3].schema(), other.maxResult);
         fieldSetFlags()[3] = true;
+      }
+      if (isValidValue(fields()[4], other.local)) {
+        this.local = data().deepCopy(fields()[4].schema(), other.local);
+        fieldSetFlags()[4] = true;
       }
     }
 
     /** Gets the value of the 'jpqlString' field */
-    public java.lang.CharSequence getJpqlString() {
+    public java.lang.String getJpqlString() {
       return jpqlString;
     }
     
     /** Sets the value of the 'jpqlString' field */
-    public org.infinispan.query.remote.client.avro.Request.Builder setJpqlString(java.lang.CharSequence value) {
+    public org.infinispan.query.remote.client.avro.Request.Builder setJpqlString(java.lang.String value) {
       validate(fields()[0], value);
       this.jpqlString = value;
       fieldSetFlags()[0] = true;
@@ -212,6 +218,31 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
       return this;
     }
 
+    /** Gets the value of the 'schemaName' field */
+    public java.lang.String getSchemaName() {
+      return schemaName;
+    }
+    
+    /** Sets the value of the 'schemaName' field */
+    public org.infinispan.query.remote.client.avro.Request.Builder setSchemaName(java.lang.String value) {
+      validate(fields()[1], value);
+      this.schemaName = value;
+      fieldSetFlags()[1] = true;
+      return this; 
+    }
+    
+    /** Checks whether the 'schemaName' field has been set */
+    public boolean hasSchemaName() {
+      return fieldSetFlags()[1];
+    }
+    
+    /** Clears the value of the 'schemaName' field */
+    public org.infinispan.query.remote.client.avro.Request.Builder clearSchemaName() {
+      schemaName = null;
+      fieldSetFlags()[1] = false;
+      return this;
+    }
+
     /** Gets the value of the 'startOffset' field */
     public java.lang.Long getStartOffset() {
       return startOffset;
@@ -219,20 +250,20 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'startOffset' field */
     public org.infinispan.query.remote.client.avro.Request.Builder setStartOffset(long value) {
-      validate(fields()[1], value);
+      validate(fields()[2], value);
       this.startOffset = value;
-      fieldSetFlags()[1] = true;
+      fieldSetFlags()[2] = true;
       return this; 
     }
     
     /** Checks whether the 'startOffset' field has been set */
     public boolean hasStartOffset() {
-      return fieldSetFlags()[1];
+      return fieldSetFlags()[2];
     }
     
     /** Clears the value of the 'startOffset' field */
     public org.infinispan.query.remote.client.avro.Request.Builder clearStartOffset() {
-      fieldSetFlags()[1] = false;
+      fieldSetFlags()[2] = false;
       return this;
     }
 
@@ -243,20 +274,20 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'maxResult' field */
     public org.infinispan.query.remote.client.avro.Request.Builder setMaxResult(int value) {
-      validate(fields()[2], value);
+      validate(fields()[3], value);
       this.maxResult = value;
-      fieldSetFlags()[2] = true;
+      fieldSetFlags()[3] = true;
       return this; 
     }
     
     /** Checks whether the 'maxResult' field has been set */
     public boolean hasMaxResult() {
-      return fieldSetFlags()[2];
+      return fieldSetFlags()[3];
     }
     
     /** Clears the value of the 'maxResult' field */
     public org.infinispan.query.remote.client.avro.Request.Builder clearMaxResult() {
-      fieldSetFlags()[2] = false;
+      fieldSetFlags()[3] = false;
       return this;
     }
 
@@ -267,20 +298,20 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     
     /** Sets the value of the 'local' field */
     public org.infinispan.query.remote.client.avro.Request.Builder setLocal(boolean value) {
-      validate(fields()[3], value);
+      validate(fields()[4], value);
       this.local = value;
-      fieldSetFlags()[3] = true;
+      fieldSetFlags()[4] = true;
       return this; 
     }
     
     /** Checks whether the 'local' field has been set */
     public boolean hasLocal() {
-      return fieldSetFlags()[3];
+      return fieldSetFlags()[4];
     }
     
     /** Clears the value of the 'local' field */
     public org.infinispan.query.remote.client.avro.Request.Builder clearLocal() {
-      fieldSetFlags()[3] = false;
+      fieldSetFlags()[4] = false;
       return this;
     }
 
@@ -288,10 +319,11 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     public Request build() {
       try {
         Request record = new Request();
-        record.jpqlString = fieldSetFlags()[0] ? this.jpqlString : (java.lang.CharSequence) defaultValue(fields()[0]);
-        record.startOffset = fieldSetFlags()[1] ? this.startOffset : (java.lang.Long) defaultValue(fields()[1]);
-        record.maxResult = fieldSetFlags()[2] ? this.maxResult : (java.lang.Integer) defaultValue(fields()[2]);
-        record.local = fieldSetFlags()[3] ? this.local : (java.lang.Boolean) defaultValue(fields()[3]);
+        record.jpqlString = fieldSetFlags()[0] ? this.jpqlString : (java.lang.String) defaultValue(fields()[0]);
+        record.schemaName = fieldSetFlags()[1] ? this.schemaName : (java.lang.String) defaultValue(fields()[1]);
+        record.startOffset = fieldSetFlags()[2] ? this.startOffset : (java.lang.Long) defaultValue(fields()[2]);
+        record.maxResult = fieldSetFlags()[3] ? this.maxResult : (java.lang.Integer) defaultValue(fields()[3]);
+        record.local = fieldSetFlags()[4] ? this.local : (java.lang.Boolean) defaultValue(fields()[4]);
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);

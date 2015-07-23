@@ -7,10 +7,10 @@ package example.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class WebPage extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"WebPage\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"key\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"baseUrl\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"status\",\"type\":\"int\",\"default\":0},{\"name\":\"fetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevFetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"fetchInterval\",\"type\":\"int\",\"default\":0},{\"name\":\"retriesSinceFetch\",\"type\":\"int\",\"default\":0},{\"name\":\"modifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevModifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"content\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"contentType\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"prevSignature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"signature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"title\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"text\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"score\",\"type\":\"float\",\"default\":0},{\"name\":\"reprUrl\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"headers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"outlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"inlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"markers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"string\"]},\"default\":{}},{\"name\":\"metadata\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"bytes\"]},\"default\":{}},{\"name\":\"batchId\",\"type\":[\"null\",\"string\"],\"default\":null}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"WebPage\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"key\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"baseUrl\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"status\",\"type\":\"int\",\"default\":0},{\"name\":\"fetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevFetchTime\",\"type\":\"long\",\"default\":0},{\"name\":\"fetchInterval\",\"type\":\"int\",\"default\":0},{\"name\":\"retriesSinceFetch\",\"type\":\"int\",\"default\":0},{\"name\":\"modifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"prevModifiedTime\",\"type\":\"long\",\"default\":0},{\"name\":\"content\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"contentType\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"prevSignature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"signature\",\"type\":[\"null\",\"bytes\"],\"default\":null},{\"name\":\"title\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"text\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"score\",\"type\":\"float\",\"default\":0},{\"name\":\"reprUrl\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"headers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"avro.java.string\":\"String\"},\"default\":{}},{\"name\":\"outlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"avro.java.string\":\"String\"},\"default\":{}},{\"name\":\"inlinks\",\"type\":{\"type\":\"map\",\"values\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"avro.java.string\":\"String\"},\"default\":{}},{\"name\":\"markers\",\"type\":{\"type\":\"map\",\"values\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"avro.java.string\":\"String\"},\"default\":{}},{\"name\":\"metadata\",\"type\":{\"type\":\"map\",\"values\":[\"null\",\"bytes\"],\"avro.java.string\":\"String\"},\"default\":{}},{\"name\":\"batchId\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
-  @Deprecated public java.lang.CharSequence key;
-  @Deprecated public java.lang.CharSequence baseUrl;
+  @Deprecated public java.lang.String key;
+  @Deprecated public java.lang.String baseUrl;
   @Deprecated public int status;
   @Deprecated public long fetchTime;
   @Deprecated public long prevFetchTime;
@@ -19,31 +19,29 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   @Deprecated public long modifiedTime;
   @Deprecated public long prevModifiedTime;
   @Deprecated public java.nio.ByteBuffer content;
-  @Deprecated public java.lang.CharSequence contentType;
+  @Deprecated public java.lang.String contentType;
   @Deprecated public java.nio.ByteBuffer prevSignature;
   @Deprecated public java.nio.ByteBuffer signature;
-  @Deprecated public java.lang.CharSequence title;
-  @Deprecated public java.lang.CharSequence text;
+  @Deprecated public java.lang.String title;
+  @Deprecated public java.lang.String text;
   @Deprecated public float score;
-  @Deprecated public java.lang.CharSequence reprUrl;
-  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers;
-  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks;
-  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> inlinks;
-  @Deprecated public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> markers;
-  @Deprecated public java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> metadata;
-  @Deprecated public java.lang.CharSequence batchId;
+  @Deprecated public java.lang.String reprUrl;
+  @Deprecated public java.util.Map<java.lang.String,java.lang.String> headers;
+  @Deprecated public java.util.Map<java.lang.String,java.lang.String> outlinks;
+  @Deprecated public java.util.Map<java.lang.String,java.lang.String> inlinks;
+  @Deprecated public java.util.Map<java.lang.String,java.lang.String> markers;
+  @Deprecated public java.util.Map<java.lang.String,java.nio.ByteBuffer> metadata;
+  @Deprecated public java.lang.String batchId;
 
   /**
-   * Default constructor.  Note that this does not initialize fields
-   * to their default values from the schema.  If that is desired then
-   * one should use <code>newBuilder()</code>. 
+   * Default constructor.
    */
   public WebPage() {}
 
   /**
    * All-args constructor.
    */
-  public WebPage(java.lang.CharSequence key, java.lang.CharSequence baseUrl, java.lang.Integer status, java.lang.Long fetchTime, java.lang.Long prevFetchTime, java.lang.Integer fetchInterval, java.lang.Integer retriesSinceFetch, java.lang.Long modifiedTime, java.lang.Long prevModifiedTime, java.nio.ByteBuffer content, java.lang.CharSequence contentType, java.nio.ByteBuffer prevSignature, java.nio.ByteBuffer signature, java.lang.CharSequence title, java.lang.CharSequence text, java.lang.Float score, java.lang.CharSequence reprUrl, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> inlinks, java.util.Map<java.lang.CharSequence,java.lang.CharSequence> markers, java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> metadata, java.lang.CharSequence batchId) {
+  public WebPage(java.lang.String key, java.lang.String baseUrl, java.lang.Integer status, java.lang.Long fetchTime, java.lang.Long prevFetchTime, java.lang.Integer fetchInterval, java.lang.Integer retriesSinceFetch, java.lang.Long modifiedTime, java.lang.Long prevModifiedTime, java.nio.ByteBuffer content, java.lang.String contentType, java.nio.ByteBuffer prevSignature, java.nio.ByteBuffer signature, java.lang.String title, java.lang.String text, java.lang.Float score, java.lang.String reprUrl, java.util.Map<java.lang.String,java.lang.String> headers, java.util.Map<java.lang.String,java.lang.String> outlinks, java.util.Map<java.lang.String,java.lang.String> inlinks, java.util.Map<java.lang.String,java.lang.String> markers, java.util.Map<java.lang.String,java.nio.ByteBuffer> metadata, java.lang.String batchId) {
     this.key = key;
     this.baseUrl = baseUrl;
     this.status = status;
@@ -103,8 +101,8 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
-    case 0: key = (java.lang.CharSequence)value$; break;
-    case 1: baseUrl = (java.lang.CharSequence)value$; break;
+    case 0: key = (java.lang.String)value$; break;
+    case 1: baseUrl = (java.lang.String)value$; break;
     case 2: status = (java.lang.Integer)value$; break;
     case 3: fetchTime = (java.lang.Long)value$; break;
     case 4: prevFetchTime = (java.lang.Long)value$; break;
@@ -113,19 +111,19 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     case 7: modifiedTime = (java.lang.Long)value$; break;
     case 8: prevModifiedTime = (java.lang.Long)value$; break;
     case 9: content = (java.nio.ByteBuffer)value$; break;
-    case 10: contentType = (java.lang.CharSequence)value$; break;
+    case 10: contentType = (java.lang.String)value$; break;
     case 11: prevSignature = (java.nio.ByteBuffer)value$; break;
     case 12: signature = (java.nio.ByteBuffer)value$; break;
-    case 13: title = (java.lang.CharSequence)value$; break;
-    case 14: text = (java.lang.CharSequence)value$; break;
+    case 13: title = (java.lang.String)value$; break;
+    case 14: text = (java.lang.String)value$; break;
     case 15: score = (java.lang.Float)value$; break;
-    case 16: reprUrl = (java.lang.CharSequence)value$; break;
-    case 17: headers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 18: outlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 19: inlinks = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 20: markers = (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>)value$; break;
-    case 21: metadata = (java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer>)value$; break;
-    case 22: batchId = (java.lang.CharSequence)value$; break;
+    case 16: reprUrl = (java.lang.String)value$; break;
+    case 17: headers = (java.util.Map<java.lang.String,java.lang.String>)value$; break;
+    case 18: outlinks = (java.util.Map<java.lang.String,java.lang.String>)value$; break;
+    case 19: inlinks = (java.util.Map<java.lang.String,java.lang.String>)value$; break;
+    case 20: markers = (java.util.Map<java.lang.String,java.lang.String>)value$; break;
+    case 21: metadata = (java.util.Map<java.lang.String,java.nio.ByteBuffer>)value$; break;
+    case 22: batchId = (java.lang.String)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -133,7 +131,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * Gets the value of the 'key' field.
    */
-  public java.lang.CharSequence getKey() {
+  public java.lang.String getKey() {
     return key;
   }
 
@@ -141,14 +139,14 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'key' field.
    * @param value the value to set.
    */
-  public void setKey(java.lang.CharSequence value) {
+  public void setKey(java.lang.String value) {
     this.key = value;
   }
 
   /**
    * Gets the value of the 'baseUrl' field.
    */
-  public java.lang.CharSequence getBaseUrl() {
+  public java.lang.String getBaseUrl() {
     return baseUrl;
   }
 
@@ -156,7 +154,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'baseUrl' field.
    * @param value the value to set.
    */
-  public void setBaseUrl(java.lang.CharSequence value) {
+  public void setBaseUrl(java.lang.String value) {
     this.baseUrl = value;
   }
 
@@ -283,7 +281,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * Gets the value of the 'contentType' field.
    */
-  public java.lang.CharSequence getContentType() {
+  public java.lang.String getContentType() {
     return contentType;
   }
 
@@ -291,7 +289,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'contentType' field.
    * @param value the value to set.
    */
-  public void setContentType(java.lang.CharSequence value) {
+  public void setContentType(java.lang.String value) {
     this.contentType = value;
   }
 
@@ -328,7 +326,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * Gets the value of the 'title' field.
    */
-  public java.lang.CharSequence getTitle() {
+  public java.lang.String getTitle() {
     return title;
   }
 
@@ -336,14 +334,14 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'title' field.
    * @param value the value to set.
    */
-  public void setTitle(java.lang.CharSequence value) {
+  public void setTitle(java.lang.String value) {
     this.title = value;
   }
 
   /**
    * Gets the value of the 'text' field.
    */
-  public java.lang.CharSequence getText() {
+  public java.lang.String getText() {
     return text;
   }
 
@@ -351,7 +349,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'text' field.
    * @param value the value to set.
    */
-  public void setText(java.lang.CharSequence value) {
+  public void setText(java.lang.String value) {
     this.text = value;
   }
 
@@ -373,7 +371,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   /**
    * Gets the value of the 'reprUrl' field.
    */
-  public java.lang.CharSequence getReprUrl() {
+  public java.lang.String getReprUrl() {
     return reprUrl;
   }
 
@@ -381,14 +379,14 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'reprUrl' field.
    * @param value the value to set.
    */
-  public void setReprUrl(java.lang.CharSequence value) {
+  public void setReprUrl(java.lang.String value) {
     this.reprUrl = value;
   }
 
   /**
    * Gets the value of the 'headers' field.
    */
-  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getHeaders() {
+  public java.util.Map<java.lang.String,java.lang.String> getHeaders() {
     return headers;
   }
 
@@ -396,14 +394,14 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'headers' field.
    * @param value the value to set.
    */
-  public void setHeaders(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+  public void setHeaders(java.util.Map<java.lang.String,java.lang.String> value) {
     this.headers = value;
   }
 
   /**
    * Gets the value of the 'outlinks' field.
    */
-  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getOutlinks() {
+  public java.util.Map<java.lang.String,java.lang.String> getOutlinks() {
     return outlinks;
   }
 
@@ -411,14 +409,14 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'outlinks' field.
    * @param value the value to set.
    */
-  public void setOutlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+  public void setOutlinks(java.util.Map<java.lang.String,java.lang.String> value) {
     this.outlinks = value;
   }
 
   /**
    * Gets the value of the 'inlinks' field.
    */
-  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getInlinks() {
+  public java.util.Map<java.lang.String,java.lang.String> getInlinks() {
     return inlinks;
   }
 
@@ -426,14 +424,14 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'inlinks' field.
    * @param value the value to set.
    */
-  public void setInlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+  public void setInlinks(java.util.Map<java.lang.String,java.lang.String> value) {
     this.inlinks = value;
   }
 
   /**
    * Gets the value of the 'markers' field.
    */
-  public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getMarkers() {
+  public java.util.Map<java.lang.String,java.lang.String> getMarkers() {
     return markers;
   }
 
@@ -441,14 +439,14 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'markers' field.
    * @param value the value to set.
    */
-  public void setMarkers(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+  public void setMarkers(java.util.Map<java.lang.String,java.lang.String> value) {
     this.markers = value;
   }
 
   /**
    * Gets the value of the 'metadata' field.
    */
-  public java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> getMetadata() {
+  public java.util.Map<java.lang.String,java.nio.ByteBuffer> getMetadata() {
     return metadata;
   }
 
@@ -456,14 +454,14 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'metadata' field.
    * @param value the value to set.
    */
-  public void setMetadata(java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> value) {
+  public void setMetadata(java.util.Map<java.lang.String,java.nio.ByteBuffer> value) {
     this.metadata = value;
   }
 
   /**
    * Gets the value of the 'batchId' field.
    */
-  public java.lang.CharSequence getBatchId() {
+  public java.lang.String getBatchId() {
     return batchId;
   }
 
@@ -471,7 +469,7 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
    * Sets the value of the 'batchId' field.
    * @param value the value to set.
    */
-  public void setBatchId(java.lang.CharSequence value) {
+  public void setBatchId(java.lang.String value) {
     this.batchId = value;
   }
 
@@ -496,8 +494,8 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
   public static class Builder extends org.apache.avro.specific.SpecificRecordBuilderBase<WebPage>
     implements org.apache.avro.data.RecordBuilder<WebPage> {
 
-    private java.lang.CharSequence key;
-    private java.lang.CharSequence baseUrl;
+    private java.lang.String key;
+    private java.lang.String baseUrl;
     private int status;
     private long fetchTime;
     private long prevFetchTime;
@@ -506,19 +504,19 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     private long modifiedTime;
     private long prevModifiedTime;
     private java.nio.ByteBuffer content;
-    private java.lang.CharSequence contentType;
+    private java.lang.String contentType;
     private java.nio.ByteBuffer prevSignature;
     private java.nio.ByteBuffer signature;
-    private java.lang.CharSequence title;
-    private java.lang.CharSequence text;
+    private java.lang.String title;
+    private java.lang.String text;
     private float score;
-    private java.lang.CharSequence reprUrl;
-    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> headers;
-    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> outlinks;
-    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> inlinks;
-    private java.util.Map<java.lang.CharSequence,java.lang.CharSequence> markers;
-    private java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> metadata;
-    private java.lang.CharSequence batchId;
+    private java.lang.String reprUrl;
+    private java.util.Map<java.lang.String,java.lang.String> headers;
+    private java.util.Map<java.lang.String,java.lang.String> outlinks;
+    private java.util.Map<java.lang.String,java.lang.String> inlinks;
+    private java.util.Map<java.lang.String,java.lang.String> markers;
+    private java.util.Map<java.lang.String,java.nio.ByteBuffer> metadata;
+    private java.lang.String batchId;
 
     /** Creates a new Builder */
     private Builder() {
@@ -528,98 +526,6 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     /** Creates a Builder by copying an existing Builder */
     private Builder(example.avro.WebPage.Builder other) {
       super(other);
-      if (isValidValue(fields()[0], other.key)) {
-        this.key = data().deepCopy(fields()[0].schema(), other.key);
-        fieldSetFlags()[0] = true;
-      }
-      if (isValidValue(fields()[1], other.baseUrl)) {
-        this.baseUrl = data().deepCopy(fields()[1].schema(), other.baseUrl);
-        fieldSetFlags()[1] = true;
-      }
-      if (isValidValue(fields()[2], other.status)) {
-        this.status = data().deepCopy(fields()[2].schema(), other.status);
-        fieldSetFlags()[2] = true;
-      }
-      if (isValidValue(fields()[3], other.fetchTime)) {
-        this.fetchTime = data().deepCopy(fields()[3].schema(), other.fetchTime);
-        fieldSetFlags()[3] = true;
-      }
-      if (isValidValue(fields()[4], other.prevFetchTime)) {
-        this.prevFetchTime = data().deepCopy(fields()[4].schema(), other.prevFetchTime);
-        fieldSetFlags()[4] = true;
-      }
-      if (isValidValue(fields()[5], other.fetchInterval)) {
-        this.fetchInterval = data().deepCopy(fields()[5].schema(), other.fetchInterval);
-        fieldSetFlags()[5] = true;
-      }
-      if (isValidValue(fields()[6], other.retriesSinceFetch)) {
-        this.retriesSinceFetch = data().deepCopy(fields()[6].schema(), other.retriesSinceFetch);
-        fieldSetFlags()[6] = true;
-      }
-      if (isValidValue(fields()[7], other.modifiedTime)) {
-        this.modifiedTime = data().deepCopy(fields()[7].schema(), other.modifiedTime);
-        fieldSetFlags()[7] = true;
-      }
-      if (isValidValue(fields()[8], other.prevModifiedTime)) {
-        this.prevModifiedTime = data().deepCopy(fields()[8].schema(), other.prevModifiedTime);
-        fieldSetFlags()[8] = true;
-      }
-      if (isValidValue(fields()[9], other.content)) {
-        this.content = data().deepCopy(fields()[9].schema(), other.content);
-        fieldSetFlags()[9] = true;
-      }
-      if (isValidValue(fields()[10], other.contentType)) {
-        this.contentType = data().deepCopy(fields()[10].schema(), other.contentType);
-        fieldSetFlags()[10] = true;
-      }
-      if (isValidValue(fields()[11], other.prevSignature)) {
-        this.prevSignature = data().deepCopy(fields()[11].schema(), other.prevSignature);
-        fieldSetFlags()[11] = true;
-      }
-      if (isValidValue(fields()[12], other.signature)) {
-        this.signature = data().deepCopy(fields()[12].schema(), other.signature);
-        fieldSetFlags()[12] = true;
-      }
-      if (isValidValue(fields()[13], other.title)) {
-        this.title = data().deepCopy(fields()[13].schema(), other.title);
-        fieldSetFlags()[13] = true;
-      }
-      if (isValidValue(fields()[14], other.text)) {
-        this.text = data().deepCopy(fields()[14].schema(), other.text);
-        fieldSetFlags()[14] = true;
-      }
-      if (isValidValue(fields()[15], other.score)) {
-        this.score = data().deepCopy(fields()[15].schema(), other.score);
-        fieldSetFlags()[15] = true;
-      }
-      if (isValidValue(fields()[16], other.reprUrl)) {
-        this.reprUrl = data().deepCopy(fields()[16].schema(), other.reprUrl);
-        fieldSetFlags()[16] = true;
-      }
-      if (isValidValue(fields()[17], other.headers)) {
-        this.headers = data().deepCopy(fields()[17].schema(), other.headers);
-        fieldSetFlags()[17] = true;
-      }
-      if (isValidValue(fields()[18], other.outlinks)) {
-        this.outlinks = data().deepCopy(fields()[18].schema(), other.outlinks);
-        fieldSetFlags()[18] = true;
-      }
-      if (isValidValue(fields()[19], other.inlinks)) {
-        this.inlinks = data().deepCopy(fields()[19].schema(), other.inlinks);
-        fieldSetFlags()[19] = true;
-      }
-      if (isValidValue(fields()[20], other.markers)) {
-        this.markers = data().deepCopy(fields()[20].schema(), other.markers);
-        fieldSetFlags()[20] = true;
-      }
-      if (isValidValue(fields()[21], other.metadata)) {
-        this.metadata = data().deepCopy(fields()[21].schema(), other.metadata);
-        fieldSetFlags()[21] = true;
-      }
-      if (isValidValue(fields()[22], other.batchId)) {
-        this.batchId = data().deepCopy(fields()[22].schema(), other.batchId);
-        fieldSetFlags()[22] = true;
-      }
     }
     
     /** Creates a Builder by copying an existing WebPage instance */
@@ -720,12 +626,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'key' field */
-    public java.lang.CharSequence getKey() {
+    public java.lang.String getKey() {
       return key;
     }
     
     /** Sets the value of the 'key' field */
-    public example.avro.WebPage.Builder setKey(java.lang.CharSequence value) {
+    public example.avro.WebPage.Builder setKey(java.lang.String value) {
       validate(fields()[0], value);
       this.key = value;
       fieldSetFlags()[0] = true;
@@ -745,12 +651,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'baseUrl' field */
-    public java.lang.CharSequence getBaseUrl() {
+    public java.lang.String getBaseUrl() {
       return baseUrl;
     }
     
     /** Sets the value of the 'baseUrl' field */
-    public example.avro.WebPage.Builder setBaseUrl(java.lang.CharSequence value) {
+    public example.avro.WebPage.Builder setBaseUrl(java.lang.String value) {
       validate(fields()[1], value);
       this.baseUrl = value;
       fieldSetFlags()[1] = true;
@@ -963,12 +869,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'contentType' field */
-    public java.lang.CharSequence getContentType() {
+    public java.lang.String getContentType() {
       return contentType;
     }
     
     /** Sets the value of the 'contentType' field */
-    public example.avro.WebPage.Builder setContentType(java.lang.CharSequence value) {
+    public example.avro.WebPage.Builder setContentType(java.lang.String value) {
       validate(fields()[10], value);
       this.contentType = value;
       fieldSetFlags()[10] = true;
@@ -1038,12 +944,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'title' field */
-    public java.lang.CharSequence getTitle() {
+    public java.lang.String getTitle() {
       return title;
     }
     
     /** Sets the value of the 'title' field */
-    public example.avro.WebPage.Builder setTitle(java.lang.CharSequence value) {
+    public example.avro.WebPage.Builder setTitle(java.lang.String value) {
       validate(fields()[13], value);
       this.title = value;
       fieldSetFlags()[13] = true;
@@ -1063,12 +969,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'text' field */
-    public java.lang.CharSequence getText() {
+    public java.lang.String getText() {
       return text;
     }
     
     /** Sets the value of the 'text' field */
-    public example.avro.WebPage.Builder setText(java.lang.CharSequence value) {
+    public example.avro.WebPage.Builder setText(java.lang.String value) {
       validate(fields()[14], value);
       this.text = value;
       fieldSetFlags()[14] = true;
@@ -1112,12 +1018,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'reprUrl' field */
-    public java.lang.CharSequence getReprUrl() {
+    public java.lang.String getReprUrl() {
       return reprUrl;
     }
     
     /** Sets the value of the 'reprUrl' field */
-    public example.avro.WebPage.Builder setReprUrl(java.lang.CharSequence value) {
+    public example.avro.WebPage.Builder setReprUrl(java.lang.String value) {
       validate(fields()[16], value);
       this.reprUrl = value;
       fieldSetFlags()[16] = true;
@@ -1137,12 +1043,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'headers' field */
-    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getHeaders() {
+    public java.util.Map<java.lang.String,java.lang.String> getHeaders() {
       return headers;
     }
     
     /** Sets the value of the 'headers' field */
-    public example.avro.WebPage.Builder setHeaders(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+    public example.avro.WebPage.Builder setHeaders(java.util.Map<java.lang.String,java.lang.String> value) {
       validate(fields()[17], value);
       this.headers = value;
       fieldSetFlags()[17] = true;
@@ -1162,12 +1068,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'outlinks' field */
-    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getOutlinks() {
+    public java.util.Map<java.lang.String,java.lang.String> getOutlinks() {
       return outlinks;
     }
     
     /** Sets the value of the 'outlinks' field */
-    public example.avro.WebPage.Builder setOutlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+    public example.avro.WebPage.Builder setOutlinks(java.util.Map<java.lang.String,java.lang.String> value) {
       validate(fields()[18], value);
       this.outlinks = value;
       fieldSetFlags()[18] = true;
@@ -1187,12 +1093,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'inlinks' field */
-    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getInlinks() {
+    public java.util.Map<java.lang.String,java.lang.String> getInlinks() {
       return inlinks;
     }
     
     /** Sets the value of the 'inlinks' field */
-    public example.avro.WebPage.Builder setInlinks(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+    public example.avro.WebPage.Builder setInlinks(java.util.Map<java.lang.String,java.lang.String> value) {
       validate(fields()[19], value);
       this.inlinks = value;
       fieldSetFlags()[19] = true;
@@ -1212,12 +1118,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'markers' field */
-    public java.util.Map<java.lang.CharSequence,java.lang.CharSequence> getMarkers() {
+    public java.util.Map<java.lang.String,java.lang.String> getMarkers() {
       return markers;
     }
     
     /** Sets the value of the 'markers' field */
-    public example.avro.WebPage.Builder setMarkers(java.util.Map<java.lang.CharSequence,java.lang.CharSequence> value) {
+    public example.avro.WebPage.Builder setMarkers(java.util.Map<java.lang.String,java.lang.String> value) {
       validate(fields()[20], value);
       this.markers = value;
       fieldSetFlags()[20] = true;
@@ -1237,12 +1143,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'metadata' field */
-    public java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> getMetadata() {
+    public java.util.Map<java.lang.String,java.nio.ByteBuffer> getMetadata() {
       return metadata;
     }
     
     /** Sets the value of the 'metadata' field */
-    public example.avro.WebPage.Builder setMetadata(java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer> value) {
+    public example.avro.WebPage.Builder setMetadata(java.util.Map<java.lang.String,java.nio.ByteBuffer> value) {
       validate(fields()[21], value);
       this.metadata = value;
       fieldSetFlags()[21] = true;
@@ -1262,12 +1168,12 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     }
 
     /** Gets the value of the 'batchId' field */
-    public java.lang.CharSequence getBatchId() {
+    public java.lang.String getBatchId() {
       return batchId;
     }
     
     /** Sets the value of the 'batchId' field */
-    public example.avro.WebPage.Builder setBatchId(java.lang.CharSequence value) {
+    public example.avro.WebPage.Builder setBatchId(java.lang.String value) {
       validate(fields()[22], value);
       this.batchId = value;
       fieldSetFlags()[22] = true;
@@ -1290,8 +1196,8 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
     public WebPage build() {
       try {
         WebPage record = new WebPage();
-        record.key = fieldSetFlags()[0] ? this.key : (java.lang.CharSequence) defaultValue(fields()[0]);
-        record.baseUrl = fieldSetFlags()[1] ? this.baseUrl : (java.lang.CharSequence) defaultValue(fields()[1]);
+        record.key = fieldSetFlags()[0] ? this.key : (java.lang.String) defaultValue(fields()[0]);
+        record.baseUrl = fieldSetFlags()[1] ? this.baseUrl : (java.lang.String) defaultValue(fields()[1]);
         record.status = fieldSetFlags()[2] ? this.status : (java.lang.Integer) defaultValue(fields()[2]);
         record.fetchTime = fieldSetFlags()[3] ? this.fetchTime : (java.lang.Long) defaultValue(fields()[3]);
         record.prevFetchTime = fieldSetFlags()[4] ? this.prevFetchTime : (java.lang.Long) defaultValue(fields()[4]);
@@ -1300,19 +1206,19 @@ public class WebPage extends org.apache.avro.specific.SpecificRecordBase impleme
         record.modifiedTime = fieldSetFlags()[7] ? this.modifiedTime : (java.lang.Long) defaultValue(fields()[7]);
         record.prevModifiedTime = fieldSetFlags()[8] ? this.prevModifiedTime : (java.lang.Long) defaultValue(fields()[8]);
         record.content = fieldSetFlags()[9] ? this.content : (java.nio.ByteBuffer) defaultValue(fields()[9]);
-        record.contentType = fieldSetFlags()[10] ? this.contentType : (java.lang.CharSequence) defaultValue(fields()[10]);
+        record.contentType = fieldSetFlags()[10] ? this.contentType : (java.lang.String) defaultValue(fields()[10]);
         record.prevSignature = fieldSetFlags()[11] ? this.prevSignature : (java.nio.ByteBuffer) defaultValue(fields()[11]);
         record.signature = fieldSetFlags()[12] ? this.signature : (java.nio.ByteBuffer) defaultValue(fields()[12]);
-        record.title = fieldSetFlags()[13] ? this.title : (java.lang.CharSequence) defaultValue(fields()[13]);
-        record.text = fieldSetFlags()[14] ? this.text : (java.lang.CharSequence) defaultValue(fields()[14]);
+        record.title = fieldSetFlags()[13] ? this.title : (java.lang.String) defaultValue(fields()[13]);
+        record.text = fieldSetFlags()[14] ? this.text : (java.lang.String) defaultValue(fields()[14]);
         record.score = fieldSetFlags()[15] ? this.score : (java.lang.Float) defaultValue(fields()[15]);
-        record.reprUrl = fieldSetFlags()[16] ? this.reprUrl : (java.lang.CharSequence) defaultValue(fields()[16]);
-        record.headers = fieldSetFlags()[17] ? this.headers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[17]);
-        record.outlinks = fieldSetFlags()[18] ? this.outlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[18]);
-        record.inlinks = fieldSetFlags()[19] ? this.inlinks : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[19]);
-        record.markers = fieldSetFlags()[20] ? this.markers : (java.util.Map<java.lang.CharSequence,java.lang.CharSequence>) defaultValue(fields()[20]);
-        record.metadata = fieldSetFlags()[21] ? this.metadata : (java.util.Map<java.lang.CharSequence,java.nio.ByteBuffer>) defaultValue(fields()[21]);
-        record.batchId = fieldSetFlags()[22] ? this.batchId : (java.lang.CharSequence) defaultValue(fields()[22]);
+        record.reprUrl = fieldSetFlags()[16] ? this.reprUrl : (java.lang.String) defaultValue(fields()[16]);
+        record.headers = fieldSetFlags()[17] ? this.headers : (java.util.Map<java.lang.String,java.lang.String>) defaultValue(fields()[17]);
+        record.outlinks = fieldSetFlags()[18] ? this.outlinks : (java.util.Map<java.lang.String,java.lang.String>) defaultValue(fields()[18]);
+        record.inlinks = fieldSetFlags()[19] ? this.inlinks : (java.util.Map<java.lang.String,java.lang.String>) defaultValue(fields()[19]);
+        record.markers = fieldSetFlags()[20] ? this.markers : (java.util.Map<java.lang.String,java.lang.String>) defaultValue(fields()[20]);
+        record.metadata = fieldSetFlags()[21] ? this.metadata : (java.util.Map<java.lang.String,java.nio.ByteBuffer>) defaultValue(fields()[21]);
+        record.batchId = fieldSetFlags()[22] ? this.batchId : (java.lang.String) defaultValue(fields()[22]);
         return record;
       } catch (Exception e) {
         throw new org.apache.avro.AvroRuntimeException(e);

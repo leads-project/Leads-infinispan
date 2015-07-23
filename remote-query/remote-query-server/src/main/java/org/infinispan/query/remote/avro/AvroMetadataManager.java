@@ -62,8 +62,8 @@ public class AvroMetadataManager {
       if (!knownSchemas.containsKey(name)) {
          byte[] key = marshaller.objectToByteBuffer(name);
          byte[] value = cache.get(key);
+         assert value!=null : name;
          Schema schema = (Schema) marshaller.objectFromByteBuffer(value);
-         assert schema!=null;
          knownSchemas.put(name,schema);
       }
       return knownSchemas.get(name);

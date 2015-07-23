@@ -7,25 +7,23 @@ package example.avro;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class Employee extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Employee\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"dateOfBirth\",\"type\":\"long\",\"default\":0},{\"name\":\"ssn\",\"type\":\"string\",\"default\":\"\"},{\"name\":\"salary\",\"type\":\"int\",\"default\":0},{\"name\":\"boss\",\"type\":[\"null\",\"Employee\",\"string\"],\"default\":null}],\"default\":null}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Employee\",\"namespace\":\"example.avro\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null},{\"name\":\"dateOfBirth\",\"type\":\"long\",\"default\":0},{\"name\":\"ssn\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"default\":\"\"},{\"name\":\"salary\",\"type\":\"int\",\"default\":0},{\"name\":\"boss\",\"type\":[\"null\",\"Employee\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"default\":null}],\"default\":null}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
-  @Deprecated public java.lang.CharSequence name;
+  @Deprecated public java.lang.String name;
   @Deprecated public long dateOfBirth;
-  @Deprecated public java.lang.CharSequence ssn;
+  @Deprecated public java.lang.String ssn;
   @Deprecated public int salary;
   @Deprecated public java.lang.Object boss;
 
   /**
-   * Default constructor.  Note that this does not initialize fields
-   * to their default values from the schema.  If that is desired then
-   * one should use <code>newBuilder()</code>. 
+   * Default constructor.
    */
   public Employee() {}
 
   /**
    * All-args constructor.
    */
-  public Employee(java.lang.CharSequence name, java.lang.Long dateOfBirth, java.lang.CharSequence ssn, java.lang.Integer salary, java.lang.Object boss) {
+  public Employee(java.lang.String name, java.lang.Long dateOfBirth, java.lang.String ssn, java.lang.Integer salary, java.lang.Object boss) {
     this.name = name;
     this.dateOfBirth = dateOfBirth;
     this.ssn = ssn;
@@ -49,9 +47,9 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
-    case 0: name = (java.lang.CharSequence)value$; break;
+    case 0: name = (java.lang.String)value$; break;
     case 1: dateOfBirth = (java.lang.Long)value$; break;
-    case 2: ssn = (java.lang.CharSequence)value$; break;
+    case 2: ssn = (java.lang.String)value$; break;
     case 3: salary = (java.lang.Integer)value$; break;
     case 4: boss = (java.lang.Object)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
@@ -61,7 +59,7 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
   /**
    * Gets the value of the 'name' field.
    */
-  public java.lang.CharSequence getName() {
+  public java.lang.String getName() {
     return name;
   }
 
@@ -69,7 +67,7 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
    * Sets the value of the 'name' field.
    * @param value the value to set.
    */
-  public void setName(java.lang.CharSequence value) {
+  public void setName(java.lang.String value) {
     this.name = value;
   }
 
@@ -91,7 +89,7 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
   /**
    * Gets the value of the 'ssn' field.
    */
-  public java.lang.CharSequence getSsn() {
+  public java.lang.String getSsn() {
     return ssn;
   }
 
@@ -99,7 +97,7 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
    * Sets the value of the 'ssn' field.
    * @param value the value to set.
    */
-  public void setSsn(java.lang.CharSequence value) {
+  public void setSsn(java.lang.String value) {
     this.ssn = value;
   }
 
@@ -154,9 +152,9 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
   public static class Builder extends org.apache.avro.specific.SpecificRecordBuilderBase<Employee>
     implements org.apache.avro.data.RecordBuilder<Employee> {
 
-    private java.lang.CharSequence name;
+    private java.lang.String name;
     private long dateOfBirth;
-    private java.lang.CharSequence ssn;
+    private java.lang.String ssn;
     private int salary;
     private java.lang.Object boss;
 
@@ -168,26 +166,6 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
     /** Creates a Builder by copying an existing Builder */
     private Builder(example.avro.Employee.Builder other) {
       super(other);
-      if (isValidValue(fields()[0], other.name)) {
-        this.name = data().deepCopy(fields()[0].schema(), other.name);
-        fieldSetFlags()[0] = true;
-      }
-      if (isValidValue(fields()[1], other.dateOfBirth)) {
-        this.dateOfBirth = data().deepCopy(fields()[1].schema(), other.dateOfBirth);
-        fieldSetFlags()[1] = true;
-      }
-      if (isValidValue(fields()[2], other.ssn)) {
-        this.ssn = data().deepCopy(fields()[2].schema(), other.ssn);
-        fieldSetFlags()[2] = true;
-      }
-      if (isValidValue(fields()[3], other.salary)) {
-        this.salary = data().deepCopy(fields()[3].schema(), other.salary);
-        fieldSetFlags()[3] = true;
-      }
-      if (isValidValue(fields()[4], other.boss)) {
-        this.boss = data().deepCopy(fields()[4].schema(), other.boss);
-        fieldSetFlags()[4] = true;
-      }
     }
     
     /** Creates a Builder by copying an existing Employee instance */
@@ -216,12 +194,12 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
     }
 
     /** Gets the value of the 'name' field */
-    public java.lang.CharSequence getName() {
+    public java.lang.String getName() {
       return name;
     }
     
     /** Sets the value of the 'name' field */
-    public example.avro.Employee.Builder setName(java.lang.CharSequence value) {
+    public example.avro.Employee.Builder setName(java.lang.String value) {
       validate(fields()[0], value);
       this.name = value;
       fieldSetFlags()[0] = true;
@@ -265,12 +243,12 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
     }
 
     /** Gets the value of the 'ssn' field */
-    public java.lang.CharSequence getSsn() {
+    public java.lang.String getSsn() {
       return ssn;
     }
     
     /** Sets the value of the 'ssn' field */
-    public example.avro.Employee.Builder setSsn(java.lang.CharSequence value) {
+    public example.avro.Employee.Builder setSsn(java.lang.String value) {
       validate(fields()[2], value);
       this.ssn = value;
       fieldSetFlags()[2] = true;
@@ -342,9 +320,9 @@ public class Employee extends org.apache.avro.specific.SpecificRecordBase implem
     public Employee build() {
       try {
         Employee record = new Employee();
-        record.name = fieldSetFlags()[0] ? this.name : (java.lang.CharSequence) defaultValue(fields()[0]);
+        record.name = fieldSetFlags()[0] ? this.name : (java.lang.String) defaultValue(fields()[0]);
         record.dateOfBirth = fieldSetFlags()[1] ? this.dateOfBirth : (java.lang.Long) defaultValue(fields()[1]);
-        record.ssn = fieldSetFlags()[2] ? this.ssn : (java.lang.CharSequence) defaultValue(fields()[2]);
+        record.ssn = fieldSetFlags()[2] ? this.ssn : (java.lang.String) defaultValue(fields()[2]);
         record.salary = fieldSetFlags()[3] ? this.salary : (java.lang.Integer) defaultValue(fields()[3]);
         record.boss = fieldSetFlags()[4] ? this.boss : (java.lang.Object) defaultValue(fields()[4]);
         return record;

@@ -10,6 +10,7 @@ import org.hibernate.hql.lucene.LuceneProcessingChain;
 import org.hibernate.hql.lucene.LuceneQueryParsingResult;
 import org.hibernate.hql.lucene.spi.FieldBridgeProvider;
 import org.hibernate.search.bridge.FieldBridge;
+import org.hibernate.search.bridge.builtin.NumericFieldBridge;
 import org.hibernate.search.spi.SearchFactoryIntegrator;
 import org.infinispan.AdvancedCache;
 import org.infinispan.query.CacheQuery;
@@ -26,6 +27,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.infinispan.query.remote.avro.ValueWrapperFieldBridge.retrieveFieldBridge;
 
 /**
  *
@@ -50,6 +53,7 @@ public class AvroQueryFacade implements QueryFacade {
 
          Request request = (Request) requestAvroMarshaller.objectFromByteBuffer(query);
          log.debug(request.toString());
+         final Schema schema = AvroMetadataManager.getInstance().retrieveSchema(request.getSchemaName());
 
          SearchManager sm = Search.getSearchManager(cache);
          
@@ -64,17 +68,20 @@ public class AvroQueryFacade implements QueryFacade {
                return null;
             }
          };
+
          LuceneProcessingChain processingChain
                = new LuceneProcessingChain.Builder(searchFactory,resolver).buildProcessingChainForDynamicEntities(
                new FieldBridgeProvider() {
                   @Override
-                  public FieldBridge getFieldBridge(String s, String s2) {
-                     return new ValueWrapperFieldBridge();
+                  public FieldBridge getFieldBridge(String entityName, String fieldName) {
+                     return retrieveFieldBridge(fieldName,schema);
                   }
                });
 
          LuceneQueryParsingResult parsingResult = qp.parseQuery(request.getJpqlString().toString(), processingChain);
          Query q = parsingResult.getQuery();
+
+         log.trace("Executing query "+q+ "["+q.getClass()+"]");
          
          CacheQuery cacheQuery = request.getLocal() ? 
                sm.getQuery(q,GenericData.Record.class) : sm.getClusteredQuery(q,GenericData.Record.class);

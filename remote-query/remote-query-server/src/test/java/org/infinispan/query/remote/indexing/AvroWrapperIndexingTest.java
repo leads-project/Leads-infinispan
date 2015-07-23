@@ -1,10 +1,10 @@
 package org.infinispan.query.remote.indexing;
 
+import example.avro.DeviceList;
 import example.avro.User;
 import example.avro.WebPage;
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.lucene.document.FieldType;
+import org.apache.avro.specific.SpecificRecord;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.hibernate.search.engine.spi.SearchFactoryImplementor;
@@ -15,11 +15,12 @@ import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.query.Search;
 import org.infinispan.query.SearchManager;
-import org.infinispan.query.remote.client.avro.AvroSupport;
+import org.infinispan.query.remote.client.avro.AvroMarshaller;
 import org.infinispan.test.SingleCacheManagerTest;
 import org.testng.annotations.Test;
-import sun.text.normalizer.UCharacter;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,13 @@ import static org.junit.Assert.assertNotNull;
  */
 @Test(groups = "functional", testName = "AvroWrapperIndexingTest")
 public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
+
+   private static Map<Class,AvroMarshaller> marshaller = new HashMap<Class,AvroMarshaller>(){
+      {
+         put(User.class,new AvroMarshaller(User.class));
+         put(DeviceList.class,new AvroMarshaller(DeviceList.class));
+      }
+   };
 
    @Override
    protected EmbeddedCacheManager createCacheManager() throws Exception {
@@ -52,16 +60,18 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
       return cacheManager;
    }
 
+   @Test
    public void testIndexingWithWrapper() throws Exception {
       User user = new User();
       user.setName("Alice");
       user.setFavoriteNumber(12);
+      addToCache(user);
 
-      org.apache.avro.Schema schema = user.getSchema();
-      GenericRecord guser = new GenericData.Record(schema);
-      guser.put("name",user.getName());
-      guser.put("favorite_number",user.getFavoriteNumber());
-      cache.put("user", guser);
+      final HashMap<String,String> hardDrives
+            = new HashMap<String, String>() {{put("STCD00502", "SEAGATE");put("STA045M", "SEAGATE");}};
+      DeviceList deviceList = DeviceList.newBuilder().build();
+      deviceList.setDevices(new ArrayList<Map<String, String>>() {{add(hardDrives);}});
+      addToCache(deviceList);
 
       SearchManager sm = Search.getSearchManager(cache);
 
@@ -71,7 +81,7 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
       Query luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
             .get()
             .keyword()
-            .onField("name")
+            .onField("User.name")
             .ignoreFieldBridge()
             .ignoreAnalyzer()
             .matching("Alice")
@@ -83,7 +93,7 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
       luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
             .get()
             .range()
-            .onField("name")
+            .onField("User.name")
             .ignoreFieldBridge()
             .ignoreAnalyzer()
             .above("Bob")
@@ -92,25 +102,29 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
       list = sm.getQuery(luceneQuery).list();
       assertEquals(0, list.size());
 
-      // FIXME add support for numeric queries.
+      luceneQuery = NumericRangeQuery.newIntRange("User.favorite_number", 8, 0, 12, true, true);
+      list = sm.getQuery(luceneQuery).list();
+      assertEquals(1, list.size());
+
       luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
             .get()
-            .range()
-            .onField("favorite_number")
+            .keyword()
+            .onField("DeviceList.devices.0")
             .ignoreFieldBridge()
             .ignoreAnalyzer()
-            .above(11)
+            .matching(hardDrives)
             .createQuery();
 
       list = sm.getQuery(luceneQuery).list();
-      // assertEquals(1, list.size());
+      list.get(0).equals(deviceList);
 
    }
 
+   @Test
    public void testIndexingWithWrapperWebPage() throws Exception {
       WebPage page = new WebPage();
       page.setKey("http://www.test.com");
-      Map<CharSequence,CharSequence> outlinks = new HashMap<>();
+      Map<String,String> outlinks = new HashMap<>();
       outlinks.put("1","http://www.example.com");
       page.setOutlinks(outlinks);
 
@@ -124,7 +138,7 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
       Query luceneQuery = sm.buildQueryBuilderForClass(GenericData.Record.class)
             .get()
             .keyword()
-            .onField("outlinks")
+            .onField("WebPage.outlinks")
             .ignoreFieldBridge()
             .ignoreAnalyzer()
             .matching(outlinks)
@@ -133,6 +147,17 @@ public class AvroWrapperIndexingTest extends SingleCacheManagerTest {
       List<Object> list = list = sm.getQuery(luceneQuery).list();
       // assertEquals(1, list.size());
 
+   }
+
+   private void addToCache(SpecificRecord record) {
+      try {
+         cache.put(
+               record.get(0),
+               marshaller.get(record.getClass()).objectFromByteBuffer(
+                     marshaller.get(record.getClass()).objectToByteBuffer(record)));
+      } catch (IOException | ClassNotFoundException e) {
+         e.printStackTrace();  // TODO: Customise this generated block
+      }
    }
 
 }

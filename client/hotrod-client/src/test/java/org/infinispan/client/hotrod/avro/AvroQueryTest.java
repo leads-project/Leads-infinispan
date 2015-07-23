@@ -1,13 +1,11 @@
 package org.infinispan.client.hotrod.avro;
 
 import example.avro.Employee;
-import org.apache.avro.util.Utf8;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.RemoteCacheManager;
 import org.infinispan.client.hotrod.TestHelper;
 import org.infinispan.client.hotrod.impl.avro.AvroSearch;
 import org.infinispan.commons.equivalence.ByteArrayEquivalence;
-import org.infinispan.commons.util.Util;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfigurationBuilder;
@@ -23,16 +21,14 @@ import org.infinispan.test.fwk.TestCacheManagerFactory;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 
 import static org.infinispan.client.hotrod.avro.AvroTestHelper.*;
 import static org.infinispan.client.hotrod.test.HotRodClientTestingUtil.killRemoteCacheManager;
 import static org.infinispan.client.hotrod.test.HotRodClientTestingUtil.killServers;
+import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheConfiguration;
 
 
 /**
@@ -44,12 +40,13 @@ import static org.infinispan.server.hotrod.test.HotRodTestingUtil.hotRodCacheCon
 @CleanupAfterMethod
 public class AvroQueryTest extends SingleCacheManagerTest {
 
-   public static final String TEST_CACHE_NAME = "EmployeeCache";
+   public static final String TEST_CACHE_NAME = "TestCache";
 
    private HotRodServer hotRodServer;
    private RemoteCacheManager remoteCacheManager;
-   private RemoteCache<Integer, Employee> remoteCache;
-   private QueryFactory qf;
+
+   private RemoteCache<Integer, Employee> employeeCache;
+   private QueryFactory employeeQF;
 
    // Configuration
 
@@ -71,13 +68,15 @@ public class AvroQueryTest extends SingleCacheManagerTest {
 
       hotRodServer = TestHelper.startHotRodServer(cacheManager);
 
-      org.infinispan.client.hotrod.configuration.ConfigurationBuilder clientBuilder = new org.infinispan.client.hotrod.configuration.ConfigurationBuilder();
-      clientBuilder.addServer().host("127.0.0.1").port(hotRodServer.getPort());
+      org.infinispan.client.hotrod.configuration.ConfigurationBuilder clientBuilder =
+            new org.infinispan.client.hotrod.configuration.ConfigurationBuilder();
+      clientBuilder.addServer().host(hotRodServer.getHost()).port(hotRodServer.getPort());
       clientBuilder.marshaller(new AvroMarshaller<Employee>(Employee.class));
       remoteCacheManager = new RemoteCacheManager(clientBuilder.build());
-      remoteCache = remoteCacheManager.getCache(TEST_CACHE_NAME);
-      qf = AvroSearch.getQueryFactory(remoteCache);
+      employeeCache = remoteCacheManager.getCache(TEST_CACHE_NAME);
+      employeeQF = AvroSearch.getQueryFactory(employeeCache);
       AvroSupport.registerSchema(remoteCacheManager,Employee.getClassSchema());
+
       return cacheManager;
    }
 
@@ -92,15 +91,14 @@ public class AvroQueryTest extends SingleCacheManagerTest {
 
    @Test
    public void etestAttributeQuery() throws Exception {
-      remoteCache.put(1, createEmployee1());
-      remoteCache.put(2, createEmployee2());
+      employeeCache.put(1, createEmployee1());
+      employeeCache.put(2, createEmployee2());
 
       // get Employee back from remote cache and check its attributes
-      Employee fromCache = remoteCache.get(1);
+      Employee fromCache = employeeCache.get(1);
       assertEmployee(fromCache);
 
-      // get Employee back from remote cache via query and check its attributes
-      Query query = qf.from(Employee.class)
+      Query query = employeeQF.from(Employee.class)
             .having("name").eq("Tom").toBuilder()
             .build();
       List<Employee> list = query.list();
@@ -108,33 +106,43 @@ public class AvroQueryTest extends SingleCacheManagerTest {
       assertEquals(1, list.size());
       assertEquals(Employee.class, list.get(0).getClass());
       assertEmployee(list.get(0));
-   }
 
-   @Test
-   public void testEmbeddedAttributeQuery() throws Exception {
-      remoteCache.put(1, createEmployee1());
-      remoteCache.put(2, createEmployee2());
-
-      // get Employee back from remote cache via query and check its attributes
-      Query query = qf.from(Employee.class)
-            .having("favoriteColor").eq("Red").toBuilder()
+      query = employeeQF.from(Employee.class)
+            .having("salary").lte(6000).toBuilder()
             .build();
-      List<Employee> list = query.list();
+      list = query.list();
       assertNotNull(list);
-      assertEquals(0, list.size());
+      assertEquals(1, list.size());
+      assertEquals(Employee.class, list.get(0).getClass());
+      assertEmployee2(list.get(0));
+
+      query = employeeQF.from(Employee.class)
+            .having("salary").lte(10000).toBuilder()
+            .build();
+      list = query.list();
+      assertNotNull(list);
+      assertEquals(2, list.size());
+
+      query = employeeQF.from(Employee.class)
+            .having("salary").gte(5000).toBuilder()
+            .build();
+      list = query.list();
+      assertNotNull(list);
+      assertEquals(2, list.size());
+
    }
 
    @Test
    public void testProjections() throws Exception {
-      remoteCache.put(1, createEmployee1());
-      remoteCache.put(2, createEmployee2());
+      employeeCache.put(1, createEmployee1());
+      employeeCache.put(2, createEmployee2());
 
       // get Employee back from remote cache and check its attributes
-      Employee fromCache = remoteCache.get(1);
+      Employee fromCache = employeeCache.get(1);
       assertEmployee(fromCache);
 
       // get Employee back from remote cache via query and check its attributes
-      Query query = qf.from(Employee.class)
+      Query query = employeeQF.from(Employee.class)
             .setProjection("name")
             .having("name").eq("Tom").toBuilder()
             .build();
@@ -142,28 +150,13 @@ public class AvroQueryTest extends SingleCacheManagerTest {
       List<Employee> list = query.list();
       assertNotNull(list);
       assertEquals(1, list.size());
-
-      Employee Employee = list.get(0);
-      assertEquals(new Utf8("Tom"), list.get(0).getName());
+      assertEquals("Tom", list.get(0).getName());
    }
 
    @AfterTest
    public void release() {
       killRemoteCacheManager(remoteCacheManager);
       killServers(hotRodServer);
-   }
-
-   // Helpers
-
-   private byte[] readClasspathResource(String classPathResource) throws IOException {
-      InputStream is = getClass().getResourceAsStream(classPathResource);
-      try {
-         return Util.readStream(is);
-      } finally {
-         if (is != null) {
-            is.close();
-         }
-      }
    }
 
 }

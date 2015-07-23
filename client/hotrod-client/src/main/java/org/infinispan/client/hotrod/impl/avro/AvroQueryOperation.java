@@ -73,6 +73,7 @@ public class AvroQueryOperation extends RetryOnFailureOperation<Response> {
       HeaderParams params = writeHeader(transport, QUERY_REQUEST);
       Request queryRequest = new Request();
       queryRequest.setJpqlString(remoteQuery.getJpqlString());
+      queryRequest.setSchemaName(remoteQuery.schemaName.getFullName());
       queryRequest.setStartOffset(remoteQuery.getStartOffset());
       queryRequest.setMaxResult(remoteQuery.getMaxResults());
       queryRequest.setLocal(remoteQuery.getLocation()!=null);

@@ -13,9 +13,7 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
   @Deprecated public java.util.List<java.nio.ByteBuffer> results;
 
   /**
-   * Default constructor.  Note that this does not initialize fields
-   * to their default values from the schema.  If that is desired then
-   * one should use <code>newBuilder()</code>. 
+   * Default constructor.
    */
   public Response() {}
 
@@ -108,14 +106,6 @@ public class Response extends org.apache.avro.specific.SpecificRecordBase implem
     /** Creates a Builder by copying an existing Builder */
     private Builder(org.infinispan.query.remote.client.avro.Response.Builder other) {
       super(other);
-      if (isValidValue(fields()[0], other.numResults)) {
-        this.numResults = data().deepCopy(fields()[0].schema(), other.numResults);
-        fieldSetFlags()[0] = true;
-      }
-      if (isValidValue(fields()[1], other.results)) {
-        this.results = data().deepCopy(fields()[1].schema(), other.results);
-        fieldSetFlags()[1] = true;
-      }
     }
     
     /** Creates a Builder by copying an existing Response instance */

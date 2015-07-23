@@ -62,6 +62,7 @@
                             <goal>schema</goal>
                         </goals>
                         <configuration>
+                            <stringType>String</stringType>
                             <sourceDirectory>${project.basedir}/src/main/resources</sourceDirectory>
                             <outputDirectory>${project.basedir}/src/main/java/</outputDirectory>
                         </configuration>

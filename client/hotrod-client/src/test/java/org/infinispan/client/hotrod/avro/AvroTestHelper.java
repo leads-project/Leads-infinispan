@@ -31,6 +31,7 @@ public class AvroTestHelper {
       Employee Employee = new Employee();
       Employee.setName("Tom");
       Employee.setSsn("12357");
+      Employee.setSalary(10000);
       Employee.setDateOfBirth((long) 110280);
       return Employee;
    }
@@ -38,6 +39,7 @@ public class AvroTestHelper {
    public static Employee createEmployee2() {
       Employee Employee = new Employee();
       Employee.setName("Adrian");
+      Employee.setSalary(5000);
       Employee.setSsn("12478");
       Employee.setDateOfBirth((long) 200991);
       return Employee;
@@ -46,6 +48,11 @@ public class AvroTestHelper {
    public static void assertEmployee(Employee Employee) {
       assertNotNull(Employee);
       assertEquals("Tom", Employee.getName().toString());
+   }
+
+   public static void assertEmployee2(Employee Employee) {
+      assertNotNull(Employee);
+      assertEquals("Adrian", Employee.getName().toString());
    }
 
 }
