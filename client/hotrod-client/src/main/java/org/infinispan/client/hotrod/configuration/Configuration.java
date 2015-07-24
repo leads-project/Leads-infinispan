@@ -40,11 +40,12 @@ public class Configuration {
    private final Class<? extends TransportFactory> transportFactory;
    private final int valueSizeEstimate;
    private final int maxRetries;
+   private final boolean doTopologyUpdate;
 
    Configuration(ExecutorFactoryConfiguration asyncExecutorFactory, Class<? extends RequestBalancingStrategy> balancingStrategy, ClassLoader classLoader,
          ConnectionPoolConfiguration connectionPool, int connectionTimeout, Class<? extends ConsistentHash>[] consistentHashImpl, boolean forceReturnValues, int keySizeEstimate, Class<? extends Marshaller> marshallerClass,
          boolean pingOnStartup, String protocolVersion, List<ServerConfiguration> servers, int socketTimeout, SecurityConfiguration security, boolean tcpNoDelay, boolean tcpKeepAlive,
-         Class<? extends TransportFactory> transportFactory, int valueSizeEstimate, int maxRetries) {
+         Class<? extends TransportFactory> transportFactory, int valueSizeEstimate, int maxRetries, boolean doToplogyUpdate) {
       this.asyncExecutorFactory = asyncExecutorFactory;
       this.balancingStrategy = balancingStrategy;
       this.maxRetries = maxRetries;
@@ -65,12 +66,13 @@ public class Configuration {
       this.tcpKeepAlive = tcpKeepAlive;
       this.transportFactory = transportFactory;
       this.valueSizeEstimate = valueSizeEstimate;
+      this.doTopologyUpdate = doToplogyUpdate;
    }
 
    Configuration(ExecutorFactoryConfiguration asyncExecutorFactory, Class<? extends RequestBalancingStrategy> balancingStrategy, ClassLoader classLoader,
          ConnectionPoolConfiguration connectionPool, int connectionTimeout, Class<? extends ConsistentHash>[] consistentHashImpl, boolean forceReturnValues, int keySizeEstimate, Marshaller marshaller,
          boolean pingOnStartup, String protocolVersion, List<ServerConfiguration> servers, int socketTimeout, SecurityConfiguration security, boolean tcpNoDelay, boolean tcpKeepAlive,
-         Class<? extends TransportFactory> transportFactory, int valueSizeEstimate, int maxRetries) {
+         Class<? extends TransportFactory> transportFactory, int valueSizeEstimate, int maxRetries, boolean doTopologyUpdate) {
       this.asyncExecutorFactory = asyncExecutorFactory;
       this.balancingStrategy = balancingStrategy;
       this.maxRetries = maxRetries;
@@ -91,6 +93,7 @@ public class Configuration {
       this.tcpKeepAlive = tcpKeepAlive;
       this.transportFactory = transportFactory;
       this.valueSizeEstimate = valueSizeEstimate;
+      this.doTopologyUpdate = doTopologyUpdate;
    }
 
    public ExecutorFactoryConfiguration asyncExecutorFactory() {
@@ -177,6 +180,10 @@ public class Configuration {
       return maxRetries;
    }
 
+   public boolean doTopologyUpdate() {
+      return false;
+   }
+
    @Override
    public String toString() {
       return "Configuration [asyncExecutorFactory=" + asyncExecutorFactory + ", balancingStrategy=" + balancingStrategy + ", classLoader=" + classLoader + ", connectionPool="
@@ -185,4 +192,5 @@ public class Configuration {
             + pingOnStartup + ", protocolVersion=" + protocolVersion + ", servers=" + servers + ", socketTimeout=" + socketTimeout + ", security=" + security + ", tcpNoDelay=" + tcpNoDelay + ", tcpKeepAlive=" + tcpKeepAlive
             + ", transportFactory=" + transportFactory + ", valueSizeEstimate=" + valueSizeEstimate + ", maxRetries=" + maxRetries + "]";
    }
+
 }

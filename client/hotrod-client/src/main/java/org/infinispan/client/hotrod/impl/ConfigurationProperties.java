@@ -42,6 +42,7 @@ public class ConfigurationProperties {
    public static final String TRUST_STORE_FILE_NAME = "infinispan.client.hotrod.trust_store_file_name";
    public static final String TRUST_STORE_PASSWORD = "infinispan.client.hotrod.trust_store_password";
    public static final String MAX_RETRIES = "infinispan.client.hotrod.max_retries";
+   public static final String DO_TOPOLOGY_UPDATE= "infinispan.client.hotrod.do_topology_update";
 
    // defaults
 
@@ -51,6 +52,7 @@ public class ConfigurationProperties {
    public static final int DEFAULT_SO_TIMEOUT = 60000;
    public static final int DEFAULT_CONNECT_TIMEOUT = 60000;
    public static final int DEFAULT_MAX_RETRIES = 10;
+   public static final boolean DEFAULT_DO_TOPOLOGY_UPDATE = true;
    public static final String PROTOCOL_VERSION_20 = "2.0";
    public static final String PROTOCOL_VERSION_13 = "1.3";
    public static final String PROTOCOL_VERSION_12 = "1.2";

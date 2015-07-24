@@ -63,6 +63,7 @@ public class ConfigurationBuilder implements ConfigurationChildBuilder, Builder<
    private Class<? extends TransportFactory> transportFactory = TcpTransportFactory.class;
    private int valueSizeEstimate = ConfigurationProperties.DEFAULT_VALUE_SIZE;
    private int maxRetries = ConfigurationProperties.DEFAULT_MAX_RETRIES;
+   private boolean doTopologyUpdate = ConfigurationProperties.DEFAULT_DO_TOPOLOGY_UPDATE;
 
 
    public ConfigurationBuilder() {
@@ -247,6 +248,8 @@ public class ConfigurationBuilder implements ConfigurationChildBuilder, Builder<
       return this;
    }
 
+
+
    @Override
    public ConfigurationBuilder withProperties(Properties properties) {
       TypedProperties typed = TypedProperties.toTypedProperties(properties);
@@ -278,7 +281,12 @@ public class ConfigurationBuilder implements ConfigurationChildBuilder, Builder<
       }
       this.valueSizeEstimate(typed.getIntProperty(ConfigurationProperties.VALUE_SIZE_ESTIMATE, valueSizeEstimate));
       this.maxRetries(typed.getIntProperty(ConfigurationProperties.MAX_RETRIES, maxRetries));
+      this.doTopologyUpdate(typed.getBooleanProperty(ConfigurationProperties.DO_TOPOLOGY_UPDATE, doTopologyUpdate));
       return this;
+   }
+
+   public void doTopologyUpdate(boolean doTopologyUpdate) {
+      this.doTopologyUpdate = doTopologyUpdate;
    }
 
    @Override
@@ -304,11 +312,11 @@ public class ConfigurationBuilder implements ConfigurationChildBuilder, Builder<
       if (marshaller == null) {
          return new Configuration(asyncExecutorFactory.create(), balancingStrategy, classLoader == null ? null : classLoader.get(), connectionPool.create(), connectionTimeout,
                consistentHashImpl, forceReturnValues, keySizeEstimate, marshallerClass, pingOnStartup, protocolVersion, servers, socketTimeout, security.create(), tcpNoDelay, tcpKeepAlive, transportFactory,
-               valueSizeEstimate, maxRetries);
+               valueSizeEstimate, maxRetries, true);
       } else {
          return new Configuration(asyncExecutorFactory.create(), balancingStrategy, classLoader == null ? null : classLoader.get(), connectionPool.create(), connectionTimeout,
                consistentHashImpl, forceReturnValues, keySizeEstimate, marshaller, pingOnStartup, protocolVersion, servers, socketTimeout, security.create(), tcpNoDelay, tcpKeepAlive, transportFactory,
-               valueSizeEstimate, maxRetries);
+               valueSizeEstimate, maxRetries, true);
       }
    }
 

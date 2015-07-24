@@ -59,6 +59,7 @@ public class TcpTransportFactory implements TransportFactory {
    private Configuration configuration;
    private Collection<SocketAddress> servers;
    private final ConsistentHashFactory hashFactory = new ConsistentHashFactory();
+   private boolean doTopologyUpdate;
 
    // the primitive fields are often accessed separately from the rest so it makes sense not to require synchronization for them
    private volatile boolean tcpNoDelay;
@@ -122,6 +123,9 @@ public class TcpTransportFactory implements TransportFactory {
 
       if (configuration.pingOnStartup())
          pingServers();
+
+      if (!configuration.doTopologyUpdate())
+         doTopologyUpdate = false;
    }
 
    private FailoverRequestBalancingStrategy addBalancer(byte[] cacheName) {
@@ -291,6 +295,7 @@ public class TcpTransportFactory implements TransportFactory {
 
    @Override
    public void updateServers(Collection<SocketAddress> newServers, byte[] cacheName) {
+      if (!doTopologyUpdate) return;
       synchronized (lock) {
          Set<SocketAddress> addedServers = new HashSet<SocketAddress>(newServers);
          addedServers.removeAll(servers);
