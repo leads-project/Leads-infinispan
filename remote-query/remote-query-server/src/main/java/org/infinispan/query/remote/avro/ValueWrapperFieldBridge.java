@@ -102,11 +102,12 @@ public class ValueWrapperFieldBridge implements TwoWayFieldBridge{
          Map<?, ?> map = (Map) value;
          for (Object k : map.keySet()) {
             Schema subSchema = schema.getValueType();
-            add(document,
-                  new StringField(
-                        name,
-                        k+AvroSupport.DELIMITER+map.get(k).toString(),
-                        Field.Store.NO)); // for compatibility purposes
+            if (map.get(k)!=null)
+               add(document,
+                     new StringField(
+                           name,
+                           k+AvroSupport.DELIMITER+map.get(k).toString(),
+                           Field.Store.NO)); // for compatibility purposes
          }
          break;
       case ARRAY:
