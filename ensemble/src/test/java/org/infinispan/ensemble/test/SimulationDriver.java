@@ -103,7 +103,7 @@ public class SimulationDriver extends MultipleCacheManagersTest implements Drive
 
    // Helpers
 
-   private void createSites(int nsites, int nnodes, ConfigurationBuilder defaultBuilder) {
+   protected void createSites(int nsites, int nnodes, ConfigurationBuilder defaultBuilder) {
 
       // Start Hot Rod servers at each site.
       for (int i = 0; i < nsites; i++) {
@@ -164,11 +164,15 @@ public class SimulationDriver extends MultipleCacheManagersTest implements Drive
       }
    }
 
-   private HotRodServer server(int i) {
+   protected HotRodServer server(int i) {
       return servers.get(i);
    }
 
-   private void startHotRodServer(GlobalConfigurationBuilder gbuilder, ConfigurationBuilder builder, int siteIndex, int nodeIndex) {
+   protected List<HotRodServer> servers(){
+      return  servers;
+   }
+
+   protected void startHotRodServer(GlobalConfigurationBuilder gbuilder, ConfigurationBuilder builder, int siteIndex, int nodeIndex) {
       TransportFlags transportFlags = new TransportFlags();
       transportFlags.withSiteIndex(siteIndex);
       transportFlags.withNodeIndex(nodeIndex);
