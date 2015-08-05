@@ -24,6 +24,16 @@ public class AtomicObjectFactoryRemoteRealTest extends AtomicObjectFactoryAbstra
       return remoteCacheManagers;
    }
 
+   @Override
+   public boolean addContainer() {
+      return false;
+   }
+
+   @Override
+   public boolean deleteContainer() {
+      return false;
+   }
+
    @Override 
    protected void createCacheManagers() throws Throwable {
       

@@ -26,8 +26,11 @@ import static org.infinispan.test.TestingUtil.blockUntilCacheStatusAchieved;
 public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTest{
 
    private static List<HotRodServer> servers = new ArrayList<>();
+   private static List<EmbeddedCacheManager> cacheManagers = new ArrayList<>();
    private static List<BasicCacheContainer> remoteCacheManagers = new ArrayList<>();
-   
+   private static ConfigurationBuilder defaultBuilder;
+   private static GlobalConfigurationBuilder globalBuilder;
+
    @Override 
    public BasicCacheContainer container(int i) {
       return remoteCacheManagers.get(i);
@@ -38,33 +41,38 @@ public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTe
       return remoteCacheManagers;
    }
 
+   @Override
+   public boolean addContainer() {
+      HotRodServer server = addHotRodServer(globalBuilder, defaultBuilder);
+      RemoteCacheManager manager = new RemoteCacheManager(
+            new org.infinispan.client.hotrod.configuration.ConfigurationBuilder()
+                  .addServers(server.getHost()+":"+server.getPort())
+                  .marshaller((Marshaller) null)
+                  .build());
+      remoteCacheManagers.add(manager);
+      return true;
+   }
+
+   @Override
+   public  boolean deleteContainer() {
+      if (servers.size()==0) return false;
+      servers.get(servers.size() - 1).stop();
+      servers.remove(servers.size()-1);
+      cacheManagers.get(cacheManagers.size()-1).stop();
+      cacheManagers.remove(cacheManagers.size()-1);
+      return true;
+   }
+
+
    @Override 
    protected void createCacheManagers() throws Throwable {
-      
-      ConfigurationBuilder defaultBuilder =getDefaultClusteredCacheConfig(CACHE_MODE, USE_TRANSACTIONS);
-      
-      defaultBuilder
-            .clustering().
-            cacheMode(CacheMode.DIST_SYNC)
-            .hash()
-            .numOwners(REPLICATION_FACTOR)
-            .locking().useLockStriping(false)
-            .compatibility().enable();
-      
+      createDefaultBuilder();
+      createGlobalConfigurationBuilder();
+
       for (int j = 0; j < NMANAGERS; j++) {
-         GlobalConfigurationBuilder gbuilder = GlobalConfigurationBuilder.defaultClusteredBuilder();
-         Transport transport = gbuilder.transport().getTransport();
-         gbuilder.transport().transport(transport);
-         startHotRodServer(gbuilder, defaultBuilder, j + 1);
-         RemoteCacheManager manager = new RemoteCacheManager(
-               new org.infinispan.client.hotrod.configuration.ConfigurationBuilder()
-                     .addServers(
-                           servers.get(j).getHost()+":"+servers.get(j).getPort())
-                     .marshaller((Marshaller) null)
-                     .build());
-         remoteCacheManagers.add(manager);
+         addContainer();
       }
-      
+
       // Verify that default caches are started.
       for (int j = 0; j < NMANAGERS; j++) {
          blockUntilCacheStatusAchieved(
@@ -72,16 +80,35 @@ public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTe
       }
 
       AtomicObjectFactory.forCache(cache(0));
-      
    }
 
-   private void startHotRodServer(GlobalConfigurationBuilder gbuilder, ConfigurationBuilder builder, int nodeIndex) {
+   private HotRodServer addHotRodServer(GlobalConfigurationBuilder gbuilder, ConfigurationBuilder builder) {
+      int nodeIndex = servers.size();
       TransportFlags transportFlags = new TransportFlags();
       EmbeddedCacheManager cm = addClusterEnabledCacheManager(gbuilder, builder, transportFlags);
+      cacheManagers.add(cm);
       HotRodServer server = HotRodTestingUtil.startHotRodServer(cm,11222+nodeIndex);
       server.addCacheEventFilterConverterFactory(FilterConverterFactory.FACTORY_NAME, new FilterConverterFactory());
       server.startDefaultCache();
       servers.add(server);
+      return server;
+   }
+
+   private void createDefaultBuilder() {
+      defaultBuilder =getDefaultClusteredCacheConfig(CACHE_MODE, USE_TRANSACTIONS);
+      defaultBuilder
+            .clustering().
+            cacheMode(CacheMode.DIST_SYNC)
+            .hash()
+            .numOwners(REPLICATION_FACTOR)
+            .locking().useLockStriping(false)
+            .compatibility().enable();
+   }
+
+   private void createGlobalConfigurationBuilder(){
+      globalBuilder = GlobalConfigurationBuilder.defaultClusteredBuilder();
+      Transport transport = globalBuilder.transport().getTransport();
+      globalBuilder.transport().transport(transport);
    }
 
 }

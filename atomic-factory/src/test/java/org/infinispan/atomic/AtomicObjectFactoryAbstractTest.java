@@ -33,7 +33,7 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
 
    protected static Log log = LogFactory.getLog(AtomicObjectFactoryAbstractTest.class);
 
-   protected static final int REPLICATION_FACTOR=1;
+   protected static final int REPLICATION_FACTOR=2;
    protected static final CacheMode CACHE_MODE = CacheMode.DIST_SYNC;
    protected static final boolean USE_TRANSACTIONS = false;
 
@@ -252,14 +252,27 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
       SimpleShardedObject object3 = object2.getShard();
       assert object3.equals(object);
    }
-   
+
+
+   @Test
+   public void baseScalability() throws Exception {
+      addContainer();
+      baseCacheTest();
+      deleteContainer();
+   }
+
+   //
+   // Interface
+   //
+
+   public abstract BasicCacheContainer container(int i);
+   public abstract Collection<BasicCacheContainer> containers();
+   public abstract boolean addContainer();
+   public abstract boolean deleteContainer();
 
    //
    // Helpers
    //
-   
-   public abstract BasicCacheContainer container(int i);
-   public abstract Collection<BasicCacheContainer> containers();
 
    protected void assertOnAllCaches(Object key, String value) {
       for (Cache c : caches()) {
