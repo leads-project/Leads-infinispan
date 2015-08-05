@@ -31,7 +31,7 @@ public class HashBasedPartitioner<K,V> extends Partitioner<K,V> {
    }
 
    @Override
-   public EnsembleCache<K, V> locate(K k) {
+   public synchronized EnsembleCache<K, V> locate(K k) {
       int index = 0;
       messageDigest.reset();
       messageDigest.update(k.toString().getBytes());
