@@ -42,7 +42,9 @@ public class AvroMetadataManager {
       if (cacheConfiguration == null) {
          ConfigurationBuilder cfg = new ConfigurationBuilder();
          CacheMode cacheMode = CacheMode.REPL_SYNC;  // FIXME
-         cfg.transaction().lockingMode(LockingMode.PESSIMISTIC).syncCommitPhase(true).syncRollbackPhase(true)
+         cfg
+               .transaction().lockingMode(LockingMode.PESSIMISTIC).syncCommitPhase(true).syncRollbackPhase(true)
+               .persistence().addSingleFileStore() // mandatory
                .locking().isolationLevel(IsolationLevel.READ_COMMITTED).useLockStriping(false)
                .clustering().cacheMode(cacheMode)
                .stateTransfer().fetchInMemoryState(true).awaitInitialTransfer(false)
