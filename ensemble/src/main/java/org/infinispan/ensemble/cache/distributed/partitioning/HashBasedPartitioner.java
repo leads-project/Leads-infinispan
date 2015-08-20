@@ -1,4 +1,4 @@
-package org.infinispan.ensemble.cache.distributed;
+package org.infinispan.ensemble.cache.distributed.partitioning;
 
 import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.util.logging.Log;
@@ -10,9 +10,7 @@ import java.security.MessageDigest;
 
 
 /**
- *
  * @author Pierre Sutra
- * @since 7.0
  */
 public class HashBasedPartitioner<K,V> extends Partitioner<K,V> {
 

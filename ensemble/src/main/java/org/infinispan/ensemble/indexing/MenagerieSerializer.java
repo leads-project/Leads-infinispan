@@ -5,10 +5,7 @@ import org.infinispan.commons.marshall.jboss.GenericJBossMarshaller;
 import java.io.IOException;
 
 /**
- * // TODO: Document this
- *
- * @author otrack
- * @since 4.0
+ * @author Pierre Sutra
  */
 public class MenagerieSerializer<T> { // implements org.menagerie.Serializer<T>{
 

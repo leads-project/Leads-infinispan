@@ -4,9 +4,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- *
  * @author Pierre Sutra
- * @since 7.0
  */
 public class LocalIndexBuilder implements IndexBuilder {
 

@@ -1,13 +1,11 @@
-package org.infinispan.ensemble.cache.distributed;
+package org.infinispan.ensemble.cache.distributed.partitioning;
 
 import org.infinispan.ensemble.cache.EnsembleCache;
 
 import java.util.List;
 
 /**
- *
  * @author Pierre Sutra
- * @since 7.0
  */
 public abstract  class  Partitioner<K,V>{
 

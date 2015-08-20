@@ -1,4 +1,4 @@
-package org.infinispan.ensemble.cache.distributed;
+package org.infinispan.ensemble.cache.distributed.partitioning;
 
 import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.search.Search;
@@ -11,9 +11,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- *
  * @author Pierre Sutra
- * @since 7.0
  */
 public abstract class ClusteringBasedPartitioner<K,V> extends Partitioner<K,V> {
 

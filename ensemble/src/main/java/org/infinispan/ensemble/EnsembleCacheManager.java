@@ -8,8 +8,8 @@ import org.infinispan.commons.api.BasicCacheContainer;
 import org.infinispan.commons.marshall.Marshaller;
 import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.cache.distributed.DistributedEnsembleCache;
-import org.infinispan.ensemble.cache.distributed.HashBasedPartitioner;
-import org.infinispan.ensemble.cache.distributed.Partitioner;
+import org.infinispan.ensemble.cache.distributed.partitioning.HashBasedPartitioner;
+import org.infinispan.ensemble.cache.distributed.partitioning.Partitioner;
 import org.infinispan.ensemble.cache.replicated.MWMREnsembleCache;
 import org.infinispan.ensemble.cache.replicated.SWMREnsembleCache;
 import org.infinispan.ensemble.cache.replicated.WeakEnsembleCache;
@@ -25,9 +25,7 @@ import java.util.concurrent.ConcurrentMap;
 
 
 /**
- *
  * @author Pierre Sutra
- * @since 6.0
  */
 public class EnsembleCacheManager implements  BasicCacheContainer{
 
@@ -104,6 +102,8 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
          properties.put(ConfigurationProperties.SERVER_LIST,connectionString);
          if (properties!=null) configurationBuilder.withProperties(properties);
          if (marshaller!=null) configurationBuilder.marshaller(marshaller);
+         configurationBuilder.tcpKeepAlive(true);
+         configurationBuilder.tcpNoDelay(true);
          Site site = Site.valueOf(connectionString, configurationBuilder.build(), once);
          if (once){
             localSite = site;

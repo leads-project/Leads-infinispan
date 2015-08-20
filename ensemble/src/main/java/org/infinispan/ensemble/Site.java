@@ -17,8 +17,7 @@ import java.net.URL;
  * This deployment is accessed via the container field of the site.
  * A single site can be marked local.
  *
- * @author Pierre Sutra, Marcelo Pasin
- * @since 6.0
+ * @author Pierre Sutra
  */
 
 public class Site extends Indexable {

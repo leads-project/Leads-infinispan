@@ -13,9 +13,7 @@ import java.util.List;
 
 
 /**
- *
- * @author Pierre Sutra
- * @since 7.0
+  * @author Pierre Sutra
  */
 public class Search {
 

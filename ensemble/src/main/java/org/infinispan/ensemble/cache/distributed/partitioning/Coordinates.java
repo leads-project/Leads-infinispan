@@ -3,7 +3,7 @@
  * 
  * DO NOT EDIT DIRECTLY
  */
-package org.infinispan.ensemble.cache.distributed;  
+package org.infinispan.ensemble.cache.distributed.partitioning;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class Coordinates extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
@@ -113,18 +113,18 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
   }
 
   /** Creates a new Coordinates RecordBuilder */
-  public static org.infinispan.ensemble.cache.distributed.Coordinates.Builder newBuilder() {
-    return new org.infinispan.ensemble.cache.distributed.Coordinates.Builder();
+  public static Coordinates.Builder newBuilder() {
+    return new Coordinates.Builder();
   }
   
   /** Creates a new Coordinates RecordBuilder by copying an existing Builder */
-  public static org.infinispan.ensemble.cache.distributed.Coordinates.Builder newBuilder(org.infinispan.ensemble.cache.distributed.Coordinates.Builder other) {
-    return new org.infinispan.ensemble.cache.distributed.Coordinates.Builder(other);
+  public static Coordinates.Builder newBuilder(Coordinates.Builder other) {
+    return new Coordinates.Builder(other);
   }
   
   /** Creates a new Coordinates RecordBuilder by copying an existing Coordinates instance */
-  public static org.infinispan.ensemble.cache.distributed.Coordinates.Builder newBuilder(org.infinispan.ensemble.cache.distributed.Coordinates other) {
-    return new org.infinispan.ensemble.cache.distributed.Coordinates.Builder(other);
+  public static Coordinates.Builder newBuilder(Coordinates other) {
+    return new Coordinates.Builder(other);
   }
   
   /**
@@ -140,17 +140,17 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
 
     /** Creates a new Builder */
     private Builder() {
-      super(org.infinispan.ensemble.cache.distributed.Coordinates.SCHEMA$);
+      super(Coordinates.SCHEMA$);
     }
     
     /** Creates a Builder by copying an existing Builder */
-    private Builder(org.infinispan.ensemble.cache.distributed.Coordinates.Builder other) {
+    private Builder(Coordinates.Builder other) {
       super(other);
     }
     
     /** Creates a Builder by copying an existing Coordinates instance */
-    private Builder(org.infinispan.ensemble.cache.distributed.Coordinates other) {
-            super(org.infinispan.ensemble.cache.distributed.Coordinates.SCHEMA$);
+    private Builder(Coordinates other) {
+            super(Coordinates.SCHEMA$);
       if (isValidValue(fields()[0], other.key)) {
         this.key = data().deepCopy(fields()[0].schema(), other.key);
         fieldSetFlags()[0] = true;
@@ -175,7 +175,7 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Sets the value of the 'key' field */
-    public org.infinispan.ensemble.cache.distributed.Coordinates.Builder setKey(java.lang.CharSequence value) {
+    public Coordinates.Builder setKey(java.lang.CharSequence value) {
       validate(fields()[0], value);
       this.key = value;
       fieldSetFlags()[0] = true;
@@ -188,7 +188,7 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Clears the value of the 'key' field */
-    public org.infinispan.ensemble.cache.distributed.Coordinates.Builder clearKey() {
+    public Coordinates.Builder clearKey() {
       key = null;
       fieldSetFlags()[0] = false;
       return this;
@@ -200,7 +200,7 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Sets the value of the 'cache' field */
-    public org.infinispan.ensemble.cache.distributed.Coordinates.Builder setCache(java.lang.CharSequence value) {
+    public Coordinates.Builder setCache(java.lang.CharSequence value) {
       validate(fields()[1], value);
       this.cache = value;
       fieldSetFlags()[1] = true;
@@ -213,7 +213,7 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Clears the value of the 'cache' field */
-    public org.infinispan.ensemble.cache.distributed.Coordinates.Builder clearCache() {
+    public Coordinates.Builder clearCache() {
       cache = null;
       fieldSetFlags()[1] = false;
       return this;
@@ -225,7 +225,7 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Sets the value of the 'longitude' field */
-    public org.infinispan.ensemble.cache.distributed.Coordinates.Builder setLongitude(double value) {
+    public Coordinates.Builder setLongitude(double value) {
       validate(fields()[2], value);
       this.longitude = value;
       fieldSetFlags()[2] = true;
@@ -238,7 +238,7 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Clears the value of the 'longitude' field */
-    public org.infinispan.ensemble.cache.distributed.Coordinates.Builder clearLongitude() {
+    public Coordinates.Builder clearLongitude() {
       fieldSetFlags()[2] = false;
       return this;
     }
@@ -249,7 +249,7 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Sets the value of the 'latitude' field */
-    public org.infinispan.ensemble.cache.distributed.Coordinates.Builder setLatitude(double value) {
+    public Coordinates.Builder setLatitude(double value) {
       validate(fields()[3], value);
       this.latitude = value;
       fieldSetFlags()[3] = true;
@@ -262,7 +262,7 @@ public class Coordinates extends org.apache.avro.specific.SpecificRecordBase imp
     }
     
     /** Clears the value of the 'latitude' field */
-    public org.infinispan.ensemble.cache.distributed.Coordinates.Builder clearLatitude() {
+    public Coordinates.Builder clearLatitude() {
       fieldSetFlags()[3] = false;
       return this;
     }

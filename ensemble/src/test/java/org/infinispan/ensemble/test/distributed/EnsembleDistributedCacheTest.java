@@ -4,8 +4,8 @@ import example.avro.WebPage;
 import org.infinispan.ensemble.Site;
 import org.infinispan.ensemble.cache.EnsembleCache;
 import org.infinispan.ensemble.cache.distributed.DistributedEnsembleCache;
-import org.infinispan.ensemble.cache.distributed.HashBasedPartitioner;
-import org.infinispan.ensemble.cache.distributed.Partitioner;
+import org.infinispan.ensemble.cache.distributed.partitioning.HashBasedPartitioner;
+import org.infinispan.ensemble.cache.distributed.partitioning.Partitioner;
 import org.infinispan.ensemble.test.EnsembleBaseTest;
 import org.testng.annotations.Test;
 

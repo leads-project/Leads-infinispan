@@ -16,10 +16,10 @@ import java.util.concurrent.TimeUnit;
 /**
  *
  * An EnsembleCache offers a ConcurrentMap API over a list of EnsembleCaches.
- * Such an abstraction is of interest in various cases, e.g., when aggregating multiple Infinispan deployments.
+ * Such an abstraction is of interest in various cases,
+ * and typically when aggregating multiple Infinispan deployments.
  *
  * @author Pierre Sutra
- * @since 7.0
  */
 public abstract class EnsembleCache<K,V> extends Indexable implements RemoteCache<K,V> {
 

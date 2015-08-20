@@ -8,9 +8,7 @@ import java.lang.reflect.Field;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- *
  * @author Pierre Sutra
- * @since 7.0
  */
 public abstract class Indexable implements Externalizable {
 

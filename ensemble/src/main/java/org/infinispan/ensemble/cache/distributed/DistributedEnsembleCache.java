@@ -4,6 +4,7 @@ import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.concurrent.NotifyingFuture;
 import org.infinispan.commons.util.concurrent.NotifyingFutureImpl;
 import org.infinispan.ensemble.cache.EnsembleCache;
+import org.infinispan.ensemble.cache.distributed.partitioning.Partitioner;
 
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -13,7 +14,6 @@ import java.util.concurrent.Future;
 
 /**
  * @author Pierre Sutra
- * @since 7.0
  */
 public class DistributedEnsembleCache<K,V> extends EnsembleCache<K,V> {
 
