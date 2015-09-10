@@ -1,4 +1,4 @@
-package org.infinispan.atomic.benchmarks.diniing;
+package org.infinispan.atomic.benchmarks.dining;
 
 import org.infinispan.atomic.Distributed;
 import org.infinispan.atomic.Key;
