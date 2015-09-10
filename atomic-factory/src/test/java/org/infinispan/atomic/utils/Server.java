@@ -53,7 +53,7 @@ public class Server implements Runnable {
 
       try {
          if(args.length<2)
-            throw new CmdLineException(parser,"No argument is given");
+            throw new CmdLineException(parser, "Not enough arguments are given.");
          parser.parseArgument(args);
       } catch( CmdLineException e ) {
          System.err.println(e.getMessage());

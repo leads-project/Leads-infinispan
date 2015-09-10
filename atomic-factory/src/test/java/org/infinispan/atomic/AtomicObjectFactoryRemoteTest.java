@@ -13,6 +13,7 @@ import org.infinispan.remoting.transport.Transport;
 import org.infinispan.server.hotrod.HotRodServer;
 import org.infinispan.server.hotrod.test.HotRodTestingUtil;
 import org.infinispan.test.fwk.TransportFlags;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,6 +24,7 @@ import static org.infinispan.test.TestingUtil.blockUntilCacheStatusAchieved;
 /**
  * @author Pierre Sutra
  */
+@Test
 public class AtomicObjectFactoryRemoteTest extends AtomicObjectFactoryAbstractTest{
 
    private static List<HotRodServer> servers = new ArrayList<>();

@@ -70,6 +70,7 @@ public class Benchmark {
          for (Future<Long> future : futures) {
             avgTime += future.get();
          }
+	 avgTime=avgTime/futures.size();
          for (Counter counter : hits) {
             System.out.println(counter);
          }

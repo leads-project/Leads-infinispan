@@ -26,6 +26,7 @@ import static org.testng.Assert.assertEquals;
 /**
  * @author Pierre Sutra
  */
+
 public class EventOrderingTest extends MultipleCacheManagersTest {
 
    protected static int NMANAGERS=8;

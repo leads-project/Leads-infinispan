@@ -256,6 +256,7 @@ public abstract class AtomicObjectFactoryAbstractTest extends MultipleCacheManag
 
    @Test
    public void baseScalability() throws Exception {
+      baseCacheTest();
       addContainer();
       baseCacheTest();
       deleteContainer();

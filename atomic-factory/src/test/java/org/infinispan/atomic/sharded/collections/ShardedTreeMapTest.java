@@ -19,7 +19,6 @@ import java.util.*;
  * @author otrack
  * @since 7.0
  */
-@Test(groups = "functional", testName = "ShardedTreeMapTest")
 public class ShardedTreeMapTest extends MultipleCacheManagersTest {
 
     private static int NCALLS= 100;
