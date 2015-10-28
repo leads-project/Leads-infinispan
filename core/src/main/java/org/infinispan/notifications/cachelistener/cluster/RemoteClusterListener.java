@@ -35,7 +35,7 @@ import org.infinispan.util.logging.LogFactory;
  * @since 7.0
  */
 @ThreadSafe
-@Listener(primaryOnly = true)
+@Listener(primaryOnly = false)
 public class RemoteClusterListener {
    private static final Log log = LogFactory.getLog(RemoteClusterListener.class);
 

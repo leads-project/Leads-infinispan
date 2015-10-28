@@ -652,7 +652,7 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
       builder
             .setIncludeCurrentState(l.includeCurrentState())
             .setClustered(l.clustered())
-            .setOnlyPrimary(l.clustered() ? cacheMode.isDistributed() : l.primaryOnly())
+            .setOnlyPrimary(l.primaryOnly())
             .setFilter(filter)
             .setConverter(converter)
             .setIdentifier(generatedId)
