@@ -98,7 +98,7 @@
       <version.apache.ds>2.0.0-M15</version.apache.ds>
       <version.arquillian>1.1.5.Final</version.arquillian>
       <version.arquillian.container.weld>1.0.0.CR3</version.arquillian.container.weld>
-      <version.avro>1.7.4</version.avro>
+      <version.avro>1.7.6</version.avro>
       <version.c3p0>0.9.5-pre8</version.c3p0>
       <version.c3p0_dep.mchange-commons-java>0.2.7</version.c3p0_dep.mchange-commons-java>
       <version.com.intellij.forms_rt>6.0.5</version.com.intellij.forms_rt>

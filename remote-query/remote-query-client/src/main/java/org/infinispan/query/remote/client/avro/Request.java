@@ -16,7 +16,9 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
   @Deprecated public boolean local;
 
   /**
-   * Default constructor.
+   * Default constructor.  Note that this does not initialize fields
+   * to their default values from the schema.  If that is desired then
+   * one should use <code>newBuilder()</code>. 
    */
   public Request() {}
 
@@ -166,6 +168,26 @@ public class Request extends org.apache.avro.specific.SpecificRecordBase impleme
     /** Creates a Builder by copying an existing Builder */
     private Builder(org.infinispan.query.remote.client.avro.Request.Builder other) {
       super(other);
+      if (isValidValue(fields()[0], other.jpqlString)) {
+        this.jpqlString = data().deepCopy(fields()[0].schema(), other.jpqlString);
+        fieldSetFlags()[0] = true;
+      }
+      if (isValidValue(fields()[1], other.schemaName)) {
+        this.schemaName = data().deepCopy(fields()[1].schema(), other.schemaName);
+        fieldSetFlags()[1] = true;
+      }
+      if (isValidValue(fields()[2], other.startOffset)) {
+        this.startOffset = data().deepCopy(fields()[2].schema(), other.startOffset);
+        fieldSetFlags()[2] = true;
+      }
+      if (isValidValue(fields()[3], other.maxResult)) {
+        this.maxResult = data().deepCopy(fields()[3].schema(), other.maxResult);
+        fieldSetFlags()[3] = true;
+      }
+      if (isValidValue(fields()[4], other.local)) {
+        this.local = data().deepCopy(fields()[4].schema(), other.local);
+        fieldSetFlags()[4] = true;
+      }
     }
     
     /** Creates a Builder by copying an existing Request instance */
