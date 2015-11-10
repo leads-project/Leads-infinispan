@@ -44,7 +44,7 @@ public class AvroMetadataManager {
          CacheMode cacheMode = CacheMode.REPL_SYNC;  // FIXME
          cfg
                .transaction().lockingMode(LockingMode.PESSIMISTIC).syncCommitPhase(true).syncRollbackPhase(true)
-               .persistence().addSingleFileStore() // mandatory
+               .persistence().addSingleFileStore().location("/tmp")
                .locking().isolationLevel(IsolationLevel.READ_COMMITTED).useLockStriping(false)
                .clustering().cacheMode(cacheMode)
                .stateTransfer().fetchInMemoryState(true).awaitInitialTransfer(false)
