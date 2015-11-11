@@ -181,7 +181,7 @@ public class Configuration {
    }
 
    public boolean doTopologyUpdate() {
-      return false;
+      return doTopologyUpdate;
    }
 
    @Override

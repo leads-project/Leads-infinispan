@@ -119,13 +119,13 @@ public class TcpTransportFactory implements TransportFactory {
          balancers = CollectionFactory.makeMap(ByteArrayEquivalence.INSTANCE, AnyEquivalence.getInstance());
          consistentHashes = CollectionFactory.makeMap(ByteArrayEquivalence.INSTANCE, AnyEquivalence.getInstance());
          addBalancer(RemoteCacheManager.cacheNameBytes());
+         if (configuration.doTopologyUpdate())
+	    doTopologyUpdate = true;	 
       }
 
       if (configuration.pingOnStartup())
          pingServers();
 
-      if (!configuration.doTopologyUpdate())
-         doTopologyUpdate = false;
    }
 
    private FailoverRequestBalancingStrategy addBalancer(byte[] cacheName) {
