@@ -97,7 +97,7 @@ public class EnsembleCacheManager implements  BasicCacheContainer{
          ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
          configurationBuilder
                .pingOnStartup(false)
-               .tcpKeepAlive(false)
+               .tcpKeepAlive(true)
                .tcpNoDelay(true);
          properties.put(ConfigurationProperties.SERVER_LIST,connectionString);
          if (properties!=null) configurationBuilder.withProperties(properties);
