@@ -275,7 +275,7 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
    @Override
    public void notifyCacheEntryModified(K key, V value, V previousValue, Metadata previousMetadata, boolean pre, InvocationContext ctx,
          FlagAffectedCommand command) {
-      if (!cacheEntryModifiedListeners.isEmpty()) {
+      if (isNotificationAllowed(command, cacheEntryModifiedListeners)) {
          EventImpl<K, V> e = EventImpl.createEvent(cache, CACHE_ENTRY_MODIFIED);
          configureEvent(e, key, value, pre, ctx, command, previousValue, previousMetadata);
          boolean isLocalNodePrimaryOwner = clusteringDependentLogic.localNodeIsPrimaryOwner(key);
@@ -671,7 +671,8 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
             EmbeddedCacheManager manager = cache.getCacheManager();
             Address ourAddress = manager.getAddress();
 
-            List<Address> members = manager.getMembers();
+            List<Address> members = cache.getAdvancedCache().getRpcManager().getMembers();
+            this.distExecutorService = SecurityActions.getDefaultExecutorService(cache);
             // If we are the only member don't even worry about sending listeners
             if (members != null && members.size() > 1) {
                DistributedExecutionCompletionService decs = new DistributedExecutionCompletionService(distExecutorService);
@@ -697,30 +698,33 @@ public final class CacheNotifierImpl<K, V> extends AbstractListenerImpl<Event<K,
                   }
                }
 
-               int extraCount = 0;
-               // If anyone else joined since we sent these we have to send the listeners again, since they may have queried
-               // before the other nodes got the new listener
-               List<Address> membersAfter = manager.getMembers();
-               for (Address member : membersAfter) {
-                  if (!members.contains(member) && !member.equals(ourAddress)) {
-                     if (log.isTraceEnabled()) {
-                        log.tracef("Found additional node %s that joined during replication of cluster listener with id %s",
-                                   member, generatedId);
-                     }
-                     extraCount++;
-                     decs.submit(member, callable);
-                  }
-               }
-
-               for (int i = 0; i < extraCount; ++i) {
-                  try {
-                     decs.take().get();
-                  } catch (InterruptedException e) {
-                     throw new CacheListenerException(e);
-                  } catch (ExecutionException e) {
-                     throw new CacheListenerException(e);
-                  }
-               }
+//               int extraCount = 0;
+//               // If anyone else joined since we sent these we have to send the listeners again, since they may have queried
+//               // before the other nodes got the new listener
+//               List<Address> membersAfter = manager.getMembers();
+//               System.out.println(membersAfter);
+//               this.distExecutorService = SecurityActions.getDefaultExecutorService(cache);
+//               decs = new DistributedExecutionCompletionService(distExecutorService);
+//               for (Address member : membersAfter) {
+//                  if (!members.contains(member) && !member.equals(ourAddress)) {
+//                     if (log.isTraceEnabled()) {
+//                        log.tracef("Found additional node %s that joined during replication of cluster listener with id %s",
+//                                   member, generatedId);
+//                     }
+//                     extraCount++;
+//                     decs.submit(member, callable);
+//                  }
+//               }
+//
+//               for (int i = 0; i < extraCount; ++i) {
+//                  try {
+//                     decs.take().get();
+//                  } catch (InterruptedException e) {
+//                     throw new CacheListenerException(e);
+//                  } catch (ExecutionException e) {
+//                     throw new CacheListenerException(e);
+//                  }
+//               }
             }
          }
       }
